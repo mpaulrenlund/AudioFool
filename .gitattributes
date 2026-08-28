@@ -1,0 +1,10 @@
+# Files are LF on disk today. Pin that so a checkout never rewrites every source
+# file's line endings. .NET, MSBuild and PowerShell on Windows all read LF fine.
+* text=auto eol=lf
+
+# Never diff, normalize or line-ending-convert these.
+*.dll binary
+*.exe binary
+*.ico binary
+*.jpg binary
+*.png binary

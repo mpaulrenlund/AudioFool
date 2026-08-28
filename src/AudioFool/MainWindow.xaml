@@ -1,0 +1,563 @@
+<ui:FluentWindow x:Class="AudioFool.MainWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:local="clr-namespace:AudioFool"
+                 xmlns:fmt="clr-namespace:AudioFool.Formatting"
+                 xmlns:vm="clr-namespace:AudioFool.ViewModels"
+                 xmlns:core="clr-namespace:AudioFool.Core.Models;assembly=AudioFool.Core"
+                 Title="AudioFool"
+                 Icon="/Resources/AudioFool.ico"
+                 Width="1560" Height="900"
+                 MinWidth="900" MinHeight="560"
+                 WindowStartupLocation="Manual"
+                 WindowBackdropType="Mica"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowCornerPreference="Round">
+
+    <ui:FluentWindow.InputBindings>
+        <KeyBinding Key="MediaPlayPause" Command="{Binding TogglePlayCommand}" />
+        <KeyBinding Key="MediaNextTrack" Command="{Binding NextCommand}" />
+        <KeyBinding Key="MediaPreviousTrack" Command="{Binding PreviousCommand}" />
+        <KeyBinding Key="MediaStop" Command="{Binding StopCommand}" />
+        <KeyBinding Key="F5" Command="{Binding ScanCommand}" />
+    </ui:FluentWindow.InputBindings>
+
+    <ui:FluentWindow.Resources>
+        <!--
+            Freezable subclasses inherit DataContext, so this proxy ferries the
+            ViewModel into CompositeCollection items that otherwise have none.
+        -->
+        <local:BindingProxy x:Key="Proxy" Data="{Binding}" />
+        <CollectionViewSource x:Key="FolderFiltersSource"
+                              Source="{Binding Data.FolderFilters, Source={StaticResource Proxy}}" />
+        <fmt:IsCurrentTrackConverter x:Key="IsCurrentTrack" />
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />   <!-- title bar -->
+            <RowDefinition Height="*" />      <!-- browser -->
+            <RowDefinition Height="Auto" />   <!-- now playing -->
+            <RowDefinition Height="Auto" />   <!-- status -->
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0">
+            <!--
+                The app name doubles as a File-style menu. Output and library
+                controls that used to sit in the toolbar live here now.
+            -->
+            <ui:TitleBar.Header>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Image Source="/Resources/logo.jpg"
+                       Height="30"
+                       Margin="4,0,0,0"
+                       VerticalAlignment="Center"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+                <Menu Background="Transparent" VerticalAlignment="Center" Margin="4,0,0,0">
+                    <MenuItem Header="AudioFool" FontWeight="SemiBold">
+                        <MenuItem Header="DSD passthrough"
+                                  IsCheckable="True"
+                                  IsChecked="{Binding IsDsdPassthrough, Mode=TwoWay}"
+                                  IsEnabled="{Binding CanUseDsdPassthrough}">
+                            <MenuItem.ToolTip>
+                                <TextBlock>
+                                    Send DSD to the DAC untouched, wrapped as DSD-over-PCM,<LineBreak />
+                                    instead of decoding it to PCM first.<LineBreak /><LineBreak />
+                                    Needs bit-perfect output and a DoP-capable DAC. Falls back<LineBreak />
+                                    to PCM conversion for any file the device can't clock.
+                                </TextBlock>
+                            </MenuItem.ToolTip>
+                        </MenuItem>
+
+                        <Separator />
+
+                        <MenuItem Header="Libraries"
+                                  Icon="{ui:SymbolIcon Folder24}">
+                            <MenuItem.ItemContainerStyle>
+                                <Style TargetType="MenuItem">
+                                    <Setter Property="Header" Value="{Binding FolderPath}" />
+                                    <Setter Property="IsCheckable" Value="True" />
+                                    <Setter Property="IsChecked" Value="{Binding IsEnabled, Mode=TwoWay}" />
+                                </Style>
+                            </MenuItem.ItemContainerStyle>
+                            <MenuItem.ItemsSource>
+                                <CompositeCollection>
+                                    <CollectionContainer Collection="{Binding Source={StaticResource FolderFiltersSource}}" />
+                                    <Separator />
+                                    <MenuItem Header="Add folder…"
+                                              Icon="{ui:SymbolIcon FolderAdd24}"
+                                              Command="{Binding Source={StaticResource Proxy}, Path=Data.AddFolderCommand}" />
+                                </CompositeCollection>
+                            </MenuItem.ItemsSource>
+                        </MenuItem>
+
+                        <Separator />
+
+                        <MenuItem Header="Themes"
+                                  Icon="{ui:SymbolIcon Color24}"
+                                  ItemsSource="{Binding ThemeItems}">
+                            <MenuItem.ItemContainerStyle>
+                                <Style TargetType="MenuItem">
+                                    <Setter Property="Header" Value="{Binding Name}" />
+                                    <Setter Property="IsCheckable" Value="True" />
+                                    <Setter Property="IsChecked" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                </Style>
+                            </MenuItem.ItemContainerStyle>
+                        </MenuItem>
+                    </MenuItem>
+                </Menu>
+
+                <ui:TextBox x:Name="SearchBox"
+                            Width="333"
+                            Margin="8,0,0,0"
+                            VerticalAlignment="Center"
+                            Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="Search"
+                            ClearButtonEnabled="True"
+                            Icon="{ui:SymbolIcon Search24}"
+                            ToolTip="Search artists, albums and songs" />
+                </StackPanel>
+            </ui:TitleBar.Header>
+        </ui:TitleBar>
+
+        <!-- ============================================ artist | album | tracks -->
+        <Grid Grid.Row="1" Margin="16,0,16,0">
+            <!-- Panes are deliberately narrow: the eleven track columns need ~990px. -->
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200" MinWidth="140" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="260" MinWidth="180" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" MinWidth="380" />
+            </Grid.ColumnDefinitions>
+
+            <!-- artists -->
+            <Border Grid.Column="0" Style="{StaticResource PaneBorder}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="ARTISTS"
+                               Style="{StaticResource PaneHeader}" />
+                    <ListBox x:Name="ArtistList"
+                             ItemsSource="{Binding Artists}"
+                             SelectedItem="{Binding SelectedArtist, Mode=TwoWay}"
+                             SelectionChanged="BrowserList_SelectionChanged"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             HorizontalContentAlignment="Stretch"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type core:ArtistGroup}">
+                                <StackPanel Margin="0,3">
+                                    <TextBlock Text="{Binding Name}"
+                                               TextTrimming="CharacterEllipsis"
+                                               FontSize="13" />
+                                    <TextBlock Text="{Binding AlbumSummary}"
+                                               FontSize="11"
+                                               Opacity="0.55" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center"
+                          Background="Transparent" ResizeBehavior="PreviousAndNext" />
+
+            <!-- albums, oldest first -->
+            <Border Grid.Column="2" Style="{StaticResource PaneBorder}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="ALBUMS"
+                               Style="{StaticResource PaneHeader}" />
+                    <ListBox x:Name="AlbumList"
+                             ItemsSource="{Binding Albums}"
+                             SelectedItem="{Binding SelectedAlbum, Mode=TwoWay}"
+                             SelectionChanged="BrowserList_SelectionChanged"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             HorizontalContentAlignment="Stretch"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             VirtualizingPanel.IsVirtualizing="True"
+                             VirtualizingPanel.VirtualizationMode="Recycling">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:AlbumItemViewModel}">
+                                <Grid Margin="0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" Width="48" Height="48"
+                                            CornerRadius="4"
+                                            Background="{DynamicResource ControlFillColorSecondaryBrush}">
+                                        <Grid>
+                                            <ui:SymbolIcon Symbol="MusicNote224"
+                                                           FontSize="20" Opacity="0.35"
+                                                           Visibility="{Binding Thumbnail, Converter={StaticResource NullToVisible}}" />
+                                            <Image Source="{Binding Thumbnail}"
+                                                   Stretch="UniformToFill"
+                                                   Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
+                                        </Grid>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Title}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   FontSize="13" />
+                                        <TextBlock FontSize="11" Opacity="0.55" TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding YearDisplay, Mode=OneWay}" />
+                                            <Run Text="·" />
+                                            <Run Text="{Binding TrackSummary, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <GridSplitter Grid.Column="3" Width="6" HorizontalAlignment="Center"
+                          Background="Transparent" ResizeBehavior="PreviousAndNext" />
+
+            <!-- album header + tracks -->
+            <Border Grid.Column="4" Style="{StaticResource PaneBorder}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- big album art + album facts -->
+                    <Grid Grid.Row="0" Margin="12,12,12,12"
+                          Visibility="{Binding SelectedAlbum, Converter={StaticResource NullToCollapsed}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Width="104" Height="104"
+                                CornerRadius="6"
+                                Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                                Cursor="Hand"
+                                ToolTip="Double-click to view the cover full size"
+                                MouseLeftButtonDown="AlbumArt_MouseLeftButtonDown">
+                            <Grid>
+                                <ui:SymbolIcon Symbol="MusicNote224" FontSize="36" Opacity="0.3"
+                                               Visibility="{Binding SelectedAlbumArt, Converter={StaticResource NullToVisible}}" />
+                                <Image Source="{Binding SelectedAlbumArt}" Stretch="UniformToFill"
+                                       Visibility="{Binding SelectedAlbumArt, Converter={StaticResource NullToCollapsed}}" />
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding AlbumHeaderTitle}"
+                                       FontSize="24" FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding AlbumHeaderSubtitle}"
+                                       FontSize="12" Opacity="0.6"
+                                       Margin="0,6,0,0"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- the eleven columns, in track order -->
+                    <DataGrid x:Name="TrackGrid"
+                              Grid.Row="1"
+                              ItemsSource="{Binding Tracks}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              SelectionMode="Single"
+                              SelectionUnit="FullRow"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserReorderColumns="True"
+                              CanUserSortColumns="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="None"
+                              Background="Transparent"
+                              BorderThickness="0"
+                              RowHeight="30"
+                              EnableRowVirtualization="True"
+                              EnableColumnVirtualization="False"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              MouseDoubleClick="TrackGrid_MouseDoubleClick"
+                              PreviewKeyDown="TrackGrid_PreviewKeyDown">
+                        <!--
+                            DisplayIndex is pinned on every column on purpose. Left
+                            to itself, DataGrid's width-distribution pass shuffles a
+                            star-width column ("Song") to the end of the row, which
+                            put Song fourth instead of second.
+                        -->
+                        <DataGrid.Columns>
+                            <!-- Now-playing indicator: shows a music note on the active row -->
+                            <DataGridTemplateColumn Width="22" DisplayIndex="0" CanUserSort="False" CanUserResize="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ui:SymbolIcon Symbol="MusicNote124"
+                                                       FontSize="11"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Opacity="0.75">
+                                            <ui:SymbolIcon.Visibility>
+                                                <MultiBinding Converter="{StaticResource IsCurrentTrack}">
+                                                    <Binding />
+                                                    <Binding Source="{StaticResource Proxy}" Path="Data.NowPlaying" />
+                                                </MultiBinding>
+                                            </ui:SymbolIcon.Visibility>
+                                        </ui:SymbolIcon>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Header="#" Width="44" DisplayIndex="1"
+                                                Binding="{Binding TrackNumber, Converter={StaticResource Number}}"
+                                                SortMemberPath="TrackNumber"
+                                                ElementStyle="{StaticResource NumericCell}" />
+
+                            <DataGridTextColumn Header="Song" Width="*" MinWidth="180" DisplayIndex="2"
+                                                Binding="{Binding DisplayTitle}" />
+
+                            <DataGridTextColumn Header="Artist" Width="140" DisplayIndex="3"
+                                                Binding="{Binding Artist}" />
+
+                            <DataGridTextColumn Header="Album" Width="150" DisplayIndex="4"
+                                                Binding="{Binding Album}" />
+
+                            <DataGridTextColumn Header="Time" Width="60" DisplayIndex="5"
+                                                Binding="{Binding Duration, Converter={StaticResource Duration}}"
+                                                SortMemberPath="Duration"
+                                                ElementStyle="{StaticResource NumericCell}" />
+
+                            <DataGridTextColumn Header="Disc" Width="46" DisplayIndex="6"
+                                                Binding="{Binding DiscNumber, Converter={StaticResource Number}}"
+                                                SortMemberPath="DiscNumber"
+                                                ElementStyle="{StaticResource NumericCell}" />
+
+                            <DataGridTextColumn Header="Year" Width="52" DisplayIndex="7"
+                                                Binding="{Binding Year, Converter={StaticResource Number}}"
+                                                SortMemberPath="Year"
+                                                ElementStyle="{StaticResource NumericCell}" />
+
+                            <DataGridTextColumn Header="Kind" Width="74" DisplayIndex="8"
+                                                Binding="{Binding Kind}" />
+
+                            <DataGridTextColumn Header="Bitrate" Width="82" DisplayIndex="9"
+                                                Binding="{Binding Bitrate, Converter={StaticResource Bitrate}}"
+                                                SortMemberPath="Bitrate"
+                                                ElementStyle="{StaticResource NumericCell}" />
+
+                            <DataGridTextColumn Header="Bit Depth" Width="72" DisplayIndex="10"
+                                                Binding="{Binding BitDepth, Converter={StaticResource BitDepth}}"
+                                                SortMemberPath="BitDepth"
+                                                ElementStyle="{StaticResource NumericCell}" />
+
+                            <DataGridTextColumn Header="Sample Rate" Width="94" DisplayIndex="11"
+                                                Binding="{Binding SampleRate, Converter={StaticResource SampleRate}}"
+                                                SortMemberPath="SampleRate"
+                                                ElementStyle="{StaticResource NumericCell}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ============================================ now playing -->
+        <Border Grid.Row="2" Margin="16,12,16,0"
+                Padding="12"
+                CornerRadius="8"
+                Background="{DynamicResource ControlFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                BorderThickness="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- cover -->
+                <Border Grid.Column="0" Width="56" Height="56"
+                        CornerRadius="4"
+                        Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                        Cursor="Hand"
+                        ToolTip="Double-click to view the cover full size"
+                        MouseLeftButtonDown="NowPlayingArt_MouseLeftButtonDown">
+                    <Grid>
+                        <ui:SymbolIcon Symbol="MusicNote224" FontSize="22" Opacity="0.35"
+                                       Visibility="{Binding NowPlayingArt, Converter={StaticResource NullToVisible}}" />
+                        <Image Source="{Binding NowPlayingArt}" Stretch="UniformToFill"
+                               Visibility="{Binding NowPlayingArt, Converter={StaticResource NullToCollapsed}}" />
+                    </Grid>
+                </Border>
+
+                <!-- what's playing -->
+                <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                    <TextBlock x:Name="NowPlayingTitle"
+                               Text="{Binding NowPlaying.DisplayTitle, FallbackValue='Nothing playing', TargetNullValue='Nothing playing'}"
+                               FontSize="13" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding NowPlaying.Artist, TargetNullValue=''}"
+                               FontSize="11" Opacity="0.6"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock FontSize="11" Opacity="0.45" TextTrimming="CharacterEllipsis"
+                               Visibility="{Binding NowPlaying, Converter={StaticResource NullToCollapsed}}">
+                        <Run Text="{Binding NowPlaying.Kind, Mode=OneWay}" />
+                        <Run Text="·" />
+                        <Run Text="{Binding NowPlaying.SampleRate, Mode=OneWay, Converter={StaticResource SampleRate}}" />
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- transport -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ui:Button Command="{Binding PreviousCommand}"
+                               Icon="{ui:SymbolIcon Previous24}"
+                               Appearance="Secondary" ToolTip="Previous (or restart)" />
+
+                    <ui:Button Command="{Binding TogglePlayCommand}"
+                               Appearance="Primary"
+                               Width="46" Height="38"
+                               Margin="8,0"
+                               ToolTip="Play / pause">
+                        <ui:Button.Icon>
+                            <ui:SymbolIcon>
+                                <ui:SymbolIcon.Style>
+                                    <Style TargetType="ui:SymbolIcon">
+                                        <Setter Property="Symbol" Value="Play24" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                <Setter Property="Symbol" Value="Pause24" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:SymbolIcon.Style>
+                            </ui:SymbolIcon>
+                        </ui:Button.Icon>
+                    </ui:Button>
+
+                    <ui:Button Command="{Binding NextCommand}"
+                               Icon="{ui:SymbolIcon Next24}"
+                               Appearance="Secondary" ToolTip="Next" />
+                </StackPanel>
+
+                <!-- seek -->
+                <Grid Grid.Column="3" Margin="16,0" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock x:Name="PositionText" Grid.Column="0" Text="{Binding PositionDisplay}"
+                               FontSize="11" Opacity="0.7"
+                               MinWidth="42" TextAlignment="Right"
+                               VerticalAlignment="Center" />
+
+                    <Slider x:Name="SeekBar" Grid.Column="1"
+                            Margin="10,0"
+                            Style="{StaticResource EdgeToEdgeSlider}"
+                            Minimum="0"
+                            Maximum="{Binding DurationSeconds}"
+                            Value="{Binding PositionSeconds, Mode=TwoWay}"
+                            IsMoveToPointEnabled="True"
+                            VerticalAlignment="Center"
+                            Thumb.DragStarted="SeekBar_DragStarted"
+                            Thumb.DragCompleted="SeekBar_DragCompleted"
+                            PreviewMouseLeftButtonUp="SeekBar_PreviewMouseLeftButtonUp" />
+
+                    <TextBlock x:Name="DurationText" Grid.Column="2" Text="{Binding DurationDisplay}"
+                               FontSize="11" Opacity="0.7"
+                               MinWidth="42"
+                               VerticalAlignment="Center" />
+                </Grid>
+
+                <!--
+                    Volume goes dead in exclusive mode, where the gain has to stay at
+                    unity. The whole group dims: WPF-UI's disabled Slider still draws
+                    an accent-coloured thumb, which reads as active.
+                -->
+                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"
+                            ToolTip="{Binding VolumeTooltip}"
+                            Opacity="{Binding IsVolumeEnabled, Converter={StaticResource EnabledOpacity}}">
+                    <ui:SymbolIcon Symbol="Speaker224" FontSize="16" VerticalAlignment="Center" />
+                    <Slider Width="96" Margin="8,0,0,0"
+                            Style="{StaticResource EdgeToEdgeSlider}"
+                            Minimum="0" Maximum="1"
+                            SmallChange="0.05" LargeChange="0.1"
+                            IsMoveToPointEnabled="True"
+                            Value="{Binding Volume, Mode=TwoWay}"
+                            IsEnabled="{Binding IsVolumeEnabled}"
+                            VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============================================ status -->
+        <Grid Grid.Row="3" Margin="16,8,16,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <ui:Button Command="{Binding ScanCommand}"
+                           Icon="{ui:SymbolIcon ArrowClockwise16}"
+                           Appearance="Transparent"
+                           Padding="2"
+                           Margin="0,0,6,0"
+                           VerticalAlignment="Center"
+                           IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBool}}"
+                           ToolTip="Rescan library" />
+                <TextBlock Text="{Binding StatusText}"
+                           FontSize="11" Opacity="0.6"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" />
+
+                <!--
+                    Separator and readout share one panel so the dangling "·"
+                    disappears with the text, rather than sitting there alone.
+                -->
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding IsOutputActive, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="  ·  " FontSize="11" Opacity="0.35" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding OutputDescription}"
+                               FontSize="11" Opacity="0.6"
+                               VerticalAlignment="Center"
+                               ToolTip="{Binding OutputDeviceName}" />
+                </StackPanel>
+            </StackPanel>
+
+            <ProgressBar Grid.Column="1"
+                         Width="180" Height="4"
+                         Minimum="0" Maximum="1"
+                         Value="{Binding ScanFraction}"
+                         VerticalAlignment="Center"
+                         Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" />
+
+            <ToggleButton Grid.Column="2"
+                          Content="Bit-Perfect"
+                          IsChecked="{Binding IsExclusiveOutput, Mode=TwoWay}"
+                          IsEnabled="{Binding CanUseExclusiveOutput}"
+                          FontSize="11"
+                          VerticalAlignment="Center"
+                          Margin="8,0,0,0"
+                          Padding="6,2">
+                <ToggleButton.ToolTip>
+                    <TextBlock>
+                        Exclusive WASAPI: opens the sound device at each track's own<LineBreak />
+                        sample rate, so nothing is resampled on the way out.<LineBreak /><LineBreak />
+                        Other applications go silent while music is playing, and the<LineBreak />
+                        volume slider is fixed at 100%.
+                    </TextBlock>
+                </ToggleButton.ToolTip>
+            </ToggleButton>
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

@@ -1,0 +1,992 @@
+﻿using System.Collections.ObjectModel;
+using System.IO;
+using System.Runtime;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using AudioFool.Core.Library;
+using AudioFool.Core.Models;
+using AudioFool.Core.Playback;
+using AudioFool.Core.Settings;
+using AudioFool.Formatting;
+using AudioFool.Services;
+
+namespace AudioFool.ViewModels;
+
+public sealed partial class MainViewModel : ObservableObject, IDisposable
+{
+    private const int NowPlayingArtWidth = 128;
+    private const int AlbumHeaderArtWidth = 320;
+
+    private readonly AudioEngine _engine;
+    private readonly BassRuntime _runtime;
+    private readonly AlbumArtService _artService;
+    private readonly AppSettings _settings;
+    private readonly DispatcherTimer _positionTimer;
+    private readonly DispatcherTimer _searchDebounce;
+
+    private MusicLibrary _library = MusicLibrary.Empty;
+    private MusicLibrary _folderFilteredLibrary = MusicLibrary.Empty;
+    private LibraryCache? _cache;
+    private CancellationTokenSource? _scanCts;
+    private double? _pendingSeek;
+    private bool _updatingPositionFromTimer;
+
+    public MainViewModel(AudioEngine engine, BassRuntime runtime, AlbumArtService artService, AppSettings settings)
+    {
+        _engine = engine;
+        _runtime = runtime;
+        _artService = artService;
+        _settings = settings;
+
+        _volume = 1.0;
+        _engine.Volume = 1.0;
+        _engine.OutputMode = settings.OutputMode;
+        _engine.DsdMode = settings.DsdMode;
+
+        _engine.TrackChanged += OnEngineTrackChanged;
+        _engine.StateChanged += OnEngineStateChanged;
+        _engine.PlaybackFinished += OnEnginePlaybackFinished;
+
+        _positionTimer = new DispatcherTimer(DispatcherPriority.Normal)
+        {
+            Interval = TimeSpan.FromMilliseconds(250),
+        };
+        _positionTimer.Tick += OnPositionTick;
+
+        _searchDebounce = new DispatcherTimer(DispatcherPriority.Input)
+        {
+            Interval = TimeSpan.FromMilliseconds(180),
+        };
+        _searchDebounce.Tick += OnSearchDebounceTick;
+
+        MusicFolders = new ObservableCollection<string>(settings.MusicFolders);
+
+        foreach (var folder in settings.MusicFolders)
+        {
+            var enabled = !settings.DisabledFolders.Contains(folder, StringComparer.OrdinalIgnoreCase);
+            var item = new FolderFilterItem(folder, enabled);
+            item.PropertyChanged += OnFolderFilterItemChanged;
+            FolderFilters.Add(item);
+        }
+
+        foreach (var theme in new[] { "Dark", "Vista" })
+        {
+            var themeItem = new ThemeItem(theme, theme == settings.Theme);
+            themeItem.PropertyChanged += OnThemeItemChanged;
+            ThemeItems.Add(themeItem);
+        }
+    }
+
+    private void OnFolderFilterItemChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(FolderFilterItem.IsEnabled))
+            return;
+
+        _settings.DisabledFolders = [.. FolderFilters
+            .Where(f => !f.IsEnabled)
+            .Select(f => f.FolderPath)];
+        _settings.Save();
+
+        ApplyToView(keepSelection: true);
+        StatusText = DescribeStatus(default);
+    }
+
+    private bool _updatingTheme;
+
+    private void OnThemeItemChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (_updatingTheme || e.PropertyName != nameof(ThemeItem.IsSelected) || sender is not ThemeItem changed)
+            return;
+
+        _updatingTheme = true;
+        try
+        {
+            if (!changed.IsSelected)
+            {
+                if (changed.Name == _settings.Theme)
+                    changed.IsSelected = true;
+                return;
+            }
+
+            foreach (var item in ThemeItems)
+            {
+                if (!ReferenceEquals(item, changed))
+                    item.IsSelected = false;
+            }
+
+            _settings.Theme = changed.Name;
+            _settings.Save();
+            ThemeService.Apply(changed.Name);
+        }
+        finally
+        {
+            _updatingTheme = false;
+        }
+    }
+
+    public ObservableCollection<ArtistGroup> Artists { get; } = [];
+    public ObservableCollection<AlbumItemViewModel> Albums { get; } = [];
+    public ObservableCollection<Track> Tracks { get; } = [];
+    public ObservableCollection<string> MusicFolders { get; }
+    public ObservableCollection<FolderFilterItem> FolderFilters { get; } = [];
+    public ObservableCollection<ThemeItem> ThemeItems { get; } = [];
+
+    [ObservableProperty]
+    private ArtistGroup? _selectedArtist;
+
+    [ObservableProperty]
+    private AlbumItemViewModel? _selectedAlbum;
+
+    [ObservableProperty]
+    private BitmapSource? _selectedAlbumArt;
+
+    [ObservableProperty]
+    private Track? _nowPlaying;
+
+    [ObservableProperty]
+    private BitmapSource? _nowPlayingArt;
+
+    [ObservableProperty]
+    private bool _isPlaying;
+
+    [ObservableProperty]
+    private bool _isScanning;
+
+    [ObservableProperty]
+    private double _scanFraction;
+
+    [ObservableProperty]
+    private string _statusText = "Ready";
+
+    [ObservableProperty]
+    private double _durationSeconds;
+
+    [ObservableProperty]
+    private string _positionDisplay = "0:00";
+
+    [ObservableProperty]
+    private string _durationDisplay = "0:00";
+
+    /// <summary>True while the user has hold of the seek bar, so the timer stops fighting them.</summary>
+    public bool IsSeeking { get; set; }
+
+    private double _positionSeconds;
+    public double PositionSeconds
+    {
+        get => _positionSeconds;
+        set
+        {
+            if (!SetProperty(ref _positionSeconds, value))
+                return;
+
+            // A change the timer didn't make is the user moving the seek bar.
+            if (!_updatingPositionFromTimer)
+                _pendingSeek = value;
+
+            PositionDisplay = Display.Time(TimeSpan.FromSeconds(value));
+        }
+    }
+
+    private double _volume;
+    public double Volume
+    {
+        get => _volume;
+        set
+        {
+            if (!SetProperty(ref _volume, value))
+                return;
+
+            _engine.Volume = value;
+            _settings.Volume = value;
+        }
+    }
+
+    // ---------------------------------------------------------------- search
+
+    private string _searchQuery = "";
+
+    /// <summary>
+    /// Bound to the search box. Applying the filter is deferred by a moment so a
+    /// burst of keystrokes rebuilds the tree once rather than once per letter.
+    /// </summary>
+    public string SearchQuery
+    {
+        get => _searchQuery;
+        set
+        {
+            if (!SetProperty(ref _searchQuery, value ?? ""))
+                return;
+
+            OnPropertyChanged(nameof(IsSearching));
+
+            _searchDebounce.Stop();
+            _searchDebounce.Start();
+        }
+    }
+
+    public bool IsSearching => LibrarySearch.Terms(SearchQuery).Length > 0;
+
+    /// <summary>
+    /// Configured folders that were unreachable at the last scan - an unplugged
+    /// drive, usually. Their tracks stay listed but cannot be played.
+    /// </summary>
+    [ObservableProperty]
+    private IReadOnlyList<string> _unavailableFolders = [];
+
+
+    /// <summary>How many tracks the current search matched, for the summary line.</summary>
+    [ObservableProperty]
+    private int _matchedTrackCount;
+
+    /// <summary>Distinguishes "no results" from "nothing scanned yet".</summary>
+    public bool HasNoSearchResults => IsSearching && Artists.Count == 0;
+
+    [RelayCommand]
+    private void ClearSearch() => SearchQuery = "";
+
+    private void OnSearchDebounceTick(object? sender, EventArgs e)
+    {
+        _searchDebounce.Stop();
+
+        // Keep whatever is selected if it survives the new filter, and only fall
+        // back to the first row when it doesn't. That covers both directions:
+        // narrowing past the current artist moves you to a match, while clearing the
+        // box leaves you exactly where you had navigated to.
+        ApplyToView(keepSelection: true);
+        StatusText = DescribeStatus(default);
+    }
+
+    // ------------------------------------------------------------- hotkeys
+
+    /// <summary>
+    /// Whether to claim the system-wide F9/F10/F11 keys. Read from settings only,
+    /// with no UI: taking keys away from every other app is a decision worth making
+    /// deliberately by editing settings.json rather than by a stray click.
+    /// </summary>
+    public bool GlobalHotkeysEnabled => _settings.GlobalHotkeys;
+
+    /// <summary>
+    /// Called once registration has been attempted. Keys another application already
+    /// owns cannot be claimed, and saying so beats leaving the user pressing a key
+    /// that silently does nothing.
+    /// </summary>
+    public void ReportHotkeys(IReadOnlyList<string> unavailable)
+    {
+        if (unavailable.Count == 0)
+            return;
+
+        StatusText = unavailable.Count == 1
+            ? $"{unavailable[0]} is already in use by another app, so that shortcut won't work."
+            : $"{string.Join(", ", unavailable)} are already in use by other apps, so those shortcuts won't work.";
+    }
+
+    // ---------------------------------------------------------------- output
+
+    /// <summary>Bound to the toolbar toggle. Off = shared, on = exclusive.</summary>
+    public bool IsExclusiveOutput
+    {
+        get => _settings.OutputMode == OutputMode.Exclusive;
+        set
+        {
+            var mode = value ? OutputMode.Exclusive : OutputMode.Shared;
+            if (_settings.OutputMode == mode)
+                return;
+
+            _settings.OutputMode = mode;
+            _settings.Save();
+            _engine.OutputMode = mode;
+
+            OnPropertyChanged();
+
+            // DoP is only meaningful over an exclusive connection.
+            OnPropertyChanged(nameof(CanUseDsdPassthrough));
+            RefreshOutputState();
+        }
+    }
+
+    /// <summary>Greyed out when the device can't do exclusive mode at all.</summary>
+    public bool CanUseExclusiveOutput => _runtime.SupportsExclusive;
+
+    /// <summary>DSD-over-PCM passthrough, for a DAC that can unwrap it.</summary>
+    public bool IsDsdPassthrough
+    {
+        get => _settings.DsdMode == DsdMode.DsdOverPcm;
+        set
+        {
+            var mode = value ? DsdMode.DsdOverPcm : DsdMode.ConvertToPcm;
+            if (_settings.DsdMode == mode)
+                return;
+
+            _settings.DsdMode = mode;
+            _settings.Save();
+            _engine.DsdMode = mode;
+
+            OnPropertyChanged();
+            RefreshOutputState();
+        }
+    }
+
+    /// <summary>
+    /// DoP needs both an exclusive connection and a device that can clock the DoP
+    /// rate - one sixteenth of the DSD rate, so 176.4 kHz for DSD64 upwards.
+    /// </summary>
+    public bool CanUseDsdPassthrough => _runtime.SupportsDop && IsExclusiveOutput;
+
+    public string OutputDeviceName => _runtime.OutputDeviceName;
+
+    [ObservableProperty]
+    private string _outputDescription = "";
+
+    /// <summary>
+    /// Whether the status bar shows the output readout. See <see cref="ShouldShowOutput"/>.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isOutputActive;
+
+    /// <summary>
+    /// Exclusive mode pins the mixer to unity gain, because attenuating in software
+    /// would stop the output being bit-perfect. The slider goes dead rather than
+    /// quietly lying about it.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isVolumeEnabled = true;
+
+    public string VolumeTooltip => IsVolumeEnabled
+        ? "Volume"
+        : "Fixed at 100% in exclusive mode - software attenuation would break bit-perfect output. Use your DAC or Windows volume.";
+
+    /// <summary>
+    /// The readout describes a live device connection, so it is only meaningful
+    /// while something is loaded. Paused counts: the device is still open and the
+    /// description still true, and hiding it on every pause would just flicker.
+    /// </summary>
+    private bool ShouldShowOutput() =>
+        _engine.HasOutput && _engine.State != PlaybackState.Stopped;
+
+    private void RefreshOutputState()
+    {
+        OutputDescription = _engine.OutputDescription;
+        IsOutputActive = ShouldShowOutput();
+        IsVolumeEnabled = _engine.SupportsVolume;
+        OnPropertyChanged(nameof(VolumeTooltip));
+
+        if (_engine.OutputWarning is { } warning)
+            StatusText = warning;
+    }
+
+    /// <summary>Header text over the track list.</summary>
+    public string AlbumHeaderTitle => SelectedAlbum?.Album.Title ?? "";
+
+    public string AlbumHeaderSubtitle
+    {
+        get
+        {
+            var album = SelectedAlbum?.Album;
+            if (album is null)
+                return "";
+
+            var trackCount = album.Tracks.Count == 1 ? "1 track" : $"{album.Tracks.Count:N0} tracks";
+            var parts = new List<string> { album.ArtistName, album.YearDisplay, trackCount };
+            if (album.DiscCount > 1)
+                parts.Add($"{album.DiscCount} discs");
+
+            parts.Add(Display.Time(album.TotalDuration));
+            return string.Join("  ·  ", parts);
+        }
+    }
+
+    // ---------------------------------------------------------------- startup
+
+    public async Task InitialiseAsync()
+    {
+        if (!_runtime.Initialise())
+        {
+            StatusText = _runtime.InitError ?? "Audio engine unavailable.";
+        }
+        else if (_runtime.MissingFormats.Count > 0)
+        {
+            StatusText = $"Audio ready. {_runtime.MissingFormats.Count} optional add-on(s) not found - " +
+                         "some formats won't play. See Help for the list.";
+        }
+
+        // The device is only interrogated inside Initialise, which runs after the
+        // window has already bound. Without these the bit-perfect toggle stays
+        // disabled for the whole session even on a device that supports it.
+        OnPropertyChanged(nameof(CanUseExclusiveOutput));
+        OnPropertyChanged(nameof(CanUseDsdPassthrough));
+        OnPropertyChanged(nameof(OutputDeviceName));
+        OnPropertyChanged(nameof(IsExclusiveOutput));
+
+        // A saved preference for exclusive output is meaningless if this machine's
+        // device can't do it; fall back rather than silently failing on first play.
+        if (_settings.OutputMode == OutputMode.Exclusive && !_runtime.SupportsExclusive)
+        {
+            _settings.OutputMode = OutputMode.Shared;
+            _engine.OutputMode = OutputMode.Shared;
+            OnPropertyChanged(nameof(IsExclusiveOutput));
+            StatusText = $"{_runtime.OutputDeviceName} does not support exclusive mode; using shared output.";
+        }
+
+        await LoadLibraryAsync();
+    }
+
+    /// <summary>
+    /// Shows the cached library immediately, then checks the filesystem for changes
+    /// in the background. Reading tags is the only slow part of a scan, so a start
+    /// that reuses them is effectively instant; the change check that follows costs
+    /// about a second whatever the library size.
+    /// </summary>
+    private async Task LoadLibraryAsync()
+    {
+        if (MusicFolders.Count == 0)
+        {
+            StatusText = "No music folders yet. Use \"Add folder\" to point at your music.";
+            return;
+        }
+
+        _cache = await Task.Run(LibraryCache.Load);
+
+        // A portable drive can come back under a different letter. Re-point the
+        // folder and every cached path before scanning, so a letter change costs
+        // nothing instead of a full re-read of every tag.
+        await RelocateMovedFoldersAsync();
+
+        // Only display the cache directly when it was built from the folders being
+        // watched now - otherwise it could describe folders that have since been
+        // removed. Its tags stay useful to the scan below either way.
+        if (_cache is not null && _cache.CoversSameFolders(MusicFolders))
+        {
+            ApplyLibrary(await Task.Run(() => LibraryScanner.Build(_cache.Tracks)), keepSelection: false);
+            StatusText = $"{DescribeLibrary()}  ·  checking for changes...";
+        }
+
+        await ScanAsync();
+    }
+
+    /// <summary>
+    /// Finds music folders that have changed drive letter and re-points them, along
+    /// with the cached tags. A candidate drive is only accepted once files the cache
+    /// knows about are confirmed present there, so this can't latch onto an
+    /// unrelated drive that happens to have a folder of the same name.
+    /// </summary>
+    private async Task RelocateMovedFoldersAsync()
+    {
+        if (_cache is null || MusicFolders.Count == 0)
+            return;
+
+        var moves = await Task.Run(() =>
+        {
+            var found = new List<LibraryRelocator.Relocation>();
+            foreach (var folder in MusicFolders)
+            {
+                if (LibraryRelocator.FindRelocation(folder, _cache.Tracks) is { } move)
+                    found.Add(move);
+            }
+
+            return found;
+        });
+
+        if (moves.Count == 0)
+            return;
+
+        var tracks = _cache.Tracks;
+        foreach (var move in moves)
+        {
+            var index = MusicFolders.IndexOf(move.OldFolder);
+            if (index >= 0)
+                MusicFolders[index] = move.NewFolder;
+
+            var filterItem = FolderFilters.FirstOrDefault(f =>
+                string.Equals(f.FolderPath, move.OldFolder, StringComparison.OrdinalIgnoreCase));
+            if (filterItem is not null)
+                filterItem.FolderPath = move.NewFolder;
+
+            tracks = LibraryRelocator.Rebase(tracks, move.OldFolder, move.NewFolder);
+        }
+
+        _settings.MusicFolders = [.. MusicFolders];
+        _settings.Save();
+
+        _cache = LibraryCache.From(MusicFolders, tracks);
+        await Task.Run(_cache.Save, CancellationToken.None);
+
+        var first = moves[0];
+        StatusText = moves.Count == 1
+            ? $"Music folder moved to {first.NewFolder} - re-pointed {tracks.Count:N0} tracks."
+            : $"{moves.Count} music folders moved to new drive letters - re-pointed {tracks.Count:N0} tracks.";
+    }
+
+
+    // ------------------------------------------------------------- selection
+
+    partial void OnSelectedArtistChanged(ArtistGroup? value)
+    {
+        Albums.Clear();
+
+        if (value is not null)
+        {
+            foreach (var album in value.Albums)
+                Albums.Add(new AlbumItemViewModel(album, _artService));
+        }
+
+        // The spec is artist -> albums -> songs, but landing on an empty track
+        // pane feels broken, so open the oldest album straight away.
+        SelectedAlbum = Albums.FirstOrDefault();
+    }
+
+    partial void OnSelectedAlbumChanged(AlbumItemViewModel? value)
+    {
+        Tracks.Clear();
+
+        if (value is not null)
+        {
+            foreach (var track in value.Album.Tracks)
+                Tracks.Add(track);
+        }
+
+        OnPropertyChanged(nameof(AlbumHeaderTitle));
+        OnPropertyChanged(nameof(AlbumHeaderSubtitle));
+
+        _ = LoadAlbumHeaderArtAsync(value);
+    }
+
+    // ------------------------------------------------------------- art viewer
+
+    /// <summary>
+    /// Full-resolution art for the selected album, for the enlarged view. Null when
+    /// the album has no cover, in which case there's nothing to open.
+    /// </summary>
+    public Task<BitmapSource?> GetSelectedAlbumFullArtAsync() =>
+        SelectedAlbum is { } item
+            ? _artService.GetFullAlbumArtAsync(item.Album)
+            : Task.FromResult<BitmapSource?>(null);
+
+    public string SelectedAlbumCaption =>
+        SelectedAlbum is { } item
+            ? $"{item.Album.ArtistName} — {item.Album.Title}"
+            : "Album art";
+
+    /// <summary>Full-resolution art for whatever is playing.</summary>
+    public Task<BitmapSource?> GetNowPlayingFullArtAsync() =>
+        NowPlaying is { } track
+            ? _artService.GetFullTrackArtAsync(track)
+            : Task.FromResult<BitmapSource?>(null);
+
+    public string NowPlayingCaption =>
+        NowPlaying is { } track
+            ? $"{(string.IsNullOrWhiteSpace(track.AlbumArtist) ? track.Artist : track.AlbumArtist)} — {track.Album}"
+            : "Album art";
+
+    private async Task LoadAlbumHeaderArtAsync(AlbumItemViewModel? item)
+    {
+        if (item is null)
+        {
+            SelectedAlbumArt = null;
+            return;
+        }
+
+        var art = await _artService.GetAlbumArtAsync(item.Album, AlbumHeaderArtWidth);
+
+        // The user may have clicked elsewhere while this was decoding.
+        if (ReferenceEquals(SelectedAlbum, item))
+            SelectedAlbumArt = art;
+    }
+
+    // -------------------------------------------------------------- scanning
+
+    [RelayCommand]
+    private async Task ScanAsync()
+    {
+        if (IsScanning)
+            return;
+
+        _scanCts?.Cancel();
+        _scanCts = new CancellationTokenSource();
+        var token = _scanCts.Token;
+
+        IsScanning = true;
+        ScanFraction = 0;
+
+        // A library already on screen means this is a background refresh, and the
+        // status shouldn't shout "Scanning..." over a perfectly usable view.
+        var refreshing = Artists.Count > 0;
+        if (!refreshing)
+            StatusText = "Scanning...";
+
+        try
+        {
+            var progress = new Progress<ScanProgress>(p =>
+            {
+                ScanFraction = p.Fraction;
+                StatusText = refreshing
+                    ? $"Updating... {p.FilesRead:N0} of {p.FilesFound:N0} changed files"
+                    : $"Scanning... {p.FilesRead:N0} of {p.FilesFound:N0} files";
+            });
+
+            var result = await LibraryScanner.ScanAsync(
+                [.. MusicFolders], _cache?.ByPath(), progress, token);
+
+            UnavailableFolders = result.UnavailableFolders;
+
+            // Nothing changed on disk, so leave the view - and whatever the user has
+            // selected in it - completely alone.
+            if (refreshing && !result.Summary.AnyChanges)
+            {
+                _library = result.Library;
+                StatusText = DescribeStatus(result.Summary);
+                return;
+            }
+
+            ApplyLibrary(result.Library, keepSelection: refreshing);
+            StatusText = DescribeStatus(result.Summary);
+
+            // Safe to persist even with a drive missing: the scanner carries those
+            // tracks over rather than reporting them gone, so the cache keeps them.
+            _cache = LibraryCache.From(MusicFolders, _library.AllTracks);
+            await Task.Run(_cache.Save, CancellationToken.None);
+        }
+        catch (OperationCanceledException)
+        {
+            // A cancelled refresh is routine - the user changed folders or quit.
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Scan failed: {ex.Message}";
+        }
+        finally
+        {
+            IsScanning = false;
+            ScanFraction = 0;
+            ReclaimScanMemory();
+        }
+    }
+
+    /// <summary>
+    /// Swaps in a new library. <paramref name="keepSelection"/> re-picks the same
+    /// artist and album by name afterwards: a background refresh can land while the
+    /// user is browsing, and yanking them back to the first artist would be worse
+    /// than the stale row they were looking at.
+    /// </summary>
+    private void ApplyLibrary(MusicLibrary library, bool keepSelection)
+    {
+        _library = library;
+        ApplyToView(keepSelection);
+    }
+
+    /// <summary>
+    /// Rebuilds the visible tree from the full library, narrowed by the current
+    /// search. Scanning and searching both come through here, so there's a single
+    /// definition of what ends up on screen.
+    /// </summary>
+    private void ApplyToView(bool keepSelection)
+    {
+        var artistName = keepSelection ? SelectedArtist?.Name : null;
+        var albumTitle = keepSelection ? SelectedAlbum?.Album.Title : null;
+
+        // Build a list of path prefixes for disabled folders so we can exclude their tracks.
+        var disabledPrefixes = FolderFilters
+            .Where(f => !f.IsEnabled)
+            .Select(f => f.FolderPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                         + Path.DirectorySeparatorChar)
+            .ToList();
+
+        IReadOnlyList<Track> visible = disabledPrefixes.Count == 0
+            ? _library.AllTracks
+            : _library.AllTracks
+                .Where(t => !disabledPrefixes.Any(p =>
+                    t.FilePath.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+        // Keep a folder-filtered view for status bar counts, independent of any
+        // active search query so the counts always reflect enabled libraries.
+        _folderFilteredLibrary = ReferenceEquals(visible, _library.AllTracks)
+            ? _library
+            : LibraryScanner.Build(visible);
+
+        var matched = LibrarySearch.Filter(visible, SearchQuery);
+
+        // Rebuilding from the filtered tracks means the grouping and the three sort
+        // rules apply to search results exactly as they do to the whole library.
+        var view = ReferenceEquals(matched, visible)
+            ? _folderFilteredLibrary
+            : LibraryScanner.Build(matched);
+
+        Artists.Clear();
+        foreach (var artist in view.Artists)
+            Artists.Add(artist);
+
+        SelectedArtist = artistName is null
+            ? Artists.FirstOrDefault()
+            : Artists.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Name, artistName))
+              ?? Artists.FirstOrDefault();
+
+        // Selecting the artist repopulates Albums, so the album match happens after.
+        if (albumTitle is not null)
+        {
+            var album = Albums.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Album.Title, albumTitle));
+            if (album is not null)
+                SelectedAlbum = album;
+        }
+
+        MatchedTrackCount = matched.Count;
+        OnPropertyChanged(nameof(HasNoSearchResults));
+    }
+
+
+    private string DescribeLibrary()
+    {
+        if (_folderFilteredLibrary.AllTracks.Count == 0)
+            return "No audio files found. Use Add folder to point at your music.";
+
+        return $"{_folderFilteredLibrary.Artists.Count:N0} artists  ·  " +
+               $"{_folderFilteredLibrary.AlbumCount:N0} albums  ·  " +
+               $"{_folderFilteredLibrary.AllTracks.Count:N0} tracks";
+    }
+
+    private string DescribeStatus(ScanSummary summary)
+    {
+        // A missing drive is the headline: the tracks are still listed but none of
+        // them will play, and that needs saying before any counts.
+        if (UnavailableFolders.Count > 0)
+        {
+            var where = UnavailableFolders.Count == 1
+                ? UnavailableFolders[0]
+                : $"{UnavailableFolders.Count} folders";
+
+            return $"⚠ {where} is not available - reconnect the drive to play. " +
+                   $"Showing {_folderFilteredLibrary.AllTracks.Count:N0} tracks from the last scan.";
+        }
+
+        if (_folderFilteredLibrary.AllTracks.Count == 0)
+            return DescribeLibrary();
+
+        // While searching, the counts that matter are the matches, not the library.
+        if (IsSearching)
+        {
+            return MatchedTrackCount == 0
+                ? $"No matches for \"{SearchQuery}\""
+                : $"{MatchedTrackCount:N0} of {_folderFilteredLibrary.AllTracks.Count:N0} tracks match \"{SearchQuery}\"";
+        }
+
+        var changes = new List<string>();
+        if (summary.Read > 0)
+            changes.Add($"{summary.Read:N0} new or changed");
+        if (summary.Removed > 0)
+            changes.Add($"{summary.Removed:N0} removed");
+
+        return changes.Count == 0
+            ? DescribeLibrary()
+            : $"{DescribeLibrary()}  ·  {string.Join(", ", changes)}";
+    }
+
+    /// <summary>
+    /// Reading tags from tens of thousands of files churns through a lot of
+    /// short-lived buffers, and the app goes idle immediately afterwards. Handing
+    /// that memory back stops a large library from parking on a half-gigabyte
+    /// working set for the rest of the session.
+    /// </summary>
+    private static void ReclaimScanMemory() => _ = Task.Run(() =>
+    {
+        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+    });
+
+    [RelayCommand]
+    private async Task AddFolderAsync()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "Add a music folder",
+            Multiselect = true,
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var added = false;
+        foreach (var folder in dialog.FolderNames)
+        {
+            if (MusicFolders.Contains(folder, StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            MusicFolders.Add(folder);
+
+            var filterItem = new FolderFilterItem(folder, enabled: true);
+            filterItem.PropertyChanged += OnFolderFilterItemChanged;
+            FolderFilters.Add(filterItem);
+
+            added = true;
+        }
+
+        if (!added)
+            return;
+
+        _settings.MusicFolders = [.. MusicFolders];
+        _settings.Save();
+        await ScanAsync();
+    }
+
+    // -------------------------------------------------------------- playback
+
+    /// <summary>
+    /// Plays a track with the rest of its album queued behind it - which is what
+    /// makes gapless matter, since album transitions are where the gaps show.
+    /// </summary>
+    [RelayCommand]
+    private void PlayTrack(Track? track)
+    {
+        if (track is null)
+            return;
+
+        var queue = Tracks.ToList();
+        var index = queue.IndexOf(track);
+        if (index < 0)
+        {
+            queue = [track];
+            index = 0;
+        }
+
+        if (!_engine.Play(queue, index))
+            StatusText = $"Couldn't play {Path.GetFileName(track.FilePath)}. The format may need an add-on that isn't installed.";
+    }
+
+    [RelayCommand]
+    private void TogglePlay()
+    {
+        if (_engine.State == PlaybackState.Stopped)
+        {
+            PlayTrack(Tracks.FirstOrDefault());
+            return;
+        }
+
+        _engine.TogglePause();
+    }
+
+    [RelayCommand]
+    private void Next() => _engine.Next();
+
+    [RelayCommand]
+    private void Previous() => _engine.Previous();
+
+    [RelayCommand]
+    private void Stop() => _engine.Stop();
+
+    /// <summary>Called when the user lets go of the seek bar.</summary>
+    public void CommitSeek()
+    {
+        if (_pendingSeek is not { } seconds)
+            return;
+
+        _pendingSeek = null;
+        _engine.Seek(TimeSpan.FromSeconds(seconds));
+    }
+
+    // ---------------------------------------------------------- engine events
+
+    private void OnEngineTrackChanged(object? sender, Track track)
+    {
+        NowPlaying = track;
+
+        DurationSeconds = track.Duration.TotalSeconds > 0
+            ? track.Duration.TotalSeconds
+            : _engine.Duration.TotalSeconds;
+        DurationDisplay = Display.Time(TimeSpan.FromSeconds(DurationSeconds));
+
+        // The output chain is opened lazily on the first Play, and reopened
+        // whenever an exclusive-mode track arrives at a new sample rate - so the
+        // description is only accurate once a track is actually running.
+        RefreshOutputState();
+
+        _ = LoadNowPlayingArtAsync(track);
+    }
+
+    private async Task LoadNowPlayingArtAsync(Track track)
+    {
+        var art = await _artService.GetTrackArtAsync(track, NowPlayingArtWidth);
+
+        if (ReferenceEquals(NowPlaying, track))
+            NowPlayingArt = art;
+    }
+
+    private void OnEngineStateChanged(object? sender, PlaybackState state)
+    {
+        IsPlaying = state == PlaybackState.Playing;
+        IsOutputActive = ShouldShowOutput();
+
+        if (state == PlaybackState.Playing)
+            _positionTimer.Start();
+        else
+            _positionTimer.Stop();
+
+        if (state == PlaybackState.Stopped)
+        {
+            _updatingPositionFromTimer = true;
+            PositionSeconds = 0;
+            _updatingPositionFromTimer = false;
+        }
+    }
+
+    private void OnEnginePlaybackFinished(object? sender, EventArgs e)
+    {
+        NowPlaying = null;
+        NowPlayingArt = null;
+    }
+
+    private void OnPositionTick(object? sender, EventArgs e)
+    {
+        if (IsSeeking)
+            return;
+
+        var duration = _engine.Duration.TotalSeconds;
+        if (duration > 0 && Math.Abs(duration - DurationSeconds) > 0.5)
+        {
+            DurationSeconds = duration;
+            DurationDisplay = Display.Time(TimeSpan.FromSeconds(duration));
+        }
+
+        _updatingPositionFromTimer = true;
+        PositionSeconds = _engine.Position.TotalSeconds;
+        _updatingPositionFromTimer = false;
+    }
+
+    public void Dispose()
+    {
+        _positionTimer.Stop();
+        _positionTimer.Tick -= OnPositionTick;
+
+        _searchDebounce.Stop();
+        _searchDebounce.Tick -= OnSearchDebounceTick;
+
+        _engine.TrackChanged -= OnEngineTrackChanged;
+        _engine.StateChanged -= OnEngineStateChanged;
+        _engine.PlaybackFinished -= OnEnginePlaybackFinished;
+
+        _scanCts?.Cancel();
+        _scanCts?.Dispose();
+
+        SaveVolumeOnly();
+    }
+
+    /// <summary>
+    /// Persists just the volume, which is the only setting not written the moment
+    /// it changes.
+    /// <para>
+    /// Deliberately re-reads from disk first and copies one value across, rather
+    /// than saving this instance's whole settings object. Writing the whole thing
+    /// meant a long-running window would overwrite the music folders with the list
+    /// it happened to load at startup - clobbering any change made since, whether
+    /// by a second instance or from outside the app.
+    /// </para>
+    /// </summary>
+    private void SaveVolumeOnly()
+    {
+        var onDisk = AppSettings.Load();
+        if (Math.Abs(onDisk.Volume - _settings.Volume) < 0.0001)
+            return;
+
+        onDisk.Volume = _settings.Volume;
+        onDisk.Save();
+    }
+}

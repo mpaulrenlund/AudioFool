@@ -1,0 +1,18 @@
+# Build output
+bin/
+obj/
+publish/
+*.user
+*.suo
+
+# IDE
+.vs/
+.idea/
+.vscode/
+
+# Unreferenced render left over from tools/make-icon.ps1. Kept on disk, not tracked.
+src/AudioFool/Resources/icon_preview.png
+
+# NOTE: the native BASS DLLs in lib/bass/x64/ are deliberately vendored, NOT ignored.
+# They cannot be restored by "dotnet restore" - the ManagedBass NuGet packages ship
+# only the C# bindings. See README.md -> One-time setup if they ever need re-fetching.

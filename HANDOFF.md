@@ -1,0 +1,340 @@
+# AudioFool — session handoff
+
+Updated 2026-08-28 after the fourth build session. Read this alongside
+`README.md`: the README covers *how the app works*, this covers *where things stand and
+how to work on it*.
+
+---
+
+## Where everything lives
+
+| What | Path |
+|---|---|
+| Source | `C:\MusicPlayer` (solution is `AudioFool.slnx` — the new XML format, not `.sln`) |
+| **Installed app** | `%LOCALAPPDATA%\Programs\AudioFool\` ← what the shortcuts launch |
+| Publish output | `C:\MusicPlayer\publish\` (a build artifact, *not* what runs) |
+| Settings | `%APPDATA%\AudioFool\settings.json` |
+| Scan cache | `%LOCALAPPDATA%\AudioFool\library.json` (~13 MB) |
+| Native BASS DLLs | `C:\MusicPlayer\lib\bass\x64\` (13 of them) |
+| Music library | `D:\Music` — external 4 TB SSD "Marc SSD", ~26,000 tracks, 692 GB |
+
+**The single most important workflow fact:** `dotnet publish` writes to
+`C:\MusicPlayer\publish`, which is **not** the copy the user runs. Publishing without
+copying makes it look like your change did nothing. Always finish with the copy step.
+
+---
+
+## The build → verify → ship loop
+
+```bash
+dotnet build C:\MusicPlayer\AudioFool.slnx
+```
+
+```bash
+dotnet test C:\MusicPlayer\tests\AudioFool.Core.Tests\AudioFool.Core.Tests.csproj
+```
+
+```bash
+dotnet publish C:\MusicPlayer\src\AudioFool\AudioFool.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o C:\MusicPlayer\publish
+```
+
+Then install. The running app must be closed first or the exe is locked:
+
+```powershell
+Get-Process AudioFool -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-ChildItem C:\MusicPlayer\publish -Filter *.pdb | Remove-Item -Force
+Copy-Item "C:\MusicPlayer\publish\*" (Join-Path $env:LOCALAPPDATA "Programs\AudioFool") -Recurse -Force
+```
+
+Two shell notes:
+
+- `dotnet` is not on PATH in a fresh shell. Prefix with
+  `$env:PATH = "C:\Program Files\dotnet;$env:PATH"`.
+- **Never put that PATH assignment and a `Remove-Item` in the same PowerShell call.**
+  The sandbox guard misparses it as trying to delete `C:\Program` and blocks the whole
+  command. Split them into separate calls.
+- **Stop-Process needs a few seconds before Copy-Item will succeed.** If the copy fails
+  with "file in use", the process is still shutting down. Add `Start-Sleep -Seconds 3`
+  between the stop and copy steps.
+
+---
+
+## State at handoff
+
+Everything below is implemented **and verified working**, not merely written:
+
+### Core features (from session 1)
+- Artist → Album → Song browsing. Leading "The" ignored when sorting artists, albums
+  oldest-first, tracks by disc then track number.
+- 12-column track grid (see below), sortable by header click.
+- Album art: embedded, falling back to a cover file beside the audio. Double-click
+  either the large or the now-playing art for a full-size viewer.
+- Search across artists / albums / songs from one box, 180 ms debounce. Search bar
+  widened to 333 px, aligned with the Albums panel right edge.
+- Gapless playback (BASSmix mixer plus a mixtime sync).
+- Bit-perfect exclusive WASAPI with per-track sample-rate following.
+- DSD: PCM conversion at up to DSD-rate ÷ 8, or DoP passthrough at DSD-rate ÷ 16.
+- Library cache — **0.3 s startup** instead of 18 s, plus a ~1 s background change check.
+- Portable-drive handling: drive-letter relocation, and an unreachable folder is never
+  mistaken for a deleted library.
+- Global hotkeys: **F9** play/pause, **F10** previous-or-restart, **F11** next.
+- App icon built from `logo.jpg` (abstract flower) by `tools/make-icon.ps1`. Full
+  rectangular logo shown at 30 px in the title bar header.
+- **Type-ahead scroll** on Artists and Albums panes — hover and type to jump to a match.
+
+### UI changes from session 2
+- **Library folder checkboxes.** AudioFool menu → Libraries submenu → one checkable item
+  per configured folder. Unchecking a folder hides its tracks instantly (no rescan);
+  the enabled/disabled state is persisted to `settings.json` as `DisabledFolders`.
+  Filtering happens in `MainViewModel.ApplyToView` before the search filter is applied.
+- **Folder-aware status counts.** The status bar ("484 artists · ...") counts only tracks
+  from checked folders, tracked in `_folderFilteredLibrary`. Search counts ("X of Y
+  tracks match") use the same filtered denominator.
+- **Rescan button** — a small `↻` icon button sits to the left of the status text. Greys
+  out while a scan is running. Replaces the Rescan item that was previously in the menu.
+- **Search box in title bar.** `TitleBar.Header` alongside the AudioFool menu, saving
+  vertical space for the browser panes. Width 333 px (session 4).
+- **Bit-Perfect toggle in status bar** (session 4). Moved from the title bar to the
+  bottom-right corner of the status bar, `FontSize="11"` matching the info text.
+- **Libraries submenu** consolidates Add folder and folder checkboxes. Add folder sits
+  below the folder list (separated by a rule). Rescan was moved to the status bar.
+- **Now-playing indicator.** A small music note icon column (22 px, leftmost) in the
+  track grid lights up on whichever row is currently playing. Uses `IsCurrentTrackConverter`
+  (a `MultiBinding` comparing the row's `Track` to `NowPlaying`).
+- **Volume defaults to 100%** on every launch instead of restoring the saved level.
+
+### UI changes from session 3
+- **Theme system.** AudioFool menu → Themes submenu → checkable items (radio-button
+  behaviour — only one can be active). The active theme is persisted to `settings.json`
+  as `Theme` (string, default `"Dark"`). Switching is instant, no restart needed.
+- **"Dark" theme** — the existing look. WPF-UI dark base, Mica backdrop.
+- **"Vista" theme** — Windows Vista Aero Glass aesthetic. Switches the window backdrop
+  from Mica to Acrylic (blur-through transparency), then merges a resource dictionary
+  (`Themes/VistaTheme.xaml`) that overrides panel backgrounds with a blue-tinted glass
+  gradient, borders with a glass-edge highlight, and slider brushes to match.
+
+### Changes from session 4
+- **Type-ahead scroll on Artists and Albums panes.** Hover the mouse over either list
+  and start typing — the list selects and scrolls to the first match. Artists match
+  against `SortKey` (leading articles stripped, matching the sort order); Albums match
+  against `Title`. The keystroke buffer resets after 800 ms of inactivity. Backspace
+  removes the last character; Escape clears immediately. Moving the mouse between panes
+  resets the buffer. Typing is ignored when a text box has keyboard focus (e.g. the
+  search box). Implementation is in `MainWindow.xaml.cs`: window-level `PreviewTextInput`
+  and `PreviewKeyDown` handlers, with `GetTypeAheadTarget()` checking `IsMouseOver` on
+  each list.
+- **New app logo.** `logo.jpg` (abstract flower) replaces the cat icon. The .ico is
+  generated from a letterboxed square (`Resources/logo_square.png`, dark background
+  padding) via `tools/make-icon.ps1` with `Left=0 Top=0 Size=1.0`. The full rectangular
+  logo is displayed as a 30 px-tall `Image` in the title bar header (not via
+  `TitleBar.Icon`, which is too small for this image).
+- **Search bar widened to 333 px.** Fixed width, aligned to end at roughly the right
+  edge of the Albums panel.
+- **Bit-Perfect toggle moved to the status bar** (bottom-right corner), `FontSize="11"`
+  matching the status text. Capitalized as "Bit-Perfect".
+
+**73 tests pass** in `AudioFool.Core.Tests` — unchanged from session 1.
+
+### Deliberately not done
+
+- **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
+  libVLC fallback; `AudioEngine.CreateDecodeStream` is the single seam for that.
+- No playlists, queue view, shuffle or repeat UI. `AudioEngine.Repeat` exists and works —
+  nothing is bound to it.
+- **Not under version control.** `.gitignore` is written but `git init` was never run.
+  Worth doing first thing.
+- Memory sits around 400–900 MB after a cold scan. A post-scan GC compaction runs. Never
+  profiled.
+- The seek bar reads ~200 ms ahead of what you hear (decode position versus device
+  buffer). Invisible in practice.
+
+---
+
+## New source files added in session 2
+
+| File | Purpose |
+|---|---|
+| `src/AudioFool/ViewModels/FolderFilterItem.cs` | Observable VM wrapping a folder path + `IsEnabled` bool. `DisplayName` is the last path segment; `FolderPath` is the full path (settable for drive-letter relocation). |
+| `src/AudioFool/BindingProxy.cs` | `Freezable` subclass that inherits `DataContext`. Used to relay ViewModel commands into `CompositeCollection` items that otherwise have no DataContext. |
+| `src/AudioFool/Formatting/IsCurrentTrackConverter.cs` | `IMultiValueConverter` — returns `Visible` when two bound values are the same object reference, `Collapsed` otherwise. Powers the now-playing indicator. |
+
+## New source files added in session 3
+
+| File | Purpose |
+|---|---|
+| `src/AudioFool/ViewModels/ThemeItem.cs` | Observable VM wrapping a theme name + `IsSelected` bool. Follows the same pattern as `FolderFilterItem`. |
+| `src/AudioFool/ThemeService.cs` | Static helper that swaps resource-dictionary overlays and sets the window `BackdropType`. Called from `MainViewModel` on theme change and from `App.OnStartup` for the saved theme. |
+| `src/AudioFool/Themes/VistaTheme.xaml` | Vista Aero Glass resource dictionary. Overrides `ControlFillColorDefaultBrush` (glass gradient), `ControlElevationBorderBrush` (glass-edge highlight), `ControlFillColorSecondaryBrush`, and slider brushes. |
+
+## New/modified resource files in session 4
+
+| File | Purpose |
+|---|---|
+| `logo.jpg` | Source logo image (abstract flower, 1536×1152). |
+| `src/AudioFool/Resources/logo.jpg` | Copy embedded as a WPF Resource for the title bar. |
+| `src/AudioFool/Resources/logo_square.png` | Letterboxed 1536×1536 square (dark background) used as input for icon generation. |
+| `src/AudioFool/Resources/AudioFool.ico` | Regenerated from `logo_square.png` — full logo visible at all sizes. |
+
+---
+
+## Architecture notes for the new features
+
+### Library folder filtering
+`AppSettings.DisabledFolders` (a `List<string>`) lists paths that are turned off.
+`MainViewModel.FolderFilters` is an `ObservableCollection<FolderFilterItem>` kept in
+sync with `MusicFolders`. When any item's `IsEnabled` changes, `OnFolderFilterItemChanged`
+saves settings and calls `ApplyToView(keepSelection: true)` — instant, no rescan.
+
+`ApplyToView` builds `visible` (folder-filtered tracks) before passing to
+`LibrarySearch.Filter`, and stores the folder-filtered grouping in `_folderFilteredLibrary`
+for the status bar. The view that drives the UI is either `_folderFilteredLibrary` (no
+search active) or `LibraryScanner.Build(matched)` (search active).
+
+Drive-letter relocation (`RelocateMovedFoldersAsync`) updates `FolderFilterItem.FolderPath`
+in place alongside `MusicFolders[index]`.
+
+### Theme switching
+`AppSettings.Theme` (a `string`, default `"Dark"`) stores the active theme name.
+`MainViewModel.ThemeItems` is an `ObservableCollection<ThemeItem>` built from the known
+theme names at startup. Radio-button behaviour: when one item's `IsSelected` goes true,
+`OnThemeItemChanged` unchecks the others, saves settings, and calls
+`ThemeService.Apply(name)`. Unchecking the active theme is blocked — the handler
+re-checks it immediately.
+
+`ThemeService.Apply` is the single entry point for theme changes. For `"Dark"` it
+removes any overlay dictionary and sets `WindowBackdropType.Mica`. For `"Vista"` it
+merges `Themes/VistaTheme.xaml` into `Application.Resources.MergedDictionaries` and
+sets `WindowBackdropType.Acrylic`. All brushes in the app use `DynamicResource`, so
+the swap takes effect immediately.
+
+To add a new theme: create a `Themes/FooTheme.xaml` resource dictionary, add
+`"Foo"` to the theme-name array in the `MainViewModel` constructor, and add a case
+to `ThemeService.Apply`.
+
+### Type-ahead scroll (Artists and Albums)
+Implemented entirely in `MainWindow.xaml.cs` code-behind — no new files. Three fields
+on `MainWindow`: `_typeAheadBuffer` (the accumulated keystrokes), `_typeAheadTarget`
+(which `ListBox` the mouse was over), and `_typeAheadTimer` (800 ms `DispatcherTimer`
+that resets both).
+
+`PreviewTextInput` and `PreviewKeyDown` are hooked at the window level in the
+constructor. Each handler calls `GetTypeAheadTarget()` which returns `ArtistList` or
+`AlbumList` based on `IsMouseOver`, or null. When the target changes, the buffer resets.
+`SelectTypeAheadMatch()` does a `FirstOrDefault` with `StartsWith` — against `SortKey`
+for artists, `Title` for albums — and sets the `ListBox.SelectedItem`, which triggers
+the existing `BrowserList_SelectionChanged` scroll-into-view logic.
+
+### Title bar layout (session 4)
+`TitleBar.Icon` was removed. The logo is a 30 px-tall `Image` (full rectangular
+`logo.jpg`) at the start of the `TitleBar.Header` `StackPanel`, followed by the menu
+and a 333 px-wide search box. The Bit-Perfect toggle moved to the status bar (Grid
+row 3, column 2).
+
+### CompositeCollection in the Libraries submenu
+WPF's `MenuItem` cannot mix `ItemsSource` items with static child items. The workaround:
+`BindingProxy` (a `Freezable`) is declared as a `FluentWindow` resource with
+`Data="{Binding}"` — Freezables inherit DataContext, so this ferries the ViewModel.
+A `CollectionViewSource` bound through the proxy feeds the folder items. Static `MenuItem`
+entries for Add folder bind their commands via
+`{Binding Source={StaticResource Proxy}, Path=Data.AddFolderCommand}`.
+
+---
+
+## Verifying UI changes without wrecking the user's desktop
+
+Learned the hard way — the user stopped a session over this. **Do not** drive the mouse,
+send keystrokes to the focused window, or pull windows to the foreground while they are
+working.
+
+**Use UI Automation.** It sets values and activates controls without stealing focus or
+moving the pointer:
+
+```powershell
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+# Find the window by process id, then elements by AutomationId (x:Name in XAML).
+# ValuePattern.SetValue(...) to type; SelectionItemPattern.Select() to pick a row.
+```
+
+Named elements available to query: `SearchBox`, `ArtistList`, `AlbumList`, `TrackGrid`,
+`NowPlayingTitle`, `PositionText`, `DurationText`.
+
+**Screenshots:** use `PrintWindow` with flag `2` (`PW_RENDERFULLCONTENT`), and call
+`SetProcessDPIAware()` **first**. A DPI-unaware capture of a DPI-aware window silently
+returns a misaligned or partial image. That produced a completely false bug report
+mid-session: a layout was declared broken when it was fine, and only a diagnostic dump
+of the actual row heights settled it.
+
+**Verify what screenshots cannot show** with a small headless console app referencing
+`AudioFool.Core`. Several are left in the session scratchpad. That approach caught things
+no screenshot would: that DoP marker bytes were well-formed *before* any audio reached
+the DAC, and that an advancing position proves the WASAPI callback is actually running.
+
+---
+
+## Gotchas that cost real time
+
+- **`VirtualizationMode="Recycling"` plus a `Loaded` handler is a silent bug.** A recycled
+  row gets a new `DataContext` but does **not** re-raise `Loaded`. Album art loaded that
+  way disappeared as soon as you scrolled. Never load per-item data from `Loaded` in a
+  recycling list.
+- **`ScrollIntoView` scrolls the minimum distance**, so a selection entering from below
+  lands flush against the bottom edge, half-cut. Scroll to the last item first, then to
+  the target, to place it near the top.
+- **`BasedOn` a WPF-UI control style silently drops local values on named template
+  parts.** The volume/seek sliders use a custom template (`EdgeToEdgeSlider` in
+  `App.xaml`) whose rail `Border` sets `Margin="10,0"` to tuck its rounded end caps under
+  the circular thumb. With `BasedOn="{StaticResource {x:Type Slider}}"` the inherited
+  WPF-UI style reset that `Margin` to `0` at runtime. Fix: drop `BasedOn` entirely.
+- **Star-width DataGrid columns get reordered** by the width-distribution pass. Pin
+  `DisplayIndex` on every column. The now-playing indicator column is DisplayIndex 0;
+  all others shifted up by one in session 2.
+- **XML comments cannot contain `--`.** Dashed separator comments break XAML compilation.
+- **PowerShell `Test-Path` treats `[...]` as a wildcard.** Album folders like
+  `[2014] Album` need `-LiteralPath`.
+- **`perl -0777 -pe` mangles C# `$"..."` interpolation** — `$` is a perl sigil. For
+  multi-line C# edits, split the file with `sed -n` and concatenate instead. For prose
+  with apostrophes, a heredoc will also fight you; use the Write tool.
+- **EXIF orientation:** `System.Drawing` ignores it, so a "portrait" phone photo loads as
+  landscape pixels. `tools/make-icon.ps1` handles this now.
+- **`ManagedBass` names differ from the C API** — `MixerAddChannel` not
+  `MixerAddChannelOnce`, `MusicRamp` not `MusicRamps`. The NuGet packages ship XML docs
+  beside the DLL; grep those rather than guessing.
+- **un4seen third-party add-ons** live under `un4seen.com/files/z/2/...`, not `files/...`.
+  And the APE plugin is `bassape.dll`, not `bass_ape.dll`.
+- The DAC reports **"Busy"** when another app — or a second AudioFool instance — holds it
+  exclusively. Not a code fault.
+- **The Edit tool silently replaces straight ASCII quotes with Unicode curly quotes**
+  (`U+201C` / `U+201D`) inside C# string literals. This produces dozens of compile errors
+  with no obvious cause. If you see `error CS1056: Unexpected character '"'` pointing at
+  what looks like a normal string, run this to find and fix all instances in the file:
+  ```powershell
+  $p = "path\to\file.cs"
+  $c = [System.IO.File]::ReadAllText($p, [System.Text.Encoding]::UTF8)
+  [System.IO.File]::WriteAllText($p, ($c -replace [char]0x201C,'"' -replace [char]0x201D,'"'), [System.Text.Encoding]::UTF8)
+  ```
+
+---
+
+## Testing a portable drive without unplugging anything
+
+`subst` gives you a real drive letter you can mount, remove, and re-create elsewhere:
+
+```powershell
+subst X: C:\some\staging\folder   # "plug in"
+subst X: /D                       # "unplug"
+subst Y: C:\some\staging\folder   # "reconnect under a different letter"
+```
+
+Back up `library.json` before any drive test and restore it afterwards — the app will
+happily rewrite it.
+
+---
+
+## Suggested next steps
+
+1. **`git init` and commit.** There is a lot of unversioned work here across two sessions.
+2. Playlists / queue view / shuffle — the most conspicuous missing player feature.
+3. Profile the post-scan memory.
+4. TAK and DTS via a libVLC fallback decoder, if those files matter.
+5. Code signing would remove the SmartScreen warning on first launch, but is rarely worth
+   the cost for a personal build.

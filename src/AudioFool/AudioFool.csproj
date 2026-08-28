@@ -1,0 +1,58 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\AudioFool.Core\AudioFool.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+
+    <!-- The BASS native libraries we ship are x64, so the process must be too. -->
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+
+    <AssemblyName>AudioFool</AssemblyName>
+    <RootNamespace>AudioFool</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>0.1.0</Version>
+    <Product>AudioFool</Product>
+
+    <!--
+      Conditional so the project still builds before an icon has been generated.
+      Build one with tools/make-icon.ps1.
+    -->
+    <ApplicationIcon Condition="Exists('Resources\AudioFool.ico')">Resources\AudioFool.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <!-- Also embedded as a resource so the window and taskbar can use it. -->
+  <ItemGroup Condition="Exists('Resources\AudioFool.ico')">
+    <Resource Include="Resources\AudioFool.ico" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('Resources\logo.jpg')">
+    <Resource Include="Resources\logo.jpg" />
+  </ItemGroup>
+
+  <!--
+    BASS ships as native DLLs that can't be redistributed via NuGet, so they live
+    in lib/bass/x64 and are copied next to the exe. The glob matches nothing until
+    they're downloaded, which is why a missing add-on is a runtime warning rather
+    than a build error.
+  -->
+  <ItemGroup>
+    <None Include="..\..\lib\bass\x64\*.dll"
+          Link="%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
