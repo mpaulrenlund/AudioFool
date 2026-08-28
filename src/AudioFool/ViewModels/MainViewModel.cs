@@ -42,7 +42,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         _volume = 1.0;
         _engine.Volume = 1.0;
-        _engine.OutputMode = settings.OutputMode;
+
+        // Bit-perfect starts off every launch, like the volume above, rather than
+        // being restored. Exclusive mode silences every other application on the
+        // machine, so it is something to opt into for a listening session - not a
+        // state to be surprised by because it was still on days ago.
+        settings.OutputMode = OutputMode.Shared;
+        _engine.OutputMode = OutputMode.Shared;
+
         _engine.DsdMode = settings.DsdMode;
         _engine.Shuffle = settings.Shuffle;
         _engine.Repeat = settings.Repeat;

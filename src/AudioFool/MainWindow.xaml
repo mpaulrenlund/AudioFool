@@ -123,7 +123,7 @@
 
         <!-- ============================================ artist | album | tracks -->
         <Grid Grid.Row="1" Margin="16,0,16,0">
-            <!-- Panes are deliberately narrow: the eleven track columns need ~990px. -->
+            <!-- Panes are deliberately narrow: the ten track columns need ~940px. -->
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="200" MinWidth="140" />
                 <ColumnDefinition Width="Auto" />
@@ -265,7 +265,7 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- the eleven columns, in track order -->
+                    <!-- the ten columns, in track order -->
                     <DataGrid x:Name="TrackGrid"
                               Grid.Row="1"
                               ItemsSource="{Binding Tracks}"
@@ -338,25 +338,21 @@
                                                 SortMemberPath="DiscNumber"
                                                 ElementStyle="{StaticResource NumericCell}" />
 
-                            <DataGridTextColumn Header="Year" Width="52" DisplayIndex="7"
-                                                Binding="{Binding Year, Converter={StaticResource Number}}"
-                                                SortMemberPath="Year"
-                                                ElementStyle="{StaticResource NumericCell}" />
 
-                            <DataGridTextColumn Header="Kind" Width="74" DisplayIndex="8"
+                            <DataGridTextColumn Header="Kind" Width="74" DisplayIndex="7"
                                                 Binding="{Binding Kind}" />
 
-                            <DataGridTextColumn Header="Bitrate" Width="82" DisplayIndex="9"
+                            <DataGridTextColumn Header="Bitrate" Width="82" DisplayIndex="8"
                                                 Binding="{Binding Bitrate, Converter={StaticResource Bitrate}}"
                                                 SortMemberPath="Bitrate"
                                                 ElementStyle="{StaticResource NumericCell}" />
 
-                            <DataGridTextColumn Header="Bit Depth" Width="72" DisplayIndex="10"
+                            <DataGridTextColumn Header="Bit Depth" Width="72" DisplayIndex="9"
                                                 Binding="{Binding BitDepth, Converter={StaticResource BitDepth}}"
                                                 SortMemberPath="BitDepth"
                                                 ElementStyle="{StaticResource NumericCell}" />
 
-                            <DataGridTextColumn Header="Sample Rate" Width="94" DisplayIndex="11"
+                            <DataGridTextColumn Header="Sample Rate" Width="94" DisplayIndex="10"
                                                 Binding="{Binding SampleRate, Converter={StaticResource SampleRate}}"
                                                 SortMemberPath="SampleRate"
                                                 ElementStyle="{StaticResource NumericCell}" />
@@ -400,7 +396,7 @@
                 <!-- what's playing -->
                 <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
                     <TextBlock x:Name="NowPlayingTitle"
-                               Text="{Binding NowPlaying.DisplayTitle, FallbackValue='Nothing playing', TargetNullValue='Nothing playing'}"
+                               Text="{Binding NowPlaying.DisplayTitle, FallbackValue='', TargetNullValue=''}"
                                FontSize="13" FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding NowPlaying.Artist, TargetNullValue=''}"

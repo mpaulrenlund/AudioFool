@@ -9,7 +9,8 @@ with nothing else in the way.
 - Artists sort alphabetically, with a leading "The" ignored — *The Beatles* files under **B**.
 - Albums sort oldest at the top, newest at the bottom.
 - Songs sort by disc number, then track number.
-- Dark Fluent theme by default, with a Mica backdrop.
+- Dark Fluent theme by default, with a Mica backdrop and a teal accent. A Vista Aero
+  Glass theme is available from the AudioFool menu.
 - Gapless playback.
 - Optional [bit-perfect output](#output-modes) — exclusive WASAPI at the source's own
   sample rate, with DSD-over-PCM passthrough for DACs that support it.
@@ -288,9 +289,11 @@ repeat is set to the whole queue. It will not play the same track twice in a pas
 
 ## Output modes
 
-The **Bit-perfect** switch in the toolbar chooses how audio reaches the sound card.
-It's off by default, because exclusive mode silences every other application on the
-machine while music is playing — not something to opt into behind your back.
+The **Bit-Perfect** switch in the bottom-right of the status bar chooses how audio
+reaches the sound card. It starts off on *every* launch — not just the first — because
+exclusive mode silences every other application on the machine while music is playing.
+That is a per-session choice, not a setting to be surprised by days later. The volume
+slider works the same way, always starting at 100%.
 
 |  | Shared (default) | Bit-perfect (exclusive) |
 |---|---|---|

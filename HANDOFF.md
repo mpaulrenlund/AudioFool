@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-08-28 after the fourth build session. Read this alongside
+Updated 2026-08-28 after the fifth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -92,7 +92,7 @@ Everything below is implemented **and verified working**, not merely written:
 ### Core features (from session 1)
 - Artist → Album → Song browsing. Leading "The" ignored when sorting artists, albums
   oldest-first, tracks by disc then track number.
-- 12-column track grid (see below), sortable by header click.
+- 11-column track grid (see below), sortable by header click.
 - Album art: embedded, falling back to a cover file beside the audio. Double-click
   either the large or the now-playing art for a full-size viewer.
 - Search across artists / albums / songs from one box, 180 ms debounce. Search bar
@@ -128,11 +128,14 @@ Everything below is implemented **and verified working**, not merely written:
   track grid lights up on whichever row is currently playing. Uses `IsCurrentTrackConverter`
   (a `MultiBinding` comparing the row's `Track` to `NowPlaying`).
 - **Volume defaults to 100%** on every launch instead of restoring the saved level.
+  **Bit-Perfect does the same** from session 5: it starts off every launch regardless of
+  what was saved, since exclusive mode silences every other app on the machine.
 
 ### UI changes from session 3
 - **Theme system.** AudioFool menu → Themes submenu → checkable items (radio-button
   behaviour — only one can be active). The active theme is persisted to `settings.json`
-  as `Theme` (string, default `"Dark"`). Switching is instant, no restart needed.
+  as `Theme` (string, default `"Dark"`). Panels, borders and backdrop switch instantly;
+  the accent colour does not (see Accent colours below).
 - **"Dark" theme** — the existing look. WPF-UI dark base, Mica backdrop.
 - **"Vista" theme** — Windows Vista Aero Glass aesthetic. Switches the window backdrop
   from Mica to Acrylic (blur-through transparency), then merges a resource dictionary
@@ -165,6 +168,14 @@ Everything below is implemented **and verified working**, not merely written:
   toggle; repeat cycles off → whole queue → this track. Both persist to `settings.json`.
   Architecture in the section below; the play order lives in a new `PlayOrder` class,
   deliberately kept free of BASS so it can be tested without a sound device.
+- **Teal accent for the Dark theme** — `#14B8A6`. Vista keeps Windows blue `#0078D4`.
+  See Accent colours below; there are two WPF-UI traps in there.
+- **Bit-Perfect starts off** on every launch, no longer restored from settings.
+- **The "Nothing playing" placeholder is gone.** The now-playing title is blank when
+  nothing is loaded, leaving just the placeholder art tile.
+- **The Year column was removed** from the track grid, taking it from 12 columns to 11.
+  Every `DisplayIndex` after it was renumbered — leaving a gap there would let the
+  width-distribution pass reorder the grid. The album pane still shows its year.
 
 **93 tests pass** in `AudioFool.Core.Tests` — the original 73 plus 20 over `PlayOrder`.
 
@@ -247,6 +258,21 @@ the swap takes effect immediately.
 To add a new theme: create a `Themes/FooTheme.xaml` resource dictionary, add
 `"Foo"` to the theme-name array in the `MainViewModel` constructor, and add a case
 to `ThemeService.Apply`.
+
+**Accent colours (session 5).** Each theme names its accent explicitly:
+Dark is teal `#14B8A6`, Vista is Windows blue `#0078D4`. Two things about this were
+learned the hard way and are easy to trip over again:
+
+- **`ApplicationAccentColorManager.ApplySystemAccent()` silently does nothing here.**
+  It resolves the theme through `ApplicationThemeManager`, which this app never drives —
+  the theme comes from a `ThemesDictionary` in `App.xaml` — so it leaves whichever accent
+  was applied last in place. Use the explicit
+  `Apply(color, ApplicationTheme.Dark)` overload instead.
+- **Only the first `Apply` call in a process takes effect.** Verified by launching with
+  each theme saved: Dark starts teal, Vista starts blue, but switching themes from the
+  menu at runtime leaves the accent where it was. Everything else about the theme swap —
+  panel brushes, borders, backdrop — does update live. Changing the accent of a running
+  app would need the WPF-UI theme dictionary re-merged, which has not been attempted.
 
 ### Shuffle and repeat (session 5)
 `PlayOrder` (`src/AudioFool.Core/Playback/PlayOrder.cs`) holds a permutation of the
