@@ -285,6 +285,7 @@
                               EnableRowVirtualization="True"
                               EnableColumnVirtualization="False"
                               VirtualizingPanel.VirtualizationMode="Recycling"
+                              PreviewMouseLeftButtonDown="TrackGrid_PreviewMouseLeftButtonDown"
                               MouseDoubleClick="TrackGrid_MouseDoubleClick"
                               PreviewKeyDown="TrackGrid_PreviewKeyDown">
                         <!--
@@ -295,7 +296,7 @@
                         -->
                         <DataGrid.Columns>
                             <!-- Now-playing indicator: shows a music note on the active row -->
-                            <DataGridTemplateColumn Width="22" DisplayIndex="0" CanUserSort="False" CanUserResize="False">
+                            <DataGridTemplateColumn x:Name="IndicatorColumn" Width="22" DisplayIndex="0" CanUserSort="False" CanUserResize="False">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <ui:SymbolIcon Symbol="MusicNote124"
@@ -314,45 +315,45 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <DataGridTextColumn Header="#" Width="44" DisplayIndex="1"
+                            <DataGridTextColumn x:Name="TrackNumberColumn" Header="#" Width="44" DisplayIndex="1"
                                                 Binding="{Binding TrackNumber, Converter={StaticResource Number}}"
                                                 SortMemberPath="TrackNumber"
                                                 ElementStyle="{StaticResource NumericCell}" />
 
-                            <DataGridTextColumn Header="Song" Width="*" MinWidth="180" DisplayIndex="2"
+                            <DataGridTextColumn x:Name="SongColumn" Header="Song" Width="*" MinWidth="180" DisplayIndex="2"
                                                 Binding="{Binding DisplayTitle}" />
 
-                            <DataGridTextColumn Header="Artist" Width="140" DisplayIndex="3"
+                            <DataGridTextColumn x:Name="ArtistColumn" Header="Artist" Width="140" DisplayIndex="3"
                                                 Binding="{Binding Artist}" />
 
-                            <DataGridTextColumn Header="Album" Width="150" DisplayIndex="4"
+                            <DataGridTextColumn x:Name="AlbumColumn" Header="Album" Width="150" DisplayIndex="4"
                                                 Binding="{Binding Album}" />
 
-                            <DataGridTextColumn Header="Time" Width="60" DisplayIndex="5"
+                            <DataGridTextColumn x:Name="TimeColumn" Header="Time" Width="60" DisplayIndex="5"
                                                 Binding="{Binding Duration, Converter={StaticResource Duration}}"
                                                 SortMemberPath="Duration"
                                                 ElementStyle="{StaticResource NumericCell}" />
 
-                            <DataGridTextColumn Header="Disc" Width="46" DisplayIndex="6"
+                            <DataGridTextColumn x:Name="DiscColumn" Header="Disc" Width="46" DisplayIndex="6"
                                                 Binding="{Binding DiscNumber, Converter={StaticResource Number}}"
                                                 SortMemberPath="DiscNumber"
                                                 ElementStyle="{StaticResource NumericCell}" />
 
 
-                            <DataGridTextColumn Header="Kind" Width="74" DisplayIndex="7"
+                            <DataGridTextColumn x:Name="KindColumn" Header="Kind" Width="74" DisplayIndex="7"
                                                 Binding="{Binding Kind}" />
 
-                            <DataGridTextColumn Header="Bitrate" Width="82" DisplayIndex="8"
+                            <DataGridTextColumn x:Name="BitrateColumn" Header="Bitrate" Width="82" DisplayIndex="8"
                                                 Binding="{Binding Bitrate, Converter={StaticResource Bitrate}}"
                                                 SortMemberPath="Bitrate"
                                                 ElementStyle="{StaticResource NumericCell}" />
 
-                            <DataGridTextColumn Header="Bit Depth" Width="72" DisplayIndex="9"
+                            <DataGridTextColumn x:Name="BitDepthColumn" Header="Bit Depth" Width="72" DisplayIndex="9"
                                                 Binding="{Binding BitDepth, Converter={StaticResource BitDepth}}"
                                                 SortMemberPath="BitDepth"
                                                 ElementStyle="{StaticResource NumericCell}" />
 
-                            <DataGridTextColumn Header="Sample Rate" Width="94" DisplayIndex="10"
+                            <DataGridTextColumn x:Name="SampleRateColumn" Header="Sample Rate" Width="94" DisplayIndex="10"
                                                 Binding="{Binding SampleRate, Converter={StaticResource SampleRate}}"
                                                 SortMemberPath="SampleRate"
                                                 ElementStyle="{StaticResource NumericCell}" />

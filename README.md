@@ -259,6 +259,19 @@ These only apply when AudioFool has focus:
 | **Enter** | Play the selected track |
 | **Escape** | Close the album-art viewer |
 
+### Fitting the track columns
+
+Double-click the divider between **#** and **Song** to fit every column to what is
+on screen at once. Double-clicking any other divider fits just the column to its left,
+which is what a data grid normally does.
+
+The fit is not a plain measure-and-set. Time, Disc, Kind, Bitrate, Bit Depth and
+Sample Rate are sized first and always get their full width — their headers are wider
+than their values, so clipping them loses a word rather than a character. Whatever is
+left over goes to **Song**, then **Artist**, then **Album**, in that order, with each
+keeping a minimum so it never collapses. Song ends up absorbing the slack, so it keeps
+growing and shrinking with the window afterwards.
+
 ---
 
 ## Play order

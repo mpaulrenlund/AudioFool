@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using AudioFool.Services;
 using AudioFool.ViewModels;
@@ -48,7 +49,7 @@ public partial class MainWindow : FluentWindow
     }
 
     /// <summary>
-    /// The eleven track columns want a wide window, but the declared size can be
+    /// The ten track columns want a wide window, but the declared size can be
     /// larger than the display - especially over remote desktop, where the
     /// resolution can change while the app is running. Shrink to fit and centre.
     /// </summary>
@@ -277,6 +278,146 @@ public partial class MainWindow : FluentWindow
 
         if (ItemsControl.ContainerFromElement(TrackGrid, source) is DataGridRow { Item: Track track })
             _viewModel.PlayTrackCommand.Execute(track);
+    }
+
+    // ------------------------------------------------------- column auto-fit
+
+    /// <summary>How close to a header's edge counts as grabbing its divider.</summary>
+    private const double GripperReach = 6;
+
+    /// <summary>
+    /// A squeezed flexible column keeps at least this much, so it stays a column
+    /// rather than disappearing to a sliver.
+    /// </summary>
+    private const double FlexFloor = 70;
+
+    /// <summary>
+    /// Double-clicking the divider between # and Song fits *every* column at once.
+    /// <para>
+    /// Hooked on the tunnelling PreviewMouseLeftButtonDown rather than a
+    /// double-click event: DataGrid's own gripper handler sizes the single column
+    /// it belongs to, and tunnelling is what lets this run - and mark the event
+    /// handled - before that gets a look in. Every other divider keeps the stock
+    /// one-column behaviour.
+    /// </para>
+    /// </summary>
+    private void TrackGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2 || e.OriginalSource is not DependencyObject source)
+            return;
+
+        if (FindAncestor<DataGridColumnHeader>(source) is not { Column: { } column } header)
+            return;
+
+        var x = e.GetPosition(header).X;
+        var onLeftEdge = x <= GripperReach;
+        var onRightEdge = x >= header.ActualWidth - GripperReach;
+
+        // The same divider is reachable from either side of it.
+        var isFirstDivider = (column == TrackNumberColumn && onRightEdge)
+                             || (column == SongColumn && onLeftEdge);
+
+        if (!isFirstDivider)
+            return;
+
+        AutoFitColumns();
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// Fits every column to its content in one pass, resolving a shortage by
+    /// priority rather than by truncating whatever happens to be on the right.
+    /// <para>
+    /// The narrow facts - Time, Disc, Kind, Bitrate, Bit Depth, Sample Rate, and
+    /// the track number - are sized first and always get what they ask for; they
+    /// are the columns whose headers are wider than their values, so clipping them
+    /// costs a word rather than a character. What is left goes to Song, then
+    /// Artist, then Album, each taking its full width only if the ones before it
+    /// have been satisfied.
+    /// </para>
+    /// <para>
+    /// Row virtualisation means "content" is the rows currently realised. Fitting
+    /// to what is on screen is the useful answer, and the alternative - measuring
+    /// several thousand rows - would stall the UI.
+    /// </para>
+    /// </summary>
+    private void AutoFitColumns()
+    {
+        // The indicator column is a fixed 22 px by design: no header text to fit,
+        // and one glyph's width is not what should decide it.
+        var sizeable = TrackGrid.Columns.Where(c => c != IndicatorColumn).ToArray();
+        if (sizeable.Length == 0)
+            return;
+
+        // Auto measures header and realised cells together, so this asks WPF what
+        // each column would like, then takes the answer back.
+        foreach (var column in sizeable)
+            column.Width = new DataGridLength(1, DataGridLengthUnitType.Auto);
+
+        TrackGrid.UpdateLayout();
+
+        var desired = sizeable.ToDictionary(c => c, c => Math.Ceiling(c.ActualWidth) + 2);
+
+        var viewport = FindDescendant<ScrollViewer>(TrackGrid)?.ViewportWidth ?? TrackGrid.ActualWidth;
+        var available = viewport - IndicatorColumn.ActualWidth - 2;
+
+        DataGridColumn[] mustFit =
+        [
+            TrackNumberColumn, TimeColumn, DiscColumn, KindColumn,
+            BitrateColumn, BitDepthColumn, SampleRateColumn,
+        ];
+
+        // In priority order. Song is applied as a star column below, so it also
+        // collects anything left over once the other two are satisfied.
+        DataGridColumn[] flexible = [SongColumn, ArtistColumn, AlbumColumn];
+
+        var left = available - mustFit.Sum(c => desired[c]);
+
+        var given = new double[flexible.Length];
+        for (var i = 0; i < flexible.Length; i++)
+        {
+            // Hold back a floor for each column still waiting behind this one.
+            var heldBack = FlexFloor * (flexible.Length - 1 - i);
+            var allowance = Math.Max(FlexFloor, left - heldBack);
+
+            // The floor wins even when that overruns the width available. Three
+            // legible columns behind a horizontal scrollbar beat three slivers.
+            given[i] = Math.Min(desired[flexible[i]], allowance);
+            left -= given[i];
+        }
+
+        foreach (var column in mustFit)
+            column.Width = new DataGridLength(desired[column]);
+
+        ArtistColumn.Width = new DataGridLength(given[1]);
+        AlbumColumn.Width = new DataGridLength(given[2]);
+
+        // Star, not the measured pixel width: Song takes every spare pixel and goes
+        // on flexing when the window is resized, which is what it did before.
+        SongColumn.Width = new DataGridLength(1, DataGridLengthUnitType.Star);
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? node) where T : DependencyObject
+    {
+        while (node is not null and not T)
+            node = VisualTreeHelper.GetParent(node);
+
+        return node as T;
+    }
+
+    private static T? FindDescendant<T>(DependencyObject node) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+        {
+            var child = VisualTreeHelper.GetChild(node, i);
+            if (child is T match)
+                return match;
+
+            if (FindDescendant<T>(child) is { } deeper)
+                return deeper;
+        }
+
+        return null;
     }
 
     private void TrackGrid_PreviewKeyDown(object sender, KeyEventArgs e)

@@ -176,6 +176,8 @@ Everything below is implemented **and verified working**, not merely written:
 - **The Year column was removed** from the track grid, taking it from 12 columns to 11.
   Every `DisplayIndex` after it was renumbered — leaving a gap there would let the
   width-distribution pass reorder the grid. The album pane still shows its year.
+- **Column auto-fit** on double-clicking the divider between # and Song. See the
+  section below. Every column now has an `x:Name`.
 
 **93 tests pass** in `AudioFool.Core.Tests` — the original 73 plus 20 over `PlayOrder`.
 
@@ -310,6 +312,44 @@ They swap glyph *and* tint rather than tint alone — WPF-UI's `ArrowShuffleOff2
 `ArrowRepeatAllOff24` are struck-through variants, and an accent colour on its own is a
 weak signal next to the Primary-appearance play button. `Repeat` cycles through three
 states, so it is a `ui:Button` driving `CycleRepeatCommand`, not a `ToggleButton`.
+
+### Column auto-fit (session 5)
+Double-clicking the divider between **#** and **Song** fits every column at once.
+Every other divider keeps WPF's stock behaviour of fitting the single column it
+belongs to. Implemented in `MainWindow.xaml.cs` as `TrackGrid_PreviewMouseLeftButtonDown`
+plus `AutoFitColumns`.
+
+Three things about it that are not obvious:
+
+- **The hook is `PreviewMouseLeftButtonDown` with `ClickCount == 2`, not a
+  double-click event.** `DataGridColumnHeader` wires its own handler to the gripper
+  `Thumb` to auto-fit that one column. Tunnelling from the `DataGrid` is what gets
+  there first and lets `e.Handled = true` suppress it. A bubbling `MouseDoubleClick`
+  handler runs too late.
+- **The divider is found by geometry, not by template part name.** The handler walks
+  up to the `DataGridColumnHeader` and checks whether the click landed within 6 px of
+  its left or right edge, then matches the column against `TrackNumberColumn` /
+  `SongColumn`. Both sides of the divider are accepted, because whether the gripper
+  belongs to the left column or the right one is a template detail. Every column now
+  carries an `x:Name` so none of this depends on header strings.
+- **Widths are measured by setting each column to `Auto` and reading `ActualWidth`
+  back after `UpdateLayout()`.** Row virtualisation means that measures the realised
+  rows, so the fit follows what is on screen. That is the useful answer; measuring
+  26,000 rows would stall the UI.
+
+The allocation order is the one that was asked for. `TrackNumberColumn` and the six
+narrow facts (Time, Disc, Kind, Bitrate, Bit Depth, Sample Rate) are satisfied first
+and always get their full width — they are the columns whose *headers* are wider than
+their values, so clipping them costs a word rather than a character. What remains goes
+to Song, then Artist, then Album, each holding back a 70 px floor for the ones behind
+it. Song is then applied as a **star** column rather than a pixel width, so it collects
+whatever is spare and keeps flexing when the window is resized. At minimum window
+width the narrow columns alone overrun the space; the floors are deliberately allowed
+to overflow into a horizontal scrollbar rather than collapsing Artist and Album to
+20 px slivers.
+
+`IndicatorColumn` is excluded throughout: it is a fixed 22 px by design and has no
+header text worth fitting.
 
 ### Type-ahead scroll (Artists and Albums)
 Implemented entirely in `MainWindow.xaml.cs` code-behind — no new files. Three fields
