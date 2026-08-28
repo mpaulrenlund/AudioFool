@@ -59,6 +59,32 @@ Two shell notes:
 
 ---
 
+## Version control
+
+`C:\MusicPlayer` is a git repository as of session 5. Branch `main`, one commit
+(`86fb5ab`) holding all four prior sessions of work. **No remote** — it is local only,
+so pushing is not part of any workflow here.
+
+Three decisions baked into that commit, so you do not have to re-derive them:
+
+- **The BASS DLLs are vendored, not ignored.** `lib/bass/x64/` (13 DLLs, 864 KB) is
+  tracked. `dotnet restore` cannot produce them — the `ManagedBass.*` NuGet packages
+  ship only the C# bindings — so ignoring them would leave the repo unbuildable from a
+  clean clone. The old `.gitignore` rule excluding them has been removed.
+- **`.gitattributes` pins `eol=lf`.** Global `core.autocrlf` is `true` on this machine,
+  which would rewrite the line endings of every source file on checkout. The files are
+  LF on disk; the attribute keeps them that way. `*.dll`, `*.exe`, `*.ico`, `*.jpg` and
+  `*.png` are marked `binary`.
+- **`bin/`, `obj/`, `publish/` are ignored**, as is the unreferenced
+  `src/AudioFool/Resources/icon_preview.png`. `Resources/logo_square.png` **is** tracked
+  — it is the input `tools/make-icon.ps1` regenerates the .ico from.
+
+Verified, not assumed: a fresh `git clone` of this repo into a scratch directory builds
+with 0 warnings and passes all 73 tests. If you add a dependency that lives outside
+NuGet, re-run that check — it is the only thing that catches a file you forgot to track.
+
+---
+
 ## State at handoff
 
 Everything below is implemented **and verified working**, not merely written:
@@ -141,8 +167,6 @@ Everything below is implemented **and verified working**, not merely written:
   libVLC fallback; `AudioEngine.CreateDecodeStream` is the single seam for that.
 - No playlists, queue view, shuffle or repeat UI. `AudioEngine.Repeat` exists and works —
   nothing is bound to it.
-- **Not under version control.** `.gitignore` is written but `git init` was never run.
-  Worth doing first thing.
 - Memory sits around 400–900 MB after a cold scan. A post-scan GC compaction runs. Never
   profiled.
 - The seek bar reads ~200 ms ahead of what you hear (decode position versus device
@@ -332,9 +356,8 @@ happily rewrite it.
 
 ## Suggested next steps
 
-1. **`git init` and commit.** There is a lot of unversioned work here across two sessions.
-2. Playlists / queue view / shuffle — the most conspicuous missing player feature.
-3. Profile the post-scan memory.
-4. TAK and DTS via a libVLC fallback decoder, if those files matter.
-5. Code signing would remove the SmartScreen warning on first launch, but is rarely worth
+1. Playlists / queue view / shuffle — the most conspicuous missing player feature.
+2. Profile the post-scan memory.
+3. TAK and DTS via a libVLC fallback decoder, if those files matter.
+4. Code signing would remove the SmartScreen warning on first launch, but is rarely worth
    the cost for a personal build.
