@@ -260,6 +260,32 @@ These only apply when AudioFool has focus:
 
 ---
 
+## Play order
+
+Two buttons flank the transport controls in the now-playing bar: **shuffle** on the
+left of Previous, **repeat** on the right of Next. Both light up in the accent colour
+when active and show a struck-through icon when not, and both are remembered between
+sessions.
+
+| Control | States |
+|---|---|
+| Shuffle | Off, or on |
+| Repeat | Off → whole queue → this track → off (the button cycles) |
+
+Shuffle keeps the queue itself in album order and plays it through a separate order,
+which has three consequences worth knowing:
+
+- **Turning shuffle on never interrupts what is playing.** The current track is pinned
+  to the front of the new order and everything else falls in behind it.
+- **Turning shuffle off restores the album running order**, again without interrupting
+  the current track.
+- **Previous walks back through what you actually heard**, not through the album order.
+
+Shuffle covers the whole queue exactly once before stopping — or before wrapping, if
+repeat is set to the whole queue. It will not play the same track twice in a pass.
+
+---
+
 ## Output modes
 
 The **Bit-perfect** switch in the toolbar chooses how audio reaches the sound card.

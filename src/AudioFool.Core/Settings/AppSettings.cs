@@ -44,6 +44,16 @@ public sealed class AppSettings
 
     public string Theme { get; set; } = "Dark";
 
+    /// <summary>Play the queue in a shuffled order.</summary>
+    public bool Shuffle { get; set; }
+
+    /// <summary>
+    /// What happens at the end of the queue. Stored by name, like the other enums
+    /// here, so the file stays readable.
+    /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter<Playback.RepeatMode>))]
+    public Playback.RepeatMode Repeat { get; set; } = Playback.RepeatMode.Off;
+
     [JsonIgnore]
     public static string SettingsDirectory { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

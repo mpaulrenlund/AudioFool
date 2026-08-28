@@ -416,6 +416,34 @@
 
                 <!-- transport -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!--
+                        Shuffle and repeat flank the three transport buttons, where
+                        every other player has trained people to look for them. Both
+                        swap glyph as well as tint: an accent colour on its own is a
+                        weak "on" signal next to a Primary-appearance play button.
+                    -->
+                    <ui:Button Command="{Binding ToggleShuffleCommand}"
+                               Appearance="Secondary"
+                               Margin="0,0,8,0"
+                               ToolTip="{Binding ShuffleTooltip}">
+                        <ui:Button.Icon>
+                            <ui:SymbolIcon>
+                                <ui:SymbolIcon.Style>
+                                    <Style TargetType="ui:SymbolIcon">
+                                        <Setter Property="Symbol" Value="ArrowShuffleOff24" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsShuffle}" Value="True">
+                                                <Setter Property="Symbol" Value="ArrowShuffle24" />
+                                                <Setter Property="Foreground"
+                                                        Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:SymbolIcon.Style>
+                            </ui:SymbolIcon>
+                        </ui:Button.Icon>
+                    </ui:Button>
+
                     <ui:Button Command="{Binding PreviousCommand}"
                                Icon="{ui:SymbolIcon Previous24}"
                                Appearance="Secondary" ToolTip="Previous (or restart)" />
@@ -444,6 +472,34 @@
                     <ui:Button Command="{Binding NextCommand}"
                                Icon="{ui:SymbolIcon Next24}"
                                Appearance="Secondary" ToolTip="Next" />
+
+                    <!-- Three-way cycle: off, whole queue, this track. -->
+                    <ui:Button Command="{Binding CycleRepeatCommand}"
+                               Appearance="Secondary"
+                               Margin="8,0,0,0"
+                               ToolTip="{Binding RepeatTooltip}">
+                        <ui:Button.Icon>
+                            <ui:SymbolIcon>
+                                <ui:SymbolIcon.Style>
+                                    <Style TargetType="ui:SymbolIcon">
+                                        <Setter Property="Symbol" Value="ArrowRepeatAllOff24" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsRepeatAll}" Value="True">
+                                                <Setter Property="Symbol" Value="ArrowRepeatAll24" />
+                                                <Setter Property="Foreground"
+                                                        Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsRepeatOne}" Value="True">
+                                                <Setter Property="Symbol" Value="ArrowRepeat124" />
+                                                <Setter Property="Foreground"
+                                                        Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:SymbolIcon.Style>
+                            </ui:SymbolIcon>
+                        </ui:Button.Icon>
+                    </ui:Button>
                 </StackPanel>
 
                 <!-- seek -->

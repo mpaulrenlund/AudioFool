@@ -44,6 +44,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _engine.Volume = 1.0;
         _engine.OutputMode = settings.OutputMode;
         _engine.DsdMode = settings.DsdMode;
+        _engine.Shuffle = settings.Shuffle;
+        _engine.Repeat = settings.Repeat;
 
         _engine.TrackChanged += OnEngineTrackChanged;
         _engine.StateChanged += OnEngineStateChanged;
@@ -869,6 +871,79 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void Previous() => _engine.Previous();
+
+    /// <summary>
+    /// Shuffle plays the queue in a random order. Turning it on leaves the current
+    /// track playing and shuffles what follows; turning it off puts the queue back
+    /// in album order. The engine owns that logic - this just persists the choice.
+    /// </summary>
+    public bool IsShuffle
+    {
+        get => _settings.Shuffle;
+        set
+        {
+            if (_settings.Shuffle == value)
+                return;
+
+            _settings.Shuffle = value;
+            _settings.Save();
+            _engine.Shuffle = value;
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShuffleTooltip));
+        }
+    }
+
+    public string ShuffleTooltip => IsShuffle ? "Shuffle: on" : "Shuffle: off";
+
+    /// <summary>
+    /// Off, All or One. A three-way cycle rather than a checkbox, which is what
+    /// the single button in the transport row can express.
+    /// </summary>
+    public RepeatMode Repeat
+    {
+        get => _settings.Repeat;
+        private set
+        {
+            if (_settings.Repeat == value)
+                return;
+
+            _settings.Repeat = value;
+            _settings.Save();
+            _engine.Repeat = value;
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsRepeatAll));
+            OnPropertyChanged(nameof(IsRepeatOne));
+            OnPropertyChanged(nameof(RepeatTooltip));
+        }
+    }
+
+    /// <summary>
+    /// These two drive the glyph swap in the transport button. Off needs no flag
+    /// of its own: it is the button's default state.
+    /// </summary>
+    public bool IsRepeatAll => Repeat == RepeatMode.All;
+
+    public bool IsRepeatOne => Repeat == RepeatMode.One;
+
+    public string RepeatTooltip => Repeat switch
+    {
+        RepeatMode.All => "Repeat: whole queue",
+        RepeatMode.One => "Repeat: this track",
+        _ => "Repeat: off",
+    };
+
+    [RelayCommand]
+    private void ToggleShuffle() => IsShuffle = !IsShuffle;
+
+    [RelayCommand]
+    private void CycleRepeat() => Repeat = Repeat switch
+    {
+        RepeatMode.Off => RepeatMode.All,
+        RepeatMode.All => RepeatMode.One,
+        _ => RepeatMode.Off,
+    };
 
     [RelayCommand]
     private void Stop() => _engine.Stop();

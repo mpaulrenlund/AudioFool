@@ -159,14 +159,27 @@ Everything below is implemented **and verified working**, not merely written:
 - **Bit-Perfect toggle moved to the status bar** (bottom-right corner), `FontSize="11"`
   matching the status text. Capitalized as "Bit-Perfect".
 
-**73 tests pass** in `AudioFool.Core.Tests` — unchanged from session 1.
+### Changes from session 5
+- **Version control.** See the Version control section above.
+- **Shuffle and repeat**, as two buttons flanking the transport controls. Shuffle is a
+  toggle; repeat cycles off → whole queue → this track. Both persist to `settings.json`.
+  Architecture in the section below; the play order lives in a new `PlayOrder` class,
+  deliberately kept free of BASS so it can be tested without a sound device.
+
+**93 tests pass** in `AudioFool.Core.Tests` — the original 73 plus 20 over `PlayOrder`.
+
+Shuffle was also verified end-to-end against the real engine with real FLAC files, by a
+headless probe driving `AudioEngine` in shared mode at zero gain — silent, and without
+taking the device from the running app. Fourteen checks, including the one that matters
+most: that the shuffled order is *stable across skips* rather than regenerated on every
+track change.
 
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
   libVLC fallback; `AudioEngine.CreateDecodeStream` is the single seam for that.
-- No playlists, queue view, shuffle or repeat UI. `AudioEngine.Repeat` exists and works —
-  nothing is bound to it.
+- No playlists or queue view. Shuffle and repeat are done (session 5); what is still
+  missing is a visible, editable queue.
 - Memory sits around 400–900 MB after a cold scan. A post-scan GC compaction runs. Never
   profiled.
 - The seek bar reads ~200 ms ahead of what you hear (decode position versus device
@@ -234,6 +247,43 @@ the swap takes effect immediately.
 To add a new theme: create a `Themes/FooTheme.xaml` resource dictionary, add
 `"Foo"` to the theme-name array in the `MainViewModel` constructor, and add a case
 to `ThemeService.Apply`.
+
+### Shuffle and repeat (session 5)
+`PlayOrder` (`src/AudioFool.Core/Playback/PlayOrder.cs`) holds a permutation of the
+queue's indices — `_order[p]` is the queue index of the p-th track to play — plus its
+inverse for O(1) lookup. **The queue itself always stays in album order.** That is what
+makes turning shuffle off restore the running order, and what makes Previous retrace
+what was actually heard.
+
+`AudioEngine` owns one `PlayOrder` and asks it for every successor and predecessor.
+There were four places that used to compute `_index ± 1`; all four now call
+`_order.Next(...)` / `_order.Previous(...)`, which return -1 rather than wrapping when
+repeat is off:
+
+| Where | Was |
+|---|---|
+| `Next()` | `_index + 1`, wrap at the end |
+| `Previous()` | `_index - 1`, wrap at the start |
+| `PrefetchAfter()` | `currentIndex + 1` — this one feeds the gapless splice |
+| `OnCurrentStreamEnded` | uses `_prefetchedIndex`, so it inherits the above |
+
+**The trap to know about:** `Play` was split into a public `Play` and a private
+`PlayCore(..., bool resetOrder)`. Only a genuinely new queue may rebuild the order.
+`JumpTo` — which is what `Next`, `Previous`, and every device-reopen path actually call —
+passes `resetOrder: false`. Miss that and the queue re-shuffles on every single track
+change: Next becomes random-walk and Previous can never retrace.
+
+`Shuffle` and `Repeat` are both real properties now, not auto-properties. Changing
+either changes which track comes next, so both call `RefreshPrefetch()` to throw away
+the stream that was opened ahead of time and open the right one instead. Persisted to
+`settings.json` as `Shuffle` (bool) and `Repeat` (string: `Off` / `All` / `One`).
+
+In the UI the two buttons sit inside the transport `StackPanel`
+(`MainWindow.xaml`, now-playing bar, `Grid.Column="2"`), flanking Previous/Play/Next.
+They swap glyph *and* tint rather than tint alone — WPF-UI's `ArrowShuffleOff24` and
+`ArrowRepeatAllOff24` are struck-through variants, and an accent colour on its own is a
+weak signal next to the Primary-appearance play button. `Repeat` cycles through three
+states, so it is a `ui:Button` driving `CycleRepeatCommand`, not a `ToggleButton`.
 
 ### Type-ahead scroll (Artists and Albums)
 Implemented entirely in `MainWindow.xaml.cs` code-behind — no new files. Three fields
@@ -356,7 +406,7 @@ happily rewrite it.
 
 ## Suggested next steps
 
-1. Playlists / queue view / shuffle — the most conspicuous missing player feature.
+1. A visible, editable queue view — now the most conspicuous missing player feature.
 2. Profile the post-scan memory.
 3. TAK and DTS via a libVLC fallback decoder, if those files matter.
 4. Code signing would remove the SmartScreen warning on first launch, but is rarely worth

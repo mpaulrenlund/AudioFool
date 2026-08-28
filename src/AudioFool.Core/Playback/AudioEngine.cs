@@ -40,8 +40,12 @@ public sealed class AudioEngine : IDisposable
     private readonly HashSet<int> _exclusiveRefusedAt = [];
     private readonly ConcurrentDictionary<int, bool> _isDopHandle = new();
 
+    private readonly PlayOrder _order = new();
+
     private List<Track> _queue = [];
     private int _index = -1;
+    private bool _shuffle;
+    private RepeatMode _repeat = RepeatMode.Off;
     private OutputChain? _output;
     private OutputMode _requestedMode = OutputMode.Shared;
     private DsdMode _dsdMode = DsdMode.ConvertToPcm;
@@ -68,7 +72,49 @@ public sealed class AudioEngine : IDisposable
     public event EventHandler<PlaybackState>? StateChanged;
     public event EventHandler? PlaybackFinished;
 
-    public RepeatMode Repeat { get; set; } = RepeatMode.Off;
+    /// <summary>
+    /// What happens at the end of the queue. Changing this changes which track
+    /// comes next, so the stream opened ahead of time has to be re-opened.
+    /// </summary>
+    public RepeatMode Repeat
+    {
+        get { lock (_gate) return _repeat; }
+        set
+        {
+            lock (_gate)
+            {
+                if (_repeat == value)
+                    return;
+
+                _repeat = value;
+            }
+
+            RefreshPrefetch();
+        }
+    }
+
+    /// <summary>
+    /// Whether the queue plays in a shuffled order. Toggling this never changes
+    /// what is playing right now - the current track is pinned to the front of
+    /// the new order and the rest falls in behind it.
+    /// </summary>
+    public bool Shuffle
+    {
+        get { lock (_gate) return _shuffle; }
+        set
+        {
+            lock (_gate)
+            {
+                if (_shuffle == value)
+                    return;
+
+                _shuffle = value;
+                _order.Reset(_queue.Count, _index, _shuffle);
+            }
+
+            RefreshPrefetch();
+        }
+    }
 
     public PlaybackState State
     {
@@ -235,7 +281,16 @@ public sealed class AudioEngine : IDisposable
     }
 
     /// <summary>Starts a queue at the given index. Replaces anything already playing.</summary>
-    public bool Play(IReadOnlyList<Track> queue, int startIndex)
+    public bool Play(IReadOnlyList<Track> queue, int startIndex) =>
+        PlayCore(queue, startIndex, resetOrder: true);
+
+    /// <summary>
+    /// <paramref name="resetOrder"/> separates a genuinely new queue from a move
+    /// within the one already loaded. Only a new queue may rebuild the play order:
+    /// re-shuffling on every track change would make Next unpredictable and
+    /// Previous unable to retrace its steps.
+    /// </summary>
+    private bool PlayCore(IReadOnlyList<Track> queue, int startIndex, bool resetOrder)
     {
         if (!_runtime.Initialise() || queue.Count == 0)
             return false;
@@ -267,6 +322,9 @@ public sealed class AudioEngine : IDisposable
             _queue = [.. queue];
             _index = startIndex;
             _currentStream = stream;
+
+            if (resetOrder || _order.Count != _queue.Count)
+                _order.Reset(_queue.Count, startIndex, _shuffle);
 
             BassMix.MixerAddChannel(_output.Mixer, stream, SourceFlags);
             Bass.ChannelSetSync(stream, SyncFlags.End | SyncFlags.Mixtime, 0, _endSyncProc);
@@ -332,13 +390,9 @@ public sealed class AudioEngine : IDisposable
             if (_queue.Count == 0)
                 return false;
 
-            target = _index + 1;
-            if (target >= _queue.Count)
-            {
-                if (Repeat != RepeatMode.All)
-                    return false;
-                target = 0;
-            }
+            target = _order.Next(_index, wrap: _repeat == RepeatMode.All);
+            if (target < 0)
+                return false;
         }
 
         return JumpTo(target);
@@ -362,15 +416,13 @@ public sealed class AudioEngine : IDisposable
             if (_queue.Count == 0)
                 return false;
 
-            target = _index - 1;
+            target = _order.Previous(_index, wrap: _repeat == RepeatMode.All);
             if (target < 0)
             {
-                if (Repeat != RepeatMode.All)
-                {
-                    Seek(TimeSpan.Zero);
-                    return true;
-                }
-                target = _queue.Count - 1;
+                // Start of the order with no wrap: restart rather than stop, which
+                // is what a second press of Previous should feel like.
+                Seek(TimeSpan.Zero);
+                return true;
             }
         }
 
@@ -383,7 +435,32 @@ public sealed class AudioEngine : IDisposable
         lock (_gate)
             queue = _queue;
 
-        return index >= 0 && index < queue.Count && Play(queue, index);
+        return index >= 0 && index < queue.Count && PlayCore(queue, index, resetOrder: false);
+    }
+
+    /// <summary>
+    /// Throws away the stream opened ahead of time and opens the right one instead.
+    /// Called when something changes which track comes next - shuffle or repeat -
+    /// while a track is already playing.
+    /// </summary>
+    private void RefreshPrefetch()
+    {
+        int discard;
+        int index;
+
+        lock (_gate)
+        {
+            discard = _prefetchedStream;
+            _prefetchedStream = 0;
+            _prefetchedIndex = -1;
+            index = _index;
+        }
+
+        if (discard != 0)
+            FreeStream(discard);
+
+        if (index >= 0 && State != PlaybackState.Stopped)
+            PrefetchAfter(index);
     }
 
     public void Seek(TimeSpan position)
@@ -415,7 +492,7 @@ public sealed class AudioEngine : IDisposable
             if (channel != _currentStream)
                 return;
 
-            if (Repeat == RepeatMode.One && _output is not null)
+            if (_repeat == RepeatMode.One && _output is not null)
             {
                 // Rewind and re-add the same channel; its END sync is still attached.
                 Bass.ChannelSetPosition(_currentStream, 0);
@@ -510,13 +587,9 @@ public sealed class AudioEngine : IDisposable
                 if (_index != currentIndex)
                     return;
 
-                target = currentIndex + 1;
-                if (target >= _queue.Count)
-                {
-                    if (Repeat != RepeatMode.All || _queue.Count == 0)
-                        return;
-                    target = 0;
-                }
+                target = _order.Next(currentIndex, wrap: _repeat == RepeatMode.All);
+                if (target < 0)
+                    return;
 
                 path = _queue[target].FilePath;
             }
