@@ -136,4 +136,36 @@ public class LibrarySearchTests
         Assert.Equal(2, artist.Albums.Count);
         Assert.Equal(3, artist.TrackCount);
     }
+
+    [Theory]
+    [InlineData("Bjork",       "Björk",          "Homogenic", "Human Behaviour")]
+    [InlineData("bjork",       "Björk",          "Homogenic", "Human Behaviour")]
+    [InlineData("Bela Fleck",  "Béla Fleck",     "UFO TOFU",  "Sinister Minister")]
+    [InlineData("Sigur Ros",   "Sigur Rós",      "Ágætis byrjun", "Ný batterí")]
+    [InlineData("Beyonce",     "Beyoncé",        "Lemonade",  "Hold Up")]
+    [InlineData("Nino Rota",   "Nino Röta",      "Fellini",   "La Strada")]
+    public void Unaccented_query_finds_accented_artist(
+        string query, string artist, string album, string title)
+    {
+        Track[] tracks = [T(title, artist, album)];
+        Assert.Single(LibrarySearch.Filter(tracks, query));
+    }
+
+    [Theory]
+    [InlineData("Blue Oyster Cult", "Blue Öyster Cult", "Tyranny and Mutation", "Hot Rails to Hell")]
+    [InlineData("Cafe Tacvba",      "Café Tacvba",      "Re",                   "El Borrego")]
+    public void Unaccented_query_finds_accented_album_or_artist(
+        string query, string artist, string album, string title)
+    {
+        Track[] tracks = [T(title, artist, album)];
+        Assert.Single(LibrarySearch.Filter(tracks, query));
+    }
+
+    [Fact]
+    public void Accented_query_still_finds_unaccented_values()
+    {
+        // Symmetry: if the user types "Beyoncé" it should still find "Beyonce".
+        Track[] tracks = [T("Hold Up", "Beyonce", "Lemonade")];
+        Assert.Single(LibrarySearch.Filter(tracks, "Beyoncé"));
+    }
 }

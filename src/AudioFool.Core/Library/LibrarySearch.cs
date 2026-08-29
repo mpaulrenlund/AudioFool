@@ -1,3 +1,4 @@
+using System.Globalization;
 using AudioFool.Core.Models;
 
 namespace AudioFool.Core.Library;
@@ -49,9 +50,11 @@ public static class LibrarySearch
         || Contains(track.AlbumArtist, term)
         || Contains(track.Album, term);
 
+    private static readonly CompareInfo _compare = CultureInfo.InvariantCulture.CompareInfo;
+
     private static bool Contains(string? value, string term) =>
         !string.IsNullOrEmpty(value)
-        && value.Contains(term, StringComparison.CurrentCultureIgnoreCase);
+        && _compare.IndexOf(value, term, CompareOptions.IgnoreNonSpace | CompareOptions.IgnoreCase) >= 0;
 
     /// <summary>
     /// The matching subset of <paramref name="tracks"/>. An empty query returns
