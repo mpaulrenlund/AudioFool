@@ -388,21 +388,21 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// <summary>Header text over the track list.</summary>
     public string AlbumHeaderTitle => SelectedAlbum?.Album.Title ?? "";
 
-    public string AlbumHeaderSubtitle
+    /// <summary>Artist, year, (discs), duration - one per row rather than joined onto a line.</summary>
+    public IReadOnlyList<string> AlbumHeaderSubtitleLines
     {
         get
         {
             var album = SelectedAlbum?.Album;
             if (album is null)
-                return "";
+                return [];
 
-            var trackCount = album.Tracks.Count == 1 ? "1 track" : $"{album.Tracks.Count:N0} tracks";
-            var parts = new List<string> { album.ArtistName, album.YearDisplay, trackCount };
+            List<string> lines = [album.ArtistName, album.YearDisplay];
             if (album.DiscCount > 1)
-                parts.Add($"{album.DiscCount} discs");
+                lines.Add($"{album.DiscCount} discs");
 
-            parts.Add(Display.Time(album.TotalDuration));
-            return string.Join("  ·  ", parts);
+            lines.Add(Display.Time(album.TotalDuration));
+            return lines;
         }
     }
 
@@ -556,7 +556,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
 
         OnPropertyChanged(nameof(AlbumHeaderTitle));
-        OnPropertyChanged(nameof(AlbumHeaderSubtitle));
+        OnPropertyChanged(nameof(AlbumHeaderSubtitleLines));
 
         _ = LoadAlbumHeaderArtAsync(value);
     }
