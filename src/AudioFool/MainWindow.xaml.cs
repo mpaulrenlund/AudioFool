@@ -182,6 +182,14 @@ public partial class MainWindow : FluentWindow
                     list.ScrollIntoView(list.Items[^1]);
 
                 list.ScrollIntoView(target);
+
+                // The album's tracks are already bound in by now (Tracks is filled
+                // synchronously when SelectedAlbum changes), so refitting here means
+                // every album's column widths reflect its own content - not whatever
+                // the previously-viewed album happened to leave behind. Also covers
+                // switching artists, since that reassigns SelectedAlbum too.
+                if (ReferenceEquals(list, AlbumList))
+                    AutoFitColumns();
             },
             DispatcherPriority.Background);
     }
