@@ -862,6 +862,16 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
+    private void PlayAlbum(AlbumItemViewModel? album)
+    {
+        if (album is null)
+            return;
+
+        SelectedAlbum = album;   // populates Tracks synchronously
+        PlayTrack(Tracks.FirstOrDefault());
+    }
+
+    [RelayCommand]
     private void TogglePlay()
     {
         if (_engine.State == PlaybackState.Stopped)

@@ -177,6 +177,7 @@
                              ItemsSource="{Binding Albums}"
                              SelectedItem="{Binding SelectedAlbum, Mode=TwoWay}"
                              SelectionChanged="BrowserList_SelectionChanged"
+                             MouseDoubleClick="AlbumList_MouseDoubleClick"
                              BorderThickness="0"
                              Background="Transparent"
                              HorizontalContentAlignment="Stretch"

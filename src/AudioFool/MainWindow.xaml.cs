@@ -280,6 +280,15 @@ public partial class MainWindow : FluentWindow
             _viewModel.PlayTrackCommand.Execute(track);
     }
 
+    private void AlbumList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source)
+            return;
+
+        if (ItemsControl.ContainerFromElement(AlbumList, source) is ListBoxItem { DataContext: AlbumItemViewModel album })
+            _viewModel.PlayAlbumCommand.Execute(album);
+    }
+
     // ------------------------------------------------------- column auto-fit
 
     /// <summary>How close to a header's edge counts as grabbing its divider.</summary>
