@@ -68,6 +68,7 @@ public partial class MainWindow : FluentWindow
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         Loaded -= OnLoaded;
+        HookTrackGridScrollBar();
         await _viewModel.InitialiseAsync();
     }
 
@@ -112,6 +113,42 @@ public partial class MainWindow : FluentWindow
         Closed -= OnClosed;
         _hotkeys.Pressed -= OnHotkeyPressed;
         _hotkeys.Dispose();
+
+        if (_trackGridScroller is not null)
+            _trackGridScroller.ScrollChanged -= TrackGridScroller_ScrollChanged;
+    }
+
+    // ------------------------------------------------------- horizontal scrollbar
+
+    /// <summary>
+    /// Star-column layout leaves a few pixels of rounding overflow even when every
+    /// column already fits the viewport - WPF reports the DataGrid as fractionally
+    /// scrollable regardless of how wide the window is. That keeps the Auto
+    /// horizontal scrollbar visible with nowhere real to scroll.
+    /// <para>
+    /// Anything within this tolerance counts as "fully displayed" and the bar is
+    /// hidden. Genuine overflow - the floors in <see cref="AutoFitColumns"/> are
+    /// allowed to exceed the viewport by tens of pixels on purpose - stays well
+    /// above it and still shows the bar.
+    /// </para>
+    /// </summary>
+    private const double HorizontalOverflowTolerance = 4;
+
+    private ScrollViewer? _trackGridScroller;
+
+    private void HookTrackGridScrollBar()
+    {
+        _trackGridScroller = FindDescendant<ScrollViewer>(TrackGrid);
+        if (_trackGridScroller is not null)
+            _trackGridScroller.ScrollChanged += TrackGridScroller_ScrollChanged;
+    }
+
+    private void TrackGridScroller_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        var scroller = (ScrollViewer)sender;
+        scroller.HorizontalScrollBarVisibility = scroller.ScrollableWidth > HorizontalOverflowTolerance
+            ? ScrollBarVisibility.Auto
+            : ScrollBarVisibility.Hidden;
     }
 
     /// <summary>
