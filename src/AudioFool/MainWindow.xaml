@@ -185,7 +185,7 @@
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling">
                         <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
+                            <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                                 <Setter Property="ContextMenu">
                                     <Setter.Value>
                                         <ContextMenu>
@@ -315,7 +315,16 @@
                             put Song fourth instead of second.
                         -->
                         <DataGrid.RowStyle>
+                            <!--
+                                Deliberately not BasedOn="{StaticResource {x:Type DataGridRow}}" -
+                                that base style's own unconditional Background setter paints
+                                every row solid white, regardless of selection. Transparent by
+                                default (matching the DataGrid's own Background) and an explicit
+                                accent highlight on selection replicate the original look without
+                                inheriting whatever that base style actually does.
+                            -->
                             <Style TargetType="DataGridRow">
+                                <Setter Property="Background" Value="Transparent" />
                                 <!--
                                     A DataGridRow doesn't select itself on right-click the
                                     way a ListBoxItem does, so without this the context menu
@@ -332,6 +341,11 @@
                                         </ContextMenu>
                                     </Setter.Value>
                                 </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource AccentFillColorSelectedTextBackgroundBrush}" />
+                                    </Trigger>
+                                </Style.Triggers>
                             </Style>
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
