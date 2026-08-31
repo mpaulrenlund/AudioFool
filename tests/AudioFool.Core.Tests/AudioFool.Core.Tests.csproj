@@ -22,4 +22,8 @@
     <ProjectReference Include="..\..\src\AudioFool.Core\AudioFool.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="TestData\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

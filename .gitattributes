@@ -8,3 +8,5 @@
 *.ico binary
 *.jpg binary
 *.png binary
+*.flac binary
+*.mp3 binary

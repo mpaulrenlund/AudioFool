@@ -1,6 +1,7 @@
 ﻿using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime;
+using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -835,6 +836,165 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _settings.MusicFolders = [.. MusicFolders];
         _settings.Save();
         await ScanAsync();
+    }
+
+    // ----------------------------------------------------------- tag editing
+
+    [RelayCommand]
+    private void EditTrackTags(Track? track)
+    {
+        if (track is null || Application.Current.MainWindow is not { } owner)
+            return;
+
+        var editVm = new TagEditViewModel(track);
+        var window = new TagEditWindow(editVm, owner);
+
+        if (window.ShowDialog() != true)
+            return;
+
+        _ = ApplyTrackEditAsync(track, editVm.BuildTrackEdit());
+    }
+
+    [RelayCommand]
+    private void EditAlbumTags(AlbumItemViewModel? item)
+    {
+        if (item is null || Application.Current.MainWindow is not { } owner)
+            return;
+
+        var editVm = new TagEditViewModel(item.Album, _artService);
+        var window = new TagEditWindow(editVm, owner);
+
+        if (window.ShowDialog() != true)
+            return;
+
+        _ = ApplyAlbumEditAsync(item.Album, editVm.BuildAlbumEdit(), editVm.PickedArtPayload());
+    }
+
+    private async Task ApplyTrackEditAsync(Track track, TrackTagEdit edit)
+    {
+        StatusText = "Saving tags...";
+
+        var result = await Task.Run(() =>
+            TagWriter.WriteTrackTags(track, edit, art: null, folderArtPath: track.FolderArtPath));
+
+        if (!result.Success)
+        {
+            StatusText = $"Couldn't save tags for {Path.GetFileName(track.FilePath)}: {result.ErrorMessage}";
+            return;
+        }
+
+        ReplaceTracksInLibrary(new Dictionary<string, Track>(StringComparer.OrdinalIgnoreCase)
+        {
+            [track.FilePath] = result.UpdatedTrack!,
+        });
+
+        StatusText = $"Saved tags for {result.UpdatedTrack!.DisplayTitle}.";
+        await PersistLibraryAsync();
+    }
+
+    /// <summary>
+    /// 9 of 11 tracks succeeding is not a failure - every successful write is
+    /// folded into the library and persisted regardless of how many others failed,
+    /// and the failures are named individually rather than reported as one opaque
+    /// "batch failed" message.
+    /// </summary>
+    private async Task ApplyAlbumEditAsync(Album album, AlbumTagEdit edit, ArtPayload? art)
+    {
+        StatusText = $"Saving tags for {album.Tracks.Count} track(s)...";
+
+        var folderArtByDirectory = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        var folderArtFailed = false;
+
+        if (art is not null)
+        {
+            foreach (var directory in AlbumDirectories(album))
+            {
+                var existing = ExistingCoverIn(album, directory);
+                var folderResult = TagWriter.WriteFolderArt(directory, art, existing);
+                folderArtByDirectory[directory] = folderResult.Success ? folderResult.FolderArtPath : existing;
+                folderArtFailed |= !folderResult.Success;
+            }
+        }
+
+        var (updated, failed) = await Task.Run(() =>
+        {
+            var okTracks = new List<Track>();
+            var badTracks = new List<(string FileName, string Error)>();
+
+            foreach (var track in album.Tracks)
+            {
+                var directory = Path.GetDirectoryName(track.FilePath) ?? "";
+                var folderArtPath = art is not null && folderArtByDirectory.TryGetValue(directory, out var mapped)
+                    ? mapped
+                    : track.FolderArtPath;
+
+                var writeResult = TagWriter.WriteAlbumTrackTags(track, edit, art, folderArtPath);
+                if (writeResult.Success)
+                    okTracks.Add(writeResult.UpdatedTrack!);
+                else
+                    badTracks.Add((Path.GetFileName(track.FilePath), writeResult.ErrorMessage ?? "unknown error"));
+            }
+
+            return (okTracks, badTracks);
+        });
+
+        // Bust the art cache even on partial failure - the tracks that DID write
+        // still need their stale thumbnail/header/Now-Playing entries dropped.
+        if (art is not null)
+            _artService.InvalidateAlbum(album);
+
+        if (updated.Count > 0)
+        {
+            ReplaceTracksInLibrary(updated.ToDictionary(t => t.FilePath, StringComparer.OrdinalIgnoreCase));
+            await PersistLibraryAsync();
+        }
+
+        StatusText = failed.Count == 0
+            ? $"Saved tags for {updated.Count} track(s)."
+            : $"Saved tags for {updated.Count} of {album.Tracks.Count} track(s) - " +
+              $"{failed.Count} failed ({string.Join(", ", failed.Select(f => f.FileName))}: {failed[0].Error}).";
+
+        if (folderArtFailed)
+            StatusText += "  Folder cover file couldn't be updated.";
+    }
+
+    private void ReplaceTracksInLibrary(IReadOnlyDictionary<string, Track> updatedByPath)
+    {
+        var newAll = _library.AllTracks
+            .Select(t => updatedByPath.TryGetValue(t.FilePath, out var updated) ? updated : t)
+            .ToList();
+
+        ApplyLibrary(LibraryScanner.Build(newAll), keepSelection: true);
+    }
+
+    private async Task PersistLibraryAsync()
+    {
+        _cache = LibraryCache.From(MusicFolders, _library.AllTracks);
+        await Task.Run(_cache.Save, CancellationToken.None);
+    }
+
+    private static IEnumerable<string> AlbumDirectories(Album album) =>
+        album.Tracks
+            .Select(t => Path.GetDirectoryName(t.FilePath))
+            .OfType<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The cover file already sitting in one of an album's directories - not just
+    /// <see cref="Album.FolderArtPath"/>, which is only the first one found across
+    /// the whole album and may belong to a different directory than this one for a
+    /// multi-folder album (a multi-disc set kept as "Disc 1/", "Disc 2/" and the like).
+    /// </summary>
+    private static string? ExistingCoverIn(Album album, string directory)
+    {
+        if (album.FolderArtPath is not null &&
+            string.Equals(Path.GetDirectoryName(album.FolderArtPath), directory, StringComparison.OrdinalIgnoreCase))
+            return album.FolderArtPath;
+
+        var trackInDirectory = album.Tracks.FirstOrDefault(t =>
+            string.Equals(Path.GetDirectoryName(t.FilePath), directory, StringComparison.OrdinalIgnoreCase));
+
+        return trackInDirectory is null ? null : TagReader.FindFolderArt(trackInDirectory.FilePath);
     }
 
     // -------------------------------------------------------------- playback

@@ -76,6 +76,52 @@ public sealed class AlbumArtService
             DecodeBytesFull(TagReader.ReadEmbeddedArt(track.FilePath))
             ?? DecodeFileFull(track.FolderArtPath));
 
+    /// <summary>
+    /// Drops every cached image belonging to this album - its own thumbnail/header/
+    /// full-viewer entries and every one of its tracks' now-playing/full-viewer
+    /// entries - so the next request after a tag/art save decodes what's actually on
+    /// disk instead of serving a frozen bitmap from before the edit.
+    /// <para>
+    /// Pass the pre-edit <paramref name="album"/>: its artist/title/track paths are
+    /// what's actually cached right now. If the edit also renamed the album, the new
+    /// identity was never cached, so it decodes fresh automatically; the old-identity
+    /// entries this removes would otherwise just sit there as harmless LRU clutter.
+    /// </para>
+    /// </summary>
+    public void InvalidateAlbum(Album album)
+    {
+        lock (_gate)
+        {
+            var albumPrefix = $"{album.ArtistName}␟{album.Title}␟";
+            var albumFullKey = $"full␟{album.ArtistName}␟{album.Title}";
+            var trackPaths = album.Tracks.Select(t => t.FilePath).ToHashSet();
+
+            bool ShouldRemove(string key)
+            {
+                if (key.StartsWith(albumPrefix, StringComparison.Ordinal) || key == albumFullKey)
+                    return true;
+
+                foreach (var path in trackPaths)
+                {
+                    if (key == $"track␟{path}" || key.StartsWith($"track␟{path}␟", StringComparison.Ordinal)
+                        || key == $"fulltrack␟{path}")
+                        return true;
+                }
+
+                return false;
+            }
+
+            foreach (var key in _cache.Keys.Where(ShouldRemove).ToList())
+            {
+                if (!_cache.Remove(key, out var entry))
+                    continue;
+
+                _cachedBytes -= entry.Bytes;
+                _recency.Remove(entry.Node);
+            }
+        }
+    }
+
     private static BitmapSource? DecodeBytesFull(byte[]? data)
     {
         if (data is null || data.Length == 0)

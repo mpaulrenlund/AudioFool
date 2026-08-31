@@ -317,6 +317,16 @@ public partial class MainWindow : FluentWindow
             _viewModel.PlayTrackCommand.Execute(track);
     }
 
+    /// <summary>
+    /// Selects the row under the cursor before its context menu opens, since a
+    /// DataGridRow (unlike a ListBoxItem) doesn't select itself on right-click.
+    /// </summary>
+    private void TrackGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is DataGridRow row)
+            row.IsSelected = true;
+    }
+
     private void AlbumList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is not DependencyObject source)

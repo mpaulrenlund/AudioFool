@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using AudioFool.Core.Library;
 
 namespace AudioFool.Core.Models;
 
@@ -99,6 +100,57 @@ public sealed class Track
     /// </summary>
     public bool MatchesFile(long length, DateTime modifiedUtc) =>
         FileSize == length && ModifiedUtc == modifiedUtc;
+
+    /// <summary>
+    /// A copy with a single-track tag edit applied, re-stamped to the file's new
+    /// size/write time so <see cref="MatchesFile"/> reflects what was just written
+    /// instead of flagging the file as changed on the next scan.
+    /// </summary>
+    public Track WithTags(TrackTagEdit edit, FileStamp stamp, string? folderArtPath) => new()
+    {
+        FilePath = FilePath,
+        FolderArtPath = folderArtPath,
+
+        FileSize = stamp.Length,
+        ModifiedUtc = stamp.ModifiedUtc,
+        TrackNumber = edit.TrackNumber,
+        Title = edit.Title,
+        Artist = edit.Artist,
+        AlbumArtist = edit.AlbumArtist,
+        Album = edit.Album,
+        Duration = Duration,
+        DiscNumber = edit.DiscNumber,
+        Year = edit.Year,
+        Kind = Kind,
+        Bitrate = Bitrate,
+        BitDepth = BitDepth,
+        SampleRate = SampleRate,
+    };
+
+    /// <summary>
+    /// A copy with a whole-album batch edit applied. Title, track number and disc
+    /// number carry over unchanged - they are not part of an album-level edit.
+    /// </summary>
+    public Track WithAlbumTags(AlbumTagEdit edit, FileStamp stamp, string? folderArtPath) => new()
+    {
+        FilePath = FilePath,
+        FolderArtPath = folderArtPath,
+
+        FileSize = stamp.Length,
+        ModifiedUtc = stamp.ModifiedUtc,
+        TrackNumber = TrackNumber,
+        Title = Title,
+        Artist = edit.Artist,
+        AlbumArtist = edit.AlbumArtist,
+        Album = edit.Album,
+        Duration = Duration,
+        DiscNumber = DiscNumber,
+        Year = edit.Year,
+        Kind = Kind,
+        Bitrate = Bitrate,
+        BitDepth = BitDepth,
+        SampleRate = SampleRate,
+    };
 
     public override string ToString() => $"{TrackNumber}. {DisplayTitle}";
 }

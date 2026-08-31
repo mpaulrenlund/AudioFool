@@ -184,6 +184,19 @@
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value>
+                                        <ContextMenu>
+                                            <MenuItem Header="Edit Album Tags…"
+                                                      Command="{Binding Source={StaticResource Proxy}, Path=Data.EditAlbumTagsCommand}"
+                                                      CommandParameter="{Binding}" />
+                                        </ContextMenu>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:AlbumItemViewModel}">
                                 <Grid Margin="0,4">
@@ -301,6 +314,26 @@
                             star-width column ("Song") to the end of the row, which
                             put Song fourth instead of second.
                         -->
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <!--
+                                    A DataGridRow doesn't select itself on right-click the
+                                    way a ListBoxItem does, so without this the context menu
+                                    would act on whatever was last left-clicked instead of the
+                                    row actually under the cursor.
+                                -->
+                                <EventSetter Event="PreviewMouseRightButtonDown" Handler="TrackGridRow_PreviewMouseRightButtonDown" />
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value>
+                                        <ContextMenu>
+                                            <MenuItem Header="Edit Tags…"
+                                                      Command="{Binding Source={StaticResource Proxy}, Path=Data.EditTrackTagsCommand}"
+                                                      CommandParameter="{Binding}" />
+                                        </ContextMenu>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </DataGrid.RowStyle>
                         <DataGrid.Columns>
                             <!-- Now-playing indicator: shows a music note on the active row -->
                             <DataGridTemplateColumn x:Name="IndicatorColumn" Width="22" DisplayIndex="0" CanUserSort="False" CanUserResize="False">
