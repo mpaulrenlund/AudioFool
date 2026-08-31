@@ -24,6 +24,9 @@ public sealed partial class TagEditViewModel : ObservableObject
 {
     public bool IsAlbumMode { get; }
 
+    /// <summary>Where "Choose Image..." should open, so it starts at the album's own folder.</summary>
+    private readonly string? _artStartDirectory;
+
     /// <summary>The inverse of <see cref="IsAlbumMode"/>, for the fields only a single-track edit shows.</summary>
     public bool IsTrackMode => !IsAlbumMode;
 
@@ -93,6 +96,8 @@ public sealed partial class TagEditViewModel : ObservableObject
         AlbumTitle = album.Title;
         Year = album.Year?.ToString() ?? "";
 
+        _artStartDirectory = first is null ? null : Path.GetDirectoryName(first.FilePath);
+
         _ = LoadPreviewAsync(album, artService);
     }
 
@@ -106,6 +111,7 @@ public sealed partial class TagEditViewModel : ObservableObject
         {
             Title = "Choose cover art",
             Filter = "Image files (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png",
+            InitialDirectory = _artStartDirectory ?? "",
         };
 
         if (dialog.ShowDialog() != true)
