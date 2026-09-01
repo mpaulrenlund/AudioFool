@@ -15,7 +15,7 @@
     </LinearGradientBrush>
 
     <!-- Secondary surfaces: album art placeholders, subdued elements -->
-    <SolidColorBrush x:Key="ControlFillColorSecondaryBrush" Color="#305078A0" />
+    <SolidColorBrush x:Key="ControlFillColorSecondaryBrush" Color="#30606060" />
 
     <!-- Glass-edge borders: lighter, like refracted light at the edge of glass -->
     <SolidColorBrush x:Key="ControlElevationBorderBrush" Color="#6080B0E0" />
