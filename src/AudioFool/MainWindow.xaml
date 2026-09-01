@@ -145,6 +145,7 @@
                              BorderThickness="0"
                              Background="Transparent"
                              HorizontalContentAlignment="Stretch"
+                             Padding="0,0,4,0"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling">
@@ -196,6 +197,7 @@
                              BorderThickness="0"
                              Background="Transparent"
                              HorizontalContentAlignment="Stretch"
+                             Padding="0,0,4,0"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              VirtualizingPanel.IsVirtualizing="True"
                              VirtualizingPanel.VirtualizationMode="Recycling">
