@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-08-28 after the fifth build session. Read this alongside
+Updated 2026-09-01 after the sixth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -181,6 +181,41 @@ Everything below is implemented **and verified working**, not merely written:
 
 **93 tests pass** in `AudioFool.Core.Tests` — the original 73 plus 20 over `PlayOrder`.
 
+### Changes from session 6
+
+- **Diacritic-insensitive search.** "Bjork" now finds Björk, "Bela" finds Béla Fleck, etc.
+  Uses `CompareInfo.IndexOf` with `CompareOptions.IgnoreNonSpace | IgnoreCase` (InvariantCulture)
+  in `LibrarySearch.cs`. 9 new theory tests cover the affected artists and symmetry (accented
+  query finds unaccented value). 11 artists and 238 tracks in the user's library were affected.
+- **Double-click album plays first track.** `PlayAlbumCommand` on `AlbumList` —
+  sets `SelectedAlbum` synchronously (which populates `Tracks`), then calls
+  `PlayTrack(Tracks.FirstOrDefault())`.
+- **Phantom horizontal scrollbar hidden.** WPF's star-column layout leaves ~0.25% rounding
+  overflow. A `ScrollChanged` handler in `MainWindow.xaml.cs` (`HookTrackGridScrollBar`) hides
+  the bar when `ScrollableWidth <= 4` px, toggling `HorizontalScrollBarVisibility` between
+  `Hidden` and `Auto`.
+- **Album header subtitle: one attribute per line.** The "Artist · Year · N tracks · Duration"
+  single-line was replaced with an `ItemsControl` bound to `AlbumHeaderSubtitleLines` — one
+  `TextBlock` per line. Track count removed. Font and size unchanged.
+- **Tag and album art editing** (major new feature). Right-click a track → "Edit Tags…"
+  (Title / Artist / AlbumArtist / Album / Year / Track # / Disc #). Right-click an album →
+  "Edit Album Tags…" (Artist / AlbumArtist / Album / Year + art replacement). Art is always
+  written both into every track's embedded tags AND as a folder `cover.jpg`/`cover.png`.
+  Multi-disc albums (multiple sub-folders) get a cover file in every sub-folder.
+  Partial batch failures (e.g. 9 of 11 files) commit all successful writes and name the
+  failures in `StatusText`; nothing is rolled back. See new source files below.
+- **Art picker opens in the album's own folder.** `InitialDirectory` set from
+  `Path.GetDirectoryName(firstTrack.FilePath)`.
+- **Auto-fit columns on album selection.** `AutoFitColumns()` is called automatically when
+  `SelectedAlbum` changes (in the `BrowserList_SelectionChanged` deferred callback).
+- **Track row selection highlight.** The `DataGrid.RowStyle` now uses the flat WinUI accent
+  `AccentFillColorSelectedTextBackgroundBrush`. A Vista Aero Glass gradient was tried and
+  reverted at user request. Critical constraint: `RowStyle` must NOT use `BasedOn` on the
+  WPF-UI base — that base has an unconditional white `Background` setter that overrides
+  every row, making the grid look broken. See the Gotchas section.
+
+**113 tests pass** — the 93 from session 5 plus 9 diacritic search tests and 11 tag-writer tests.
+
 Shuffle was also verified end-to-end against the real engine with real FLAC files, by a
 headless probe driving `AudioEngine` in shared mode at zero gain — silent, and without
 taking the device from the running app. Fourteen checks, including the one that matters
@@ -215,6 +250,19 @@ track change.
 | `src/AudioFool/ViewModels/ThemeItem.cs` | Observable VM wrapping a theme name + `IsSelected` bool. Follows the same pattern as `FolderFilterItem`. |
 | `src/AudioFool/ThemeService.cs` | Static helper that swaps resource-dictionary overlays and sets the window `BackdropType`. Called from `MainViewModel` on theme change and from `App.OnStartup` for the saved theme. |
 | `src/AudioFool/Themes/VistaTheme.xaml` | Vista Aero Glass resource dictionary. Overrides `ControlFillColorDefaultBrush` (glass gradient), `ControlElevationBorderBrush` (glass-edge highlight), `ControlFillColorSecondaryBrush`, and slider brushes. |
+
+## New source files added in session 6
+
+| File | Purpose |
+|---|---|
+| `src/AudioFool.Core/Library/TagEdit.cs` | `TrackTagEdit`, `AlbumTagEdit`, `ArtPayload` — immutable records describing a pending write; no `null`-means-unchanged ambiguity. |
+| `src/AudioFool.Core/Library/TagWriter.cs` | Static write layer: `WriteTrackTags`, `WriteAlbumTrackTags`, `WriteFolderArt`. Never throws — all results are `TagWriteResult`/`FolderArtWriteResult` records. Re-stamps `FileSize`/`ModifiedUtc` via `FileStamp.For(path)` after each write so `Track.MatchesFile` stays correct. |
+| `src/AudioFool/ViewModels/TagEditViewModel.cs` | Backs `TagEditWindow` for both single-track and album-batch modes. `IsAlbumMode` flag drives which fields are visible. `BuildTrackEdit()` / `BuildAlbumEdit()` / `PickedArtPayload()` are read after `ShowDialog() == true`. |
+| `src/AudioFool/TagEditWindow.xaml[.cs]` | Modal dialog (FluentWindow/Mica, owner-centered). Save/Cancel in code-behind set `DialogResult`. Art panel and Track#/Disc# row are hidden in album mode via `Visibility` bindings. |
+| `tests/AudioFool.Core.Tests/TagWriterTests.cs` | Round-trip tests: all fields survive write+read; art bytes match; `FileStamp` changes after write; album mode leaves Title/Track# untouched; missing file fails cleanly. |
+| `tests/AudioFool.Core.Tests/TestData/sample.flac` | 0.5 s silence fixture for tag-writer tests (generated by ffmpeg). `.gitattributes` marks as binary. |
+| `tests/AudioFool.Core.Tests/TestData/sample.mp3` | Same for MP3 path (different TagLib code path). |
+| `tests/AudioFool.Core.Tests/TestData/cover.jpg` | 8×8 gray JPEG for art round-trip tests. |
 
 ## New/modified resource files in session 4
 
@@ -351,6 +399,40 @@ to overflow into a horizontal scrollbar rather than collapsing Artist and Album 
 `IndicatorColumn` is excluded throughout: it is a fixed 22 px by design and has no
 header text worth fitting.
 
+### Tag and album art editing (session 6)
+
+`Track`/`Album` remain immutable. A write produces a new `Track` via two new copy methods
+on `Track` itself — `WithTags(TrackTagEdit, FileStamp, string?)` and
+`WithAlbumTags(AlbumTagEdit, FileStamp, string?)` — mirroring the existing `Relocated`
+pattern. The new `Track` is spliced into `_library.AllTracks` by file path; then
+`LibraryScanner.Build(newAll)` rebuilds the tree (~0.04 s over 26k tracks) and
+`ApplyToView(keepSelection: true)` refreshes the visible lists.
+
+`TagWriter` is the only entry point for file writes. `SaveTags(path, Action<TagLib.Tag>, ArtPayload?)`
+opens one `TagLib.File.Create` session, applies the field setter, sets `Pictures` if art
+is provided, calls `file.Save()`, catches every known exception, and returns a `(bool, string?)`
+tuple. `TagWriteResult` and `FolderArtWriteResult` are the result records; they never throw
+across the boundary.
+
+`WriteFolderArt` is pure filesystem (no TagLib). It writes `cover.jpg` or `cover.png` based
+on the picked image's actual format. If an existing cover has a different extension it deletes
+the old file first — never leaving two competing cover files, never writing bytes under a
+mismatched extension.
+
+An album can span multiple physical directories (multi-disc sets, stray compilations).
+`AlbumDirectories(Album)` collects distinct `Path.GetDirectoryName` values across all
+`album.Tracks`. Folder art is written to every one of them, not just `Album.FolderArtPath`.
+
+After any art write `AlbumArtService.InvalidateAlbum(album)` busts all four cache key
+shapes for the album (thumbnail, full-viewer, per-track). Called with the *pre-edit* album
+— its current identity and track paths are what is actually in the cache. If the album is
+renamed, the new identity has no cache entry and decodes fresh automatically.
+
+The first `ContextMenu` in the app: track rows get "Edit Tags…" wired to `EditTrackTagsCommand`;
+album rows get "Edit Album Tags…" wired to `EditAlbumTagsCommand`. `DataGrid` rows don't
+select on right-click by default, so a `PreviewMouseRightButtonDown` handler on the
+`DataGrid.RowStyle` manually sets `row.IsSelected = true` before the menu opens.
+
 ### Type-ahead scroll (Artists and Albums)
 Implemented entirely in `MainWindow.xaml.cs` code-behind — no new files. Three fields
 on `MainWindow`: `_typeAheadBuffer` (the accumulated keystrokes), `_typeAheadTarget`
@@ -443,6 +525,11 @@ the DAC, and that an advancing position proves the WASAPI callback is actually r
   And the APE plugin is `bassape.dll`, not `bass_ape.dll`.
 - The DAC reports **"Busy"** when another app — or a second AudioFool instance — holds it
   exclusively. Not a code fault.
+- **`DataGrid.RowStyle` must NOT use `BasedOn="{StaticResource {x:Type DataGridRow}}"`.**
+  The WPF-UI base `DataGridRow` style has an unconditional `Background` setter that paints
+  every row white regardless of any `IsSelected` trigger you add on top. The symptom is a
+  white track grid after any `BasedOn` change. Fix: drop `BasedOn` entirely and set
+  `Background="Transparent"` explicitly. Spent two attempts figuring this out in session 6.
 - **The Edit tool silently replaces straight ASCII quotes with Unicode curly quotes**
   (`U+201C` / `U+201D`) inside C# string literals. This produces dozens of compile errors
   with no obvious cause. If you see `error CS1056: Unexpected character '"'` pointing at
@@ -473,7 +560,10 @@ happily rewrite it.
 ## Suggested next steps
 
 1. A visible, editable queue view — now the most conspicuous missing player feature.
-2. Profile the post-scan memory.
-3. TAK and DTS via a libVLC fallback decoder, if those files matter.
-4. Code signing would remove the SmartScreen warning on first launch, but is rarely worth
+2. MilkDrop 3 / projectM visualisation. Scoped out in session 6 (LGPL-2.1, C API,
+   `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll` — source only).
+   Proposed next step: spike build of `libprojectM.dll`. No implementation started.
+3. Profile the post-scan memory.
+4. TAK and DTS via a libVLC fallback decoder, if those files matter.
+5. Code signing would remove the SmartScreen warning on first launch, but is rarely worth
    the cost for a personal build.
