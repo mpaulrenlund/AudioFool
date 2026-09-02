@@ -1,0 +1,144 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        ============================================================================
+        PS1 motion
+        ============================================================================
+
+        Merged over Ps1Theme.xaml, and only when Windows has control animations
+        switched on - ThemeService checks SystemParameters.ClientAreaAnimation and
+        skips this file when it is off. That is why the animated states live here
+        rather than inside the templates: a storyboard held by a style cannot read
+        a DynamicResource, because applying a style seals it and freezes the
+        freezables it holds, so the durations cannot simply be zeroed at runtime.
+        Leaving the file out is the switch.
+
+        Each style here replaces a small one from Components.xaml or Ps1Theme.xaml
+        that does the same job without moving. No template is duplicated: the
+        pieces that animate were split out into styles of their own precisely so
+        this file could stay this short.
+
+        Three movements, all one-shot, none looping, none costing a render pass:
+
+          - a row's hover wash fades in and out
+          - a row's selection marker snaps in vertically, like a menu highlight
+            landing on the line you moved to
+          - the title-bar badge scales up once as the theme is applied, the way a
+            console announces itself before it gets on with the job
+
+        Durations are restated here rather than read from AfDuration* for the
+        frozen-storyboard reason above. They are the same numbers.
+    -->
+
+    <Duration x:Key="Ps1DurationFast">0:0:0.09</Duration>
+    <Duration x:Key="Ps1DurationNormal">0:0:0.14</Duration>
+    <Duration x:Key="Ps1DurationEntrance">0:0:0.45</Duration>
+
+    <!-- ===================================================== row hover -->
+
+    <Style x:Key="AfRowHoverWash" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource AfSurfaceRowHover}" />
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Style.Triggers>
+            <DataTrigger Value="True"
+                         Binding="{Binding IsMouseOver,
+                                   RelativeSource={RelativeSource AncestorType=ListBoxItem}}">
+                <DataTrigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                             To="1"
+                                             Duration="{StaticResource Ps1DurationFast}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.EnterActions>
+                <DataTrigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                             To="0"
+                                             Duration="{StaticResource Ps1DurationFast}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.ExitActions>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ================================================ selection marker -->
+
+    <!--
+        Scaled, not resized: the ScaleTransform is declared in the row template,
+        so animating it costs no layout pass and no repaint of the row's content.
+        A freezable set through a style setter would be frozen and could not be
+        animated at all - which is why the transform lives in the template and
+        only the animation lives here.
+    -->
+    <Style x:Key="AfRowSelectionBar" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource AfStrokeSelectionBar}" />
+        <Setter Property="Width" Value="{DynamicResource AfSizeSelectionBar}" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+        <Style.Triggers>
+            <DataTrigger Value="True"
+                         Binding="{Binding IsSelected,
+                                   RelativeSource={RelativeSource AncestorType=ListBoxItem}}">
+                <Setter Property="Visibility" Value="Visible" />
+                <DataTrigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation
+                                Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                From="0" To="1"
+                                Duration="{StaticResource Ps1DurationNormal}">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                             From="0" To="1"
+                                             Duration="{StaticResource Ps1DurationFast}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </DataTrigger.EnterActions>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ==================================================== badge entrance -->
+
+    <Style x:Key="Ps1BrandShapes" TargetType="StackPanel">
+        <Style.Triggers>
+            <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                <BeginStoryboard>
+                    <Storyboard>
+                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                         From="0" To="1"
+                                         Duration="{StaticResource Ps1DurationEntrance}" />
+                        <DoubleAnimation
+                            Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                            From="0.72" To="1"
+                            Duration="{StaticResource Ps1DurationEntrance}">
+                            <DoubleAnimation.EasingFunction>
+                                <BackEase EasingMode="EaseOut" Amplitude="0.35" />
+                            </DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                        <DoubleAnimation
+                            Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                            From="0.72" To="1"
+                            Duration="{StaticResource Ps1DurationEntrance}">
+                            <DoubleAnimation.EasingFunction>
+                                <BackEase EasingMode="EaseOut" Amplitude="0.35" />
+                            </DoubleAnimation.EasingFunction>
+                        </DoubleAnimation>
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </Style.Triggers>
+    </Style>
+
+</ResourceDictionary>

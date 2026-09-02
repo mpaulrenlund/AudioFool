@@ -32,6 +32,33 @@
         <CollectionViewSource x:Key="FolderFiltersSource"
                               Source="{Binding Data.FolderFilters, Source={StaticResource Proxy}}" />
         <fmt:IsCurrentTrackConverter x:Key="IsCurrentTrack" />
+
+        <!--
+            Artist and album rows. The look is entirely in AfBrowserRowTemplate,
+            which a theme owns; these two styles stay here because the album row
+            also carries a context menu whose command is bound through the proxy
+            above, and a dictionary in Themes/ cannot reach a window resource.
+        -->
+        <Style x:Key="BrowserRow" TargetType="ListBoxItem">
+            <Setter Property="Template" Value="{DynamicResource AfBrowserRowTemplate}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="{DynamicResource AfPadRow}" />
+            <Setter Property="Margin" Value="{DynamicResource AfPadRowMargin}" />
+        </Style>
+
+        <Style x:Key="AlbumRow" TargetType="ListBoxItem" BasedOn="{StaticResource BrowserRow}">
+            <Setter Property="ContextMenu">
+                <Setter.Value>
+                    <ContextMenu>
+                        <MenuItem Header="Edit Album Tags…"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.EditAlbumTagsCommand}"
+                                  CommandParameter="{Binding}" />
+                    </ContextMenu>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </ui:FluentWindow.Resources>
 
     <Grid>
@@ -42,6 +69,16 @@
             <RowDefinition Height="Auto" />   <!-- status -->
         </Grid.RowDefinitions>
 
+        <!--
+            The shell surface. First in the Grid so it draws behind everything
+            else - a theme may put its plate, texture or geometry here, and it is
+            the only place any of those are allowed to go. Dark and Vista leave
+            the template empty and let the window backdrop show through.
+        -->
+        <Control Grid.Row="0" Grid.RowSpan="4"
+                 Template="{DynamicResource AfWindowDecor}"
+                 Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
+
         <ui:TitleBar Grid.Row="0">
             <!--
                 The app name doubles as a File-style menu. Output and library
@@ -49,13 +86,14 @@
             -->
             <ui:TitleBar.Header>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Image Source="/Resources/logo.jpg"
-                       Height="30"
-                       Margin="4,0,0,0"
-                       VerticalAlignment="Center"
-                       RenderOptions.BitmapScalingMode="HighQuality" />
+                <Control Template="{DynamicResource AfBrandMark}"
+                         Height="{DynamicResource AfSizeBrandMark}"
+                         Margin="4,0,0,0"
+                         VerticalAlignment="Center"
+                         Focusable="False" IsTabStop="False"
+                         AutomationProperties.Name="AudioFool" />
                 <Menu Background="Transparent" VerticalAlignment="Center" Margin="4,0,0,0">
-                    <MenuItem Header="AudioFool" FontWeight="SemiBold">
+                    <MenuItem Header="AudioFool" FontWeight="{DynamicResource AfFontWeightSemiBold}">
                         <MenuItem Header="DSD passthrough"
                                   IsCheckable="True"
                                   IsChecked="{Binding IsDsdPassthrough, Mode=TwoWay}"
@@ -116,13 +154,20 @@
                             PlaceholderText="Search"
                             ClearButtonEnabled="True"
                             Icon="{ui:SymbolIcon Search24}"
+                            AutomationProperties.Name="Search"
                             ToolTip="Search artists, albums and songs" />
                 </StackPanel>
             </ui:TitleBar.Header>
         </ui:TitleBar>
 
+        <!-- The moulding seam where the title strip meets the browser. Warm grey
+             in PS1, invisible in the themes that do not use it. -->
+        <Border Grid.Row="0" Height="1" VerticalAlignment="Bottom"
+                Background="{DynamicResource AfStrokeWarm}"
+                IsHitTestVisible="False" />
+
         <!-- ============================================ artist | album | tracks -->
-        <Grid Grid.Row="1" Margin="16,0,16,0">
+        <Grid Grid.Row="1" Margin="{DynamicResource AfPadWindowBrowser}">
             <!-- Panes are deliberately narrow: the ten track columns need ~940px. -->
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="200" MinWidth="140" />
@@ -133,189 +178,157 @@
             </Grid.ColumnDefinitions>
 
             <!-- artists -->
-            <Border Grid.Column="0" Style="{StaticResource PaneBorder}">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top"
-                               Text="ARTISTS"
-                               Style="{StaticResource PaneHeader}" />
-                    <ListBox x:Name="ArtistList"
-                             ItemsSource="{Binding Artists}"
-                             SelectedItem="{Binding SelectedArtist, Mode=TwoWay}"
-                             SelectionChanged="BrowserList_SelectionChanged"
-                             BorderThickness="0"
-                             Background="Transparent"
-                             HorizontalContentAlignment="Stretch"
-                             Padding="0,0,4,0"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             VirtualizingPanel.IsVirtualizing="True"
-                             VirtualizingPanel.VirtualizationMode="Recycling">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="BorderBrush" Value="Transparent" />
-                                <Setter Property="BorderThickness" Value="0" />
-                                <Setter Property="Padding" Value="8,4" />
-                                <Setter Property="Margin" Value="0,2" />
-                                <Style.Triggers>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
-                                        <Setter Property="BorderBrush" Value="Transparent" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate DataType="{x:Type core:ArtistGroup}">
-                                <StackPanel Margin="0,3">
-                                    <TextBlock Text="{Binding Name}"
-                                               TextTrimming="CharacterEllipsis"
-                                               FontSize="13" />
-                                    <TextBlock Text="{Binding AlbumSummary}"
-                                               FontSize="11"
-                                               Opacity="0.55" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </Border>
+            <HeaderedContentControl Grid.Column="0" Style="{DynamicResource AfPane}">
+                <HeaderedContentControl.Header>
+                    <TextBlock Text="ARTISTS" Style="{DynamicResource AfPaneHeaderText}" />
+                </HeaderedContentControl.Header>
+                <ListBox x:Name="ArtistList"
+                         ItemsSource="{Binding Artists}"
+                         SelectedItem="{Binding SelectedArtist, Mode=TwoWay}"
+                         SelectionChanged="BrowserList_SelectionChanged"
+                         MouseDoubleClick="ArtistList_MouseDoubleClick"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         HorizontalContentAlignment="Stretch"
+                         Padding="{DynamicResource AfPadListInner}"
+                         ItemContainerStyle="{StaticResource BrowserRow}"
+                         AutomationProperties.Name="Artists"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type core:ArtistGroup}">
+                            <StackPanel Margin="0,3">
+                                <TextBlock Text="{Binding Name}"
+                                           Style="{DynamicResource AfRowTitle}" />
+                                <TextBlock Text="{Binding AlbumSummary}"
+                                           Style="{DynamicResource AfMetaText}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </HeaderedContentControl>
 
-            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center"
+            <GridSplitter Grid.Column="1" Width="{DynamicResource AfSizeSplitter}"
+                          HorizontalAlignment="Center"
                           Background="Transparent" ResizeBehavior="PreviousAndNext" />
 
             <!-- albums, oldest first -->
-            <Border Grid.Column="2" Style="{StaticResource PaneBorder}">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top"
-                               Text="ALBUMS"
-                               Style="{StaticResource PaneHeader}" />
-                    <ListBox x:Name="AlbumList"
-                             ItemsSource="{Binding Albums}"
-                             SelectedItem="{Binding SelectedAlbum, Mode=TwoWay}"
-                             SelectionChanged="BrowserList_SelectionChanged"
-                             MouseDoubleClick="AlbumList_MouseDoubleClick"
-                             BorderThickness="0"
-                             Background="Transparent"
-                             HorizontalContentAlignment="Stretch"
-                             Padding="0,0,4,0"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             VirtualizingPanel.IsVirtualizing="True"
-                             VirtualizingPanel.VirtualizationMode="Recycling">
-                        <ListBox.ItemContainerStyle>
-                            <Style TargetType="ListBoxItem">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="BorderBrush" Value="Transparent" />
-                                <Setter Property="BorderThickness" Value="0" />
-                                <Setter Property="Padding" Value="8,4" />
-                                <Setter Property="Margin" Value="0,2" />
-                                <Setter Property="ContextMenu">
-                                    <Setter.Value>
-                                        <ContextMenu>
-                                            <MenuItem Header="Edit Album Tags…"
-                                                      Command="{Binding Source={StaticResource Proxy}, Path=Data.EditAlbumTagsCommand}"
-                                                      CommandParameter="{Binding}" />
-                                        </ContextMenu>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
-                                        <Setter Property="BorderBrush" Value="Transparent" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ListBox.ItemContainerStyle>
-                        <ListBox.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vm:AlbumItemViewModel}">
-                                <Grid Margin="0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
+            <HeaderedContentControl Grid.Column="2" Style="{DynamicResource AfPane}">
+                <HeaderedContentControl.Header>
+                    <TextBlock Text="ALBUMS" Style="{DynamicResource AfPaneHeaderText}" />
+                </HeaderedContentControl.Header>
+                <ListBox x:Name="AlbumList"
+                         ItemsSource="{Binding Albums}"
+                         SelectedItem="{Binding SelectedAlbum, Mode=TwoWay}"
+                         SelectionChanged="BrowserList_SelectionChanged"
+                         MouseDoubleClick="AlbumList_MouseDoubleClick"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         HorizontalContentAlignment="Stretch"
+                         Padding="{DynamicResource AfPadListInner}"
+                         ItemContainerStyle="{StaticResource AlbumRow}"
+                         AutomationProperties.Name="Albums"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:AlbumItemViewModel}">
+                            <Grid Margin="0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
 
-                                    <Border Grid.Column="0" Width="48" Height="48"
-                                            CornerRadius="4"
-                                            Background="{DynamicResource ControlFillColorSecondaryBrush}">
-                                        <Grid>
-                                            <ui:SymbolIcon Symbol="MusicNote224"
-                                                           FontSize="20" Opacity="0.35"
-                                                           Visibility="{Binding Thumbnail, Converter={StaticResource NullToVisible}}" />
-                                            <Image Source="{Binding Thumbnail}"
-                                                   Stretch="UniformToFill"
-                                                   Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
-                                        </Grid>
-                                    </Border>
+                                <Border Grid.Column="0"
+                                        Width="{DynamicResource AfSizeArtRow}"
+                                        Height="{DynamicResource AfSizeArtRow}"
+                                        Style="{DynamicResource AfArtFrame}">
+                                    <Grid>
+                                        <ui:SymbolIcon Symbol="MusicNote224"
+                                                       FontSize="{DynamicResource AfIconSizeMedium}"
+                                                       Foreground="{DynamicResource AfTextPlaceholder}"
+                                                       Visibility="{Binding Thumbnail, Converter={StaticResource NullToVisible}}" />
+                                        <Image Source="{Binding Thumbnail}"
+                                               Stretch="UniformToFill"
+                                               Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
+                                    </Grid>
+                                </Border>
 
-                                    <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Title}"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   FontSize="13" />
-                                        <TextBlock FontSize="11" Opacity="0.55" TextTrimming="CharacterEllipsis">
-                                            <Run Text="{Binding YearDisplay, Mode=OneWay}" />
-                                            <Run Text="·" />
-                                            <Run Text="{Binding TrackSummary, Mode=OneWay}" />
-                                        </TextBlock>
-                                    </StackPanel>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </Border>
+                                <StackPanel Grid.Column="1"
+                                            Margin="{DynamicResource AfPadBesideArt}"
+                                            VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}"
+                                               Style="{DynamicResource AfRowTitle}" />
+                                    <TextBlock Style="{DynamicResource AfMetaText}">
+                                        <Run Text="{Binding YearDisplay, Mode=OneWay}" />
+                                        <Run Text="·" />
+                                        <Run Text="{Binding TrackSummary, Mode=OneWay}" />
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </HeaderedContentControl>
 
-            <GridSplitter Grid.Column="3" Width="6" HorizontalAlignment="Center"
+            <GridSplitter Grid.Column="3" Width="{DynamicResource AfSizeSplitter}"
+                          HorizontalAlignment="Center"
                           Background="Transparent" ResizeBehavior="PreviousAndNext" />
 
-            <!-- album header + tracks -->
-            <Border Grid.Column="4" Style="{StaticResource PaneBorder}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-
-                    <!-- big album art + album facts -->
-                    <Grid Grid.Row="0" Margin="12,12,12,12"
+            <!--
+                Album header + tracks, styled as the display rather than a plain
+                pane: it is the one surface a theme may put texture behind, and
+                the album facts ride on its header strip.
+            -->
+            <HeaderedContentControl Grid.Column="4" Style="{DynamicResource AfPaneDisplay}">
+                <!-- big album art + album facts -->
+                <HeaderedContentControl.Header>
+                    <Grid Margin="{DynamicResource AfPadAlbumHeader}"
                           Visibility="{Binding SelectedAlbum, Converter={StaticResource NullToCollapsed}}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <Border Grid.Column="0" Width="104" Height="104"
-                                CornerRadius="6"
-                                Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                        <Border Grid.Column="0"
+                                Width="{DynamicResource AfSizeArtHeader}"
+                                Height="{DynamicResource AfSizeArtHeader}"
+                                Style="{DynamicResource AfArtFrameLarge}"
                                 Cursor="Hand"
-                                ToolTip="Double-click to view the cover full size"
                                 MouseLeftButtonDown="AlbumArt_MouseLeftButtonDown">
                             <Grid>
-                                <ui:SymbolIcon Symbol="MusicNote224" FontSize="36" Opacity="0.3"
+                                <ui:SymbolIcon Symbol="MusicNote224"
+                                               FontSize="{DynamicResource AfIconSizeHero}"
+                                               Foreground="{DynamicResource AfTextPlaceholder}"
                                                Visibility="{Binding SelectedAlbumArt, Converter={StaticResource NullToVisible}}" />
                                 <Image Source="{Binding SelectedAlbumArt}" Stretch="UniformToFill"
                                        Visibility="{Binding SelectedAlbumArt, Converter={StaticResource NullToCollapsed}}" />
                             </Grid>
                         </Border>
 
-                        <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="1"
+                                    Margin="{DynamicResource AfPadBesideArtLarge}"
+                                    VerticalAlignment="Center">
                             <TextBlock Text="{Binding AlbumHeaderTitle}"
-                                       FontSize="24" FontWeight="SemiBold"
-                                       TextTrimming="CharacterEllipsis" />
+                                       Style="{DynamicResource AfAlbumTitle}" />
                             <ItemsControl ItemsSource="{Binding AlbumHeaderSubtitleLines}"
                                           Margin="0,6,0,0" Focusable="False">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding}"
-                                                   FontSize="12" Opacity="0.6"
-                                                   TextTrimming="CharacterEllipsis" />
+                                                   Style="{DynamicResource AfMetaText}"
+                                                   FontSize="{DynamicResource AfFontSizeBody}" />
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </StackPanel>
                     </Grid>
+                </HeaderedContentControl.Header>
 
+                <Grid>
                     <!-- the ten columns, in track order -->
                     <DataGrid x:Name="TrackGrid"
-                              Grid.Row="1"
                               ItemsSource="{Binding Tracks}"
                               AutoGenerateColumns="False"
                               IsReadOnly="True"
@@ -329,7 +342,9 @@
                               GridLinesVisibility="None"
                               Background="Transparent"
                               BorderThickness="0"
-                              RowHeight="30"
+                              RowHeight="{DynamicResource AfSizeTrackRowHeight}"
+                              AlternationCount="2"
+                              AutomationProperties.Name="Tracks"
                               EnableRowVirtualization="True"
                               EnableColumnVirtualization="False"
                               VirtualizingPanel.VirtualizationMode="Recycling"
@@ -348,11 +363,19 @@
                                 that base style's own unconditional Background setter paints
                                 every row solid white, regardless of selection. Transparent by
                                 default (matching the DataGrid's own Background) and an explicit
-                                accent highlight on selection replicate the original look without
+                                highlight on selection replicate the original look without
                                 inheriting whatever that base style actually does.
+
+                                Property setters rather than a template, because this style
+                                also carries a context menu and an event handler that can only
+                                live here. The left marker on a selected row therefore rides on
+                                BorderBrush/BorderThickness, which the stock DataGridRow
+                                template does template-bind - so a theme can add one without
+                                this needing a template of its own.
                             -->
                             <Style TargetType="DataGridRow">
                                 <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0" />
                                 <!--
                                     A DataGridRow doesn't select itself on right-click the
                                     way a ListBoxItem does, so without this the context menu
@@ -370,8 +393,35 @@
                                     </Setter.Value>
                                 </Setter>
                                 <Style.Triggers>
+                                    <!-- Banding, then hover, then selection: later triggers
+                                         win, so a selected odd row still reads as selected. -->
+                                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                        <Setter Property="Background"
+                                                Value="{DynamicResource AfSurfaceRowAlternate}" />
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background"
+                                                Value="{DynamicResource AfSurfaceRowHover}" />
+                                    </Trigger>
                                     <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="{DynamicResource AccentFillColorSelectedTextBackgroundBrush}" />
+                                        <Setter Property="Background"
+                                                Value="{DynamicResource AfSurfaceTrackSelected}" />
+                                        <Setter Property="BorderBrush"
+                                                Value="{DynamicResource AfStrokeSelectionBar}" />
+                                        <Setter Property="BorderThickness"
+                                                Value="{DynamicResource AfStrokeSelectionBarThickness}" />
+                                    </Trigger>
+                                    <!--
+                                        Keyboard focus brightens the marker instead of
+                                        outlining a cell. A dotted focus rectangle is the
+                                        traditional answer and was tried; inside a cell it
+                                        boxes the song title and reads as an edit field.
+                                    -->
+                                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                        <Setter Property="BorderBrush"
+                                                Value="{DynamicResource AfFocusRing}" />
+                                        <Setter Property="BorderThickness"
+                                                Value="{DynamicResource AfStrokeSelectionBarThickness}" />
                                     </Trigger>
                                 </Style.Triggers>
                             </Style>
@@ -382,10 +432,11 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <ui:SymbolIcon Symbol="MusicNote124"
-                                                       FontSize="11"
+                                                       FontSize="{DynamicResource AfIconSizeMicro}"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"
-                                                       Opacity="0.75">
+                                                       Foreground="{DynamicResource AfStatusInfo}"
+                                                       ToolTip="Now playing">
                                             <ui:SymbolIcon.Visibility>
                                                 <MultiBinding Converter="{StaticResource IsCurrentTrack}">
                                                     <Binding />
@@ -400,10 +451,11 @@
                             <DataGridTextColumn x:Name="TrackNumberColumn" Header="#" Width="44" DisplayIndex="1"
                                                 Binding="{Binding TrackNumber, Converter={StaticResource Number}}"
                                                 SortMemberPath="TrackNumber"
-                                                ElementStyle="{StaticResource NumericCell}" />
+                                                ElementStyle="{DynamicResource AfNumericCell}" />
 
                             <DataGridTextColumn x:Name="SongColumn" Header="Song" Width="*" MinWidth="180" DisplayIndex="2"
-                                                Binding="{Binding DisplayTitle}" />
+                                                Binding="{Binding DisplayTitle}"
+                                                ElementStyle="{DynamicResource AfTrackTitleCell}" />
 
                             <DataGridTextColumn x:Name="ArtistColumn" Header="Artist" Width="140" DisplayIndex="3"
                                                 Binding="{Binding Artist}" />
@@ -414,12 +466,12 @@
                             <DataGridTextColumn x:Name="TimeColumn" Header="Time" Width="60" DisplayIndex="5"
                                                 Binding="{Binding Duration, Converter={StaticResource Duration}}"
                                                 SortMemberPath="Duration"
-                                                ElementStyle="{StaticResource NumericCell}" />
+                                                ElementStyle="{DynamicResource AfNumericCell}" />
 
                             <DataGridTextColumn x:Name="DiscColumn" Header="Disc" Width="46" DisplayIndex="6"
                                                 Binding="{Binding DiscNumber, Converter={StaticResource Number}}"
                                                 SortMemberPath="DiscNumber"
-                                                ElementStyle="{StaticResource NumericCell}" />
+                                                ElementStyle="{DynamicResource AfNumericCell}" />
 
 
                             <DataGridTextColumn x:Name="KindColumn" Header="Kind" Width="74" DisplayIndex="7"
@@ -428,30 +480,33 @@
                             <DataGridTextColumn x:Name="BitrateColumn" Header="Bitrate" Width="82" DisplayIndex="8"
                                                 Binding="{Binding Bitrate, Converter={StaticResource Bitrate}}"
                                                 SortMemberPath="Bitrate"
-                                                ElementStyle="{StaticResource NumericCell}" />
+                                                ElementStyle="{DynamicResource AfNumericCell}" />
 
                             <DataGridTextColumn x:Name="BitDepthColumn" Header="Bit Depth" Width="72" DisplayIndex="9"
                                                 Binding="{Binding BitDepth, Converter={StaticResource BitDepth}}"
                                                 SortMemberPath="BitDepth"
-                                                ElementStyle="{StaticResource NumericCell}" />
+                                                ElementStyle="{DynamicResource AfNumericCell}" />
 
                             <DataGridTextColumn x:Name="SampleRateColumn" Header="Sample Rate" Width="94" DisplayIndex="10"
                                                 Binding="{Binding SampleRate, Converter={StaticResource SampleRate}}"
                                                 SortMemberPath="SampleRate"
-                                                ElementStyle="{StaticResource NumericCell}" />
+                                                ElementStyle="{DynamicResource AfNumericCell}" />
                         </DataGrid.Columns>
                     </DataGrid>
+
+                    <!-- Nothing chosen yet. Draws nothing at all unless the theme
+                         fills the slot, so the pane is simply empty in Dark. -->
+                    <Control Template="{DynamicResource AfEmptyState}"
+                             Focusable="False" IsTabStop="False" IsHitTestVisible="False"
+                             Visibility="{Binding SelectedAlbum, Converter={StaticResource NullToVisible}}" />
                 </Grid>
-            </Border>
+            </HeaderedContentControl>
         </Grid>
 
         <!-- ============================================ now playing -->
-        <Border Grid.Row="2" Margin="16,12,16,0"
-                Padding="12"
-                CornerRadius="8"
-                Background="{DynamicResource ControlFillColorDefaultBrush}"
-                BorderBrush="{DynamicResource ControlElevationBorderBrush}"
-                BorderThickness="1">
+        <ContentControl Grid.Row="2"
+                        Style="{DynamicResource AfDeck}"
+                        Margin="{DynamicResource AfPadWindowDeck}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -462,14 +517,16 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- cover -->
-                <Border Grid.Column="0" Width="56" Height="56"
-                        CornerRadius="4"
-                        Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                <Border Grid.Column="0"
+                        Width="{DynamicResource AfSizeArtDeck}"
+                        Height="{DynamicResource AfSizeArtDeck}"
+                        Style="{DynamicResource AfArtFrame}"
                         Cursor="Hand"
-                        ToolTip="Double-click to view the cover full size"
                         MouseLeftButtonDown="NowPlayingArt_MouseLeftButtonDown">
                     <Grid>
-                        <ui:SymbolIcon Symbol="MusicNote224" FontSize="22" Opacity="0.35"
+                        <ui:SymbolIcon Symbol="MusicNote224"
+                                       FontSize="{DynamicResource AfIconSizeLarge}"
+                                       Foreground="{DynamicResource AfTextPlaceholder}"
                                        Visibility="{Binding NowPlayingArt, Converter={StaticResource NullToVisible}}" />
                         <Image Source="{Binding NowPlayingArt}" Stretch="UniformToFill"
                                Visibility="{Binding NowPlayingArt, Converter={StaticResource NullToCollapsed}}" />
@@ -477,15 +534,16 @@
                 </Border>
 
                 <!-- what's playing -->
-                <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="NowPlayingInfo_MouseLeftButtonDown">
                     <TextBlock x:Name="NowPlayingTitle"
                                Text="{Binding NowPlaying.DisplayTitle, FallbackValue='', TargetNullValue=''}"
-                               FontSize="13" FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis" />
+                               Style="{DynamicResource AfRowTitle}"
+                               FontWeight="{DynamicResource AfFontWeightSemiBold}" />
                     <TextBlock Text="{Binding NowPlaying.Artist, TargetNullValue=''}"
-                               FontSize="11" Opacity="0.6"
-                               TextTrimming="CharacterEllipsis" />
-                    <TextBlock FontSize="11" Opacity="0.45" TextTrimming="CharacterEllipsis"
+                               Style="{DynamicResource AfMetaText}" />
+                    <TextBlock Style="{DynamicResource AfMetaTextQuiet}"
                                Visibility="{Binding NowPlaying, Converter={StaticResource NullToCollapsed}}">
                         <Run Text="{Binding NowPlaying.Kind, Mode=OneWay}" />
                         <Run Text="·" />
@@ -504,6 +562,7 @@
                     <ui:Button Command="{Binding ToggleShuffleCommand}"
                                Appearance="Secondary"
                                Margin="0,0,8,0"
+                               AutomationProperties.Name="Shuffle"
                                ToolTip="{Binding ShuffleTooltip}">
                         <ui:Button.Icon>
                             <ui:SymbolIcon>
@@ -514,7 +573,7 @@
                                             <DataTrigger Binding="{Binding IsShuffle}" Value="True">
                                                 <Setter Property="Symbol" Value="ArrowShuffle24" />
                                                 <Setter Property="Foreground"
-                                                        Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                                        Value="{DynamicResource AfStatusInfoText}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -525,12 +584,15 @@
 
                     <ui:Button Command="{Binding PreviousCommand}"
                                Icon="{ui:SymbolIcon Previous24}"
-                               Appearance="Secondary" ToolTip="Previous (or restart)" />
+                               Appearance="Secondary"
+                               AutomationProperties.Name="Previous track"
+                               ToolTip="Previous (or restart)" />
 
                     <ui:Button Command="{Binding TogglePlayCommand}"
                                Appearance="Primary"
                                Width="46" Height="38"
                                Margin="8,0"
+                               AutomationProperties.Name="Play or pause"
                                ToolTip="Play / pause">
                         <ui:Button.Icon>
                             <ui:SymbolIcon>
@@ -550,12 +612,15 @@
 
                     <ui:Button Command="{Binding NextCommand}"
                                Icon="{ui:SymbolIcon Next24}"
-                               Appearance="Secondary" ToolTip="Next" />
+                               Appearance="Secondary"
+                               AutomationProperties.Name="Next track"
+                               ToolTip="Next" />
 
                     <!-- Three-way cycle: off, whole queue, this track. -->
                     <ui:Button Command="{Binding CycleRepeatCommand}"
                                Appearance="Secondary"
                                Margin="8,0,0,0"
+                               AutomationProperties.Name="Repeat"
                                ToolTip="{Binding RepeatTooltip}">
                         <ui:Button.Icon>
                             <ui:SymbolIcon>
@@ -566,12 +631,12 @@
                                             <DataTrigger Binding="{Binding IsRepeatAll}" Value="True">
                                                 <Setter Property="Symbol" Value="ArrowRepeatAll24" />
                                                 <Setter Property="Foreground"
-                                                        Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                                        Value="{DynamicResource AfStatusInfoText}" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsRepeatOne}" Value="True">
                                                 <Setter Property="Symbol" Value="ArrowRepeat124" />
                                                 <Setter Property="Foreground"
-                                                        Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                                        Value="{DynamicResource AfStatusInfoText}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -590,26 +655,25 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock x:Name="PositionText" Grid.Column="0" Text="{Binding PositionDisplay}"
-                               FontSize="11" Opacity="0.7"
-                               MinWidth="42" TextAlignment="Right"
-                               VerticalAlignment="Center" />
+                               Style="{DynamicResource AfReadout}"
+                               MinWidth="42" TextAlignment="Right" />
 
                     <Slider x:Name="SeekBar" Grid.Column="1"
                             Margin="10,0"
-                            Style="{StaticResource EdgeToEdgeSlider}"
+                            Style="{DynamicResource AfSlider}"
                             Minimum="0"
                             Maximum="{Binding DurationSeconds}"
                             Value="{Binding PositionSeconds, Mode=TwoWay}"
                             IsMoveToPointEnabled="True"
                             VerticalAlignment="Center"
+                            AutomationProperties.Name="Playback position"
                             Thumb.DragStarted="SeekBar_DragStarted"
                             Thumb.DragCompleted="SeekBar_DragCompleted"
                             PreviewMouseLeftButtonUp="SeekBar_PreviewMouseLeftButtonUp" />
 
                     <TextBlock x:Name="DurationText" Grid.Column="2" Text="{Binding DurationDisplay}"
-                               FontSize="11" Opacity="0.7"
-                               MinWidth="42"
-                               VerticalAlignment="Center" />
+                               Style="{DynamicResource AfReadout}"
+                               MinWidth="42" />
                 </Grid>
 
                 <!--
@@ -620,21 +684,24 @@
                 <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"
                             ToolTip="{Binding VolumeTooltip}"
                             Opacity="{Binding IsVolumeEnabled, Converter={StaticResource EnabledOpacity}}">
-                    <ui:SymbolIcon Symbol="Speaker224" FontSize="16" VerticalAlignment="Center" />
+                    <ui:SymbolIcon Symbol="Speaker224"
+                                   FontSize="{DynamicResource AfIconSizeSmall}"
+                                   VerticalAlignment="Center" />
                     <Slider Width="96" Margin="8,0,0,0"
-                            Style="{StaticResource EdgeToEdgeSlider}"
+                            Style="{DynamicResource AfSlider}"
                             Minimum="0" Maximum="1"
                             SmallChange="0.05" LargeChange="0.1"
                             IsMoveToPointEnabled="True"
                             Value="{Binding Volume, Mode=TwoWay}"
                             IsEnabled="{Binding IsVolumeEnabled}"
-                            VerticalAlignment="Center" />
+                            VerticalAlignment="Center"
+                            AutomationProperties.Name="Volume" />
                 </StackPanel>
             </Grid>
-        </Border>
+        </ContentControl>
 
         <!-- ============================================ status -->
-        <Grid Grid.Row="3" Margin="16,8,16,10">
+        <Grid Grid.Row="3" Margin="{DynamicResource AfPadWindowStatus}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -649,10 +716,18 @@
                            Margin="0,0,6,0"
                            VerticalAlignment="Center"
                            IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBool}}"
+                           AutomationProperties.Name="Rescan library"
                            ToolTip="Rescan library" />
+
+                <!-- Library state as a shape and a colour, beside the words that
+                     say the same thing. Empty in Dark, and zero-width with it. -->
+                <Control Template="{DynamicResource AfStatusLamp}"
+                         VerticalAlignment="Center"
+                         Focusable="False" IsTabStop="False"
+                         AutomationProperties.Name="Library status" />
+
                 <TextBlock Text="{Binding StatusText}"
-                           FontSize="11" Opacity="0.6"
-                           TextTrimming="CharacterEllipsis"
+                           Style="{DynamicResource AfMetaText}"
                            VerticalAlignment="Center" />
 
                 <!--
@@ -661,10 +736,11 @@
                 -->
                 <StackPanel Orientation="Horizontal"
                             Visibility="{Binding IsOutputActive, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="  ·  " FontSize="11" Opacity="0.35" VerticalAlignment="Center" />
+                    <TextBlock Text="  ·  "
+                               Style="{DynamicResource AfMetaTextQuiet}"
+                               VerticalAlignment="Center" />
                     <TextBlock Text="{Binding OutputDescription}"
-                               FontSize="11" Opacity="0.6"
-                               VerticalAlignment="Center"
+                               Style="{DynamicResource AfReadout}"
                                ToolTip="{Binding OutputDeviceName}" />
                 </StackPanel>
             </StackPanel>
@@ -674,16 +750,17 @@
                          Minimum="0" Maximum="1"
                          Value="{Binding ScanFraction}"
                          VerticalAlignment="Center"
+                         AutomationProperties.Name="Scan progress"
                          Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" />
 
             <ToggleButton Grid.Column="2"
                           Content="Bit-Perfect"
                           IsChecked="{Binding IsExclusiveOutput, Mode=TwoWay}"
                           IsEnabled="{Binding CanUseExclusiveOutput}"
-                          FontSize="11"
+                          FontSize="{DynamicResource AfFontSizeSmall}"
                           VerticalAlignment="Center"
                           Margin="8,0,0,0"
-                          Padding="6,2">
+                          Padding="{DynamicResource AfPadUtilityKey}">
                 <ToggleButton.ToolTip>
                     <TextBlock>
                         Exclusive WASAPI: opens the sound device at each track's own<LineBreak />

@@ -11,6 +11,7 @@ using Wpf.Ui.Controls;
 
 // System.Windows.Controls.Primitives (needed for the slider's drag events) also
 // defines a Track, which is the Slider's rail rather than a song.
+using AudioFool.Core.Models;
 using Track = AudioFool.Core.Models.Track;
 
 namespace AudioFool;
@@ -275,20 +276,20 @@ public partial class MainWindow : FluentWindow
 
     private void AlbumArt_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount != 2)
-            return;
-
         e.Handled = true;
         _ = ShowArtAsync(_viewModel.GetSelectedAlbumFullArtAsync(), _viewModel.SelectedAlbumCaption);
     }
 
     private void NowPlayingArt_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount != 2)
-            return;
-
         e.Handled = true;
         _ = ShowArtAsync(_viewModel.GetNowPlayingFullArtAsync(), _viewModel.NowPlayingCaption);
+    }
+
+    private void NowPlayingInfo_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        _viewModel.NavigateToNowPlaying();
     }
 
     /// <summary>
@@ -342,6 +343,15 @@ public partial class MainWindow : FluentWindow
 
         if (ItemsControl.ContainerFromElement(AlbumList, source) is ListBoxItem { DataContext: AlbumItemViewModel album })
             _viewModel.PlayAlbumCommand.Execute(album);
+    }
+
+    private void ArtistList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source)
+            return;
+
+        if (ItemsControl.ContainerFromElement(ArtistList, source) is ListBoxItem { DataContext: ArtistGroup artist })
+            _viewModel.PlayArtistCommand.Execute(artist);
     }
 
     // ------------------------------------------------------- column auto-fit

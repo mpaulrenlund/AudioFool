@@ -9,8 +9,14 @@ with nothing else in the way.
 - Artists sort alphabetically, with a leading "The" ignored — *The Beatles* files under **B**.
 - Albums sort oldest at the top, newest at the bottom.
 - Songs sort by disc number, then track number.
-- Dark Fluent theme by default, with a Mica backdrop and a teal accent. A Vista Aero
-  Glass theme is available from the AudioFool menu.
+- Three themes, chosen from the AudioFool menu and remembered between runs:
+  **Dark** (Fluent, Mica backdrop, teal accent), **Vista** (Aero Glass over an
+  Acrylic backdrop), and **PS1** - a first-generation PlayStation reading of the
+  app: moulded grey chassis, recessed wells, hairline bevels, square corners,
+  monospaced bitrate and timecode columns, and four accents used strictly by role
+  (blue selects, green confirms, red fails, yellow cautions), with the four
+  face-button shapes carrying status beside the words rather than instead of them.
+  PS1 respects the Windows "show animations" setting.
 - Gapless playback.
 - Optional [bit-perfect output](#output-modes) — exclusive WASAPI at the source's own
   sample rate, with DSD-over-PCM passthrough for DACs that support it.

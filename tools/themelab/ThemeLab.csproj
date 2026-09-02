@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Renders AudioFool's real windows off-screen to a PNG, so a theme can be
+    reviewed without a window appearing on the desktop or taking focus.
+    See "ThemeLab" in HANDOFF.md. Deliberately not in AudioFool.slnx - it is a
+    development tool, not part of the app.
+  -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <AssemblyName>ThemeLab</AssemblyName>
+    <StartupObject>ThemeLab.Program</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AudioFool\AudioFool.csproj" />
+  </ItemGroup>
+
+  <!--
+    Relative pack URIs resolve against the entry assembly, and MainWindow.xaml
+    loads both of these that way, so the harness needs its own copies.
+  -->
+  <ItemGroup>
+    <Resource Include="..\..\src\AudioFool\Resources\AudioFool.ico" Link="Resources\AudioFool.ico" />
+    <Resource Include="..\..\src\AudioFool\Resources\logo.jpg" Link="Resources\logo.jpg" />
+  </ItemGroup>
+
+</Project>

@@ -28,8 +28,9 @@
             Dark mat behind the cover so a light-edged image still reads as a
             distinct object, the way a picture frame does.
         -->
-        <Border Grid.Row="1" Margin="12,0,12,0" CornerRadius="6"
-                Background="#12000000">
+        <Border Grid.Row="1" Margin="12,0,12,0"
+                CornerRadius="{DynamicResource AfRadiusArt}"
+                Background="{DynamicResource AfSurfaceMat}">
             <Image x:Name="ArtImage"
                    Stretch="Uniform"
                    StretchDirection="Both"
@@ -40,8 +41,7 @@
         <TextBlock x:Name="Caption"
                    Grid.Row="2"
                    Margin="16,10,16,12"
-                   FontSize="11" Opacity="0.55"
-                   TextTrimming="CharacterEllipsis"
+                   Style="{DynamicResource AfMetaText}"
                    TextAlignment="Center" />
     </Grid>
 </ui:FluentWindow>

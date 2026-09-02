@@ -1,0 +1,422 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!--
+        ============================================================================
+        AudioFool components
+        ============================================================================
+
+        The reusable pieces the screens are built from. Every value here comes from
+        DesignTokens.xaml, and every screen reaches these by key rather than
+        restating a look. A theme overlay redefines a key in this file to change
+        the component everywhere it is used, which is why MainWindow references
+        these with DynamicResource rather than StaticResource - a StaticResource
+        is resolved once at load and would ignore the overlay.
+
+        What is here IS the Dark look: the templates reproduce, element for
+        element, what the app drew before it was pulled onto tokens.
+
+        Two conventions worth knowing:
+
+        - A theme restyles a stock control WPF-UI already themes - the grid
+          header and cell, the progress bar, the bit-perfect key - with an
+          implicit style in its own dictionary, not through a key here. Dark then
+          keeps WPF-UI look by there being nothing to find. Keying an optional
+          style to x:Null does not work: Style="{DynamicResource X}" resolving to
+          null drops WPF-UI implicit style and the control falls back to the Aero
+          theme style, which put a white header strip on the track grid.
+
+        - Templates are self-contained and never use BasedOn. Inheriting a
+          WPF-UI or Aero base style here has bitten this app twice already: the
+          DataGridRow base paints every row solid, and the Slider base resets the
+          rail margin. Every brush below is a DynamicResource, so these templates
+          need nothing from a base style.
+    -->
+
+    <!-- ======================================================== typography -->
+
+    <Style x:Key="AfPaneHeaderText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{DynamicResource AfFontSizeMicro}" />
+        <Setter Property="FontWeight" Value="{DynamicResource AfFontWeightSemiBold}" />
+        <Setter Property="Foreground" Value="{DynamicResource AfTextTertiary}" />
+        <Setter Property="Margin" Value="{DynamicResource AfPadPaneHeader}" />
+    </Style>
+
+    <!-- Numbers right-align so track and bitrate columns scan vertically. -->
+    <Style x:Key="AfNumericCell" TargetType="TextBlock">
+        <Setter Property="TextAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="{DynamicResource AfPadNumericCell}" />
+    </Style>
+
+    <!-- The song title: the one column in the track list that is the subject
+         rather than a fact about it, so it keeps the primary text colour while
+         the cell style dims the rest. -->
+    <Style x:Key="AfTrackTitleCell" TargetType="TextBlock">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{DynamicResource AfTextPrimary}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <!-- Elapsed / remaining timecodes either side of the seek bar. -->
+    <Style x:Key="AfReadout" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{DynamicResource AfFontSizeSmall}" />
+        <Setter Property="Foreground" Value="{DynamicResource AfTextSecondary}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Second-line detail: album year, track counts, format summary. -->
+    <Style x:Key="AfMetaText" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{DynamicResource AfFontSizeSmall}" />
+        <Setter Property="Foreground" Value="{DynamicResource AfTextSecondary}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="AfMetaTextQuiet" TargetType="TextBlock" BasedOn="{StaticResource AfMetaText}">
+        <Setter Property="Foreground" Value="{DynamicResource AfTextTertiary}" />
+    </Style>
+
+    <!-- Row title: artist name, album title, now-playing track. -->
+    <Style x:Key="AfRowTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{DynamicResource AfFontSizeStrong}" />
+        <Setter Property="Foreground" Value="{DynamicResource AfTextPrimary}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <Style x:Key="AfAlbumTitle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{DynamicResource AfFontSizeTitle}" />
+        <Setter Property="FontWeight" Value="{DynamicResource AfFontWeightSemiBold}" />
+        <Setter Property="Foreground" Value="{DynamicResource AfTextPrimary}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <!-- ============================================================= panes -->
+
+    <!--
+        The chassis. One component covers all four framed regions: the three
+        browser panes and, without a header, the track list. Header is an object
+        rather than a string so the track pane can hand it a whole album-facts
+        block instead of a label.
+    -->
+    <Style x:Key="AfPane" TargetType="HeaderedContentControl">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Background" Value="{DynamicResource AfSurfacePanel}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AfStrokeRaised}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource AfStrokeThin}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="HeaderedContentControl">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{DynamicResource AfRadiusPanel}"
+                            SnapsToDevicePixels="True">
+                        <DockPanel>
+                            <ContentPresenter x:Name="HeaderSlot"
+                                              DockPanel.Dock="Top"
+                                              ContentSource="Header" />
+                            <ContentPresenter />
+                        </DockPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Header" Value="{x:Null}">
+                            <Setter TargetName="HeaderSlot" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        The track list's frame. Structurally a pane, named separately because it
+        is the display: the one surface a theme may put texture or geometry
+        behind. Identical to AfPane until a theme says otherwise.
+    -->
+    <Style x:Key="AfPaneDisplay" TargetType="HeaderedContentControl"
+           BasedOn="{StaticResource AfPane}" />
+
+    <!-- The transport deck along the bottom. Same surface as a pane, no header,
+         and its own padding because the content sits flush rather than in a list. -->
+    <Style x:Key="AfDeck" TargetType="ContentControl">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Background" Value="{DynamicResource AfSurfacePanel}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AfStrokeRaised}" />
+        <Setter Property="BorderThickness" Value="{DynamicResource AfStrokeThin}" />
+        <Setter Property="Padding" Value="{DynamicResource AfPadDeck}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{DynamicResource AfRadiusPanel}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter Margin="{TemplateBinding Padding}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A cover slot: album art, or the placeholder glyph when there is none.
+         Also the app's only loading surface - the frame is drawn immediately and
+         the image streams in behind it. -->
+    <Style x:Key="AfArtFrame" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource AfSurfaceWell}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource AfRadiusArtSmall}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <Style x:Key="AfArtFrameLarge" TargetType="Border" BasedOn="{StaticResource AfArtFrame}">
+        <Setter Property="CornerRadius" Value="{DynamicResource AfRadiusArt}" />
+    </Style>
+
+    <!-- ====================================================== browser rows -->
+
+    <!--
+        Artist and album rows. The template lives here so a theme owns the row's
+        states; the styles that use it stay in MainWindow because they also carry
+        a context menu bound through the window's BindingProxy, which a
+        standalone dictionary cannot reach.
+
+        Every state is explicit rather than inherited, so none of them depend on
+        which Windows theme file happens to supply the stock ListBoxItem
+        template - or on Selector.IsSelectionActive, which silently changes a
+        stock row's selected colour when the window loses focus.
+    -->
+    <ControlTemplate x:Key="AfBrowserRowTemplate" TargetType="ListBoxItem">
+        <Grid x:Name="Root" SnapsToDevicePixels="True">
+            <Border x:Name="Fill"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{DynamicResource AfRadiusWell}" />
+
+            <!-- Hover and the selection marker are separate elements with their
+                 own styles rather than colour setters on Fill. Two reasons: a
+                 shared brush from a resource is frozen and cannot be animated,
+                 and it keeps the animated variants of these two states in a
+                 dictionary of their own - see Ps1Motion.xaml - instead of
+                 needing a second copy of this whole template. -->
+            <Border Style="{DynamicResource AfRowHoverWash}"
+                    CornerRadius="{DynamicResource AfRadiusWell}" />
+
+            <Border Style="{DynamicResource AfRowSelectionBar}">
+                <Border.RenderTransform>
+                    <ScaleTransform />
+                </Border.RenderTransform>
+            </Border>
+
+            <ContentPresenter Margin="{TemplateBinding Padding}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+
+            <!--
+                Keyboard focus draws over whatever the row is already showing, so
+                a focused selected row still reads as both. Two rings, not one: a
+                dark spacer under a bright outline, which is what keeps the
+                outline visible against a selected row as well as an empty one.
+                The spacer is transparent in Dark, leaving a single hairline.
+            -->
+            <Border x:Name="FocusSpacer"
+                    Visibility="Collapsed"
+                    IsHitTestVisible="False"
+                    BorderBrush="{DynamicResource AfFocusRingSpacer}"
+                    BorderThickness="{DynamicResource AfFocusRingInset}"
+                    CornerRadius="{DynamicResource AfRadiusWell}" />
+            <Border x:Name="FocusRing"
+                    Visibility="Collapsed"
+                    IsHitTestVisible="False"
+                    Margin="1"
+                    BorderBrush="{DynamicResource AfFocusRing}"
+                    BorderThickness="{DynamicResource AfFocusRingInset}"
+                    CornerRadius="{DynamicResource AfRadiusWell}" />
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="Fill" Property="Background"
+                        Value="{DynamicResource AfSurfaceRowSelected}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="FocusSpacer" Property="Visibility" Value="Visible" />
+                <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Root" Property="Opacity"
+                        Value="{DynamicResource AfOpacityDisabled}" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <!--
+        The two row states that a theme may want to animate. Each watches the row
+        it sits inside through an ancestor binding, so the state lives in one
+        small style that a motion dictionary can replace wholesale.
+
+        Both are inert in Dark: the wash brush is nearly transparent and the
+        marker has no width, so neither shows.
+    -->
+    <Style x:Key="AfRowHoverWash" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource AfSurfaceRowHover}" />
+        <Setter Property="Opacity" Value="0" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Style.Triggers>
+            <DataTrigger Value="True"
+                         Binding="{Binding IsMouseOver,
+                                   RelativeSource={RelativeSource AncestorType=ListBoxItem}}">
+                <Setter Property="Opacity" Value="1" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="AfRowSelectionBar" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource AfStrokeSelectionBar}" />
+        <Setter Property="Width" Value="{DynamicResource AfSizeSelectionBar}" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Visibility" Value="Collapsed" />
+        <Style.Triggers>
+            <DataTrigger Value="True"
+                         Binding="{Binding IsSelected,
+                                   RelativeSource={RelativeSource AncestorType=ListBoxItem}}">
+                <Setter Property="Visibility" Value="Visible" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ======================================================= track grid -->
+
+    <!--
+        Nothing here for the grid header, the grid cell, the progress bar or the
+        bit-perfect key. A theme that wants those restyles them with an IMPLICIT
+        style - Style TargetType, no x:Key - and Dark keeps WPF-UI.s own look by
+        there being nothing to find.
+
+        The tempting alternative does not work. Keying an optional style to
+        x:Null and setting Style="{DynamicResource X}" on the control does not
+        mean "leave it unset": it drops WPF-UI.s implicit style and the control
+        falls back to the Aero theme style instead, which is how the track grid
+        briefly ended up with a white header strip and unreadable titles.
+    -->
+
+    <!-- =========================================================== slider -->
+
+    <!--
+        The stock WPF-UI slider rail spans the full width, so its rounded end cap
+        pokes out past the circular thumb at 0% and 100%, leaving a bright sliver
+        beside the thumb. Insetting the rail by the thumb radius tucks both caps
+        under the thumb at the extremes.
+
+        No BasedOn, deliberately: inheriting the WPF-UI base Slider style silently
+        resets the rail's Margin to 0 (and widens the control), which is exactly
+        what reintroduced the sliver.
+    -->
+    <Style x:Key="AfSlider" TargetType="Slider">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid x:Name="Root" VerticalAlignment="Center">
+                        <Border x:Name="TrackBackground"
+                                Height="4" CornerRadius="2" Margin="10,0"
+                                Background="{DynamicResource SliderTrackFill}" />
+                        <Track x:Name="PART_Track">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Focusable="False" IsTabStop="False"
+                                              OverridesDefaultStyle="True">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent" />
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Focusable="False" IsTabStop="False"
+                                              OverridesDefaultStyle="True">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent" />
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb x:Name="Thumb"
+                                       Height="20" Width="20"
+                                       OverridesDefaultStyle="True"
+                                       SnapsToDevicePixels="True"
+                                       Background="{DynamicResource SliderOuterThumbBackground}"
+                                       BorderBrush="{DynamicResource AfStrokeRaised}"
+                                       BorderThickness="{DynamicResource AfStrokeThin}"
+                                       Foreground="{DynamicResource SliderThumbBackground}">
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="16"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    Background="{TemplateBinding Background}">
+                                                <Ellipse Width="12" Height="12"
+                                                         Fill="{TemplateBinding Foreground}" />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+
+                        <Border x:Name="FocusRing"
+                                Visibility="Collapsed"
+                                IsHitTestVisible="False"
+                                BorderBrush="{DynamicResource AfFocusRing}"
+                                BorderThickness="{DynamicResource AfFocusRingInset}"
+                                CornerRadius="{DynamicResource AfRadiusWell}" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="TrackBackground" Property="Background"
+                                    Value="{DynamicResource SliderTrackFillPointerOver}" />
+                            <Setter TargetName="Thumb" Property="Foreground"
+                                    Value="{DynamicResource SliderThumbBackgroundPointerOver}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Root" Property="Opacity"
+                                    Value="{DynamicResource AfOpacityDisabled}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ==================================================== themeable slots -->
+
+    <!--
+        Four places a theme may draw something the base app does not. Each is a
+        ControlTemplate on a plain Control, so the slot costs one element and
+        renders nothing at all until a theme fills it. The Control inherits the
+        window's DataContext, so a filled slot can bind to the view model.
+    -->
+
+    <!-- Behind every pixel of content: the shell surface, plus whatever texture
+         or geometry a theme wants under it. Never over text or controls. -->
+    <ControlTemplate x:Key="AfWindowDecor" TargetType="Control" />
+
+    <!-- Title-bar identity. -->
+    <ControlTemplate x:Key="AfBrandMark" TargetType="Control">
+        <Image Source="/Resources/logo.jpg"
+               RenderOptions.BitmapScalingMode="HighQuality" />
+    </ControlTemplate>
+
+    <!-- Status-bar state indicator: shape plus colour plus the text beside it. -->
+    <ControlTemplate x:Key="AfStatusLamp" TargetType="Control" />
+
+    <!-- Shown in the track pane when no album is selected. -->
+    <ControlTemplate x:Key="AfEmptyState" TargetType="Control" />
+
+</ResourceDictionary>

@@ -1,32 +1,30 @@
-<Application x:Class="AudioFool.App"
+<Application x:Class="ThemeLab.LabApp"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-             xmlns:fmt="clr-namespace:AudioFool.Formatting">
-    <!-- No StartupUri: App.OnStartup builds the window so it can inject the view model. -->
+             xmlns:fmt="clr-namespace:AudioFool.Formatting;assembly=AudioFool">
+    <!--
+        Mirrors AudioFool's App.xaml resource composition, and nothing else.
+
+        The harness cannot construct AudioFool.App itself: Application's
+        constructor queues OnStartup onto the dispatcher, so the first time the
+        harness pumps the queue the real startup path runs - loading the user's
+        settings, applying THEIR theme over the one under test, and building and
+        showing a second MainWindow on the desktop.
+
+        The two AudioFool dictionaries below are the real files, so anything
+        themeable is shared rather than copied. Only this list and the converter
+        keys are duplicated; if App.xaml gains a dictionary, add it here too.
+    -->
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!-- Dark is the default, as asked for. -->
                 <ui:ThemesDictionary Theme="Dark" />
                 <ui:ControlsDictionary />
-
-                <!--
-                    The design system, over WPF-UI's base. Order matters twice
-                    over: tokens before the components that read them, and both
-                    after WPF-UI so a token can override one of its keys.
-
-                    Everything themeable lives in these two dictionaries rather
-                    than in the entries below, because a key in this dictionary's
-                    own body outranks every merged one - including a theme
-                    overlay, which ThemeService merges last of all.
-                -->
                 <ResourceDictionary Source="pack://application:,,,/AudioFool;component/Themes/DesignTokens.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/AudioFool;component/Themes/Components.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Converters are logic, not looks: no theme has anything to say
-                 about them, so they stay here. -->
             <fmt:DurationConverter x:Key="Duration" />
             <fmt:BitrateConverter x:Key="Bitrate" />
             <fmt:BitDepthConverter x:Key="BitDepth" />

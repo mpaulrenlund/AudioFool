@@ -81,7 +81,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             FolderFilters.Add(item);
         }
 
-        foreach (var theme in new[] { "Dark", "Vista" })
+        foreach (var theme in ThemeService.Names)
         {
             var themeItem = new ThemeItem(theme, theme == settings.Theme);
             themeItem.PropertyChanged += OnThemeItemChanged;
@@ -171,7 +171,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private string _statusText = "Ready";
 
     [ObservableProperty]
-    private double _durationSeconds;
+    private double _durationSeconds = 1.0;
 
     [ObservableProperty]
     private string _positionDisplay = "0:00";
@@ -745,6 +745,22 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
 
+    public void NavigateToNowPlaying()
+    {
+        if (NowPlaying is not { } track)
+            return;
+
+        var artist = Artists.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Name, track.GroupingArtist));
+        if (artist is null)
+            return;
+
+        SelectedArtist = artist;
+
+        var album = Albums.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Album.Title, track.Album));
+        if (album is not null)
+            SelectedAlbum = album;
+    }
+
     private string DescribeLibrary()
     {
         if (_folderFilteredLibrary.AllTracks.Count == 0)
@@ -1028,6 +1044,16 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
 
         SelectedAlbum = album;   // populates Tracks synchronously
+        PlayTrack(Tracks.FirstOrDefault());
+    }
+
+    [RelayCommand]
+    private void PlayArtist(ArtistGroup? artist)
+    {
+        if (artist is null)
+            return;
+
+        SelectedArtist = artist;   // populates Albums, which sets SelectedAlbum to the first
         PlayTrack(Tracks.FirstOrDefault());
     }
 

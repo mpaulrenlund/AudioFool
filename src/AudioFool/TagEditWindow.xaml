@@ -30,10 +30,11 @@
             <StackPanel Margin="20,12,20,0"
                         Visibility="{Binding IsAlbumMode, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Orientation="Horizontal">
-                    <Border Width="72" Height="72" CornerRadius="4"
-                            Background="{DynamicResource ControlFillColorSecondaryBrush}">
+                    <Border Width="72" Height="72" Style="{DynamicResource AfArtFrame}">
                         <Grid>
-                            <ui:SymbolIcon Symbol="MusicNote224" FontSize="20" Opacity="0.35"
+                            <ui:SymbolIcon Symbol="MusicNote224"
+                                           FontSize="{DynamicResource AfIconSizeMedium}"
+                                           Foreground="{DynamicResource AfTextPlaceholder}"
                                            Visibility="{Binding ArtPreview, Converter={StaticResource NullToVisible}}" />
                             <Image Source="{Binding ArtPreview}" Stretch="UniformToFill"
                                    Visibility="{Binding ArtPreview, Converter={StaticResource NullToCollapsed}}" />
@@ -42,7 +43,8 @@
                     <StackPanel VerticalAlignment="Center" Margin="12,0,0,0">
                         <ui:Button Content="Choose Image..." Command="{Binding ChooseImageCommand}" />
                         <TextBlock Text="Replacing the cover updates every track in this album,&#10;plus its folder cover file."
-                                   FontSize="11" Opacity="0.6" Margin="0,6,0,0" TextWrapping="Wrap" />
+                                   Style="{DynamicResource AfMetaText}" TextTrimming="None"
+                                   Margin="0,6,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
@@ -84,7 +86,8 @@
                 <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal"
                             Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}">
                     <ui:TextBox Text="{Binding TrackNumber, UpdateSourceTrigger=PropertyChanged}" Width="60" />
-                    <TextBlock Text="/" VerticalAlignment="Center" Margin="8,0,8,0" Opacity="0.6" />
+                    <TextBlock Text="/" VerticalAlignment="Center" Margin="8,0,8,0"
+                               Foreground="{DynamicResource AfTextTertiary}" />
                     <ui:TextBox Text="{Binding DiscNumber, UpdateSourceTrigger=PropertyChanged}" Width="60" />
                 </StackPanel>
             </Grid>
@@ -97,7 +100,8 @@
             </Grid.ColumnDefinitions>
 
             <TextBlock Grid.Column="0" Text="{Binding ValidationError}"
-                       Foreground="IndianRed" FontSize="12" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AfStatusDangerText}"
+                       FontSize="{DynamicResource AfFontSizeBody}" VerticalAlignment="Center"
                        TextWrapping="Wrap" />
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">
