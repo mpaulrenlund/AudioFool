@@ -109,9 +109,9 @@
         </Style.Triggers>
     </Style>
 
-    <!-- ==================================================== badge entrance -->
+    <!-- ===================================================== logo entrance -->
 
-    <Style x:Key="Ps1BrandShapes" TargetType="StackPanel">
+    <Style x:Key="AfBrandMarkImage" TargetType="Image">
         <Style.Triggers>
             <EventTrigger RoutedEvent="FrameworkElement.Loaded">
                 <BeginStoryboard>

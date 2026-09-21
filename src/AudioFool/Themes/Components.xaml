@@ -407,10 +407,22 @@
          or geometry a theme wants under it. Never over text or controls. -->
     <ControlTemplate x:Key="AfWindowDecor" TargetType="Control" />
 
-    <!-- Title-bar identity. -->
+    <!--
+        Title-bar identity: the app logo, one image for every theme. A theme that
+        wants an entrance on it fills AfBrandMarkImage rather than restating the
+        template - the ScaleTransform is declared here so a storyboard in a style
+        has something to animate.
+    -->
+    <Style x:Key="AfBrandMarkImage" TargetType="Image" />
     <ControlTemplate x:Key="AfBrandMark" TargetType="Control">
-        <Image Source="/Resources/logo.jpg"
-               RenderOptions.BitmapScalingMode="HighQuality" />
+        <Image Source="/Resources/logo.png"
+               Style="{DynamicResource AfBrandMarkImage}"
+               RenderTransformOrigin="0.5,0.5"
+               RenderOptions.BitmapScalingMode="HighQuality">
+            <Image.RenderTransform>
+                <ScaleTransform />
+            </Image.RenderTransform>
+        </Image>
     </ControlTemplate>
 
     <!-- Status-bar state indicator: shape plus colour plus the text beside it. -->

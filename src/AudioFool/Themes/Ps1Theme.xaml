@@ -178,9 +178,6 @@
 
     <sys:Double x:Key="AfSizeTrackRowHeight">27</sys:Double>
 
-    <!-- A moulded badge rather than a picture, so it sits at key height. -->
-    <sys:Double x:Key="AfSizeBrandMark">22</sys:Double>
-
     <!-- =========================================================== radii -->
 
     <CornerRadius x:Key="AfRadiusControl">1</CornerRadius>
@@ -940,54 +937,6 @@
             <Border Background="{DynamicResource AfGrainBrush}"
                     Opacity="{DynamicResource AfGrainOpacity}" />
         </Grid>
-    </ControlTemplate>
-
-    <!--
-        Title-bar identity: a moulded badge carrying the four face-button shapes
-        in the theme's four accent colours, which are also the four status
-        colours. An original mark in the console's idiom rather than a redrawing
-        of anybody's logo.
-
-        The shapes carry their own style and transform so Ps1Motion.xaml can give
-        them an entrance without a second copy of this template.
-    -->
-    <Style x:Key="Ps1BrandShapes" TargetType="StackPanel" />
-    <ControlTemplate x:Key="AfBrandMark" TargetType="Control">
-        <Border Background="{DynamicResource AfSurfaceRaised}"
-                BorderBrush="{DynamicResource AfStrokeSeam}"
-                BorderThickness="1"
-                CornerRadius="{DynamicResource AfRadiusControl}"
-                SnapsToDevicePixels="True">
-            <Border BorderBrush="{DynamicResource AfStrokeRaised}"
-                    BorderThickness="1"
-                    Padding="9,0"
-                    SnapsToDevicePixels="True">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                            Style="{DynamicResource Ps1BrandShapes}"
-                            RenderTransformOrigin="0.5,0.5">
-                    <StackPanel.RenderTransform>
-                        <ScaleTransform />
-                    </StackPanel.RenderTransform>
-                    <Path Data="{StaticResource Ps1Square}"
-                          Fill="{DynamicResource AfAccentBlue}"
-                          Width="11" Height="11" Margin="0,0,6,0"
-                          Stretch="Uniform" />
-                    <Path Data="{StaticResource Ps1Triangle}"
-                          Fill="{DynamicResource AfAccentYellow}"
-                          Width="11" Height="11" Margin="0,0,6,0"
-                          Stretch="Uniform" />
-                    <Path Data="{StaticResource Ps1Circle}"
-                          Fill="{DynamicResource AfAccentGreen}"
-                          Width="11" Height="11" Margin="0,0,6,0"
-                          Stretch="Uniform" />
-                    <Path Data="{StaticResource Ps1Cross}"
-                          Stroke="{DynamicResource AfAccentRed}"
-                          StrokeThickness="1.7"
-                          Width="11" Height="11"
-                          Stretch="Uniform" />
-                </StackPanel>
-            </Border>
-        </Border>
     </ControlTemplate>
 
     <!--

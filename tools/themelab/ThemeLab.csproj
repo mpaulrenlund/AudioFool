@@ -30,7 +30,7 @@
   -->
   <ItemGroup>
     <Resource Include="..\..\src\AudioFool\Resources\AudioFool.ico" Link="Resources\AudioFool.ico" />
-    <Resource Include="..\..\src\AudioFool\Resources\logo.jpg" Link="Resources\logo.jpg" />
+    <Resource Include="..\..\src\AudioFool\Resources\logo.png" Link="Resources\logo.png" />
   </ItemGroup>
 
 </Project>

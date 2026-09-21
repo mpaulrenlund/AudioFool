@@ -143,6 +143,104 @@ internal static class Program
             }
         }
 
+        // --menu: does clicking the logo open the File-style menu? Two checks that
+        // do not need a mouse. First hit-test the middle of the logo and walk up,
+        // which is the path a click takes; then expand through the automation peer,
+        // which is what MenuItem's own click handler ends up doing.
+        if (Arg(args, "--menu") is not null)
+        {
+            var item = FindFirst<System.Windows.Controls.MenuItem>(main);
+            if (item is null)
+            {
+                Console.WriteLine("menu: no MenuItem found");
+            }
+            else
+            {
+                var header = item.Header as FrameworkElement;
+                Console.WriteLine($"menu: header={item.Header?.GetType().Name} role={item.Role} "
+                    + $"items={item.Items.Count} headerSize={header?.ActualWidth:0.#}x{header?.ActualHeight:0.#}");
+
+                if (header is not null)
+                {
+                    var mid = header.TranslatePoint(
+                        new Point(header.ActualWidth / 2, header.ActualHeight / 2), main);
+                    var hit = main.InputHitTest(mid) as DependencyObject;
+                    var reachesItem = false;
+                    for (var node = hit; node is not null; node = VisualTreeHelper.GetParent(node))
+                    {
+                        if (ReferenceEquals(node, item))
+                        {
+                            reachesItem = true;
+                            break;
+                        }
+                    }
+
+                    Console.WriteLine($"menu: hit-test at logo centre {mid.X:0.#},{mid.Y:0.#} -> "
+                        + $"{hit?.GetType().Name ?? "<nothing>"}, inside the MenuItem={reachesItem}");
+                }
+
+                // Walk the MenuItem's visuals: something in WPF-UI's template clips
+                // the header, so print every element's size, explicit height limits
+                // and clip geometry.
+                void Walk(DependencyObject node, int depth)
+                {
+                    var pad = new string(' ', depth * 2);
+                    if (node is FrameworkElement fe)
+                    {
+                        var clip = VisualTreeHelper.GetClip(fe);
+                        var extra = "";
+                        if (!double.IsNaN(fe.Height)) extra += $" Height={fe.Height}";
+                        if (!double.IsPositiveInfinity(fe.MaxHeight)) extra += $" MaxHeight={fe.MaxHeight}";
+                        if (fe.MinHeight > 0) extra += $" MinHeight={fe.MinHeight}";
+                        if (fe.ClipToBounds) extra += " ClipToBounds";
+                        if (clip is not null) extra += $" Clip={clip.Bounds}";
+                        if (fe is System.Windows.Controls.Border b2) extra += $" Padding={b2.Padding}";
+                        if (fe is System.Windows.Controls.Control cc) extra += $" Padding={cc.Padding}";
+                        Console.WriteLine($"  {pad}{fe.GetType().Name} {fe.Name} "
+                            + $"{fe.ActualWidth:0.#}x{fe.ActualHeight:0.#} desired={fe.DesiredSize.Width:0.#}x{fe.DesiredSize.Height:0.#}{extra}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"  {pad}{node.GetType().Name}");
+                    }
+
+                    for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+                    {
+                        Walk(VisualTreeHelper.GetChild(node, i), depth + 1);
+                    }
+                }
+
+                if (Arg(args, "--menutree") is not null)
+                {
+                    Console.WriteLine("menu: visual tree under the MenuItem");
+                    Walk(item, 0);
+                }
+
+                var peer = System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(item);
+                var pattern = peer?.GetPattern(System.Windows.Automation.Peers.PatternInterface.ExpandCollapse)
+                    as System.Windows.Automation.Provider.IExpandCollapseProvider;
+                Console.WriteLine($"menu: ExpandCollapse pattern={(pattern is null ? "<none>" : "yes")}");
+                pattern?.Expand();
+                Settle(200);
+                Console.WriteLine($"menu: IsSubmenuOpen={item.IsSubmenuOpen}");
+                foreach (var child in item.Items)
+                {
+                    if (child is System.Windows.Controls.MenuItem mi)
+                    {
+                        Console.WriteLine($"  - {mi.Header} (checkable={mi.IsCheckable}, enabled={mi.IsEnabled})");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"  - <{child?.GetType().Name}>");
+                    }
+                }
+
+                pattern?.Collapse();
+                Settle(100);
+                Console.WriteLine($"menu: closed again IsSubmenuOpen={item.IsSubmenuOpen}");
+            }
+        }
+
         if (which == "tags")
         {
             // Never shown: TagEditWindow re-centres itself over its owner on

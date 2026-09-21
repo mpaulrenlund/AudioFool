@@ -39,8 +39,8 @@
     <Resource Include="Resources\AudioFool.ico" />
   </ItemGroup>
 
-  <ItemGroup Condition="Exists('Resources\logo.jpg')">
-    <Resource Include="Resources\logo.jpg" />
+  <ItemGroup Condition="Exists('Resources\logo.png')">
+    <Resource Include="Resources\logo.png" />
   </ItemGroup>
 
   <!--

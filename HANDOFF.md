@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-02 after the seventh build session. Read this alongside
+Updated 2026-09-17 after the eighth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -96,7 +96,7 @@ Everything below is implemented **and verified working**, not merely written:
 - Album art: embedded, falling back to a cover file beside the audio. Double-click
   either the large or the now-playing art for a full-size viewer.
 - Search across artists / albums / songs from one box, 180 ms debounce. Search bar
-  widened to 333 px, aligned with the Albums panel right edge.
+  widened to 406 px, aligned with the Albums panel right edge.
 - Gapless playback (BASSmix mixer plus a mixtime sync).
 - Bit-perfect exclusive WASAPI with per-track sample-rate following.
 - DSD: PCM conversion at up to DSD-rate ÷ 8, or DoP passthrough at DSD-rate ÷ 16.
@@ -104,12 +104,12 @@ Everything below is implemented **and verified working**, not merely written:
 - Portable-drive handling: drive-letter relocation, and an unreachable folder is never
   mistaken for a deleted library.
 - Global hotkeys: **F9** play/pause, **F10** previous-or-restart, **F11** next.
-- App icon built from `logo.jpg` (abstract flower) by `tools/make-icon.ps1`. Full
-  rectangular logo shown at 30 px in the title bar header.
+- App icon built from `logo.png` (the 1994 PlayStation mark) by `tools/make-icon.ps1`.
+  The same image is the title-bar identity at 30 px, in every theme.
 - **Type-ahead scroll** on Artists and Albums panes — hover and type to jump to a match.
 
 ### UI changes from session 2
-- **Library folder checkboxes.** AudioFool menu → Libraries submenu → one checkable item
+- **Library folder checkboxes.** Logo menu → Libraries submenu → one checkable item
   per configured folder. Unchecking a folder hides its tracks instantly (no rescan);
   the enabled/disabled state is persisted to `settings.json` as `DisabledFolders`.
   Filtering happens in `MainViewModel.ApplyToView` before the search filter is applied.
@@ -119,7 +119,7 @@ Everything below is implemented **and verified working**, not merely written:
 - **Rescan button** — a small `↻` icon button sits to the left of the status text. Greys
   out while a scan is running. Replaces the Rescan item that was previously in the menu.
 - **Search box in title bar.** `TitleBar.Header` alongside the AudioFool menu, saving
-  vertical space for the browser panes. Width 333 px (session 4).
+  vertical space for the browser panes. Width 333 px (session 4), 406 px from session 8.
 - **Bit-Perfect toggle in status bar** (session 4). Moved from the title bar to the
   bottom-right corner of the status bar, `FontSize="11"` matching the info text.
 - **Libraries submenu** consolidates Add folder and folder checkboxes. Add folder sits
@@ -132,7 +132,7 @@ Everything below is implemented **and verified working**, not merely written:
   what was saved, since exclusive mode silences every other app on the machine.
 
 ### UI changes from session 3
-- **Theme system.** AudioFool menu → Themes submenu → checkable items (radio-button
+- **Theme system.** Logo menu → Themes submenu → checkable items (radio-button
   behaviour — only one can be active). The active theme is persisted to `settings.json`
   as `Theme` (string, default `"Dark"`). Panels, borders and backdrop switch instantly;
   the accent colour does not (see Accent colours below).
@@ -152,7 +152,8 @@ Everything below is implemented **and verified working**, not merely written:
   search box). Implementation is in `MainWindow.xaml.cs`: window-level `PreviewTextInput`
   and `PreviewKeyDown` handlers, with `GetTypeAheadTarget()` checking `IsMouseOver` on
   each list.
-- **New app logo.** `logo.jpg` (abstract flower) replaces the cat icon. The .ico is
+- **New app logo.** `logo.jpg` (abstract flower) replaces the cat icon. *(Superseded in
+  session 8 by the PlayStation mark — see below.)* The .ico is
   generated from a letterboxed square (`Resources/logo_square.png`, dark background
   padding) via `tools/make-icon.ps1` with `Left=0 Top=0 Size=1.0`. The full rectangular
   logo is displayed as a 30 px-tall `Image` in the title bar header (not via
@@ -222,6 +223,45 @@ taking the device from the running app. Fourteen checks, including the one that 
 most: that the shuffled order is *stable across skips* rather than regenerated on every
 track change.
 
+### Changes from session 8
+
+- **New logo: the 1994 PlayStation mark.** `PlayStation-Logo-1994.png` at the repo root
+  is the source. It is copied to `src/AudioFool/Resources/logo.png` and embedded as a WPF
+  `Resource`. The old `logo.jpg` — the root copy and the one under `Resources/` — and its
+  `.csproj` `Resource` entry are gone.
+- **One brand mark for every theme.** PS1 used to fill the `AfBrandMark` slot with its own
+  moulded badge of the four face-button shapes, and override `AfSizeBrandMark` to 22 px to
+  suit it. Both overrides were removed, so all three themes now render the shared
+  `Components.xaml` template — the logo image at 30 px. The four face-button geometries
+  stay in `Ps1Theme.xaml`; the status lamp and the bit-perfect key still use them.
+- **PS1 keeps its entrance animation on the logo.** The animated style was
+  `Ps1BrandShapes` (a `StackPanel` style) and is now `AfBrandMarkImage` (an `Image`
+  style), empty by default in `Components.xaml` and filled by `Ps1Motion.xaml`. The
+  `ScaleTransform` it animates is declared *in* the template, which is the only place a
+  storyboard in a style can reach one (see the motion note under the design system).
+- **App icon regenerated.** `logo_square.png` is now a 1280×1280 transparent square — the
+  logo trimmed to its alpha bounds (19,15 → 1259,956) and fitted to 92% of the width,
+  centred. `tools/make-icon.ps1 -Left 0 -Top 0 -Size 1.0` turns that into the 9-frame
+  `AudioFool.ico`. Transparent padding rather than the old dark letterbox, so the icon
+  sits on any background.
+- **Verified**, not assumed: all three title bars rendered off-screen with ThemeLab, and
+  every .ico frame decoded through WIC (`IconBitmapDecoder` — 9 frames, 16→256, Bgra32)
+  and eyeballed at 16/20/24/32/48/64 px on both dark and white. Note that
+  `System.Drawing`'s `Icon.ToBitmap()` throws on the 128 and 256 px frames because they
+  are PNG-compressed; that is a GDI+ limitation, not a bad file. Use WIC to check an icon.
+- **The logo is now the menu.** The `MenuItem` that was labelled "AudioFool" is now the
+  click target for the mark, which is drawn over it, so clicking the mark drops the same
+  File-style menu. The word is gone. It is deliberately *not* the item's `Header` - that
+  crops it to 20 px; see *Title bar layout* below for that and the width numbers.
+- **Search box widened to 406 px**, spending the width the name freed while keeping its
+  right edge level with the Albums panel, where it has always been.
+- **ThemeLab gained `--menu` and `--menutree`.** `--menu` checks the logo actually opens
+  the menu without a mouse: it hit-tests the centre of the mark and walks up the tree to
+  confirm the hit lands inside the `MenuItem`, then expands through the automation peer
+  and lists the submenu. `--menutree` prints every element under the item with its size,
+  height limits and clip — which is what found the 20 px header cap. Popups render in
+  their own window, so a screenshot could never have shown either.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
@@ -270,18 +310,18 @@ track change.
 | File | Purpose |
 |---|---|
 | `src/AudioFool/Themes/DesignTokens.xaml` | Every colour, surface, text ramp, accent, stroke, spacing, type, radius, icon size, texture and motion value the app's chrome uses. Its defaults are the Dark theme. |
-| `src/AudioFool/Themes/Components.xaml` | The reusable pieces built from those tokens: `AfPane`/`AfPaneDisplay`/`AfDeck`, the browser row template and its hover/selection states, art frames, the slider, text styles, and the four empty themeable slots. |
-| `src/AudioFool/Themes/Ps1Theme.xaml` | The PS1 theme. Token overrides, WPF-UI key overrides for the stock controls, and the components it restyles: chassis panes, the display pane, grid header and cell, slider, segmented progress, the bit-perfect key, and the four filled slots. |
-| `src/AudioFool/Themes/Ps1Motion.xaml` | PS1's animated states, merged only when Windows has control animations on. Row hover, selection marker, badge entrance. |
+| `src/AudioFool/Themes/Components.xaml` | The reusable pieces built from those tokens: `AfPane`/`AfPaneDisplay`/`AfDeck`, the browser row template and its hover/selection states, art frames, the slider, text styles, and the four themeable slots. |
+| `src/AudioFool/Themes/Ps1Theme.xaml` | The PS1 theme. Token overrides, WPF-UI key overrides for the stock controls, and the components it restyles: chassis panes, the display pane, grid header and cell, slider, segmented progress, the bit-perfect key, and three of the four slots (all but `AfBrandMark`). |
+| `src/AudioFool/Themes/Ps1Motion.xaml` | PS1's animated states, merged only when Windows has control animations on. Row hover, selection marker, logo entrance. |
 | `src/AudioFool/Formatting/LetterSpacing.cs` | `LetterSpacing.Spacer` attached property: interleaves a spacer character between letters and keeps the unspaced text as the automation name. WPF has no tracking property. |
 | `tools/themelab/` | Renders the real windows off-screen to a PNG for theme review. Not in the solution. |
-## New/modified resource files in session 4
+## Logo and icon resource files
 
 | File | Purpose |
 |---|---|
-| `logo.jpg` | Source logo image (abstract flower, 1536×1152). |
-| `src/AudioFool/Resources/logo.jpg` | Copy embedded as a WPF Resource for the title bar. |
-| `src/AudioFool/Resources/logo_square.png` | Letterboxed 1536×1536 square (dark background) used as input for icon generation. |
+| `PlayStation-Logo-1994.png` | Source logo image (1280×974, transparent background). |
+| `src/AudioFool/Resources/logo.png` | Copy embedded as a WPF Resource for the title bar. |
+| `src/AudioFool/Resources/logo_square.png` | 1280×1280 transparent square, the logo trimmed to its alpha bounds and fitted to 92% of the width, used as input for icon generation. |
 | `src/AudioFool/Resources/AudioFool.ico` | Regenerated from `logo_square.png` — full logo visible at all sizes. |
 
 ---
@@ -370,9 +410,12 @@ Three conventions that are load-bearing:
   *Aero* theme style, which gave the track grid a white header strip with unreadable
   titles and a near-white selected row - in Dark, not just in PS1.
 - **Themeable slots** (`AfWindowDecor`, `AfBrandMark`, `AfStatusLamp`, `AfEmptyState`)
-  are `ControlTemplate`s on a plain `Control`. Empty by default, so they cost one
-  element and draw nothing until a theme fills them. The `Control` inherits the
-  window's DataContext, so a filled slot can bind to the view model.
+  are `ControlTemplate`s on a plain `Control`, so they cost one element and a theme can
+  replace one without touching the window. Three are empty by default and draw nothing;
+  `AfBrandMark` is the exception — it carries the logo for every theme, and a theme that
+  wants to animate it fills the `AfBrandMarkImage` style instead of restating the
+  template. The `Control` inherits the window's DataContext, so a filled slot can bind
+  to the view model.
 
 Two things could not be tokenised and are property-styled in `MainWindow.xaml` on
 purpose, each with the reason in a comment there: the browser `ListBoxItem` styles and
@@ -401,7 +444,7 @@ is long.
   The obvious alternative, zeroing the duration tokens at runtime, is not available:
   a storyboard held by a style cannot read a `DynamicResource`, because applying a
   style seals it and freezes the freezables it holds. For the same reason the animated
-  pieces (row hover, selection marker, badge entrance) were split into small styles of
+  pieces (row hover, selection marker, logo entrance) were split into small styles of
   their own, so `Ps1Motion.xaml` replaces those rather than duplicating whole templates.
   A `ScaleTransform` declared *in a template* can be animated; one set through a style
   setter cannot.
@@ -542,11 +585,30 @@ constructor. Each handler calls `GetTypeAheadTarget()` which returns `ArtistList
 for artists, `Title` for albums — and sets the `ListBox.SelectedItem`, which triggers
 the existing `BrowserList_SelectionChanged` scroll-into-view logic.
 
-### Title bar layout (session 4)
-`TitleBar.Icon` was removed. The logo is a 30 px-tall `Image` (full rectangular
-`logo.jpg`) at the start of the `TitleBar.Header` `StackPanel`, followed by the menu
-and a 333 px-wide search box. The Bit-Perfect toggle moved to the status bar (Grid
-row 3, column 2).
+### Title bar layout (session 4, reworked in session 8)
+`TitleBar.Icon` was removed. The header `StackPanel` holds two things: a `Grid` with the
+menu and the logo, and a 406 px-wide search box. Clicking the logo opens the File-style
+menu. The Bit-Perfect toggle moved to the status bar (Grid row 3, column 2).
+
+The logo is **drawn over the menu item, not inside it as the `Header`**, which is the
+part worth understanding:
+
+- **WPF-UI caps top-level menu header content at 20 px tall** and layout-clips anything
+  taller. A 30 px mark set as the `Header` rendered 39×20 with 5 px cut off the top and
+  the bottom — the `Control` reported `ActualHeight` 30 while carrying
+  `Clip=0,5,39,20`. `Padding` on the `MenuItem` is ignored too; its template hardcodes
+  14 px, which is what insets the logo from the window edge.
+- So the item's `Header` is a transparent 20 px spacer, the mark is a sibling drawn on
+  top of it, and `IsHitTestVisible="False"` on the mark lets the click fall through to
+  the item underneath. WPF-UI's hover highlight and drop-down are untouched — the
+  highlight now wraps the whole mark rather than a clipped strip of it.
+- The spacer takes its `Width` from the mark (`{Binding ActualWidth, ElementName=BrandMark}`)
+  instead of repeating 39, which is only 39 because of the image's aspect at 30 px.
+- **The search box width is chosen so its right edge does not move.** At 406 px it ends
+  at x=481 in a 1100 px window, exactly where the old 333 px box ended — level with the
+  Albums panel's right edge. Change the logo or the menu padding and re-measure it.
+- **`FontWeight` stays on the top-level `MenuItem`** even though its header is now a
+  spacer: menu items inherit it, so removing it would quietly un-bold every submenu item.
 
 ### CompositeCollection in the Libraries submenu
 WPF's `MenuItem` cannot mix `ItemsSource` items with static child items. The workaround:
@@ -581,6 +643,26 @@ Named elements available to query: `SearchBox`, `ArtistList`, `AlbumList`, `Trac
 returns a misaligned or partial image. That produced a completely false bug report
 mid-session: a layout was declared broken when it was fine, and only a diagnostic dump
 of the actual row heights settled it.
+
+**Measure a screenshot, do not eyeball it.** A capture only proves what you actually
+read out of its pixels. Session 8 shipped a logo that was silently cropped from 30 px to
+20 px because the render *looked* fine at 4x; the ink bounding box would have said 39x20
+where 39x30 was expected. Both ThemeLab renders and `PrintWindow` captures are just
+bitmaps, so scan them:
+
+```powershell
+# topmost / leftmost coloured pixel in the title-bar strip
+$b = New-Object System.Drawing.Bitmap $path
+for ($y=0; $y -lt 48; $y++) { for ($x=0; $x -lt 74; $x++) {
+  $c = $b.GetPixel($x,$y)
+  $spread = [Math]::Max($c.R,[Math]::Max($c.G,$c.B)) - [Math]::Min($c.R,[Math]::Min($c.G,$c.B))
+  if ($spread -gt 40) { ... }   # coloured ink, not grey chrome
+} }
+```
+
+Element rects are worth reading straight out of the live window too — UIA
+`BoundingRectangle` on the window, the menu item and `SearchBox` is how the title-bar
+geometry in this document was established, and it needs no screenshot at all.
 
 **Verify what screenshots cannot show** with a small headless console app referencing
 `AudioFool.Core`. Several are left in the session scratchpad. That approach caught things
@@ -624,6 +706,8 @@ ThemeLab.exe --theme PS1 --focus ArtistList     # keyboard focus visuals do rend
 ThemeLab.exe --theme PS1 --window tags          # the tag dialog
 ThemeLab.exe --theme PS1 --switch 1             # start in Dark, swap at runtime
 ThemeLab.exe --theme Dark --dump keys.txt
+ThemeLab.exe --theme Dark --menu               # does the logo open the menu?
+ThemeLab.exe --theme Dark --menu --menutree   # sizes and clips under the menu item
 ```
 
 Three things it took a while to get right, all worth keeping if it is rebuilt:
@@ -638,7 +722,7 @@ Three things it took a while to get right, all worth keeping if it is rebuilt:
 - **Relative pack URIs resolve against the entry assembly**, so `App.xaml` and
   `ThemeService` use the assembly-qualified form
   (`pack://application:,,,/AudioFool;component/Themes/...`). The harness also mirrors
-  `Resources/logo.jpg` and `AudioFool.ico`, which `MainWindow.xaml` loads by relative URI.
+  `Resources/logo.png` and `AudioFool.ico`, which `MainWindow.xaml` loads by relative URI.
 - **Mica and Acrylic windows have a transparent background** — the composited backdrop
   belongs to the desktop, not the window — so a `RenderTargetBitmap` of Dark or Vista
   comes out on nothing. The harness paints `--bg` behind the window first. PS1 is
@@ -649,6 +733,17 @@ appears and nothing takes focus. `Keyboard.Focus` still works on an unactivated
 off-screen window, so focus rings can be reviewed.
 ## Gotchas that cost real time
 
+- **WPF-UI clips a top-level menu header to 20 px tall.** Putting a 30 px image in a
+  `MenuItem.Header` gives you a silently cropped image: the element reports
+  `ActualHeight` 30 and WPF hangs a layout clip of `0,5,39,20` on it, so 5 px vanish off
+  the top and the bottom. `Padding` on the `MenuItem` is ignored as well. Nothing errors,
+  and at title-bar size the crop reads as "the logo looks a bit squat" rather than as a
+  bug — the user spotted it before I did. Two lessons: draw over the item instead of
+  filling its header (see *Title bar layout*), and when checking whether an image renders
+  whole, **measure the ink bounding box** rather than eyeballing a screenshot. A four-line
+  pixel scan for "any pixel whose channel spread exceeds 40" would have caught it
+  immediately: 39x20 where 39x30 was expected. `ThemeLab --menutree` prints the sizes and
+  clips of everything under the item, which is what finally located it.
 - **`VirtualizationMode="Recycling"` plus a `Loaded` handler is a silent bug.** A recycled
   row gets a new `DataContext` but does **not** re-raise `Loaded`. Album art loaded that
   way disappeared as soon as you scrolled. Never load per-item data from `Loaded` in a

@@ -9,7 +9,7 @@ with nothing else in the way.
 - Artists sort alphabetically, with a leading "The" ignored — *The Beatles* files under **B**.
 - Albums sort oldest at the top, newest at the bottom.
 - Songs sort by disc number, then track number.
-- Three themes, chosen from the AudioFool menu and remembered between runs:
+- Three themes, chosen from the logo menu in the title bar and remembered between runs:
   **Dark** (Fluent, Mica backdrop, teal accent), **Vista** (Aero Glass over an
   Acrylic backdrop), and **PS1** - a first-generation PlayStation reading of the
   app: moulded grey chassis, recessed wells, hairline bevels, square corners,

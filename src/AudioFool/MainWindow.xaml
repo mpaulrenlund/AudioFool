@@ -81,73 +81,102 @@
 
         <ui:TitleBar Grid.Row="0">
             <!--
-                The app name doubles as a File-style menu. Output and library
-                controls that used to sit in the toolbar live here now.
+                The logo is the File-style menu: clicking the mark drops the output
+                and library controls that used to sit in the toolbar. No text label -
+                the mark carries the identity, and the width that frees goes to the
+                search box, whose right edge still lines up with the Albums panel.
             -->
             <ui:TitleBar.Header>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Control Template="{DynamicResource AfBrandMark}"
-                         Height="{DynamicResource AfSizeBrandMark}"
-                         Margin="4,0,0,0"
-                         VerticalAlignment="Center"
-                         Focusable="False" IsTabStop="False"
-                         AutomationProperties.Name="AudioFool" />
-                <Menu Background="Transparent" VerticalAlignment="Center" Margin="4,0,0,0">
-                    <MenuItem Header="AudioFool" FontWeight="{DynamicResource AfFontWeightSemiBold}">
-                        <MenuItem Header="DSD passthrough"
-                                  IsCheckable="True"
-                                  IsChecked="{Binding IsDsdPassthrough, Mode=TwoWay}"
-                                  IsEnabled="{Binding CanUseDsdPassthrough}">
-                            <MenuItem.ToolTip>
-                                <TextBlock>
-                                    Send DSD to the DAC untouched, wrapped as DSD-over-PCM,<LineBreak />
-                                    instead of decoding it to PCM first.<LineBreak /><LineBreak />
-                                    Needs bit-perfect output and a DoP-capable DAC. Falls back<LineBreak />
-                                    to PCM conversion for any file the device can't clock.
-                                </TextBlock>
-                            </MenuItem.ToolTip>
+                <!--
+                    The logo is drawn *over* the menu item, not inside it as its
+                    Header. WPF-UI's top-level menu template caps header content at
+                    20 px tall and layout-clips anything taller, which cropped 5 px
+                    off the top and bottom of the 30 px mark. So the item carries a
+                    transparent spacer the width of the mark, the mark is drawn on
+                    top of it, and IsHitTestVisible="False" lets the click fall
+                    through to the item underneath. The hover highlight and the
+                    drop-down are WPF-UI's own, untouched.
+
+                    The spacer takes its width from the mark rather than repeating a
+                    number that depends on the image's aspect; 20 px is the cap, and
+                    keeping the spacer at it leaves the item the size it has always
+                    been.
+                -->
+                <Grid>
+                    <Menu Background="Transparent" VerticalAlignment="Center">
+                        <!--
+                            FontWeight is set here for the submenu, not the header:
+                            menu items inherit it from the item that owns them.
+                        -->
+                        <MenuItem FontWeight="{DynamicResource AfFontWeightSemiBold}"
+                                  AutomationProperties.Name="AudioFool"
+                                  ToolTip="AudioFool menu">
+                            <MenuItem.Header>
+                                <Border Height="20" Background="Transparent"
+                                        Width="{Binding ActualWidth, ElementName=BrandMark, Mode=OneWay}" />
+                            </MenuItem.Header>
+                            <MenuItem Header="DSD passthrough"
+                                      IsCheckable="True"
+                                      IsChecked="{Binding IsDsdPassthrough, Mode=TwoWay}"
+                                      IsEnabled="{Binding CanUseDsdPassthrough}">
+                                <MenuItem.ToolTip>
+                                    <TextBlock>
+                                        Send DSD to the DAC untouched, wrapped as DSD-over-PCM,<LineBreak />
+                                        instead of decoding it to PCM first.<LineBreak /><LineBreak />
+                                        Needs bit-perfect output and a DoP-capable DAC. Falls back<LineBreak />
+                                        to PCM conversion for any file the device can't clock.
+                                    </TextBlock>
+                                </MenuItem.ToolTip>
+                            </MenuItem>
+        
+                            <Separator />
+        
+                            <MenuItem Header="Libraries"
+                                      Icon="{ui:SymbolIcon Folder24}">
+                                <MenuItem.ItemContainerStyle>
+                                    <Style TargetType="MenuItem">
+                                        <Setter Property="Header" Value="{Binding FolderPath}" />
+                                        <Setter Property="IsCheckable" Value="True" />
+                                        <Setter Property="IsChecked" Value="{Binding IsEnabled, Mode=TwoWay}" />
+                                    </Style>
+                                </MenuItem.ItemContainerStyle>
+                                <MenuItem.ItemsSource>
+                                    <CompositeCollection>
+                                        <CollectionContainer Collection="{Binding Source={StaticResource FolderFiltersSource}}" />
+                                        <Separator />
+                                        <MenuItem Header="Add folder…"
+                                                  Icon="{ui:SymbolIcon FolderAdd24}"
+                                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.AddFolderCommand}" />
+                                    </CompositeCollection>
+                                </MenuItem.ItemsSource>
+                            </MenuItem>
+        
+                            <Separator />
+        
+                            <MenuItem Header="Themes"
+                                      Icon="{ui:SymbolIcon Color24}"
+                                      ItemsSource="{Binding ThemeItems}">
+                                <MenuItem.ItemContainerStyle>
+                                    <Style TargetType="MenuItem">
+                                        <Setter Property="Header" Value="{Binding Name}" />
+                                        <Setter Property="IsCheckable" Value="True" />
+                                        <Setter Property="IsChecked" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                    </Style>
+                                </MenuItem.ItemContainerStyle>
+                            </MenuItem>
                         </MenuItem>
+                    </Menu>
 
-                        <Separator />
-
-                        <MenuItem Header="Libraries"
-                                  Icon="{ui:SymbolIcon Folder24}">
-                            <MenuItem.ItemContainerStyle>
-                                <Style TargetType="MenuItem">
-                                    <Setter Property="Header" Value="{Binding FolderPath}" />
-                                    <Setter Property="IsCheckable" Value="True" />
-                                    <Setter Property="IsChecked" Value="{Binding IsEnabled, Mode=TwoWay}" />
-                                </Style>
-                            </MenuItem.ItemContainerStyle>
-                            <MenuItem.ItemsSource>
-                                <CompositeCollection>
-                                    <CollectionContainer Collection="{Binding Source={StaticResource FolderFiltersSource}}" />
-                                    <Separator />
-                                    <MenuItem Header="Add folder…"
-                                              Icon="{ui:SymbolIcon FolderAdd24}"
-                                              Command="{Binding Source={StaticResource Proxy}, Path=Data.AddFolderCommand}" />
-                                </CompositeCollection>
-                            </MenuItem.ItemsSource>
-                        </MenuItem>
-
-                        <Separator />
-
-                        <MenuItem Header="Themes"
-                                  Icon="{ui:SymbolIcon Color24}"
-                                  ItemsSource="{Binding ThemeItems}">
-                            <MenuItem.ItemContainerStyle>
-                                <Style TargetType="MenuItem">
-                                    <Setter Property="Header" Value="{Binding Name}" />
-                                    <Setter Property="IsCheckable" Value="True" />
-                                    <Setter Property="IsChecked" Value="{Binding IsSelected, Mode=TwoWay}" />
-                                </Style>
-                            </MenuItem.ItemContainerStyle>
-                        </MenuItem>
-                    </MenuItem>
-                </Menu>
+                    <Control x:Name="BrandMark"
+                             Template="{DynamicResource AfBrandMark}"
+                             Height="{DynamicResource AfSizeBrandMark}"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
+                </Grid>
 
                 <ui:TextBox x:Name="SearchBox"
-                            Width="333"
+                            Width="406"
                             Margin="8,0,0,0"
                             VerticalAlignment="Center"
                             Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
