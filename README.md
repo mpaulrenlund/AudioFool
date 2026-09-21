@@ -437,8 +437,10 @@ least-recently-used first.
 ## Known limitations
 
 - **No TAK or DTS decoder.** See [Format coverage](#format-coverage) for the options.
-- **No search, playlists, queue, shuffle or repeat UI.** The engine supports repeat
-  modes; nothing is bound to them yet.
+- **No playlists, and no visible queue.** Shuffle and repeat do have controls now
+  (see [Play order](#play-order)), and so does search - but what is queued cannot be
+  seen, reordered or saved - it is simply whatever the track grid was showing when
+  you pressed play (an album, or a set of search results).
 - **Memory sits high after a *cold* scan** (~900 MB working set for a 26,000-track
   library). A post-scan compaction runs, and the cache means this only happens on a
   first run or after the cache is invalidated - but it is still worth profiling.
