@@ -61,11 +61,16 @@ Two shell notes:
 
 ## Version control
 
-`C:\MusicPlayer` is a git repository as of session 5. Branch `main`, one commit
-(`86fb5ab`) holding all four prior sessions of work. **No remote** — it is local only,
-so pushing is not part of any workflow here.
+`C:\MusicPlayer` is a git repository as of session 5, working on branch `main`.
 
-Three decisions baked into that commit, so you do not have to re-derive them:
+**There is a remote**, added after session 7: `origin` is
+<https://github.com/mpaulrenlund/AudioFool.git>, a **private** repo whose default branch
+is also `main`. `gh` is authenticated on this machine as `marcusrenlund` over HTTPS, so
+`git push origin main` works with no further setup. An earlier version of this document
+said the repo was local-only; that stopped being true at the *Merge GitHub's initial
+commit* commit.
+
+Three decisions baked into the first commit, so you do not have to re-derive them:
 
 - **The BASS DLLs are vendored, not ignored.** `lib/bass/x64/` (13 DLLs, 864 KB) is
   tracked. `dotnet restore` cannot produce them — the `ManagedBass.*` NuGet packages
@@ -80,8 +85,9 @@ Three decisions baked into that commit, so you do not have to re-derive them:
   — it is the input `tools/make-icon.ps1` regenerates the .ico from.
 
 Verified, not assumed: a fresh `git clone` of this repo into a scratch directory builds
-with 0 warnings and passes all 73 tests. If you add a dependency that lives outside
-NuGet, re-run that check — it is the only thing that catches a file you forgot to track.
+with 0 warnings and passes the whole suite (73 tests when that was checked in session 5;
+113 now). If you add a dependency that lives outside NuGet, re-run that check — it is
+the only thing that catches a file you forgot to track.
 
 ---
 
