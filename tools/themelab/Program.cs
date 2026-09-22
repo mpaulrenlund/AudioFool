@@ -360,7 +360,8 @@ internal static class Program
 
     private static Track Make(
         string title, string artist, string album, int n, int? disc, int year,
-        string kind, int? bitrate, int? depth, int? rate, int seconds) => new()
+        string kind, int? bitrate, int? depth, int? rate, int seconds,
+        int? trackCount = 10, int? discCount = 2) => new()
         {
             FilePath = $@"D:\Music\{artist}\{album}\{n:00} {title}.flac",
             FileSize = 40_000_000,
@@ -370,7 +371,9 @@ internal static class Program
             AlbumArtist = artist,
             Album = album,
             TrackNumber = n,
+            TrackCount = trackCount,
             DiscNumber = disc,
+            DiscCount = discCount,
             Year = year,
             Kind = kind,
             Bitrate = bitrate,
@@ -387,7 +390,8 @@ internal static class Program
         Make("Low Poly Sunrise", "Aphelion Drive", "Second Sight", 4, 1, 1997, "DSD", null, null, 2822400, 289),
         Make("Analogue Stick", "Aphelion Drive", "Second Sight", 5, 1, 1997, "FLAC", 1012, 24, 96000, 198),
         Make("Wireframe Hymn", "Aphelion Drive", "Second Sight", 6, 2, 1997, "FLAC", 1067, 24, 96000, 401),
-        Make("Disc Read Error", "Aphelion Drive", "Second Sight", 7, 2, 1997, "MP3", 320, null, 44100, 176),
+        // One untagged-for-totals row, so the render shows the bare-number fallback.
+        Make("Disc Read Error", "Aphelion Drive", "Second Sight", 7, 2, 1997, "MP3", 320, null, 44100, 176, null, null),
         Make("Grey Plastic", "Aphelion Drive", "Second Sight", 8, 2, 1997, "FLAC", 921, 16, 44100, 243),
         Make("Startup Chime", "Aphelion Drive", "Second Sight", 9, 2, 1997, "FLAC", 1188, 24, 192000, 88),
         Make("Second Sight", "Aphelion Drive", "Second Sight", 10, 2, 1997, "FLAC", 1023, 24, 96000, 366),

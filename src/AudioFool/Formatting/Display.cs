@@ -46,4 +46,18 @@ public static class Display
     /// <summary>Blank rather than "0" for untagged track and disc numbers.</summary>
     public static string Number(int? value) =>
         value is > 0 ? value.Value.ToString() : "";
+
+    /// <summary>
+    /// "3/12" when the file names a total, plain "3" when it doesn't - about one
+    /// file in five carries no total, and a bare number is better there than an
+    /// invented one. Blank when the number itself is missing, matching
+    /// <see cref="Number"/>.
+    /// </summary>
+    public static string NumberOfTotal(int? value, int? total)
+    {
+        if (value is not > 0)
+            return "";
+
+        return total is > 0 ? $"{value}/{total}" : value.Value.ToString();
+    }
 }

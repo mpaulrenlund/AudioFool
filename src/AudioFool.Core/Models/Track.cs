@@ -25,6 +25,13 @@ public sealed class Track
     public DateTime ModifiedUtc { get; init; }
 
     public int? TrackNumber { get; init; }
+
+    /// <summary>
+    /// Total tracks on this disc - the "12" in "3/12". Null for the roughly one
+    /// file in five that doesn't carry it; the grid then shows the bare number.
+    /// </summary>
+    public int? TrackCount { get; init; }
+
     public string Title { get; init; } = "";
     public string Artist { get; init; } = "";
 
@@ -37,6 +44,10 @@ public sealed class Track
     public string Album { get; init; } = "";
     public TimeSpan Duration { get; init; }
     public int? DiscNumber { get; init; }
+
+    /// <summary>Total discs in the set. Only about one album in eight has more than one.</summary>
+    public int? DiscCount { get; init; }
+
     public int? Year { get; init; }
 
     /// <summary>Container/codec shown in the Kind column, e.g. "FLAC", "MP3", "DSD".</summary>
@@ -81,12 +92,14 @@ public sealed class Track
         FileSize = FileSize,
         ModifiedUtc = ModifiedUtc,
         TrackNumber = TrackNumber,
+        TrackCount = TrackCount,
         Title = Title,
         Artist = Artist,
         AlbumArtist = AlbumArtist,
         Album = Album,
         Duration = Duration,
         DiscNumber = DiscNumber,
+        DiscCount = DiscCount,
         Year = Year,
         Kind = Kind,
         Bitrate = Bitrate,
@@ -114,12 +127,14 @@ public sealed class Track
         FileSize = stamp.Length,
         ModifiedUtc = stamp.ModifiedUtc,
         TrackNumber = edit.TrackNumber,
+        TrackCount = edit.TrackCount,
         Title = edit.Title,
         Artist = edit.Artist,
         AlbumArtist = edit.AlbumArtist,
         Album = edit.Album,
         Duration = Duration,
         DiscNumber = edit.DiscNumber,
+        DiscCount = edit.DiscCount,
         Year = edit.Year,
         Kind = Kind,
         Bitrate = Bitrate,
@@ -139,12 +154,14 @@ public sealed class Track
         FileSize = stamp.Length,
         ModifiedUtc = stamp.ModifiedUtc,
         TrackNumber = TrackNumber,
+        TrackCount = TrackCount,
         Title = Title,
         Artist = edit.Artist,
         AlbumArtist = edit.AlbumArtist,
         Album = edit.Album,
         Duration = Duration,
         DiscNumber = DiscNumber,
+        DiscCount = DiscCount,
         Year = edit.Year,
         Kind = Kind,
         Bitrate = Bitrate,

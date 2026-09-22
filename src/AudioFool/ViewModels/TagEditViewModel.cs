@@ -51,8 +51,16 @@ public sealed partial class TagEditViewModel : ObservableObject
     [ObservableProperty]
     private string _trackNumber = "";
 
+    /// <summary>Total tracks on this disc - the "of 12" in "3 of 12".</summary>
+    [ObservableProperty]
+    private string _trackCount = "";
+
     [ObservableProperty]
     private string _discNumber = "";
+
+    /// <summary>Total discs in the set.</summary>
+    [ObservableProperty]
+    private string _discCount = "";
 
     [ObservableProperty]
     private BitmapSource? _artPreview;
@@ -78,7 +86,9 @@ public sealed partial class TagEditViewModel : ObservableObject
         AlbumTitle = track.Album;
         Year = track.Year?.ToString() ?? "";
         TrackNumber = track.TrackNumber?.ToString() ?? "";
+        TrackCount = track.TrackCount?.ToString() ?? "";
         DiscNumber = track.DiscNumber?.ToString() ?? "";
+        DiscCount = track.DiscCount?.ToString() ?? "";
     }
 
     /// <summary>
@@ -136,9 +146,10 @@ public sealed partial class TagEditViewModel : ObservableObject
         }
     }
 
-    partial void OnYearChanged(string value) => Revalidate();
     partial void OnTrackNumberChanged(string value) => Revalidate();
+    partial void OnTrackCountChanged(string value) => Revalidate();
     partial void OnDiscNumberChanged(string value) => Revalidate();
+    partial void OnDiscCountChanged(string value) => Revalidate();
     partial void OnAlbumTitleChanged(string value) => Revalidate();
 
     private void Revalidate()
@@ -150,7 +161,16 @@ public sealed partial class TagEditViewModel : ObservableObject
             return;
         }
 
-        foreach (var (label, value) in new[] { ("Year", Year), ("Track #", TrackNumber), ("Disc #", DiscNumber) })
+        var numeric = new[]
+        {
+            ("Year", Year),
+            ("Track #", TrackNumber),
+            ("Total tracks", TrackCount),
+            ("Disc #", DiscNumber),
+            ("Total discs", DiscCount),
+        };
+
+        foreach (var (label, value) in numeric)
         {
             if (value.Length > 0 && !int.TryParse(value, out _))
             {
@@ -169,7 +189,9 @@ public sealed partial class TagEditViewModel : ObservableObject
 
     public TrackTagEdit BuildTrackEdit() => new(
         Title.Trim(), Artist.Trim(), AlbumArtist.Trim(), AlbumTitle.Trim(),
-        ParseOrNull(Year), ParseOrNull(TrackNumber), ParseOrNull(DiscNumber));
+        ParseOrNull(Year),
+        ParseOrNull(TrackNumber), ParseOrNull(TrackCount),
+        ParseOrNull(DiscNumber), ParseOrNull(DiscCount));
 
     public AlbumTagEdit BuildAlbumEdit() => new(
         Artist.Trim(), AlbumArtist.Trim(), AlbumTitle.Trim(), ParseOrNull(Year));

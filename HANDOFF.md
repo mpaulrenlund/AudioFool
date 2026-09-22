@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-17 after the eighth build session. Read this alongside
+Updated 2026-09-22 after the ninth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -86,7 +86,7 @@ Three decisions baked into the first commit, so you do not have to re-derive the
 
 Verified, not assumed: a fresh `git clone` of this repo into a scratch directory builds
 with 0 warnings and passes the whole suite (73 tests when that was checked in session 5;
-113 now). If you add a dependency that lives outside NuGet, re-run that check — it is
+116 now). If you add a dependency that lives outside NuGet, re-run that check — it is
 the only thing that catches a file you forgot to track.
 
 ---
@@ -205,7 +205,7 @@ Everything below is implemented **and verified working**, not merely written:
   single-line was replaced with an `ItemsControl` bound to `AlbumHeaderSubtitleLines` — one
   `TextBlock` per line. Track count removed. Font and size unchanged.
 - **Tag and album art editing** (major new feature). Right-click a track → "Edit Tags…"
-  (Title / Artist / AlbumArtist / Album / Year / Track # / Disc #). Right-click an album →
+  (Title / Artist / AlbumArtist / Album / Year / Track # of total / Disc # of total). Right-click an album →
   "Edit Album Tags…" (Artist / AlbumArtist / Album / Year + art replacement). Art is always
   written both into every track's embedded tags AND as a folder `cover.jpg`/`cover.png`.
   Multi-disc albums (multiple sub-folders) get a cover file in every sub-folder.
@@ -267,6 +267,31 @@ track change.
   and lists the submenu. `--menutree` prints every element under the item with its size,
   height limits and clip — which is what found the 20 px header cap. Popups render in
   their own window, so a screenshot could never have shown either.
+
+### Changes from session 9
+
+- **Track and disc totals.** `Track` gained `TrackCount` and `DiscCount`, read from
+  TagLib's `Tag.TrackCount` / `Tag.DiscCount` in `TagReader.Read` and written back by
+  `TagWriter.WriteTrackTags`. The tag dialog edits them on two separate rows — Track
+  *n* of *total*, Disc *n* of *total* — replacing the single "Track / Disc" row.
+- **The # and Disc columns show "3/12" and "1/2".** A bare number when the file names
+  no total, blank when it names no number at all. `Display.NumberOfTotal` does the
+  formatting; `NumberOfTotalConverter` is an `IMultiValueConverter` so the column can
+  keep `SortMemberPath` on the raw number and still sort numerically. Both columns
+  widened from 44/46 px to 56 px, and both are already in the auto-fit `mustFit` set,
+  so they size themselves to the realised rows.
+- **`LibraryCache.CurrentVersion` is 2.** This is the part worth understanding: adding
+  a nullable field to `Track` does *not* normally need a bump, because it deserialises
+  as null. Here null is the whole problem — every cached track still matches its file
+  on size and write time, so the incremental scan would never re-read a tag and the two
+  columns would stay blank permanently. The bump forces one full scan (~18 s, and the
+  usual cold-scan memory spike) and is the only thing that fills them.
+- **Measured before designing.** A probe over the real library (1,500-file sample of
+  26,747) found `TrackCount` on **74.7%** of files, `DiscCount` on **72.5%**, neither on
+  19%, and only **12.2%** in multi-disc sets. That is what settled "show the total when
+  it exists, bare number otherwise" over inventing a total from the album's track count.
+- **ThemeLab sample tracks carry counts now**, including one row with neither, so a
+  render actually exercises both branches of the formatting.
 
 ### Deliberately not done
 

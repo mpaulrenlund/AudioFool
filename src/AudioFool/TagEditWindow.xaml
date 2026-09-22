@@ -61,6 +61,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Title" VerticalAlignment="Center" Margin="0,0,0,8"
@@ -81,14 +82,24 @@
                 <ui:TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Year, UpdateSourceTrigger=PropertyChanged}"
                             HorizontalAlignment="Left" Width="80" Margin="0,0,0,8" />
 
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="Track / Disc" VerticalAlignment="Center"
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Track" VerticalAlignment="Center" Margin="0,0,0,8"
                            Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}" />
-                <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal"
+                <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8"
                             Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}">
                     <ui:TextBox Text="{Binding TrackNumber, UpdateSourceTrigger=PropertyChanged}" Width="60" />
-                    <TextBlock Text="/" VerticalAlignment="Center" Margin="8,0,8,0"
+                    <TextBlock Text="of" VerticalAlignment="Center" Margin="8,0,8,0"
                                Foreground="{DynamicResource AfTextTertiary}" />
+                    <ui:TextBox Text="{Binding TrackCount, UpdateSourceTrigger=PropertyChanged}" Width="60" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="Disc" VerticalAlignment="Center"
+                           Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}" />
+                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal"
+                            Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}">
                     <ui:TextBox Text="{Binding DiscNumber, UpdateSourceTrigger=PropertyChanged}" Width="60" />
+                    <TextBlock Text="of" VerticalAlignment="Center" Margin="8,0,8,0"
+                               Foreground="{DynamicResource AfTextTertiary}" />
+                    <ui:TextBox Text="{Binding DiscCount, UpdateSourceTrigger=PropertyChanged}" Width="60" />
                 </StackPanel>
             </Grid>
         </StackPanel>

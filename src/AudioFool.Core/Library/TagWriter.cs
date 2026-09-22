@@ -38,7 +38,9 @@ public static class TagWriter
             tag.Album = edit.Album;
             tag.Year = (uint)(edit.Year ?? 0);
             tag.Track = (uint)(edit.TrackNumber ?? 0);
+            tag.TrackCount = (uint)(edit.TrackCount ?? 0);
             tag.Disc = (uint)(edit.DiscNumber ?? 0);
+            tag.DiscCount = (uint)(edit.DiscCount ?? 0);
         }, art);
 
         if (!save.Success)

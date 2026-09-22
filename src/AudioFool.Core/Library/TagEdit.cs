@@ -1,7 +1,7 @@
 namespace AudioFool.Core.Library;
 
 /// <summary>
-/// Every tag field for a single-track edit. All seven are authoritative - the
+/// Every tag field for a single-track edit. All nine are authoritative - the
 /// caller always pre-fills every field with the track's current value, so there
 /// is no "null means leave alone" case to model.
 /// </summary>
@@ -12,7 +12,9 @@ public sealed record TrackTagEdit(
     string Album,
     int? Year,
     int? TrackNumber,
-    int? DiscNumber);
+    int? TrackCount,
+    int? DiscNumber,
+    int? DiscCount);
 
 /// <summary>
 /// The fields shared by a whole-album batch edit. Title, track number and disc

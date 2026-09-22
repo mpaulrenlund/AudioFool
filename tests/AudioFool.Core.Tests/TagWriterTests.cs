@@ -28,7 +28,7 @@ public sealed class TempAudioFile : IDisposable
 public class TagWriterTests
 {
     private static TrackTagEdit SampleTrackEdit() =>
-        new("New Title", "New Artist", "New Album Artist", "New Album", 1999, 7, 2);
+        new("New Title", "New Artist", "New Album Artist", "New Album", 1999, 7, 12, 2, 3);
 
     [Theory]
     [InlineData("sample.flac")]
@@ -51,7 +51,9 @@ public class TagWriterTests
         Assert.Equal("New Album", reread.Album);
         Assert.Equal(1999, reread.Year);
         Assert.Equal(7, reread.TrackNumber);
+        Assert.Equal(12, reread.TrackCount);
         Assert.Equal(2, reread.DiscNumber);
+        Assert.Equal(3, reread.DiscCount);
     }
 
     [Theory]
@@ -119,6 +121,8 @@ public class TagWriterTests
         Assert.Equal("Album Artist Edit", reread.Artist);
         Assert.Equal("Batch Album", reread.Album);
         Assert.Equal(2001, reread.Year);
+        Assert.Equal(12, reread.TrackCount);
+        Assert.Equal(3, reread.DiscCount);
     }
 
     [Fact]
@@ -130,6 +134,35 @@ public class TagWriterTests
 
         Assert.False(result.Success);
         Assert.NotNull(result.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData("sample.flac")]
+    [InlineData("sample.mp3")]
+    public void An_empty_total_clears_a_count_the_file_already_had(string fixture)
+    {
+        using var file = new TempAudioFile(fixture);
+
+        var seeded = TagWriter.WriteTrackTags(
+            TagReader.Read(file.Path), SampleTrackEdit(), art: null, folderArtPath: null);
+        Assert.True(seeded.Success, seeded.ErrorMessage);
+        Assert.Equal(12, TagReader.Read(file.Path).TrackCount);
+
+        // Blanking the box is an instruction, not an omission: the dialog pre-fills
+        // from the track, so an empty total can only mean the user emptied it.
+        var cleared = SampleTrackEdit() with { TrackCount = null, DiscCount = null };
+        var result = TagWriter.WriteTrackTags(seeded.UpdatedTrack!, cleared, art: null, folderArtPath: null);
+
+        Assert.True(result.Success, result.ErrorMessage);
+
+        var reread = TagReader.Read(file.Path);
+        Assert.Null(reread.TrackCount);
+        Assert.Null(reread.DiscCount);
+
+        // The in-memory copy has to agree with the file, or the grid would keep
+        // showing "7/12" until the next scan re-read the tag.
+        Assert.Null(result.UpdatedTrack!.TrackCount);
+        Assert.Null(result.UpdatedTrack!.DiscCount);
     }
 }
 

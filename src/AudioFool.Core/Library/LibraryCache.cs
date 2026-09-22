@@ -23,8 +23,16 @@ public sealed class LibraryCache
     /// <summary>
     /// Bump when <see cref="Track"/> changes shape in a way that makes old files
     /// unreadable or wrong. A mismatch is treated as "no cache", not an error.
+    /// <para>
+    /// Version 2 added <see cref="Track.TrackCount"/> and <see cref="Track.DiscCount"/>.
+    /// Adding a field would normally deserialise as null and need no bump, but
+    /// null is exactly the problem here: every cached track still matches its
+    /// file on size and write time, so the incremental scan would never re-read a
+    /// tag and the two new columns would stay blank for good. Discarding the
+    /// cache costs one ~18 s full scan and is the only thing that fills them.
+    /// </para>
     /// </summary>
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     public int Version { get; set; } = CurrentVersion;
 

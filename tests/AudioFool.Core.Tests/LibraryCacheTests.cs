@@ -54,7 +54,9 @@ public class LibraryCacheTests
         AlbumArtist = "100 Onces",
         Album = "100 Onces",
         TrackNumber = 1,
+        TrackCount = 11,
         DiscNumber = 2,
+        DiscCount = 3,
         Year = 2014,
         Duration = TimeSpan.FromSeconds(294),
         Kind = "FLAC",
@@ -86,7 +88,9 @@ public class LibraryCacheTests
         Assert.Equal(expected.AlbumArtist, track.AlbumArtist);
         Assert.Equal(expected.Album, track.Album);
         Assert.Equal(expected.TrackNumber, track.TrackNumber);
+        Assert.Equal(expected.TrackCount, track.TrackCount);
         Assert.Equal(expected.DiscNumber, track.DiscNumber);
+        Assert.Equal(expected.DiscCount, track.DiscCount);
         Assert.Equal(expected.Year, track.Year);
         Assert.Equal(expected.Duration, track.Duration);
         Assert.Equal(expected.Kind, track.Kind);
@@ -139,6 +143,23 @@ public class LibraryCacheTests
         var parsed = JsonSerializer.Deserialize<LibraryCache>(json);
 
         Assert.NotEqual(LibraryCache.CurrentVersion, parsed!.Version);
+    }
+
+    [Fact]
+    public void A_version_1_cache_is_rejected_so_the_new_counts_get_filled()
+    {
+        // The whole reason CurrentVersion went to 2. A v1 entry parses perfectly
+        // well - the two added fields simply come back null - so nothing would
+        // fail loudly; the version check is the only thing standing between the
+        // user and a # column that stays blank forever, because every cached
+        // track still matches its file and would never be re-read.
+        var v1 = """{"Version":1,"Folders":["C:/music"],"Tracks":[{"FilePath":"C:/music/a.flac","TrackNumber":3}]}""";
+
+        var parsed = JsonSerializer.Deserialize<LibraryCache>(v1);
+
+        Assert.Equal(3, parsed!.Tracks[0].TrackNumber);
+        Assert.Null(parsed.Tracks[0].TrackCount);
+        Assert.NotEqual(LibraryCache.CurrentVersion, parsed.Version);
     }
 }
 
