@@ -284,12 +284,18 @@ track change.
   a nullable field to `Track` does *not* normally need a bump, because it deserialises
   as null. Here null is the whole problem — every cached track still matches its file
   on size and write time, so the incremental scan would never re-read a tag and the two
-  columns would stay blank permanently. The bump forces one full scan (~18 s, and the
-  usual cold-scan memory spike) and is the only thing that fills them.
+  columns would stay blank permanently. The bump forces one full scan and is the only
+  thing that fills them. **Measured on the real library, that scan took 56 s** from
+  launch to `library.json` being rewritten — not the 17.6 s the tag-read row of the
+  README's table would suggest. That figure is one phase of a warm run; a cold rebuild
+  of 26,747 files off the USB SSD is three times it. The window is up and usable at
+  3 s throughout, since the scan is background work.
 - **Measured before designing.** A probe over the real library (1,500-file sample of
   26,747) found `TrackCount` on **74.7%** of files, `DiscCount` on **72.5%**, neither on
   19%, and only **12.2%** in multi-disc sets. That is what settled "show the total when
   it exists, bare number otherwise" over inventing a total from the album's track count.
+  The finished rescan bears the sample out: of 26,747 tracks, 20,063 (**75.0%**) carry
+  `TrackCount` and 20,044 (**74.9%**) carry `DiscCount`.
 - **ThemeLab sample tracks carry counts now**, including one row with neither, so a
   render actually exercises both branches of the formatting.
 
