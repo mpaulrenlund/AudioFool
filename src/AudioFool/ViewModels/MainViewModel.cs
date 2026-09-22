@@ -256,6 +256,60 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void ClearSearch() => SearchQuery = "";
 
+    // --------------------------------------------------------- library filter
+
+    /// <summary>
+    /// A subset chosen from the Statistics window - "Missing Year", "FLAC" - that
+    /// the browser is narrowed to. Search runs inside it rather than replacing it,
+    /// so "Missing Year" plus a search for an artist finds that artist's untagged
+    /// tracks. Session-only: never saved, so the app cannot open mysteriously
+    /// showing a fraction of the library.
+    /// <para>
+    /// Re-applied on every rebuild, including the one after a tag edit, so a track
+    /// fixed through the filtered view drops out of it and the count goes down.
+    /// </para>
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFiltered))]
+    private TrackFilter? _libraryFilter;
+
+    public bool IsFiltered => LibraryFilter is not null;
+
+    /// <summary>Tracks passing the library filter, before any search narrows them further.</summary>
+    private int _filteredTrackCount;
+
+    partial void OnLibraryFilterChanged(TrackFilter? value)
+    {
+        ApplyToView(keepSelection: true);
+        StatusText = DescribeStatus(default);
+    }
+
+    [RelayCommand]
+    private void ClearLibraryFilter() => LibraryFilter = null;
+
+    /// <summary>
+    /// Selects an artist in the sidebar, for a top-artist row in Statistics. Any
+    /// filter or search hiding them is cleared first - the request was to see
+    /// this artist, so a view that could not show them would be the wrong answer.
+    /// </summary>
+    public void ShowArtist(string name)
+    {
+        LibraryFilter = null;
+
+        if (!Artists.Any(a => SortRules.NameComparer.Equals(a.Name, name)) && IsSearching)
+        {
+            // Applied now rather than after the debounce, so the artist is there to select.
+            _searchQuery = "";
+            OnPropertyChanged(nameof(SearchQuery));
+            OnPropertyChanged(nameof(IsSearching));
+            ApplyToView(keepSelection: true);
+            StatusText = DescribeStatus(default);
+        }
+
+        if (Artists.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Name, name)) is { } artist)
+            SelectedArtist = artist;
+    }
+
     private void OnSearchDebounceTick(object? sender, EventArgs e)
     {
         _searchDebounce.Stop();
@@ -715,7 +769,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             ? _library
             : LibraryScanner.Build(visible);
 
-        var matched = LibrarySearch.Filter(visible, SearchQuery);
+        // The statistics filter narrows what search sees; the status-bar library
+        // above stays unfiltered, so its counts still describe the whole library.
+        IReadOnlyList<Track> filtered = LibraryFilter is { } filter
+            ? visible.Where(filter.Matches).ToList()
+            : visible;
+        _filteredTrackCount = filtered.Count;
+
+        var matched = LibrarySearch.Filter(filtered, SearchQuery);
 
         // Rebuilding from the filtered tracks means the grouping and the three sort
         // rules apply to search results exactly as they do to the whole library.
@@ -788,6 +849,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (_folderFilteredLibrary.AllTracks.Count == 0)
             return DescribeLibrary();
 
+        if (LibraryFilter is { } filter)
+        {
+            if (IsSearching)
+            {
+                return $"{MatchedTrackCount:N0} of {_filteredTrackCount:N0} tracks match \"{SearchQuery}\"" +
+                       $"  ·  {filter.Description}";
+            }
+
+            // Reaching zero is the point of a "Missing ..." filter, so say so plainly.
+            return _filteredTrackCount == 0
+                ? $"{filter.Description}: no tracks left"
+                : $"{_filteredTrackCount:N0} of {_folderFilteredLibrary.AllTracks.Count:N0} tracks  ·  {filter.Description}";
+        }
+
         // While searching, the counts that matter are the matches, not the library.
         if (IsSearching)
         {
@@ -854,6 +929,45 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         await ScanAsync();
     }
 
+    // ------------------------------------------------------------ statistics
+
+    /// <summary>
+    /// Counts what the status bar counts: enabled folders only, and the whole of
+    /// them regardless of any search in progress.
+    /// </summary>
+    [RelayCommand]
+    private void ShowStatistics()
+    {
+        if (Application.Current.MainWindow is not { } owner)
+            return;
+
+        var stats = LibraryStatistics.Compute(_folderFilteredLibrary);
+        var someHidden = FolderFilters.Any(f => !f.IsEnabled);
+
+        var statsVm = new StatisticsViewModel(stats, someHidden);
+        if (new StatisticsWindow(statsVm, owner).ShowDialog() == true && statsVm.Chosen is { } row)
+            ApplyStatisticsChoice(row);
+    }
+
+    /// <summary>What clicking a Statistics row does: go to an artist, or filter to a subset.</summary>
+    public void ApplyStatisticsChoice(BarRow row)
+    {
+        if (row.ArtistName is { } artist)
+            ShowArtist(artist);
+        else if (row.Filter is { } filter)
+            LibraryFilter = filter;
+    }
+
+    /// <summary>
+    /// "Saved tags for 12 track(s).  ·  58 left: Missing Year" - while a filter is
+    /// on, a save reports how much of it remains, since fixing it is usually why
+    /// the filter is on.
+    /// </summary>
+    private string WithFilterProgress(string message) =>
+        LibraryFilter is { } filter
+            ? $"{message}  ·  {_filteredTrackCount:N0} left: {filter.Description}"
+            : message;
+
     // ----------------------------------------------------------- tag editing
 
     [RelayCommand]
@@ -904,7 +1018,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             [track.FilePath] = result.UpdatedTrack!,
         });
 
-        StatusText = $"Saved tags for {result.UpdatedTrack!.DisplayTitle}.";
+        StatusText = WithFilterProgress($"Saved tags for {result.UpdatedTrack!.DisplayTitle}.");
         await PersistLibraryAsync();
     }
 
@@ -966,7 +1080,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
 
         StatusText = failed.Count == 0
-            ? $"Saved tags for {updated.Count} track(s)."
+            ? WithFilterProgress($"Saved tags for {updated.Count} track(s).")
             : $"Saved tags for {updated.Count} of {album.Tracks.Count} track(s) - " +
               $"{failed.Count} failed ({string.Join(", ", failed.Select(f => f.FileName))}: {failed[0].Error}).";
 

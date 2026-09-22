@@ -87,7 +87,15 @@ internal static class Program
         main.Show();
 
         Pump();
-        Populate(vm);
+        if (which == "click")
+        {
+            LoadRealLibrary(vm);
+        }
+        else
+        {
+            Populate(vm);
+        }
+
         Settle(300);
 
         if (switching)
@@ -251,6 +259,158 @@ internal static class Program
 
             // Its content, not the window: an unshown Window measures to nothing,
             // and the chrome here is only a title bar anyway.
+            var root = (FrameworkElement)dialog.Content;
+            root.Measure(new Size(w, double.PositiveInfinity));
+            var height = Math.Ceiling(root.DesiredSize.Height);
+            root.Arrange(new Rect(0, 0, w, height));
+            root.UpdateLayout();
+            Settle(400);
+            Save(root, outPath, w, height, scale);
+        }
+        else if (which == "click")
+        {
+            // --window click --click "<row label>": clicks a Statistics row the way
+            // a user would - a real Click on the row's Button inside a real
+            // StatisticsWindow - then hands the choice to the main view model and
+            // renders the main window with the result. No mouse, nothing on screen.
+            var label = Arg(args, "--click") ?? "Year";
+
+            // --search: start with a query in the box, to check a filter combines
+            // with it and that an artist row clears one that would hide the artist.
+            if (Arg(args, "--search") is { } query)
+            {
+                vm.SearchQuery = query;
+                Settle(400);
+                Console.WriteLine($"search '{query}': artists={vm.Artists.Count:N0} status='{vm.StatusText}'");
+            }
+            var libraryField = typeof(MainViewModel).GetField("_folderFilteredLibrary",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            var library = (AudioFool.Core.Library.MusicLibrary)libraryField.GetValue(vm)!;
+            var statsVm = new StatisticsViewModel(AudioFool.Core.Library.LibraryStatistics.Compute(library), false);
+
+            var dialog = new StatisticsWindow(statsVm, main);
+            dialog.ApplyTemplate();
+            var root = (FrameworkElement)dialog.Content;
+            root.Measure(new Size(900, double.PositiveInfinity));
+            root.Arrange(new Rect(root.DesiredSize));
+            root.UpdateLayout();
+            Pump();
+
+            var buttons = FindAll<System.Windows.Controls.Button>(root)
+                .Where(b => b.DataContext is BarRow)
+                .ToList();
+            Console.WriteLine($"click: {buttons.Count} rows, {buttons.Count(b => b.IsEnabled)} clickable; "
+                + $"inert: {string.Join(", ", buttons.Where(b => !b.IsEnabled).Select(b => ((BarRow)b.DataContext).Label))}");
+
+            var rowButton = buttons.FirstOrDefault(b => ((BarRow)b.DataContext).Label.EndsWith(label, StringComparison.Ordinal));
+            if (rowButton is null)
+            {
+                Console.WriteLine($"click: no row labelled '{label}'");
+                return 1;
+            }
+
+            var chosenRow = (BarRow)rowButton.DataContext;
+            Console.WriteLine($"click: '{chosenRow.Label}' enabled={rowButton.IsEnabled} tooltip='{chosenRow.ToolTip}' "
+                + $"uia='{System.Windows.Automation.AutomationProperties.GetName(rowButton)}'");
+
+            // Setting DialogResult on a window that was never shown modally throws,
+            // after Row_Click has already recorded the choice - which is the part
+            // under test. ShowDialog would put a real window on the desktop.
+            try
+            {
+                rowButton.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, rowButton));
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            Console.WriteLine($"click: Chosen = {statsVm.Chosen?.Label ?? "<none>"}");
+            if (statsVm.Chosen is { } picked)
+            {
+                vm.ApplyStatisticsChoice(picked);
+            }
+
+            Settle(400);
+            main.UpdateLayout();
+
+            var shown = vm.Artists.Sum(a => a.TrackCount);
+            var chip = (FrameworkElement)main.FindName("LibraryFilterChip");
+            Console.WriteLine($"main: filter='{vm.LibraryFilter?.Description}' artists={vm.Artists.Count:N0} tracks={shown:N0} "
+                + $"selected='{vm.SelectedArtist?.Name}' / '{vm.SelectedAlbum?.Album.Title}'");
+            Console.WriteLine($"main: status='{vm.StatusText}'");
+            Console.WriteLine($"main: chip visible={chip.IsVisible} size={chip.ActualWidth:0}x{chip.ActualHeight:0} "
+                + $"uia='{System.Windows.Automation.AutomationProperties.GetName(chip)}'");
+
+            Save(main, outPath, w, h, scale);
+
+            // --fix: an album-tag edit on the selected album, fed through the same
+            // private ReplaceTracksInLibrary a real save ends with - in memory only,
+            // no file is written - to check the fixed tracks leave the filter.
+            if (Arg(args, "--fix") is { } year && vm.SelectedAlbum is { } fixAlbum)
+            {
+                var edit = new AudioFool.Core.Library.AlbumTagEdit(
+                    fixAlbum.Album.ArtistName, fixAlbum.Album.ArtistName, fixAlbum.Album.Title,
+                    int.Parse(year, CultureInfo.InvariantCulture));
+                var fixedTracks = fixAlbum.Album.Tracks.ToDictionary(
+                    t => t.FilePath,
+                    t => t.WithAlbumTags(edit, new AudioFool.Core.Library.FileStamp(t.FileSize, t.ModifiedUtc), t.FolderArtPath),
+                    StringComparer.OrdinalIgnoreCase);
+                typeof(MainViewModel)
+                    .GetMethod("ReplaceTracksInLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                    .Invoke(vm, [fixedTracks]);
+                var progress = (string)typeof(MainViewModel)
+                    .GetMethod("WithFilterProgress", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                    .Invoke(vm, [$"Saved tags for {fixedTracks.Count} track(s)."])!;
+                Settle(300);
+                Console.WriteLine($"fixed '{fixAlbum.Album.Title}' ({fixedTracks.Count} tracks): "
+                    + $"tracks now={vm.Artists.Sum(a => a.TrackCount):N0} artists={vm.Artists.Count} selected='{vm.SelectedArtist?.Name}'");
+                Console.WriteLine($"fixed: status would read '{progress}'");
+            }
+
+            // Then clear it through the chip's own automation peer, which is the
+            // path a click on it takes.
+            if (chip.IsVisible)
+            {
+                var peer = System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(chip);
+                (peer?.GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke)
+                    as System.Windows.Automation.Provider.IInvokeProvider)?.Invoke();
+                Settle(300);
+                Console.WriteLine($"cleared: filter='{vm.LibraryFilter?.Description}' chip visible={chip.IsVisible} "
+                    + $"tracks={vm.Artists.Sum(a => a.TrackCount):N0} selected='{vm.SelectedArtist?.Name}'");
+                Console.WriteLine($"cleared: status='{vm.StatusText}'");
+            }
+        }
+        else if (which == "stats")
+        {
+            // The real library, read from the cache and never written back:
+            // LibraryCache.Load only opens the file for reading. Falls back to
+            // the sample tracks when there is no cache on this machine.
+            var cached = AudioFool.Core.Library.LibraryCache.Load();
+            var tracks = cached?.Tracks ?? SampleTracks();
+            var library = AudioFool.Core.Library.LibraryScanner.Build(tracks);
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var stats = AudioFool.Core.Library.LibraryStatistics.Compute(library);
+            Console.WriteLine($"stats: {tracks.Count:N0} tracks from {(cached is null ? "samples" : "library.json")}, "
+                + $"computed in {clock.ElapsedMilliseconds} ms");
+
+            var statsVm = new StatisticsViewModel(stats, someFoldersHidden: Arg(args, "--hidden") is not null);
+            foreach (var t in statsVm.Tiles) Console.WriteLine($"  tile  {t.Label,-10} {t.Value}");
+            void Rows(string name, IEnumerable<BarRow> rows)
+            {
+                Console.WriteLine($"  [{name}]");
+                foreach (var r in rows) Console.WriteLine($"    {r.Label,-32} {r.Value,-30} {r.Detail}");
+            }
+            Rows("top artists", statsVm.TopArtists);
+            Rows("file types", statsVm.FileTypes);
+            Rows("quality", statsVm.Quality);
+            Rows("missing tags", statsVm.TagGaps);
+            Console.WriteLine($"    {statsVm.TagSummary}");
+            Rows("decades", statsVm.Decades);
+
+            // Never shown, for the same reason as the tag dialog above.
+            var dialog = new StatisticsWindow(statsVm, main);
+            dialog.ApplyTemplate();
             var root = (FrameworkElement)dialog.Content;
             root.Measure(new Size(w, double.PositiveInfinity));
             var height = Math.Ceiling(root.DesiredSize.Height);
@@ -476,6 +636,38 @@ internal static class Program
         encoder.Frames.Add(BitmapFrame.Create(rtb));
         using var stream = File.Create(path);
         encoder.Save(stream);
+    }
+
+    private static IEnumerable<T> FindAll<T>(DependencyObject node) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+        {
+            var child = VisualTreeHelper.GetChild(node, i);
+            if (child is T match)
+            {
+                yield return match;
+            }
+
+            foreach (var deeper in FindAll<T>(child))
+            {
+                yield return deeper;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Puts the real library into the view model the way a scan would, through
+    /// its private ApplyLibrary. Read-only: the cache is loaded, never saved, and
+    /// no scan runs, so neither library.json nor the drive is touched.
+    /// </summary>
+    private static void LoadRealLibrary(MainViewModel vm)
+    {
+        var cached = AudioFool.Core.Library.LibraryCache.Load();
+        var library = AudioFool.Core.Library.LibraryScanner.Build(cached?.Tracks ?? SampleTracks());
+        typeof(MainViewModel)
+            .GetMethod("ApplyLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(vm, [library, false]);
+        Console.WriteLine($"library: {library.AllTracks.Count:N0} tracks from {(cached is null ? "samples" : "library.json")}");
     }
 
     private static T? FindFirst<T>(System.Windows.DependencyObject node) where T : System.Windows.DependencyObject

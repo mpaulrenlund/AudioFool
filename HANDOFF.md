@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-22 after the ninth build session. Read this alongside
+Updated 2026-09-22 after the tenth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -299,6 +299,88 @@ track change.
 - **ThemeLab sample tracks carry counts now**, including one row with neither, so a
   render actually exercises both branches of the formatting.
 
+### Changes from session 10
+
+- **Library statistics window.** Logo menu → **Statistics…** (last item, below Themes)
+  opens a modal `StatisticsWindow`: five headline tiles (tracks, albums, artists, play
+  time, size on disk), then top 5 artists by track count, file types, audio quality,
+  missing tags and tracks by decade, each as labelled bars.
+- **All the arithmetic is in `AudioFool.Core`** — `Library/LibraryStatistics.cs`, pure
+  and BASS-free, covered by 25 tests in `LibraryStatisticsTests.cs`. It opens no file,
+  so it is recomputed every time the window opens: **48 ms over the real 26,747
+  tracks**. The window is a snapshot and modal, so a rescan cannot change it underneath.
+- **It counts what the status bar counts**: `_folderFilteredLibrary`, i.e. enabled
+  folders only and ignoring any active search. When a folder is unchecked, a caution
+  line at the top says so.
+- **Top artists come from the artist tree**, not a fresh grouping, so names and counts
+  are exactly the sidebar's (album artist, falling back to track artist). Bars are
+  drawn against the leader rather than the whole library — five artists holding 1–2%
+  each would otherwise all be slivers.
+- **Quality tiers** (`LibraryStatistics.Classify`): DSD; tracker module; lossy split at
+  256 kbps; lossless is hi-res when over 16 bit *or* over 48 kHz, CD quality otherwise.
+  `.m4a` is lossy by extension, so `Kind == "ALAC"` overrides it, the same way
+  `TagReader` decides.
+- **Missing tags** checks every field the tag editor writes, plus the folder cover file.
+  **Embedded artwork is not counted** and the row says so: pictures are never cached,
+  so knowing would mean opening all 26,747 files. The disc rows carry a note that
+  they are mostly single-disc albums. The summary line counts *essential* tags only
+  (title, artist, album, year, track #): 99.4% on the real library, where "every tag"
+  would read 66.7%, dragged down by disc fields nobody needs on a one-disc album.
+- **Bars are two star columns** (`BarRow.Fill` / `Rest` are `GridLength`s), not a scaled
+  rectangle, so they stay crisp and keep their end shape. The track is
+  `AfStrokeDivider`, **not `AfSurfaceWell`** — PS1's panes are already wells, and a
+  well-coloured track vanished into them. Corners use `AfRadiusWell` (square in PS1).
+  Bar colour is the WPF-UI accent, or `AfStatusCaution` for missing tags, passed in
+  through each `ItemsControl`'s `Tag` so one `DataTemplate` serves every section.
+- **Sizing**: `SizeToContent="Height"` with `MaxHeight` capped at the work area, both
+  released on `Loaded` so the window can still be resized and maximised. At 900 px
+  wide the content is about 1,060 px tall; shorter screens scroll.
+- **`Display` gained `Percent`** (with a `<0.1%` floor, so ten WAV files do not read as
+  "0%"), **`Size`** (binary units, Explorer-style) and **`LongDuration`** ("81 d 0 h").
+- **ThemeLab `--window stats`** renders the window from the real `library.json`
+  (read-only via `LibraryCache.Load`, sample tracks if there is none) and prints
+  every figure to the console. That is how it was verified: the printed totals match
+  the session 9 measurements exactly (26,747 tracks, 25.0% without a track total,
+  25.1% without a disc total), and all three themes were rendered and reviewed.
+
+**Clickable rows** (later in session 10). Every Statistics row except a tag no track
+is missing is a button:
+
+- **An artist row selects that artist** (`MainViewModel.ShowArtist`), first clearing a
+  library filter, and a search too if the search would hide them — applied at once
+  rather than after the debounce, so the artist is there to select.
+- **Every other row sets `MainViewModel.LibraryFilter`**, a `TrackFilter` (name plus
+  predicate) the row carries from `LibraryStatistics`. Each filter is built from the
+  same key its row was grouped on, and a test asserts, for every row of every
+  section, that the filter matches exactly the count the row shows.
+- **The filter sits under search, not instead of it**: `ApplyToView` applies folder
+  checkboxes, then the filter, then the search query. "Missing Year" plus a search for
+  an artist finds that artist's undated tracks. `_folderFilteredLibrary` stays
+  unfiltered, so the status-bar denominator is still the whole library.
+- **A chip beside the search box** (`LibraryFilterChip`) names the filter; clicking it
+  clears it. It sits *after* the box so the box keeps its right edge. The status bar
+  reads "70 of 26,747 tracks · Missing Year", or "Missing Year: no tracks left".
+- **Fixing tags burns the filter down.** A save rebuilds through `ApplyToView`, so a
+  fixed track leaves the filter; the save message gains "· 64 left: Missing Year"
+  (`WithFilterProgress`). Session-only: never persisted, so the app cannot open showing
+  a fraction of the library.
+- **The window closes with the answer**: `Row_Click` sets `StatisticsViewModel.Chosen`
+  and `DialogResult`, and `MainViewModel.ApplyStatisticsChoice` acts on it after the
+  modal returns. Rows are real `Button`s with a full template of their own (hover
+  wash, pressed state, the two-ring focus outline) — not `BasedOn` WPF-UI's button,
+  which would fill every row. Disabled rows lose hover, cursor and tab stop together.
+  Close is no longer `IsDefault`: Enter belongs to the focused row.
+- **Verified with ThemeLab `--window click`** against the real library (below), not in
+  the running app: 34 rows, 31 clickable (Title/Artist/Album inert). Year → 70 tracks
+  over 5 artists; the chip's automation peer clears it and keeps the selection. Rush
+  while searching "Buckethead" → search cleared, Rush selected. FLAC while searching
+  "Rush" → 538 of 18,987, and clearing the chip leaves the search's 626. A simulated
+  album fix under Missing Year → 64 left, view moves to the next artist, and
+  `library.json`'s timestamp unchanged. The keyboard focus ring on a row was **not**
+  rendered — an unshown dialog has no focus — it is the browser row's two-ring pattern.
+
+**143 tests pass** — the 116 from session 9 plus 27 over `LibraryStatistics`.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
@@ -352,6 +434,16 @@ track change.
 | `src/AudioFool/Themes/Ps1Motion.xaml` | PS1's animated states, merged only when Windows has control animations on. Row hover, selection marker, logo entrance. |
 | `src/AudioFool/Formatting/LetterSpacing.cs` | `LetterSpacing.Spacer` attached property: interleaves a spacer character between letters and keeps the unspaced text as the automation name. WPF has no tracking property. |
 | `tools/themelab/` | Renders the real windows off-screen to a PNG for theme review. Not in the solution. |
+
+## New source files added in session 10
+
+| File | Purpose |
+|---|---|
+| `src/AudioFool.Core/Library/LibraryStatistics.cs` | `LibraryStatistics.Compute(MusicLibrary)` plus the `Slice`, `ArtistStat`, `TagGap` records and `QualityTier`. No UI, no file access. |
+| `src/AudioFool/ViewModels/StatisticsViewModel.cs` | Formats a `LibraryStatistics` once into `StatTile`s and `BarRow`s. No change notification — it is a snapshot. |
+| `src/AudioFool/StatisticsWindow.xaml[.cs]` | The modal window. One `BarRowTemplate` for every section. |
+| `tests/AudioFool.Core.Tests/LibraryStatisticsTests.cs` | Totals, ranking, album-artist grouping, shares summing to one, every quality tier, decade order, tag gaps, essential-tag count, and every row's filter matching its count. |
+
 ## Logo and icon resource files
 
 | File | Purpose |
@@ -745,7 +837,27 @@ ThemeLab.exe --theme PS1 --switch 1             # start in Dark, swap at runtime
 ThemeLab.exe --theme Dark --dump keys.txt
 ThemeLab.exe --theme Dark --menu               # does the logo open the menu?
 ThemeLab.exe --theme Dark --menu --menutree   # sizes and clips under the menu item
+ThemeLab.exe --theme PS1 --window stats --w 900 # statistics, from the real library.json
+ThemeLab.exe --window click --click Year        # click a Statistics row, render the result
+ThemeLab.exe --window click --click Rush --search Buckethead
+ThemeLab.exe --window click --click Year --fix 1964   # simulate fixing the selected album
 ```
+
+`--window click` loads the real `library.json` into a real `MainViewModel` through its
+private `ApplyLibrary` (reflection — it is a dev tool), raises `Click` on the row's
+`Button` inside a laid-out but unshown `StatisticsWindow`, passes the choice to
+`ApplyStatisticsChoice`, prints the result and renders the main window. `--fix` goes
+through the private `ReplaceTracksInLibrary`, in memory only. Neither writes the cache.
+
+The `--menu`, `--menutree` and `--hidden` switches need a value after them (`--menu 1`) -
+`Arg` reads the next argument, so a bare flag at the end of the line is silently ignored.
+Leaving out `--out` writes `shot.png` into the current directory, i.e. the repo root.
+
+**The build folder is not the app either.** Session 10 found AudioFool running from
+`src\AudioFool\bin\Release\net10.0-windows\win-x64\AudioFool.exe`, launched from
+Explorer, and it locked `AudioFool.Core.dll` so `dotnet publish` failed. The Start
+Menu shortcut does point at the installed copy. If publish fails on a locked file,
+check `ExecutablePath` of the running process before assuming it is the installed one.
 
 Three things it took a while to get right, all worth keeping if it is rebuilt:
 

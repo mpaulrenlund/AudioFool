@@ -60,4 +60,53 @@ public static class Display
 
         return total is > 0 ? $"{value}/{total}" : value.Value.ToString();
     }
+
+    /// <summary>
+    /// "62.4%", "100%", or "&lt;0.1%" for a share too small to round to anything -
+    /// a lone WMA file in 26,000 tracks should not read as "0%".
+    /// </summary>
+    public static string Percent(double fraction)
+    {
+        if (fraction <= 0)
+            return "0%";
+
+        var percent = fraction * 100;
+        return percent < 0.1 ? "<0.1%" : $"{percent:0.#}%";
+    }
+
+    /// <summary>
+    /// "692 GB", "1.4 TB", "83 MB". Binary units under decimal names, the way
+    /// Explorer reports them, so the figure matches what the drive's Properties
+    /// dialog says.
+    /// </summary>
+    public static string Size(long bytes)
+    {
+        string[] units = ["bytes", "KB", "MB", "GB", "TB"];
+        double value = Math.Max(0, bytes);
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1)
+        {
+            value /= 1024;
+            unit++;
+        }
+
+        return unit == 0 ? $"{value:N0} {units[0]}"
+             : value >= 100 ? $"{value:N0} {units[unit]}"
+             : $"{value:0.#} {units[unit]}";
+    }
+
+    /// <summary>
+    /// A span too long for a timecode: "74 d 3 h", "14 h 20 m", "52 m".
+    /// Only the two largest units - nobody needs the seconds of a library.
+    /// </summary>
+    public static string LongDuration(TimeSpan value)
+    {
+        if (value.TotalDays >= 1)
+            return $"{(int)value.TotalDays:N0} d {value.Hours} h";
+
+        if (value.TotalHours >= 1)
+            return $"{(int)value.TotalHours} h {value.Minutes} m";
+
+        return $"{Math.Max(0, (int)value.TotalMinutes)} m";
+    }
 }

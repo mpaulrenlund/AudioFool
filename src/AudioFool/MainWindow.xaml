@@ -166,6 +166,12 @@
                                     </Style>
                                 </MenuItem.ItemContainerStyle>
                             </MenuItem>
+
+                            <Separator />
+
+                            <MenuItem Header="Statistics…"
+                                      Icon="{ui:SymbolIcon DataBarVertical24}"
+                                      Command="{Binding ShowStatisticsCommand}" />
                         </MenuItem>
                     </Menu>
 
@@ -186,6 +192,27 @@
                             Icon="{ui:SymbolIcon Search24}"
                             AutomationProperties.Name="Search"
                             ToolTip="Search artists, albums and songs" />
+
+                <!--
+                    The Statistics filter, while one is on. Beside the search box
+                    because the two combine - search runs inside the filter - and
+                    after it, so the box keeps its right edge level with Albums.
+                    Clicking anywhere on the chip clears it.
+                -->
+                <ui:Button x:Name="LibraryFilterChip"
+                           Margin="8,0,0,0"
+                           VerticalAlignment="Center"
+                           Icon="{ui:SymbolIcon Filter16}"
+                           Command="{Binding ClearLibraryFilterCommand}"
+                           Visibility="{Binding IsFiltered, Converter={StaticResource BoolToVisibility}}"
+                           AutomationProperties.Name="{Binding LibraryFilter.Description, StringFormat=Clear filter: {0}}"
+                           ToolTip="Showing only these tracks. Click to show the whole library again.">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding LibraryFilter.Description}" VerticalAlignment="Center" />
+                        <ui:SymbolIcon Symbol="Dismiss12" Margin="8,0,0,0" VerticalAlignment="Center"
+                                       FontSize="{DynamicResource AfIconSizeMicro}" />
+                    </StackPanel>
+                </ui:Button>
                 </StackPanel>
             </ui:TitleBar.Header>
         </ui:TitleBar>

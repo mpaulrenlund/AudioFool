@@ -429,6 +429,21 @@ a file with no track number at all shows nothing. Both totals are editable in th
 dialog (right-click a track → Edit Tags…), which is also the only way to add one.
 Sorting still uses the raw number, so clicking the header orders 2 before 10.
 
+**Library statistics.** Logo menu → **Statistics…** opens a summary of the library:
+totals, the five artists with the most tracks, the split by file type and by audio
+quality (hi-res, CD-quality, DSD, and lossy above or below 256 kbps), which tags are
+most often missing, and tracks by decade. It counts the same tracks the status bar
+does, so folders unchecked under Libraries are left out. The cover-art row counts
+folder images only; embedded artwork is not cached, so it cannot be counted without
+opening every file.
+
+Every row can be clicked. An artist takes you to that artist. Anything else - *Missing
+Year*, *FLAC*, *Lossy, under 256 kbps*, *1990s* - narrows the browser to exactly those
+tracks, with a chip beside the search box naming the filter; click the chip to show
+everything again. Search still works inside the filter. It is made for fixing tags:
+edit an album while *Missing Year* is on and it drops out of the list, and the status
+bar says how many are left.
+
 **Bit Depth is blank for lossy formats.** MP3, AAC, Vorbis, Opus and WMA decode to float
 and have no meaningful source bit depth, so the column shows an em dash rather than
 inventing a "16". DSD correctly reports 1 bit.
