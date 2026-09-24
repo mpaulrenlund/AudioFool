@@ -143,8 +143,9 @@ public sealed class Track
     };
 
     /// <summary>
-    /// A copy with a whole-album batch edit applied. Title, track number and disc
-    /// number carry over unchanged - they are not part of an album-level edit.
+    /// A copy with a whole-album batch edit applied. Title and track number carry
+    /// over unchanged - they are not part of an album-level edit - and so do the
+    /// counts and disc number unless the edit sets them.
     /// </summary>
     public Track WithAlbumTags(AlbumTagEdit edit, FileStamp stamp, string? folderArtPath) => new()
     {
@@ -154,14 +155,14 @@ public sealed class Track
         FileSize = stamp.Length,
         ModifiedUtc = stamp.ModifiedUtc,
         TrackNumber = TrackNumber,
-        TrackCount = TrackCount,
+        TrackCount = edit.TrackCount is { } trackCount ? trackCount.Value : TrackCount,
         Title = Title,
         Artist = edit.Artist,
         AlbumArtist = edit.AlbumArtist,
         Album = edit.Album,
         Duration = Duration,
-        DiscNumber = DiscNumber,
-        DiscCount = DiscCount,
+        DiscNumber = edit.DiscNumber is { } discNumber ? discNumber.Value : DiscNumber,
+        DiscCount = edit.DiscCount is { } discCount ? discCount.Value : DiscCount,
         Year = edit.Year,
         Kind = Kind,
         Bitrate = Bitrate,

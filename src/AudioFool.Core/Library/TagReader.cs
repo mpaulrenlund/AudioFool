@@ -93,6 +93,34 @@ public static class TagReader
         }
     }
 
+    /// <summary>
+    /// The tags the cache does not hold - publisher, composer, conductor, genre
+    /// and comment - read fresh for the tag dialog. Null when the file cannot be
+    /// opened, which the dialog must not mistake for "every field is empty".
+    /// </summary>
+    public static TagDetails? ReadDetails(string path)
+    {
+        try
+        {
+            using var file = TagLib.File.Create(path);
+            var tag = file.Tag;
+            return new TagDetails(
+                Publisher: Clean(tag.Publisher),
+                Composer: TagDetails.Join(tag.Composers),
+                Conductor: Clean(tag.Conductor),
+                Genre: TagDetails.Join(tag.Genres),
+                Comment: Clean(tag.Comment));
+        }
+        catch (Exception ex) when (ex is TagLib.UnsupportedFormatException
+                                     or TagLib.CorruptFileException
+                                     or IOException
+                                     or UnauthorizedAccessException
+                                     or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Embedded cover art bytes, or null when the file carries none.</summary>
     public static byte[]? ReadEmbeddedArt(string path)
     {

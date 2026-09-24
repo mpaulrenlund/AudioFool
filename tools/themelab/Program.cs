@@ -254,7 +254,75 @@ internal static class Program
             // Never shown: TagEditWindow re-centres itself over its owner on
             // Loaded, which would drag it onto a real monitor. Laying it out by
             // hand keeps it off-screen entirely.
-            var dialog = new TagEditWindow(new TagEditViewModel(SampleTracks()[2]), main);
+            // --album "<title>" opens the album dialog on a real album from
+            // library.json instead, and --track "<title>" the track dialog on a
+            // real track. Both read the files' tags (for the detail fields) and
+            // never write them.
+            TagEditViewModel editVm;
+            var albumName = Arg(args, "--album");
+            var trackName = Arg(args, "--track");
+            if (albumName is not null || trackName is not null)
+            {
+                var cached = AudioFool.Core.Library.LibraryCache.Load();
+                var library = AudioFool.Core.Library.LibraryScanner.Build(cached?.Tracks ?? SampleTracks());
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                if (albumName is not null)
+                {
+                    var album = library.Artists.SelectMany(a => a.Albums)
+                        .First(a => string.Equals(a.Title, albumName, StringComparison.OrdinalIgnoreCase));
+                    editVm = new TagEditViewModel(album, new AlbumArtService());
+                    Console.WriteLine($"album: {album.Title} ({album.Tracks.Count} tracks), opened in {clock.ElapsedMilliseconds} ms");
+                }
+                else
+                {
+                    var track = library.AllTracks
+                        .First(t => string.Equals(t.Title, trackName, StringComparison.OrdinalIgnoreCase));
+                    editVm = new TagEditViewModel(track);
+                    Console.WriteLine($"track: {track.FilePath}, opened in {clock.ElapsedMilliseconds} ms");
+                }
+
+                Console.WriteLine($"  counts    '{editVm.TrackCount}' [{editVm.TrackCountPlaceholder}]  disc '{editVm.DiscNumber}' [{editVm.DiscNumberPlaceholder}] of '{editVm.DiscCount}' [{editVm.DiscCountPlaceholder}]");
+                Console.WriteLine($"  publisher '{editVm.Publisher}' [{editVm.PublisherPlaceholder}]");
+                Console.WriteLine($"  composer  '{editVm.Composer}' [{editVm.ComposerPlaceholder}]");
+                Console.WriteLine($"  conductor '{editVm.Conductor}' [{editVm.ConductorPlaceholder}]");
+                Console.WriteLine($"  genre     '{editVm.Genre}' [{editVm.GenrePlaceholder}]");
+                Console.WriteLine($"  comment   '{editVm.Comment}' [{editVm.CommentPlaceholder}]");
+
+                // --set "Genre=Rock;DiscNumber=2" types into the boxes, then prints
+                // what Save would write. Nothing is saved: the edit is only built.
+                if (Arg(args, "--set") is { } sets)
+                {
+                    foreach (var pair in sets.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        // "!Comment" presses that field's clear button instead.
+                        if (pair.StartsWith('!'))
+                        {
+                            editVm.ClearFieldCommand.Execute(pair[1..]);
+                            continue;
+                        }
+
+                        var (name, value) = (pair[..pair.IndexOf('=')], pair[(pair.IndexOf('=') + 1)..]);
+                        typeof(TagEditViewModel).GetProperty(name)!.SetValue(editVm, value);
+                    }
+                }
+
+                static string Q(string? s) => s is null ? "(keep)" : $"'{s}'";
+                static string N(AudioFool.Core.Library.NumberEdit? n) => n is { } e ? $"'{e.Value}'" : "(keep)";
+                var details = albumName is not null ? editVm.BuildAlbumEdit().Details : editVm.BuildTrackEdit().Details;
+                if (albumName is not null)
+                {
+                    var albumEdit = editVm.BuildAlbumEdit();
+                    Console.WriteLine($"save: tracks {N(albumEdit.TrackCount)} disc {N(albumEdit.DiscNumber)} of {N(albumEdit.DiscCount)}");
+                }
+                Console.WriteLine($"save: publisher {Q(details.Publisher)} composer {Q(details.Composer)} conductor {Q(details.Conductor)} "
+                    + $"genre {Q(details.Genre)} comment {Q(details.Comment)}  valid={editVm.CanSave} {editVm.ValidationError}");
+            }
+            else
+            {
+                editVm = new TagEditViewModel(SampleTracks()[2]);
+            }
+
+            var dialog = new TagEditWindow(editVm, main);
             dialog.ApplyTemplate();
 
             // Its content, not the window: an unshown Window measures to nothing,

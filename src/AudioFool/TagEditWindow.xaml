@@ -62,6 +62,11 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Title" VerticalAlignment="Center" Margin="0,0,0,8"
@@ -86,21 +91,89 @@
                            Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}" />
                 <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8"
                             Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}">
-                    <ui:TextBox Text="{Binding TrackNumber, UpdateSourceTrigger=PropertyChanged}" Width="60" />
+                    <ui:TextBox Text="{Binding TrackNumber, UpdateSourceTrigger=PropertyChanged}" Width="80" />
                     <TextBlock Text="of" VerticalAlignment="Center" Margin="8,0,8,0"
                                Foreground="{DynamicResource AfTextTertiary}" />
-                    <ui:TextBox Text="{Binding TrackCount, UpdateSourceTrigger=PropertyChanged}" Width="60" />
+                    <ui:TextBox Text="{Binding TrackCount, UpdateSourceTrigger=PropertyChanged}" Width="80" />
                 </StackPanel>
 
-                <TextBlock Grid.Row="6" Grid.Column="0" Text="Disc" VerticalAlignment="Center"
-                           Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}" />
-                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal"
-                            Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}">
-                    <ui:TextBox Text="{Binding DiscNumber, UpdateSourceTrigger=PropertyChanged}" Width="60" />
+                <!-- Album mode has no track number to pair it with, so the total stands alone. -->
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Track Count" VerticalAlignment="Center" Margin="0,0,0,8"
+                           Visibility="{Binding IsAlbumMode, Converter={StaticResource BoolToVisibility}}" />
+                <ui:TextBox Grid.Row="5" Grid.Column="1" Text="{Binding TrackCount, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="{Binding TrackCountPlaceholder}"
+                            HorizontalAlignment="Left" Width="80" Margin="0,0,0,8"
+                            Visibility="{Binding IsAlbumMode, Converter={StaticResource BoolToVisibility}}" />
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="Disc" VerticalAlignment="Center" Margin="0,0,0,8" />
+                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
+                    <ui:TextBox Text="{Binding DiscNumber, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="{Binding DiscNumberPlaceholder}" Width="80" />
                     <TextBlock Text="of" VerticalAlignment="Center" Margin="8,0,8,0"
                                Foreground="{DynamicResource AfTextTertiary}" />
-                    <ui:TextBox Text="{Binding DiscCount, UpdateSourceTrigger=PropertyChanged}" Width="60" />
+                    <ui:TextBox Text="{Binding DiscCount, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="{Binding DiscCountPlaceholder}" Width="80" />
                 </StackPanel>
+
+                <!-- Each detail field has a clear button. In the album dialog it is the
+                     only way to clear a field the tracks disagree on: that box starts
+                     empty, and an empty box there means "keep each track's own". -->
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="Publisher" VerticalAlignment="Center" Margin="0,0,0,8" />
+                <DockPanel Grid.Row="7" Grid.Column="1" Margin="0,0,0,8">
+                    <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Center"
+                               Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
+                               Command="{Binding ClearFieldCommand}" CommandParameter="Publisher"
+                               ToolTip="{Binding ClearToolTip}" AutomationProperties.Name="Clear Publisher" />
+                    <ui:TextBox Text="{Binding Publisher, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="{Binding PublisherPlaceholder}" />
+                </DockPanel>
+
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="Composer" VerticalAlignment="Center" Margin="0,0,0,8" />
+                <DockPanel Grid.Row="8" Grid.Column="1" Margin="0,0,0,8">
+                    <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Center"
+                               Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
+                               Command="{Binding ClearFieldCommand}" CommandParameter="Composer"
+                               ToolTip="{Binding ClearToolTip}" AutomationProperties.Name="Clear Composer" />
+                    <ui:TextBox Text="{Binding Composer, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="{Binding ComposerPlaceholder}"
+                                ToolTip="Separate several composers with a semicolon." />
+                </DockPanel>
+
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="Conductor" VerticalAlignment="Center" Margin="0,0,0,8" />
+                <DockPanel Grid.Row="9" Grid.Column="1" Margin="0,0,0,8">
+                    <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Center"
+                               Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
+                               Command="{Binding ClearFieldCommand}" CommandParameter="Conductor"
+                               ToolTip="{Binding ClearToolTip}" AutomationProperties.Name="Clear Conductor" />
+                    <ui:TextBox Text="{Binding Conductor, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="{Binding ConductorPlaceholder}" />
+                </DockPanel>
+
+                <TextBlock Grid.Row="10" Grid.Column="0" Text="Genre" VerticalAlignment="Center" Margin="0,0,0,8" />
+                <DockPanel Grid.Row="10" Grid.Column="1" Margin="0,0,0,8">
+                    <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Center"
+                               Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
+                               Command="{Binding ClearFieldCommand}" CommandParameter="Genre"
+                               ToolTip="{Binding ClearToolTip}" AutomationProperties.Name="Clear Genre" />
+                    <ui:TextBox Text="{Binding Genre, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="{Binding GenrePlaceholder}"
+                                ToolTip="Separate several genres with a semicolon." />
+                </DockPanel>
+
+                <!-- Top-aligned label: the box grows with the text, up to MaxHeight, then scrolls. -->
+                <TextBlock Grid.Row="11" Grid.Column="0" Text="Comments" VerticalAlignment="Top" Margin="0,8,0,0" />
+                <DockPanel Grid.Row="11" Grid.Column="1">
+                    <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Top"
+                               Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
+                               Command="{Binding ClearFieldCommand}" CommandParameter="Comment"
+                               ToolTip="{Binding ClearToolTip}" AutomationProperties.Name="Clear Comments" />
+                    <ui:TextBox Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="{Binding CommentPlaceholder}"
+                                AcceptsReturn="True" TextWrapping="Wrap"
+                                MinHeight="64" MaxHeight="140"
+                                VerticalScrollBarVisibility="Auto"
+                                VerticalContentAlignment="Top" />
+                </DockPanel>
             </Grid>
         </StackPanel>
 

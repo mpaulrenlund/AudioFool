@@ -41,6 +41,7 @@ public static class TagWriter
             tag.TrackCount = (uint)(edit.TrackCount ?? 0);
             tag.Disc = (uint)(edit.DiscNumber ?? 0);
             tag.DiscCount = (uint)(edit.DiscCount ?? 0);
+            ApplyDetails(tag, edit.Details);
         }, art);
 
         if (!save.Success)
@@ -50,9 +51,10 @@ public static class TagWriter
     }
 
     /// <summary>
-    /// Applies one track's share of a whole-album batch edit. Title, track number
-    /// and disc number carry over from <paramref name="track"/> untouched - they
-    /// are not part of <see cref="AlbumTagEdit"/> at all.
+    /// Applies one track's share of a whole-album batch edit. Title and track
+    /// number carry over from <paramref name="track"/> untouched - they are not
+    /// part of <see cref="AlbumTagEdit"/> at all - and so does every optional
+    /// field the edit leaves null.
     /// </summary>
     public static TagWriteResult WriteAlbumTrackTags(Track track, AlbumTagEdit edit, ArtPayload? art, string? folderArtPath)
     {
@@ -62,6 +64,15 @@ public static class TagWriter
             tag.AlbumArtists = [edit.AlbumArtist];
             tag.Album = edit.Album;
             tag.Year = (uint)(edit.Year ?? 0);
+
+            if (edit.TrackCount is { } trackCount)
+                tag.TrackCount = (uint)(trackCount.Value ?? 0);
+            if (edit.DiscNumber is { } discNumber)
+                tag.Disc = (uint)(discNumber.Value ?? 0);
+            if (edit.DiscCount is { } discCount)
+                tag.DiscCount = (uint)(discCount.Value ?? 0);
+
+            ApplyDetails(tag, edit.Details);
         }, art);
 
         if (!save.Success)
@@ -104,6 +115,28 @@ public static class TagWriter
             return new FolderArtWriteResult(false, ex.Message, existingFolderArtPath);
         }
     }
+
+    /// <summary>
+    /// Writes the fields a <see cref="TagDetailsEdit"/> sets and leaves the null
+    /// ones alone. An empty value is written as null, which TagLib takes as
+    /// "remove the frame" rather than leaving an empty one behind.
+    /// </summary>
+    private static void ApplyDetails(TagLib.Tag tag, TagDetailsEdit details)
+    {
+        if (details.Publisher is { } publisher)
+            tag.Publisher = NullIfEmpty(publisher);
+        if (details.Composer is { } composer)
+            tag.Composers = TagDetails.Split(composer);
+        if (details.Conductor is { } conductor)
+            tag.Conductor = NullIfEmpty(conductor);
+        if (details.Genre is { } genre)
+            tag.Genres = TagDetails.Split(genre);
+        if (details.Comment is { } comment)
+            tag.Comment = NullIfEmpty(comment);
+    }
+
+    private static string? NullIfEmpty(string value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static (bool Success, string? ErrorMessage) SaveTags(string path, Action<TagLib.Tag> applyFields, ArtPayload? art)
     {

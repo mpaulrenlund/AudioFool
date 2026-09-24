@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-22 after the tenth build session. Read this alongside
+Updated 2026-09-24 after the eleventh build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -380,6 +380,48 @@ is missing is a button:
   rendered — an unshown dialog has no focus — it is the browser row's two-ring pattern.
 
 **143 tests pass** — the 116 from session 9 plus 27 over `LibraryStatistics`.
+
+### Changes from session 11
+
+- **More fields in the tag dialogs.** Both gained **Publisher, Composer, Conductor,
+  Genre and Comments** (multi-line). The album dialog also gained **Track Count** and
+  **Disc *n* of *total***. Composer and Genre are multi-valued in TagLib, so they are
+  edited as one string separated by semicolons (`TagDetails.Join` / `Split`).
+- **The five detail fields are not cached.** Nothing else in the app shows them, so
+  `Track` and `LibraryCache` are unchanged. That means no version bump and no
+  56-second full rescan. `TagReader.ReadDetails` reads them when the dialog opens:
+  21–87 ms for 7–26-track albums off the USB SSD. It returns null for an unreadable
+  file, which the album dialog leaves out instead of treating as "all empty".
+- **The album dialog writes only the fields you change.** These are the fields
+  tracks legitimately disagree on: disc numbers in a multi-disc set, per-track
+  comments. So each field is pre-filled only when every track agrees; otherwise it
+  starts empty with a "Varies" placeholder. `AlbumTagEdit`'s optional members
+  (`NumberEdit?` counts, `TagDetailsEdit` strings) are null for "keep", and the view
+  model sets one only when its text differs from what it was pre-filled with.
+  `NumberEdit(null)` means clear, which is how that differs from keep. The track dialog
+  uses the same keep-unless-changed rule for the five detail fields. Artist / Album
+  Artist / Album / Year keep their old behaviour: always written album-wide.
+- **Each detail field has a clear (✕) button**, and it is the point of the feature:
+  the user wants these fields mostly so they can strip them from the library. In the
+  album dialog the button is the *only* way to clear a field whose tracks disagree,
+  because its box already starts empty and an empty box means "keep". It adds the
+  field to `_cleared` and changes the placeholder to "Will be cleared on every
+  track". Typing into the box afterwards writes the typed text instead. The number
+  fields have no clear button yet; a "Varies" Track Count or Disc cannot be cleared
+  album-wide.
+- **Year is now validated as you type.** `OnYearChanged` was missing, so "abc"
+  saved as a cleared year.
+- **The library is sparse on these tags.** In a 400-file sample: genre 3.5%,
+  comment 1.3%, publisher 0.5%, composer 0.25%, conductor 0%. Empty boxes are
+  normal. The Statistics *Missing tags* section does not count these fields; it
+  would need them cached.
+- **ThemeLab `--window tags --album "<title>"`** (or `--track "<title>"`) opens the
+  dialog on real library entries and prints every prefill and placeholder.
+  `--set "Genre=Rock;DiscNumber=2"` types into the boxes and prints what Save would
+  write, `(keep)` for untouched. Nothing is saved.
+
+**153 tests pass**: the 143 from session 10 plus 10 in `TagDetailsTests`
+(round-trips on FLAC and MP3, null keeps, empty clears, album optional fields).
 
 ### Deliberately not done
 
@@ -858,6 +900,10 @@ Leaving out `--out` writes `shot.png` into the current directory, i.e. the repo 
 Explorer, and it locked `AudioFool.Core.dll` so `dotnet publish` failed. The Start
 Menu shortcut does point at the installed copy. If publish fails on a locked file,
 check `ExecutablePath` of the running process before assuming it is the installed one.
+It happened again in session 11, with a dialog open in it. Rather than killing the
+user's window, publish through a different build folder:
+`-p:BaseOutputPath=<scratch>\pubbin\` on the `dotnet publish` line. The installed copy
+is not locked, so the copy step still works.
 
 Three things it took a while to get right, all worth keeping if it is rebuilt:
 

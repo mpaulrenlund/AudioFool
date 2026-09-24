@@ -429,6 +429,14 @@ a file with no track number at all shows nothing. Both totals are editable in th
 dialog (right-click a track → Edit Tags…), which is also the only way to add one.
 Sorting still uses the raw number, so clicking the header orders 2 before 10.
 
+**Editing tags.** Right-click a track for *Edit Tags…*, or an album for *Edit Album
+Tags…*. Both edit publisher, composer, conductor, genre and comments as well as the
+basics; separate several composers or genres with a semicolon. The album dialog also
+sets the track count and disc number for every track. Any field the tracks disagree on
+starts empty and marked *Varies*, and is left alone unless you type into it. So editing
+an album's genre never flattens each track's own comment. To strip a tag, press the ✕
+beside it; in the album dialog that clears it on every track, even where they differed.
+
 **Library statistics.** Logo menu → **Statistics…** opens a summary of the library:
 totals, the five artists with the most tracks, the split by file type and by audio
 quality (hi-res, CD-quality, DSD, and lossy above or below 256 kbps), which tags are
