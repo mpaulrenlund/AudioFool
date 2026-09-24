@@ -70,14 +70,20 @@ public static class SortRules
             .ThenBy(a => a.Name, NameComparer);
 
     /// <summary>
-    /// Albums oldest at the top, newest at the bottom. Albums with no year land
-    /// at the bottom rather than pretending to be from year zero.
+    /// Albums oldest at the top, newest at the bottom, by full release date where
+    /// the files have one: "2026" (year only) comes before "2026-10-02", and
+    /// "2026-03" before "2026-10-02". Albums with no year land at the bottom
+    /// rather than pretending to be from year zero.
     /// </summary>
     public static IEnumerable<Album> SortAlbums(IEnumerable<Album> albums) =>
         albums
-            .OrderBy(a => a.Year.HasValue ? 0 : 1)
-            .ThenBy(a => a.Year ?? 0)
+            .OrderBy(a => AlbumDate(a) is null ? 1 : 0)
+            .ThenBy(a => AlbumDate(a) ?? "", StringComparer.Ordinal)
             .ThenBy(a => a.Title, NameComparer);
+
+    /// <summary>ISO dates of differing precision sort correctly as ordinal text.</summary>
+    private static string? AlbumDate(Album album) =>
+        album.SortDate ?? album.Year?.ToString("0000", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Tracks in playing order: disc number, then track number. Untagged discs

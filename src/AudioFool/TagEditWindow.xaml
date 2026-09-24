@@ -89,8 +89,10 @@
                 <ui:TextBox Grid.Row="3" Grid.Column="1" Text="{Binding AlbumTitle, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
 
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Year" VerticalAlignment="Center" Margin="0,0,0,8" />
+                <!-- Wide enough for a full date plus WPF-UI's clear button while focused. -->
                 <ui:TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Year, UpdateSourceTrigger=PropertyChanged}"
-                            HorizontalAlignment="Left" Width="80" Margin="0,0,0,8" />
+                            ToolTip="A year (2026), or a full date written year-month-day (2026-10-02)."
+                            HorizontalAlignment="Left" Width="140" Margin="0,0,0,8" />
 
                 <TextBlock Grid.Row="5" Grid.Column="0" Text="Track" VerticalAlignment="Center" Margin="0,0,0,8"
                            Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}" />

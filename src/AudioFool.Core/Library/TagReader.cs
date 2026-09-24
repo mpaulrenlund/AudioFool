@@ -79,6 +79,7 @@ public static class TagReader
                 DiscNumber = Positive(tag?.Disc),
                 DiscCount = Positive(tag?.DiscCount),
                 Year = ValidYear(tag?.Year),
+                ReleaseDate = file is null ? null : NullIfEmpty(ReadDate(file)),
                 Duration = duration,
                 Kind = kind,
                 Bitrate = bitrate,
@@ -109,7 +110,10 @@ public static class TagReader
                 Composer: TagDetails.Join(tag.Composers),
                 Conductor: Clean(tag.Conductor),
                 Genre: TagDetails.Join(tag.Genres),
-                Comment: Clean(tag.Comment));
+                Comment: Clean(tag.Comment))
+            {
+                Date = ReadDate(file),
+            };
         }
         catch (Exception ex) when (ex is TagLib.UnsupportedFormatException
                                      or TagLib.CorruptFileException
@@ -119,6 +123,35 @@ public static class TagReader
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// The release date from each format's own date field, where TagLib's
+    /// <c>Year</c> would give only its first four digits. "" when no field names
+    /// more than a year - the Year box then shows the cached year as before.
+    /// </summary>
+    private static string? NullIfEmpty(string value) => value.Length == 0 ? null : value;
+
+    /// <summary>MP4's release-date atom, "©day". TagLib's own constant for it is internal.</summary>
+    internal static readonly TagLib.ReadOnlyByteVector Mp4DateAtom = new([0xA9, (byte)'d', (byte)'a', (byte)'y']);
+
+    private static string ReadDate(TagLib.File file)
+    {
+        IEnumerable<string?> raw =
+        [
+            (file.GetTag(TagLib.TagTypes.Xiph, false) as TagLib.Ogg.XiphComment)?.GetFirstField("DATE"),
+            // Only v2.4 stores a date whole. From v2.3, TagLib merges TYER and TDAT
+            // reading TDAT month-first where the spec says day-first, so a date
+            // from any other tagger would come back with day and month swapped.
+            (file.GetTag(TagLib.TagTypes.Id3v2, false) as TagLib.Id3v2.Tag) is { Version: >= 4 } id3
+                ? TagLib.Id3v2.TextInformationFrame.Get(id3, "TDRC", false)?.ToString()
+                : null,
+            (file.GetTag(TagLib.TagTypes.Apple, false) as TagLib.Mpeg4.AppleTag)?.GetText(TagReader.Mp4DateAtom).FirstOrDefault(),
+            (file.GetTag(TagLib.TagTypes.Ape, false) as TagLib.Ape.Tag)?.GetItem("Year")?.ToString(),
+            (file.GetTag(TagLib.TagTypes.Asf, false) as TagLib.Asf.Tag)?.GetDescriptorString("WM/Year"),
+        ];
+
+        return raw.Select(ReleaseDate.FromTag).FirstOrDefault(d => d is not null && ReleaseDate.HasMonth(d)) ?? "";
     }
 
     /// <summary>Embedded cover art bytes, or null when the file carries none.</summary>

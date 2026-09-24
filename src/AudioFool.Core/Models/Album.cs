@@ -13,6 +13,13 @@ public sealed class Album
     /// <summary>Earliest year found across the album's tracks; null when untagged.</summary>
     public int? Year { get; init; }
 
+    /// <summary>
+    /// Earliest <see cref="Track.SortDate"/> across the tracks - a full date when
+    /// the files carry one, else the year - so two albums from the same year
+    /// still sort in release order. Null when untagged.
+    /// </summary>
+    public string? SortDate { get; init; }
+
     public IReadOnlyList<Track> Tracks { get; init; } = [];
 
     /// <summary>Cover image found alongside the files (cover.jpg, folder.jpg, ...).</summary>

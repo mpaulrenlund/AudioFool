@@ -23,12 +23,18 @@ public static class LibraryScanner
     /// reported rather than reconciled. Their tracks are carried over untouched, so
     /// a disconnected drive can never be mistaken for a deleted library.
     /// </para>
+    /// <para>
+    /// <paramref name="rereadTags"/> re-reads every reachable file even when it
+    /// matches the cache - for a cache from an older version that lacks a field.
+    /// Known files still count as seen, not as removed and re-added.
+    /// </para>
     /// </summary>
     public static async Task<ScanResult> ScanAsync(
         IReadOnlyList<string> rootFolders,
         IReadOnlyDictionary<string, Track>? known = null,
         IProgress<ScanProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool rereadTags = false)
     {
         var reachable = new List<string>();
         var unavailable = new List<string>();
@@ -48,7 +54,7 @@ public static class LibraryScanner
             .ConfigureAwait(false);
 
         return await Task.Run(
-            () => ScanFiles(files, unavailable, known, progress, cancellationToken),
+            () => ScanFiles(files, unavailable, known, progress, rereadTags, cancellationToken),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -57,6 +63,7 @@ public static class LibraryScanner
         List<string> unavailableFolders,
         IReadOnlyDictionary<string, Track>? known,
         IProgress<ScanProgress>? progress,
+        bool rereadTags,
         CancellationToken cancellationToken)
     {
         // Tracks on an unreachable drive are kept exactly as they were. Without
@@ -93,7 +100,7 @@ public static class LibraryScanner
             if (wasKnown)
                 seenBefore++;
 
-            if (wasKnown && cached!.MatchesFile(stamp.Length, stamp.ModifiedUtc))
+            if (wasKnown && !rereadTags && cached!.MatchesFile(stamp.Length, stamp.ModifiedUtc))
                 reusable.Add(cached);
             else
                 toRead.Add((file, stamp));
@@ -258,6 +265,7 @@ public static class LibraryScanner
             // Earliest tagged year wins: reissue tags on a few tracks shouldn't
             // drag a 1969 album down to the bottom of the list.
             Year = tracks.Select(t => t.Year).Where(y => y.HasValue).Min(),
+            SortDate = tracks.Select(t => t.SortDate).OfType<string>().Order(StringComparer.Ordinal).FirstOrDefault(),
             Tracks = tracks,
             FolderArtPath = tracks.Select(t => t.FolderArtPath).FirstOrDefault(p => p is not null),
         };

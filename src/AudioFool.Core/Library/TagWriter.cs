@@ -30,13 +30,14 @@ public static class TagWriter
     /// <summary>Applies a single-track edit, optionally replacing the embedded art.</summary>
     public static TagWriteResult WriteTrackTags(Track track, TrackTagEdit edit, ArtPayload? art, string? folderArtPath)
     {
-        var save = SaveTags(track.FilePath, tag =>
+        var save = SaveTags(track.FilePath, file =>
         {
+            var tag = file.Tag;
             tag.Title = edit.Title;
             tag.Performers = [edit.Artist];
             tag.AlbumArtists = [edit.AlbumArtist];
             tag.Album = edit.Album;
-            tag.Year = (uint)(edit.Year ?? 0);
+            WriteDate(file, edit.Date, edit.Year);
             tag.Track = (uint)(edit.TrackNumber ?? 0);
             tag.TrackCount = (uint)(edit.TrackCount ?? 0);
             tag.Disc = (uint)(edit.DiscNumber ?? 0);
@@ -58,12 +59,13 @@ public static class TagWriter
     /// </summary>
     public static TagWriteResult WriteAlbumTrackTags(Track track, AlbumTagEdit edit, ArtPayload? art, string? folderArtPath)
     {
-        var save = SaveTags(track.FilePath, tag =>
+        var save = SaveTags(track.FilePath, file =>
         {
+            var tag = file.Tag;
             tag.Performers = [edit.Artist];
             tag.AlbumArtists = [edit.AlbumArtist];
             tag.Album = edit.Album;
-            tag.Year = (uint)(edit.Year ?? 0);
+            WriteDate(file, edit.Date, edit.Year);
 
             if (edit.TrackCount is { } trackCount)
                 tag.TrackCount = (uint)(trackCount.Value ?? 0);
@@ -138,13 +140,47 @@ public static class TagWriter
     private static string? NullIfEmpty(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static (bool Success, string? ErrorMessage) SaveTags(string path, Action<TagLib.Tag> applyFields, ArtPayload? art)
+    /// <summary>
+    /// Writes the release date. TagLib's own <c>Year</c> holds a whole number, so
+    /// it is set first - that fills every tag the file has - and a date naming a
+    /// month or day is then written over it into each format's own date field.
+    /// Without that second step, saving a file that had "2014-05-01" would quietly
+    /// cut it back to "2014".
+    /// </summary>
+    private static void WriteDate(TagLib.File file, string? date, int? year)
+    {
+        file.Tag.Year = (uint)(year ?? 0);
+
+        if (date is null || !ReleaseDate.HasMonth(date))
+            return;
+
+        if (file.GetTag(TagLib.TagTypes.Xiph, false) is TagLib.Ogg.XiphComment xiph)
+            xiph.SetField("DATE", date);
+        if (file.GetTag(TagLib.TagTypes.Id3v2, false) is TagLib.Id3v2.Tag id3)
+        {
+            // ID3v2.3 has no full-date frame: it splits a date into TYER and a
+            // DDMM TDAT, and TagLib renders TDAT month-first, so every other
+            // player would read 2 October as 10 February. v2.4's TDRC holds the
+            // date as written. Only files given a full date are upgraded.
+            if (id3.Version < 4)
+                id3.Version = 4;
+            id3.SetTextFrame("TDRC", date);
+        }
+        if (file.GetTag(TagLib.TagTypes.Apple, false) is TagLib.Mpeg4.AppleTag apple)
+            apple.SetText(TagReader.Mp4DateAtom, date);
+        if (file.GetTag(TagLib.TagTypes.Ape, false) is TagLib.Ape.Tag ape)
+            ape.SetValue("Year", date);
+        if (file.GetTag(TagLib.TagTypes.Asf, false) is TagLib.Asf.Tag asf)
+            asf.SetDescriptorString(date, "WM/Year");
+    }
+
+    private static (bool Success, string? ErrorMessage) SaveTags(string path, Action<TagLib.File> applyFields, ArtPayload? art)
     {
         TagLib.File? file = null;
         try
         {
             file = TagLib.File.Create(path);
-            applyFields(file.Tag);
+            applyFields(file);
 
             if (art is not null)
             {

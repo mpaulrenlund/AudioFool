@@ -7,7 +7,9 @@ A lightweight Windows 11 music player built around one idea: **Artist → Album 
 with nothing else in the way.
 
 - Artists sort alphabetically, with a leading "The" ignored — *The Beatles* files under **B**.
-- Albums sort oldest at the top, newest at the bottom.
+- Albums sort oldest at the top, newest at the bottom - by full release date where the
+  files carry one, so two albums from the same year still come out in release order.
+  An album tagged with only a year sorts at the start of that year.
 - Songs sort by disc number, then track number.
 - Three themes, chosen from the logo menu in the title bar and remembered between runs:
   **Dark** (Fluent, Mica backdrop, teal accent), **Vista** (Aero Glass over an
@@ -435,6 +437,13 @@ sets the track count and disc number for every track. Any field the tracks disag
 starts empty and marked *Varies*, and is left alone unless you type into it. So editing
 an album's genre never flattens each track's own comment. To strip a tag, press the ✕
 beside it; in the album dialog that clears it on every track, even where they differed.
+
+**Release dates.** The Year box takes a year (`2026`), a month (`2026-10`) or a full
+date (`2026-10-02`), always year-month-day. A file that already carries a full date
+shows it there, and saving keeps it. Albums sort by that date; the browser still
+shows only the year. In
+MP3 and DSF files, a full date upgrades the ID3 tag to version 2.4, the first
+version with a field that holds a whole date.
 
 **Finding cover art online.** In *Edit Album Tags…*, **Search Internet…** beside
 *Choose Image…* looks the album up on the iTunes Store and the Cover Art Archive, and on

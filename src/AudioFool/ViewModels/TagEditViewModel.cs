@@ -165,6 +165,10 @@ public sealed partial class TagEditViewModel : ObservableObject
         Genre = details?.Genre ?? "";
         Comment = details?.Comment ?? "";
 
+        // The cache holds only the year; the file may hold the whole date.
+        if (details is { Date.Length: > 0 })
+            Year = details.Date;
+
         RememberInitialDetails();
     }
 
@@ -212,6 +216,12 @@ public sealed partial class TagEditViewModel : ObservableObject
         ConductorPlaceholder = conductorHint;
         GenrePlaceholder = genreHint;
         CommentPlaceholder = commentHint;
+
+        // A full date only when every track has the same one. Year is written
+        // album-wide, so otherwise the album's year is what Save would write.
+        var dates = details.Select(d => d.Date).Distinct(StringComparer.Ordinal).ToList();
+        if (dates is [{ Length: > 0 } date] && details.Count == tracks.Count)
+            Year = date;
 
         RememberInitialDetails();
 
@@ -339,9 +349,15 @@ public sealed partial class TagEditViewModel : ObservableObject
             return;
         }
 
+        if (Year.Trim().Length > 0 && !ReleaseDate.TryParse(Year, out _, out _))
+        {
+            ValidationError = "Year must be a year (2026) or a date (2026-10-02).";
+            CanSave = false;
+            return;
+        }
+
         var numeric = new[]
         {
-            ("Year", Year),
             ("Track #", TrackNumber),
             ("Total tracks", TrackCount),
             ("Disc #", DiscNumber),
@@ -365,23 +381,38 @@ public sealed partial class TagEditViewModel : ObservableObject
     private static int? ParseOrNull(string value) =>
         int.TryParse(value, out var n) ? n : null;
 
-    public TrackTagEdit BuildTrackEdit() => new(
-        Title.Trim(), Artist.Trim(), AlbumArtist.Trim(), AlbumTitle.Trim(),
-        ParseOrNull(Year),
-        ParseOrNull(TrackNumber), ParseOrNull(TrackCount),
-        ParseOrNull(DiscNumber), ParseOrNull(DiscCount))
-    {
-        Details = BuildDetailsEdit(),
-    };
+    /// <summary>The Year box as a year and, when it names a month or day, the full date.</summary>
+    private (int? Year, string? Date) ParsedDate() =>
+        ReleaseDate.TryParse(Year, out var date, out var year)
+            ? (year, ReleaseDate.HasMonth(date) ? date : null)
+            : (null, null);
 
-    public AlbumTagEdit BuildAlbumEdit() => new(
-        Artist.Trim(), AlbumArtist.Trim(), AlbumTitle.Trim(), ParseOrNull(Year))
+    public TrackTagEdit BuildTrackEdit()
     {
-        TrackCount = NumberIfChanged(nameof(TrackCount), TrackCount),
-        DiscNumber = NumberIfChanged(nameof(DiscNumber), DiscNumber),
-        DiscCount = NumberIfChanged(nameof(DiscCount), DiscCount),
-        Details = BuildDetailsEdit(),
-    };
+        var (year, date) = ParsedDate();
+        return new(
+            Title.Trim(), Artist.Trim(), AlbumArtist.Trim(), AlbumTitle.Trim(),
+            year,
+            ParseOrNull(TrackNumber), ParseOrNull(TrackCount),
+            ParseOrNull(DiscNumber), ParseOrNull(DiscCount))
+        {
+            Details = BuildDetailsEdit(),
+            Date = date,
+        };
+    }
+
+    public AlbumTagEdit BuildAlbumEdit()
+    {
+        var (year, date) = ParsedDate();
+        return new(Artist.Trim(), AlbumArtist.Trim(), AlbumTitle.Trim(), year)
+        {
+            TrackCount = NumberIfChanged(nameof(TrackCount), TrackCount),
+            DiscNumber = NumberIfChanged(nameof(DiscNumber), DiscNumber),
+            DiscCount = NumberIfChanged(nameof(DiscCount), DiscCount),
+            Details = BuildDetailsEdit(),
+            Date = date,
+        };
+    }
 
     /// <summary>Takes a cover from "Search Internet" in place of any file picked earlier.</summary>
     public void UseDownloadedArt(byte[] jpeg)

@@ -50,6 +50,21 @@ public sealed class Track
 
     public int? Year { get; init; }
 
+    /// <summary>
+    /// The full release date, when the file names more than the year
+    /// ("2026-10-02" or "2026-10"); null otherwise, which is most MP3s and about
+    /// two FLACs in three. Only the album sort uses it - see <see cref="SortDate"/>.
+    /// </summary>
+    public string? ReleaseDate { get; init; }
+
+    /// <summary>
+    /// What albums sort on: the release date, or the year alone. ISO dates sort
+    /// correctly as plain text, and a bare "2026" sorts before "2026-10-02" - an
+    /// album known only by its year files at the start of that year.
+    /// </summary>
+    [JsonIgnore]
+    public string? SortDate => ReleaseDate ?? Year?.ToString("0000", System.Globalization.CultureInfo.InvariantCulture);
+
     /// <summary>Container/codec shown in the Kind column, e.g. "FLAC", "MP3", "DSD".</summary>
     public string Kind { get; init; } = "";
 
@@ -101,6 +116,7 @@ public sealed class Track
         DiscNumber = DiscNumber,
         DiscCount = DiscCount,
         Year = Year,
+        ReleaseDate = ReleaseDate,
         Kind = Kind,
         Bitrate = Bitrate,
         BitDepth = BitDepth,
@@ -136,6 +152,7 @@ public sealed class Track
         DiscNumber = edit.DiscNumber,
         DiscCount = edit.DiscCount,
         Year = edit.Year,
+        ReleaseDate = edit.Date,
         Kind = Kind,
         Bitrate = Bitrate,
         BitDepth = BitDepth,
@@ -164,6 +181,7 @@ public sealed class Track
         DiscNumber = edit.DiscNumber is { } discNumber ? discNumber.Value : DiscNumber,
         DiscCount = edit.DiscCount is { } discCount ? discCount.Value : DiscCount,
         Year = edit.Year,
+        ReleaseDate = edit.Date,
         Kind = Kind,
         Bitrate = Bitrate,
         BitDepth = BitDepth,

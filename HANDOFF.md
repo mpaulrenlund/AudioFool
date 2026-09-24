@@ -488,6 +488,67 @@ is missing is a button:
     for the process to exit, and with `| Select-Object -First` the process dies
     before it saves the PNG.
 
+**Release dates in the Year box** (later in session 12). The box accepts `2026`,
+`2026-10` or `2026-10-02` and is 140 px wide, to fit a full date plus WPF-UI's clear
+button.
+
+- **The old code destroyed dates.** `tag.Year = 2014` rewrites a FLAC's
+  `DATE=2014-05-01` as `2014`, so every save cut a full date down to its year. A
+  600-file sample found full dates on **36% of FLACs** (154 of 427). Any album saved
+  in the dialog since session 6 has lost them.
+- **The cache is unchanged.** `Track.Year` stays an int. The date is read from the
+  file when the dialog opens, like the detail fields: `TagDetails.Date` is an
+  init-only member, `ReleaseDate` does the parsing, and `TagReader.ReadDate` reads
+  each format's own field (Xiph `DATE`, ID3v2.4 `TDRC`, MP4 `©day`, APE `Year`,
+  ASF `WM/Year`). The edit records gained `Date`, and `TagWriter.WriteDate` sets
+  `Tag.Year` first, then writes the full date over it in those same fields.
+- **The album dialog prefills a date only when every track has the same one.**
+  Otherwise it shows the album's year. Year is still written album-wide.
+- **TagLib bug: ID3v2.3 `TDAT` is written month-first** (`1025` for 25 October),
+  although the spec says DDMM, and it is read back the same way. A correct `2510`
+  written by hand came back as `2026-25-10`. TagLib's own round trip hides this, so
+  it was found by reading raw frames. The workaround: a file given a full date is
+  upgraded to ID3v2.4, which stores `TDRC` whole, and dates are read from v2.4
+  only; v2.3 files show the year. `Mp3_full_date_is_stored_as_id3v24_tdrc` checks
+  the bytes on disk. Verified on copies of a real MP3 and a real DSF, the DSF by
+  following the metadata pointer at header offset 20.
+- **The library now holds only FLAC, MP3 and DSF.** `library.json` still lists 2
+  m4a and 10 wav files that are no longer on the drive. The MP4, APE and ASF date
+  paths compile but have never met a real file.
+
+**Albums sort by release date** (later still in session 12). The user noticed that
+*Ephemeral Dance* (2026-10-02) sorted above *Remixes + More* (2026), alphabetically
+within the year.
+
+- **`Track.ReleaseDate`** is cached: the normalised date when the file names more
+  than a year, null otherwise, and omitted from JSON when null. `Track.SortDate` is
+  `ReleaseDate ?? "yyyy"`. `Album.SortDate` is the earliest across the album's
+  tracks, matching how `Album.Year` takes the earliest year. `SortRules.SortAlbums`
+  orders on it as ordinal text: ISO dates of mixed precision sort correctly that
+  way, and a bare `2026` comes before `2026-10-02`. `WithTags`, `WithAlbumTags` and
+  `Relocated` carry the date, so a save re-sorts the album list at once.
+- **`LibraryCache.CurrentVersion` is 3, but a version 2 cache is still loaded.**
+  Unlike the session 9 bump, it is shown straight away. `NeedsReread` passes
+  `rereadTags: true` to `LibraryScanner.ScanAsync`, which re-reads every reachable
+  file even when it matches, while still counting known files as seen, not
+  removed. The window is never empty. The status line reads "Updating the library
+  for this version... n of m files".
+- **Three rules keep the re-read from being skipped.** Drive relocation (which runs
+  *before* the scan) and `PersistLibraryAsync` (after a tag save) keep the loaded
+  cache's version rather than stamping it current. A re-read that finds a folder
+  unreachable also saves the old version, because the tracks carried over from
+  that drive still lack the date.
+- **Measured headless on the real library**, read-only: the re-read took **51.2 s**
+  and read 26,694 files. 6,934 tracks carry a full date, and the album order
+  changes for 63 of 494 artists. It also dropped 124 cache entries for files no
+  longer on the drive (the m4a and wav files above among them). Cartoon Theory now
+  ends `… FEEL [2022] | Remixes + More [2026] | EPHEMERAL DANCE [2026-10-02]`.
+  **Not yet seen in the running app**: the first launch of this build does the
+  re-read for real.
+
+**218 tests pass**: 153 before session 12, 27 in `OnlineArtSearchTests`, 29 in
+`ReleaseDateTests` and 9 in `ReleaseDateSortTests`.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a

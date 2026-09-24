@@ -574,7 +574,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _settings.MusicFolders = [.. MusicFolders];
         _settings.Save();
 
-        _cache = LibraryCache.From(MusicFolders, tracks);
+        // Keeps the loaded version: relocating is not a re-read, and stamping an
+        // older cache current here would stop the scan that follows from filling it.
+        _cache = LibraryCache.From(MusicFolders, tracks, _cache.Version);
         await Task.Run(_cache.Save, CancellationToken.None);
 
         var first = moves[0];
@@ -680,18 +682,24 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (!refreshing)
             StatusText = "Scanning...";
 
+        // A cache from an older version is on screen but missing a field; every
+        // tag is read again, once, behind the usable view.
+        var reread = _cache?.NeedsReread == true;
+
         try
         {
             var progress = new Progress<ScanProgress>(p =>
             {
                 ScanFraction = p.Fraction;
-                StatusText = refreshing
+                StatusText = reread && refreshing
+                    ? $"Updating the library for this version... {p.FilesRead:N0} of {p.FilesFound:N0} files"
+                    : refreshing
                     ? $"Updating... {p.FilesRead:N0} of {p.FilesFound:N0} changed files"
                     : $"Scanning... {p.FilesRead:N0} of {p.FilesFound:N0} files";
             });
 
             var result = await LibraryScanner.ScanAsync(
-                [.. MusicFolders], _cache?.ByPath(), progress, token);
+                [.. MusicFolders], _cache?.ByPath(), progress, token, rereadTags: reread);
 
             UnavailableFolders = result.UnavailableFolders;
 
@@ -709,7 +717,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             // Safe to persist even with a drive missing: the scanner carries those
             // tracks over rather than reporting them gone, so the cache keeps them.
-            _cache = LibraryCache.From(MusicFolders, _library.AllTracks);
+            // A re-read that could not reach a drive carried that drive's tracks
+            // over without the new field, so the cache keeps its old version and
+            // the next start reads again.
+            var version = reread && result.UnavailableFolders.Count > 0 ? _cache!.Version : LibraryCache.CurrentVersion;
+            _cache = LibraryCache.From(MusicFolders, _library.AllTracks, version);
             await Task.Run(_cache.Save, CancellationToken.None);
         }
         catch (OperationCanceledException)
@@ -1100,7 +1112,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private async Task PersistLibraryAsync()
     {
-        _cache = LibraryCache.From(MusicFolders, _library.AllTracks);
+        // A tag edit made while an older cache is still being re-read must not
+        // mark it current; the re-read saves the new version when it finishes.
+        _cache = LibraryCache.From(MusicFolders, _library.AllTracks, _cache?.Version ?? LibraryCache.CurrentVersion);
         await Task.Run(_cache.Save, CancellationToken.None);
     }
 

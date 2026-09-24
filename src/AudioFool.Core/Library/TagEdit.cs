@@ -18,6 +18,13 @@ public sealed record TrackTagEdit(
     int? DiscCount)
 {
     public TagDetailsEdit Details { get; init; } = TagDetailsEdit.None;
+
+    /// <summary>
+    /// The full release date when one was typed ("2026-10-02"), normalised by
+    /// <see cref="ReleaseDate"/>; <see cref="Year"/> is its year. Null writes
+    /// the year alone.
+    /// </summary>
+    public string? Date { get; init; }
 }
 
 /// <summary>
@@ -42,6 +49,9 @@ public sealed record AlbumTagEdit(
     public NumberEdit? DiscNumber { get; init; }
     public NumberEdit? DiscCount { get; init; }
     public TagDetailsEdit Details { get; init; } = TagDetailsEdit.None;
+
+    /// <summary>As <see cref="TrackTagEdit.Date"/>: written album-wide with <see cref="Year"/>.</summary>
+    public string? Date { get; init; }
 }
 
 /// <summary>
@@ -84,6 +94,14 @@ public sealed record TagDetails(
 {
     /// <summary>Joins multiple composers or genres for display, and splits them on save.</summary>
     public const string Separator = "; ";
+
+    /// <summary>
+    /// The release date as the file stores it, when it names more than the year
+    /// ("2014-05-01"); "" otherwise. Not one of the five detail fields - it is
+    /// shown in the Year box - but read from the file for the same reason: the
+    /// cache holds only the year.
+    /// </summary>
+    public string Date { get; init; } = "";
 
     public static string Join(IEnumerable<string>? values) =>
         values is null

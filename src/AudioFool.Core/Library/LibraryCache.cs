@@ -31,10 +31,27 @@ public sealed class LibraryCache
     /// tag and the two new columns would stay blank for good. Discarding the
     /// cache costs one ~18 s full scan and is the only thing that fills them.
     /// </para>
+    /// <para>
+    /// Version 3 added <see cref="Track.ReleaseDate"/>, with the same problem. But
+    /// a version 2 cache is still loaded and shown, because it is right about
+    /// everything else. <see cref="NeedsReread"/> tells the scan to re-read every
+    /// file's tags in the background (about a minute off the USB drive), so the
+    /// window never sits empty the way a discarded cache would leave it.
+    /// </para>
     /// </summary>
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
+
+    /// <summary>The oldest version still worth showing while <see cref="NeedsReread"/> refreshes it.</summary>
+    public const int OldestShownVersion = 2;
 
     public int Version { get; set; } = CurrentVersion;
+
+    /// <summary>
+    /// True for an older cache: its tracks are shown, but every tag is re-read
+    /// in the next scan because an older cache lacks fields this version needs.
+    /// </summary>
+    [JsonIgnore]
+    public bool NeedsReread => Version < CurrentVersion;
 
     /// <summary>Folders this cache was built from, to spot a changed library root.</summary>
     public List<string> Folders { get; set; } = [];
@@ -73,7 +90,9 @@ public sealed class LibraryCache
             using var stream = File.OpenRead(CachePath);
             var cache = JsonSerializer.Deserialize<LibraryCache>(stream, JsonOptions);
 
-            if (cache is null || cache.Version != CurrentVersion || cache.Tracks.Count == 0)
+            if (cache is null
+                || cache.Version is < OldestShownVersion or > CurrentVersion
+                || cache.Tracks.Count == 0)
                 return null;
 
             return cache;
@@ -87,10 +106,15 @@ public sealed class LibraryCache
         }
     }
 
-    public static LibraryCache From(IEnumerable<string> folders, IEnumerable<Track> tracks) =>
+    /// <summary>
+    /// <paramref name="version"/> is lower than current only when a re-read could
+    /// not reach every folder: tracks carried over from an unplugged drive still
+    /// lack the new fields, so the next start must re-read again.
+    /// </summary>
+    public static LibraryCache From(IEnumerable<string> folders, IEnumerable<Track> tracks, int version = CurrentVersion) =>
         new()
         {
-            Version = CurrentVersion,
+            Version = version,
             Folders = [.. folders],
             SavedUtc = DateTime.UtcNow,
             Tracks = [.. tracks],
