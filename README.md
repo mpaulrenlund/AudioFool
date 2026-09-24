@@ -423,11 +423,10 @@ request for the same device.
 Without that, every compilation shatters into a dozen one-track "artists" and every
 "feat." guest gets its own row in the sidebar.
 
-**The # and Disc columns show totals when the file has them** - "3/12", "1/2". About a
-quarter of files carry no total, and those show a bare "3" rather than an invented one;
-a file with no track number at all shows nothing. Both totals are editable in the tag
-dialog (right-click a track → Edit Tags…), which is also the only way to add one.
-Sorting still uses the raw number, so clicking the header orders 2 before 10.
+**The # and Disc columns show just the number** - "3", never "3/12". A file with no
+track number shows nothing. The track and disc totals are still read and kept, and are
+editable in the tag dialog (right-click a track → Edit Tags…); the grid simply doesn't
+show them. Clicking the header sorts numerically, so 2 comes before 10.
 
 **Editing tags.** Right-click a track for *Edit Tags…*, or an album for *Edit Album
 Tags…*. Both edit publisher, composer, conductor, genre and comments as well as the

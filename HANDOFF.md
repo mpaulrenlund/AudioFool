@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-24 after the eleventh build session. Read this alongside
+Updated 2026-09-24 after the twelfth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -425,6 +425,15 @@ is missing is a button:
 
 **153 tests pass**: the 143 from session 10 plus 10 in `TagDetailsTests`
 (round-trips on FLAC and MP3, null keeps, empty clears, album optional fields).
+
+### Changes from session 12
+
+- **The # and Disc columns show the bare number again** ("3", not "3/3"), at the
+  user's request. Both bind `TrackNumber` / `DiscNumber` through the existing
+  `NumberConverter`; `NumberOfTotalConverter` and `Display.NumberOfTotal` are gone,
+  and the widths are back to 44 / 46 px. `TrackCount` / `DiscCount` are unchanged —
+  still read, cached, edited in the tag dialogs and counted by Statistics. Only the
+  grid stopped showing them. Verified with a ThemeLab render.
 
 ### Deliberately not done
 

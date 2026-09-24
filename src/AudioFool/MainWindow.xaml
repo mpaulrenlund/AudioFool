@@ -32,7 +32,6 @@
         <CollectionViewSource x:Key="FolderFiltersSource"
                               Source="{Binding Data.FolderFilters, Source={StaticResource Proxy}}" />
         <fmt:IsCurrentTrackConverter x:Key="IsCurrentTrack" />
-        <fmt:NumberOfTotalConverter x:Key="NumberOfTotal" />
 
         <!--
             Artist and album rows. The look is entirely in AfBrowserRowTemplate,
@@ -505,16 +504,10 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <DataGridTextColumn x:Name="TrackNumberColumn" Header="#" Width="56" DisplayIndex="1"
+                            <DataGridTextColumn x:Name="TrackNumberColumn" Header="#" Width="44" DisplayIndex="1"
+                                                Binding="{Binding TrackNumber, Converter={StaticResource Number}}"
                                                 SortMemberPath="TrackNumber"
-                                                ElementStyle="{DynamicResource AfNumericCell}">
-                                <DataGridTextColumn.Binding>
-                                    <MultiBinding Converter="{StaticResource NumberOfTotal}">
-                                        <Binding Path="TrackNumber" />
-                                        <Binding Path="TrackCount" />
-                                    </MultiBinding>
-                                </DataGridTextColumn.Binding>
-                            </DataGridTextColumn>
+                                                ElementStyle="{DynamicResource AfNumericCell}" />
 
                             <DataGridTextColumn x:Name="SongColumn" Header="Song" Width="*" MinWidth="180" DisplayIndex="2"
                                                 Binding="{Binding DisplayTitle}"
@@ -531,16 +524,10 @@
                                                 SortMemberPath="Duration"
                                                 ElementStyle="{DynamicResource AfNumericCell}" />
 
-                            <DataGridTextColumn x:Name="DiscColumn" Header="Disc" Width="56" DisplayIndex="6"
+                            <DataGridTextColumn x:Name="DiscColumn" Header="Disc" Width="46" DisplayIndex="6"
+                                                Binding="{Binding DiscNumber, Converter={StaticResource Number}}"
                                                 SortMemberPath="DiscNumber"
-                                                ElementStyle="{DynamicResource AfNumericCell}">
-                                <DataGridTextColumn.Binding>
-                                    <MultiBinding Converter="{StaticResource NumberOfTotal}">
-                                        <Binding Path="DiscNumber" />
-                                        <Binding Path="DiscCount" />
-                                    </MultiBinding>
-                                </DataGridTextColumn.Binding>
-                            </DataGridTextColumn>
+                                                ElementStyle="{DynamicResource AfNumericCell}" />
 
 
                             <DataGridTextColumn x:Name="KindColumn" Header="Kind" Width="74" DisplayIndex="7"
