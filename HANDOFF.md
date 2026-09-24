@@ -434,6 +434,11 @@ is missing is a button:
   and the widths are back to 44 / 46 px. `TrackCount` / `DiscCount` are unchanged —
   still read, cached, edited in the tag dialogs and counted by Statistics. Only the
   grid stopped showing them. Verified with a ThemeLab render.
+- **Right-clicking the album header art offers "Edit Album Tags…"**, the same command
+  as the album row's menu, with `SelectedAlbum` as the parameter (both bound through
+  the `Proxy`). Left-click still opens the art viewer. ThemeLab gained `--artmenu 1`,
+  which opens that menu off-screen and prints each item's command, `CanExecute` and
+  parameter; Dark and PS1 both resolve to the selected album.
 
 ### Deliberately not done
 

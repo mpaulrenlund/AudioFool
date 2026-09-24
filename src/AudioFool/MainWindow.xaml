@@ -353,6 +353,13 @@
                                 Style="{DynamicResource AfArtFrameLarge}"
                                 Cursor="Hand"
                                 MouseLeftButtonDown="AlbumArt_MouseLeftButtonDown">
+                            <Border.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Edit Album Tags…"
+                                              Command="{Binding Source={StaticResource Proxy}, Path=Data.EditAlbumTagsCommand}"
+                                              CommandParameter="{Binding Source={StaticResource Proxy}, Path=Data.SelectedAlbum}" />
+                                </ContextMenu>
+                            </Border.ContextMenu>
                             <Grid>
                                 <ui:SymbolIcon Symbol="MusicNote224"
                                                FontSize="{DynamicResource AfIconSizeHero}"

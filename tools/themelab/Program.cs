@@ -151,6 +151,34 @@ internal static class Program
             }
         }
 
+        // --artmenu: does right-clicking the album header art offer Edit Album Tags
+        // for the selected album? Opens the menu off-screen and reads its bindings.
+        if (Arg(args, "--artmenu") is not null)
+        {
+            var art = FindAll<System.Windows.Controls.Border>(main)
+                .FirstOrDefault(b => b.ContextMenu is not null
+                    && ReferenceEquals(b.Style, main.TryFindResource("AfArtFrameLarge")));
+            if (art?.ContextMenu is not { } menu)
+            {
+                Console.WriteLine("artmenu: no context menu on the header art");
+            }
+            else
+            {
+                menu.PlacementTarget = art;
+                menu.IsOpen = true;
+                Settle(300);
+                foreach (var entry in menu.Items.OfType<System.Windows.Controls.MenuItem>())
+                {
+                    var album = entry.CommandParameter as AudioFool.ViewModels.AlbumItemViewModel;
+                    Console.WriteLine($"artmenu: '{entry.Header}' command={entry.Command is not null} "
+                        + $"canExecute={entry.Command?.CanExecute(entry.CommandParameter)} enabled={entry.IsEnabled} "
+                        + $"param='{album?.Album.Title}' selected='{vm.SelectedAlbum?.Album.Title}' "
+                        + $"same={ReferenceEquals(album, vm.SelectedAlbum)}");
+                }
+                menu.IsOpen = false;
+            }
+        }
+
         // --menu: does clicking the logo open the File-style menu? Two checks that
         // do not need a mouse. First hit-test the middle of the logo and walk up,
         // which is the path a click takes; then expand through the automation peer,

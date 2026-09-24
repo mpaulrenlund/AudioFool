@@ -428,8 +428,8 @@ track number shows nothing. The track and disc totals are still read and kept, a
 editable in the tag dialog (right-click a track → Edit Tags…); the grid simply doesn't
 show them. Clicking the header sorts numerically, so 2 comes before 10.
 
-**Editing tags.** Right-click a track for *Edit Tags…*, or an album for *Edit Album
-Tags…*. Both edit publisher, composer, conductor, genre and comments as well as the
+**Editing tags.** Right-click a track for *Edit Tags…*, or an album - in the Albums
+list or its large cover art above the tracks - for *Edit Album Tags…*. Both edit publisher, composer, conductor, genre and comments as well as the
 basics; separate several composers or genres with a semicolon. The album dialog also
 sets the track count and disc number for every track. Any field the tracks disagree on
 starts empty and marked *Varies*, and is left alone unless you type into it. So editing
