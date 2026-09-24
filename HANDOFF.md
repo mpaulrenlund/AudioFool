@@ -407,8 +407,8 @@ is missing is a button:
   because its box already starts empty and an empty box means "keep". It adds the
   field to `_cleared` and changes the placeholder to "Will be cleared on every
   track". Typing into the box afterwards writes the typed text instead. The number
-  fields have no clear button yet; a "Varies" Track Count or Disc cannot be cleared
-  album-wide.
+  fields deliberately have no clear button: the user likes track and disc counts
+  and declined one.
 - **Year is now validated as you type.** `OnYearChanged` was missing, so "abc"
   saved as a cleared year.
 - **The library is sparse on these tags.** In a 400-file sample: genre 3.5%,
