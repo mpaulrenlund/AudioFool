@@ -439,6 +439,54 @@ is missing is a button:
   the `Proxy`). Left-click still opens the art viewer. ThemeLab gained `--artmenu 1`,
   which opens that menu off-screen and prints each item's command, `CanExecute` and
   parameter; Dark and PS1 both resolve to the selected album.
+- **Search Internet for cover art** (album tag dialog, beside Choose Image). Opens
+  `ArtSearchWindow`, which shows covers from the iTunes Store, the Cover Art Archive
+  and (with a key) fanart.tv. The user's rules: **JPEG only, at least 1,000 × 1,000**.
+  - **Everything is in `AudioFool.Core/Art/`.** `OnlineArtSearch` does the HTTP and
+    the parsing. `JpegSize` reads a JPEG's frame header. Both are covered by 27 tests
+    in `OnlineArtSearchTests`, all offline.
+  - **Every candidate is measured before it is shown.** The app fetches the first
+    64 KB with a range request (512 KB if the frame header lies further in) and reads
+    the size from the bytes. Format is judged by magic bytes, not the URL. The chosen
+    cover is downloaded in full and checked again before `UseDownloadedArt` takes it.
+    All three hosts were probed and answer range requests with 206.
+  - **iTunes**: `artworkUrl100` is rewritten to `/10000x10000bb.jpg`. The store never
+    upscales, so that returns the original size (1400–5000 px measured). The `.jpg`
+    suffix makes it serve a JPEG even when the label uploaded a PNG. The old
+    `100000x100000-999` trick now returns 400. If "artist album" finds nothing (a
+    title the store spells differently), the search falls back to the artist alone.
+  - **MusicBrainz**: one release-group search, score ≥ 90, at most 3. It feeds both the
+    Cover Art Archive (front covers only) and fanart.tv
+    (`/v3/music/albums/{rgid}`). It returns 503 when rate-limiting, which happened
+    once in testing, so the app retries once after 1.2 s. The User-Agent is
+    `AudioFool/1.0 (personal music player)`, with no email address in it.
+  - **fanart.tv is unverified.** It needs `FanartTvApiKey` in settings.json and
+    returns 401 without one. The parser follows its documented response and has a
+    test, but a real response has never been seen. With no key, the status line says
+    it was skipped.
+  - **Bandcamp is not searched.** Its search page returns a JavaScript "Client
+    Challenge" to non-browsers. That is a bot check, and getting around it is not
+    something to build.
+  - **Relevance** (`OnlineArtSearch.Relevance`): the artist match counts 2 and the
+    album match 1. Names are compared letters and digits only, ignoring case,
+    accents and a leading "The", and either name may contain the other. With an
+    artist to go on, a cover must match the artist, which drops karaoke versions
+    and other artists' records that share a title (150cc's *Live Recordings* had
+    returned Bob Dylan). The grid keeps itself sorted by relevance, then by pixel
+    count.
+  - **Non-square covers pass** if both sides are at least 1,000. The Cover Art
+    Archive's *Goodbye Yellow Brick Road* includes a 1514 × 2140 DVD sleeve.
+  - **The final status goes through the dispatcher.** ThemeLab pumps the dispatcher
+    by hand, with no synchronization context, so code after `await` ran on the
+    thread pool, and queued result callbacks overwrote the summary. The real app is
+    unaffected, but the summary is now queued behind them either way.
+  - **ThemeLab `--window artsearch --artist X --album Y [--use 1]`** runs a live
+    search, renders the window and prints every result. `--use 1` downloads the top
+    cover and passes it through `UseDownloadedArt` / `PickedArtPayload`. Verified:
+    Rush *Moving Pictures* gives 3000 × 3000, `image/jpeg`, 922,550 B.
+    **Pipe ThemeLab's output** (`| Out-File`): with `>` PowerShell does not wait
+    for the process to exit, and with `| Select-Object -First` the process dies
+    before it saves the PNG.
 
 ### Deliberately not done
 
@@ -922,6 +970,8 @@ ThemeLab.exe --window click --click Year --fix 1964   # simulate fixing the sele
 ThemeLab.exe --window tags --album "Saturn Return" --w 460   # album dialog on a real album
 ThemeLab.exe --window tags --track "Polygon Weather"         # track dialog on a real track
 ThemeLab.exe --window tags --album "Saturn Return" --set "!Comment;Genre=Ambient"
+ThemeLab.exe --window artsearch --artist "Rush" --album "Moving Pictures" --use 1 --w 820 --h 640
+ThemeLab.exe --theme PS1 --artmenu 1          # the album header art's context menu
 ```
 
 `--window tags --album/--track` reads the real files' tags (read-only) and prints

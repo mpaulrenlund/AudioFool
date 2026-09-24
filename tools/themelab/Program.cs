@@ -476,6 +476,56 @@ internal static class Program
                 Console.WriteLine($"cleared: status='{vm.StatusText}'");
             }
         }
+        else if (which == "artsearch")
+        {
+            // --window artsearch --artist "Rush" --album "Moving Pictures": a live
+            // search against the real sources, rendered once every result and
+            // preview is in. --use 1 then downloads the first cover and passes it
+            // to an album tag dialog the way Use Image does, printing the payload
+            // Save would write. Nothing is saved.
+            var artist = Arg(args, "--artist") ?? "Rush";
+            var albumName = Arg(args, "--album") ?? "Moving Pictures";
+            var searchVm = new ArtSearchViewModel(new AudioFool.Core.Art.OnlineArtSearch(null), artist, albumName);
+            var dialog = new ArtSearchWindow(searchVm, main);
+            dialog.ApplyTemplate();
+            var root = (FrameworkElement)dialog.Content;
+            root.Measure(new Size(w, h));
+            root.Arrange(new Rect(0, 0, w, h));
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var search = searchVm.SearchAsync();
+            while (!search.IsCompleted) Settle(100);
+            var searched = clock.ElapsedMilliseconds;
+            while (searchVm.Results.Any(r => r.Preview is null) && clock.ElapsedMilliseconds < searched + 15000) Settle(100);
+            Console.WriteLine($"artsearch: {searchVm.Results.Count} results in {searched} ms, previews by {clock.ElapsedMilliseconds} ms");
+            Console.WriteLine($"  status: {searchVm.Status}  busy={searchVm.IsBusy}");
+            if (search.Exception is { } failed)
+                Console.WriteLine($"  FAULTED: {failed.InnerException}");
+            foreach (var r in searchVm.Results)
+                Console.WriteLine($"  r{r.Candidate.Relevance} {r.SizeText,-13} {r.Source,-18} preview={(r.Preview is null ? "none" : $"{r.Preview.PixelWidth}px")}  {r.Title}");
+
+            searchVm.Selected = searchVm.Results.FirstOrDefault();
+            if (Arg(args, "--use") is not null && searchVm.Selected is not null)
+            {
+                var download = searchVm.DownloadSelectedAsync();
+                while (!download.IsCompleted) Settle(100);
+                Console.WriteLine($"use: ok={download.Result} bytes={searchVm.ChosenBytes?.Length:N0} status='{searchVm.Status}'");
+
+                if (searchVm.ChosenBytes is { } bytes)
+                {
+                    var sampleAlbum = AudioFool.Core.Library.LibraryScanner.Build(SampleTracks()).Artists[0].Albums[0];
+                    var editVm = new TagEditViewModel(sampleAlbum, new AlbumArtService());
+                    editVm.UseDownloadedArt(bytes);
+                    var payload = editVm.PickedArtPayload();
+                    var probe = AudioFool.Core.Art.JpegSize.TryRead(payload!.Bytes, out var pw, out var ph);
+                    Console.WriteLine($"  dialog: preview={editVm.ArtPreview?.PixelWidth}px payload={payload.MimeType} {payload.Bytes.Length:N0} B {probe} {pw}x{ph}");
+                }
+            }
+
+            root.UpdateLayout();
+            Settle(400);
+            Save(root, outPath, w, h, scale);
+        }
         else if (which == "stats")
         {
             // The real library, read from the cache and never written back:

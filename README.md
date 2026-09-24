@@ -436,6 +436,19 @@ starts empty and marked *Varies*, and is left alone unless you type into it. So 
 an album's genre never flattens each track's own comment. To strip a tag, press the ✕
 beside it; in the album dialog that clears it on every track, even where they differed.
 
+**Finding cover art online.** In *Edit Album Tags…*, **Search Internet…** beside
+*Choose Image…* looks the album up on the iTunes Store and the Cover Art Archive, and on
+fanart.tv as well once you give it an API key. Only JPEGs of at least 1,000 × 1,000 are
+shown. Each size is read from the image file itself, not taken from what the site
+claims. Covers by the album's artist are shown, exact title matches first, then larger
+first; anything by other artists is hidden. Double-click one to use it. Like a picked
+file, it is only written when you press Save.
+
+fanart.tv needs a free personal API key from <https://fanart.tv/get-an-api-key/>. Put
+it in `%APPDATA%\AudioFool\settings.json` as `"FanartTvApiKey": "..."` and restart.
+Bandcamp is not searched: it has no public API, and it turns automated requests away
+with a bot check.
+
 **Library statistics.** Logo menu → **Statistics…** opens a summary of the library:
 totals, the five artists with the most tracks, the split by file type and by audio
 quality (hi-res, CD-quality, DSD, and lossy above or below 256 kbps), which tags are

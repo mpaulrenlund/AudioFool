@@ -6,6 +6,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using AudioFool.Core.Art;
 using AudioFool.Core.Library;
 using AudioFool.Core.Models;
 using AudioFool.Core.Playback;
@@ -991,7 +992,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (item is null || Application.Current.MainWindow is not { } owner)
             return;
 
-        var editVm = new TagEditViewModel(item.Album, _artService);
+        var editVm = new TagEditViewModel(item.Album, _artService, new OnlineArtSearch(_settings.FanartTvApiKey));
         var window = new TagEditWindow(editVm, owner);
 
         if (window.ShowDialog() != true)

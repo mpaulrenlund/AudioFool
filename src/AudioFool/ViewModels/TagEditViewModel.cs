@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using AudioFool.Core.Art;
 using AudioFool.Core.Library;
 using AudioFool.Core.Models;
 using AudioFool.Services;
@@ -125,6 +126,16 @@ public sealed partial class TagEditViewModel : ObservableObject
     [ObservableProperty]
     private string? _pickedArtFilePath;
 
+    /// <summary>A cover chosen from "Search Internet" - always a JPEG, held in memory until Save.</summary>
+    private byte[]? _downloadedArt;
+
+    /// <summary>Album mode: the online cover search behind "Search Internet".</summary>
+    public OnlineArtSearch ArtSearch { get; } = new(fanartApiKey: null);
+
+    /// <summary>Who to search for: the album artist, since that is who the album files under.</summary>
+    public string SearchArtist =>
+        (string.IsNullOrWhiteSpace(AlbumArtist) ? Artist : AlbumArtist).Trim();
+
     [ObservableProperty]
     private string _validationError = "";
 
@@ -167,9 +178,10 @@ public sealed partial class TagEditViewModel : ObservableObject
     /// album, since the cache holds none of the five detail fields.
     /// </para>
     /// </summary>
-    public TagEditViewModel(Album album, AlbumArtService artService)
+    public TagEditViewModel(Album album, AlbumArtService artService, OnlineArtSearch? artSearch = null)
     {
         IsAlbumMode = true;
+        ArtSearch = artSearch ?? new OnlineArtSearch(fanartApiKey: null);
         WindowTitle = $"Edit Album Tags - {album.Title}";
 
         var first = album.Tracks.FirstOrDefault();
@@ -302,6 +314,7 @@ public sealed partial class TagEditViewModel : ObservableObject
             bitmap.Freeze();
 
             PickedArtFilePath = dialog.FileName;
+            _downloadedArt = null;
             ArtPreview = bitmap;
         }
         catch (Exception ex) when (ex is NotSupportedException or IOException or UnauthorizedAccessException)
@@ -370,8 +383,26 @@ public sealed partial class TagEditViewModel : ObservableObject
         Details = BuildDetailsEdit(),
     };
 
+    /// <summary>Takes a cover from "Search Internet" in place of any file picked earlier.</summary>
+    public void UseDownloadedArt(byte[] jpeg)
+    {
+        try
+        {
+            ArtPreview = ArtSearchViewModel.Decode(jpeg, 200);
+            _downloadedArt = jpeg;
+            PickedArtFilePath = null;
+        }
+        catch (Exception ex) when (ex is NotSupportedException or IOException or ArgumentException)
+        {
+            ValidationError = $"Couldn't open that image: {ex.Message}";
+        }
+    }
+
     public ArtPayload? PickedArtPayload()
     {
+        if (_downloadedArt is { } downloaded)
+            return new ArtPayload(downloaded, "image/jpeg");
+
         if (PickedArtFilePath is null)
             return null;
 

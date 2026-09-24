@@ -55,4 +55,13 @@ public partial class TagEditWindow : FluentWindow
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
+
+    private void SearchInternet_Click(object sender, RoutedEventArgs e)
+    {
+        var search = new ArtSearchViewModel(_viewModel.ArtSearch, _viewModel.SearchArtist, _viewModel.AlbumTitle.Trim());
+        var window = new ArtSearchWindow(search, this);
+
+        if (window.ShowDialog() == true && search.ChosenBytes is { } bytes)
+            _viewModel.UseDownloadedArt(bytes);
+    }
 }

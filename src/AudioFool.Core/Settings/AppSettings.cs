@@ -54,6 +54,13 @@ public sealed class AppSettings
     [JsonConverter(typeof(JsonStringEnumConverter<Playback.RepeatMode>))]
     public Playback.RepeatMode Repeat { get; set; } = Playback.RepeatMode.Off;
 
+    /// <summary>
+    /// A personal API key from fanart.tv, for the tag dialog's "Search Internet".
+    /// Without one that search uses the iTunes Store and the Cover Art Archive
+    /// only. There is deliberately no UI for it: it is set once, by hand, here.
+    /// </summary>
+    public string? FanartTvApiKey { get; set; }
+
     [JsonIgnore]
     public static string SettingsDirectory { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
