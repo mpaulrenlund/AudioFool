@@ -154,7 +154,18 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private BitmapSource? _selectedAlbumArt;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WindowTitle))]
     private Track? _nowPlaying;
+
+    /// <summary>
+    /// The window's own title, which the in-app title bar does not show. It is
+    /// what the taskbar thumbnail, its tooltip and Alt-Tab read.
+    /// </summary>
+    public string WindowTitle => NowPlaying is { } track
+        ? string.IsNullOrWhiteSpace(track.Artist)
+            ? track.DisplayTitle
+            : $"{track.Artist} – {track.DisplayTitle}"
+        : "AudioFool";
 
     [ObservableProperty]
     private BitmapSource? _nowPlayingArt;

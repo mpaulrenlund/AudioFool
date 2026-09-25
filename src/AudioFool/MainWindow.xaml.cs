@@ -20,6 +20,7 @@ public partial class MainWindow : FluentWindow
 {
     private readonly MainViewModel _viewModel;
     private readonly GlobalHotkeys _hotkeys = new();
+    private readonly TaskbarControls _taskbarControls;
     private ArtWindow? _artWindow;
     private string _typeAheadBuffer = "";
     private ListBox? _typeAheadTarget;
@@ -33,6 +34,8 @@ public partial class MainWindow : FluentWindow
         InitializeComponent();
 
         FitToWorkArea();
+
+        _taskbarControls = new TaskbarControls(this, viewModel);
 
         Loaded += OnLoaded;
         SourceInitialized += OnSourceInitialized;
@@ -114,6 +117,7 @@ public partial class MainWindow : FluentWindow
         Closed -= OnClosed;
         _hotkeys.Pressed -= OnHotkeyPressed;
         _hotkeys.Dispose();
+        _taskbarControls.Dispose();
 
         if (_trackGridScroller is not null)
             _trackGridScroller.ScrollChanged -= TrackGridScroller_ScrollChanged;

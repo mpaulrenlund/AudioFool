@@ -6,7 +6,7 @@
                  xmlns:fmt="clr-namespace:AudioFool.Formatting"
                  xmlns:vm="clr-namespace:AudioFool.ViewModels"
                  xmlns:core="clr-namespace:AudioFool.Core.Models;assembly=AudioFool.Core"
-                 Title="AudioFool"
+                 Title="{Binding WindowTitle}"
                  Icon="/Resources/AudioFool.ico"
                  Width="1560" Height="900"
                  MinWidth="900" MinHeight="560"

@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-24 after the twelfth build session. Read this alongside
+Updated 2026-09-25 after the thirteenth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -551,6 +551,41 @@ within the year.
 **218 tests pass**: 153 before session 12, 27 in `OnlineArtSearchTests`, 29 in
 `ReleaseDateTests` and 9 in `ReleaseDateSortTests`.
 
+### Changes from session 13
+
+- **Taskbar thumbnail buttons**, as MusicBee has: hover the taskbar icon for
+  **Previous, Play/Pause, Next, Stop**. `Services/TaskbarControls.cs` builds a
+  `TaskbarItemInfo` with four `ThumbButtonInfo`s bound straight to the view model's
+  existing commands, so they behave exactly like the window's transport (Previous
+  restarts after 3 s; Play with nothing loaded starts the selected album). Created in
+  the `MainWindow` constructor, disposed in `OnClosed`.
+- **Play/Pause swaps glyph on `IsPlaying`**, through the view model's
+  `PropertyChanged` in code, not a binding. `ThumbButtonInfo` is a `Freezable` hung
+  off the window, and code-behind is simpler than relying on its inheritance context.
+- **The glyphs are `DrawingImage`s on a 16-unit canvas**, not WPF-UI symbols: a thumb
+  button wants an `ImageSource`, and WPF renders a `DrawingImage` at the system
+  small-icon size for the current DPI, so they stay sharp. Each carries a transparent
+  16×16 square, because a `DrawingImage` is sized to its content's bounds and would
+  otherwise stretch every glyph to the edges.
+- **Glyph colour follows the taskbar, not the app theme** — the flyout is drawn by the
+  shell. `SystemUsesLightTheme` under `HKCU\...\Themes\Personalize` picks black or
+  white (missing means dark), re-read on `SystemEvents.UserPreferenceChanged`
+  (`General`).
+- **The window title follows the track.** `MainViewModel.WindowTitle` is "Artist –
+  Title" (just the title with no artist tag), "AudioFool" when nothing is loaded;
+  `Title="{Binding WindowTitle}"`. The in-app `TitleBar` never displayed the window
+  title, so the app looks the same; it is what the thumbnail heading, the taskbar
+  tooltip and Alt-Tab read. Nothing else keyed on the fixed title — but a UIA script
+  that finds the window **by name** would now miss it; find it by process id, as the
+  snippets here already do.
+- **Verified**: the glyphs rendered off-screen at 24 px and reviewed; the relaunched
+  app read "AudioFool" through UIA with nothing loaded. The flyout itself cannot be
+  seen without hovering the taskbar, which is off limits, so **the user confirmed**
+  the buttons, the Play/Pause swap and the track title in the running app.
+- **Relaunch minimised** after installing: `Start-Process ... -WindowStyle Minimized`
+  starts AudioFool without it jumping in front of the user's work (confirmed as
+  `Minimized` through UIA's `WindowPattern`).
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
@@ -626,6 +661,12 @@ within the year.
 | `tests/AudioFool.Core.Tests/OnlineArtSearchTests.cs` | 27 tests: JPEG measuring, the size and format rule, URL rewriting, each source's parser, relevance. |
 | `tests/AudioFool.Core.Tests/ReleaseDateTests.cs` | 29 tests: parsing, and date round trips on FLAC and MP3, including the raw-bytes ID3v2.4 check. |
 | `tests/AudioFool.Core.Tests/ReleaseDateSortTests.cs` | 9 tests: album order by date, earliest-track dating, the v2 cache re-read. |
+
+## New source files added in session 13
+
+| File | Purpose |
+|---|---|
+| `src/AudioFool/Services/TaskbarControls.cs` | The four taskbar thumbnail buttons: builds the `TaskbarItemInfo`, draws the glyphs, swaps Play/Pause on `IsPlaying`, recolours them when the taskbar's light/dark mode changes. |
 
 ## Logo and icon resource files
 

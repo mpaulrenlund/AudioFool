@@ -154,7 +154,7 @@ AudioFool.slnx
 │   └── Settings/                AppSettings (JSON in %APPDATA%\AudioFool)
 ├── src/AudioFool/               the WPF app
 │   ├── ViewModels/              MainViewModel, AlbumItemViewModel
-│   ├── Services/                AlbumArtService, GlobalHotkeys
+│   ├── Services/                AlbumArtService, GlobalHotkeys, TaskbarControls
 │   ├── Formatting/              column display + converters
 │   └── MainWindow, ArtWindow    the two windows
 ├── tests/AudioFool.Core.Tests/  xUnit tests: sorting, cache, search, drives
@@ -266,6 +266,14 @@ These only apply when AudioFool has focus:
 | **F5** | Rescan the library |
 | **Enter** | Play the selected track |
 | **Escape** | Close the album-art viewer |
+
+### Taskbar controls
+
+Hover AudioFool's taskbar icon and the thumbnail carries **Previous, Play/Pause, Next
+and Stop** buttons. Play/Pause shows ▶ when nothing is playing and ⏸ while something
+is. The glyphs are white on a dark taskbar and black on a light one. The thumbnail's
+heading — and the taskbar tooltip and Alt-Tab — read "Artist – Title" while a track
+is loaded, "AudioFool" otherwise.
 
 ### Fitting the track columns
 
