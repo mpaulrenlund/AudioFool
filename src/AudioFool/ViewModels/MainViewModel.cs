@@ -994,11 +994,24 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     // ----------------------------------------------------------- tag editing
 
+    /// <summary>
+    /// The rows selected in the track grid, kept in step by the window - a
+    /// DataGrid's SelectedItems cannot be bound. "Edit Tags..." edits all of them
+    /// when the row it was opened on is one of several selected.
+    /// </summary>
+    public IReadOnlyList<Track> SelectedTracks { get; set; } = [];
+
     [RelayCommand]
     private void EditTrackTags(Track? track)
     {
         if (track is null || Application.Current.MainWindow is not { } owner)
             return;
+
+        if (SelectedTracks.Count > 1 && SelectedTracks.Contains(track))
+        {
+            EditSelectedTracksTags(SelectedTracks.ToList(), owner);
+            return;
+        }
 
         var editVm = new TagEditViewModel(track);
         var window = new TagEditWindow(editVm, owner);
@@ -1022,6 +1035,54 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
 
         _ = ApplyAlbumEditAsync(item.Album, editVm.BuildAlbumEdit(), editVm.PickedArtPayload());
+    }
+
+    private void EditSelectedTracksTags(IReadOnlyList<Track> tracks, Window owner)
+    {
+        var editVm = new TagEditViewModel(tracks);
+        var window = new TagEditWindow(editVm, owner);
+
+        if (window.ShowDialog() != true)
+            return;
+
+        _ = ApplySelectedTracksEditAsync(tracks, editVm.BuildTracksEdit());
+    }
+
+    /// <summary>
+    /// As <see cref="ApplyAlbumEditAsync"/>, less the art: every successful write
+    /// is kept, and the failures are named.
+    /// </summary>
+    private async Task ApplySelectedTracksEditAsync(IReadOnlyList<Track> tracks, TracksTagEdit edit)
+    {
+        StatusText = $"Saving tags for {tracks.Count} track(s)...";
+
+        var (updated, failed) = await Task.Run(() =>
+        {
+            var okTracks = new List<Track>();
+            var badTracks = new List<(string FileName, string Error)>();
+
+            foreach (var track in tracks)
+            {
+                var writeResult = TagWriter.WriteSelectedTrackTags(track, edit);
+                if (writeResult.Success)
+                    okTracks.Add(writeResult.UpdatedTrack!);
+                else
+                    badTracks.Add((Path.GetFileName(track.FilePath), writeResult.ErrorMessage ?? "unknown error"));
+            }
+
+            return (okTracks, badTracks);
+        });
+
+        if (updated.Count > 0)
+        {
+            ReplaceTracksInLibrary(updated.ToDictionary(t => t.FilePath, StringComparer.OrdinalIgnoreCase));
+            await PersistLibraryAsync();
+        }
+
+        StatusText = failed.Count == 0
+            ? WithFilterProgress($"Saved tags for {updated.Count} track(s).")
+            : $"Saved tags for {updated.Count} of {tracks.Count} track(s) - " +
+              $"{failed.Count} failed ({string.Join(", ", failed.Select(f => f.FileName))}: {failed[0].Error}).";
     }
 
     private async Task ApplyTrackEditAsync(Track track, TrackTagEdit edit)

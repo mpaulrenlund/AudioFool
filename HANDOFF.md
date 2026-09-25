@@ -86,7 +86,7 @@ Three decisions baked into the first commit, so you do not have to re-derive the
 
 Verified, not assumed: a fresh `git clone` of this repo into a scratch directory builds
 with 0 warnings and passes the whole suite (73 tests when that was checked in session 5;
-218 now, though the clean-clone check has not been repeated since). If you add a dependency that lives outside NuGet, re-run that check — it is
+225 now, though the clean-clone check has not been repeated since). If you add a dependency that lives outside NuGet, re-run that check — it is
 the only thing that catches a file you forgot to track.
 
 ---
@@ -591,6 +591,29 @@ within the year.
   and Vista are unaffected (thickness 0). Verified with ThemeLab: the same row
   selected and unselected has identical glyph start positions, to ±1 px of
   anti-aliasing.
+- **Edit tags on several selected tracks.** The track grid is
+  `SelectionMode="Extended"` (Ctrl/Shift-click, Ctrl+A). "Edit Tags…" on a row
+  that is one of several selected opens the dialog for all of them; a right-click
+  on an unselected row replaces the selection first, as Explorer does. The window
+  mirrors `TrackGrid.SelectedItems` into `MainViewModel.SelectedTracks` on
+  `SelectionChanged`, since a DataGrid's `SelectedItems` cannot be bound.
+  - **Every field is keep-unless-changed**, Artist / Album Artist / Album / Year
+    included (the album dialog always writes those four). A hand-picked set has no
+    reason to agree on them. Each pre-fills only when every selected track agrees,
+    else "Varies". Album may stay empty when it varies; emptying one that was there
+    is refused.
+  - **No art** (`TagEditViewModel.ShowsArt` is album-only): it rewrites the folder
+    cover, which is the whole album's.
+  - **Core**: `TracksTagEdit` (all optional; `DateEdit` carries year plus date),
+    `TagWriter.WriteSelectedTrackTags`, `Track.WithSelectedTags`. 7 tests in
+    `SelectedTracksTagTests`. `TagEditViewModel(IReadOnlyList<Track>)` sets
+    `IsAlbumMode` *and* `IsSelectionMode`; `IsAlbumMode` now means "several tracks".
+  - **Verified** with ThemeLab: `--window tags --album "Goodbye Yellow Brick Road"
+    --pick 1-20` opens it on 20 real tracks across both discs (disc # and track
+    count "Varies", art hidden, an untouched Save writes nothing, `DiscNumber=1`
+    writes only that). `--rows 1,2,3,4` selects four grid rows, and all four reach
+    `SelectedTracks`. The right-click in the running app was **not** exercised
+    (it needs the mouse).
 - **Relaunch minimised** after installing: `Start-Process ... -WindowStyle Minimized`
   starts AudioFool without it jumping in front of the user's work (confirmed as
   `Minimized` through UIA's `WindowPattern`).
@@ -1099,6 +1122,8 @@ ThemeLab.exe --window tags --track "Polygon Weather"         # track dialog on a
 ThemeLab.exe --window tags --album "Saturn Return" --set "!Comment;Genre=Ambient"
 ThemeLab.exe --window artsearch --artist "Rush" --album "Moving Pictures" --use 1 --w 820 --h 640
 ThemeLab.exe --theme PS1 --artmenu 1          # the album header art's context menu
+ThemeLab.exe --window tags --album "Goodbye Yellow Brick Road" --pick 1-8 --set "DiscCount=2"  # a grid selection
+ThemeLab.exe --theme PS1 --rows 1,2,3,4       # several selected grid rows
 ```
 
 `--window tags --album/--track` reads the real files' tags (read-only) and prints

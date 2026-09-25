@@ -188,5 +188,33 @@ public sealed class Track
         SampleRate = SampleRate,
     };
 
+    /// <summary>
+    /// A copy with an edit to hand-picked tracks applied: each field the edit
+    /// leaves null keeps this track's own value.
+    /// </summary>
+    public Track WithSelectedTags(TracksTagEdit edit, FileStamp stamp) => new()
+    {
+        FilePath = FilePath,
+        FolderArtPath = FolderArtPath,
+
+        FileSize = stamp.Length,
+        ModifiedUtc = stamp.ModifiedUtc,
+        TrackNumber = TrackNumber,
+        TrackCount = edit.TrackCount is { } trackCount ? trackCount.Value : TrackCount,
+        Title = Title,
+        Artist = edit.Artist ?? Artist,
+        AlbumArtist = edit.AlbumArtist ?? AlbumArtist,
+        Album = edit.Album ?? Album,
+        Duration = Duration,
+        DiscNumber = edit.DiscNumber is { } discNumber ? discNumber.Value : DiscNumber,
+        DiscCount = edit.DiscCount is { } discCount ? discCount.Value : DiscCount,
+        Year = edit.Date is { } date ? date.Year : Year,
+        ReleaseDate = edit.Date is { } newDate ? newDate.Date : ReleaseDate,
+        Kind = Kind,
+        Bitrate = Bitrate,
+        BitDepth = BitDepth,
+        SampleRate = SampleRate,
+    };
+
     public override string ToString() => $"{TrackNumber}. {DisplayTitle}";
 }

@@ -55,6 +55,31 @@ public sealed record AlbumTagEdit(
 }
 
 /// <summary>
+/// An edit to tracks the user picked by hand - disc 1 of a two-disc set, say.
+/// Title and track number are absent, as in <see cref="AlbumTagEdit"/>, but here
+/// every field is optional: null leaves each track's own value in place. Unlike an
+/// album, a hand-picked set has no reason to agree on its artist or album, so
+/// nothing is written that the user did not change.
+/// </summary>
+public sealed record TracksTagEdit
+{
+    public string? Artist { get; init; }
+    public string? AlbumArtist { get; init; }
+    public string? Album { get; init; }
+    public DateEdit? Date { get; init; }
+    public NumberEdit? TrackCount { get; init; }
+    public NumberEdit? DiscNumber { get; init; }
+    public NumberEdit? DiscCount { get; init; }
+    public TagDetailsEdit Details { get; init; } = TagDetailsEdit.None;
+}
+
+/// <summary>
+/// A year to write, with the full release date when one was typed (see
+/// <see cref="TrackTagEdit.Date"/>). Both null clears the year.
+/// </summary>
+public readonly record struct DateEdit(int? Year, string? Date);
+
+/// <summary>
 /// A number to write, where <see cref="Value"/> null clears the tag. Wrapped so
 /// that "clear it" and "leave it alone" (the wrapper itself being null) differ.
 /// </summary>

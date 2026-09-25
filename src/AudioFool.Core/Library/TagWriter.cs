@@ -84,6 +84,41 @@ public static class TagWriter
     }
 
     /// <summary>
+    /// Applies one track's share of an edit to hand-picked tracks. Only the
+    /// fields the edit sets are written; everything else, title and track number
+    /// included, stays as the file has it. Never touches the art.
+    /// </summary>
+    public static TagWriteResult WriteSelectedTrackTags(Track track, TracksTagEdit edit)
+    {
+        var save = SaveTags(track.FilePath, file =>
+        {
+            var tag = file.Tag;
+            if (edit.Artist is { } artist)
+                tag.Performers = artist.Length == 0 ? [] : [artist];
+            if (edit.AlbumArtist is { } albumArtist)
+                tag.AlbumArtists = albumArtist.Length == 0 ? [] : [albumArtist];
+            if (edit.Album is { } album)
+                tag.Album = NullIfEmpty(album);
+            if (edit.Date is { } date)
+                WriteDate(file, date.Date, date.Year);
+
+            if (edit.TrackCount is { } trackCount)
+                tag.TrackCount = (uint)(trackCount.Value ?? 0);
+            if (edit.DiscNumber is { } discNumber)
+                tag.Disc = (uint)(discNumber.Value ?? 0);
+            if (edit.DiscCount is { } discCount)
+                tag.DiscCount = (uint)(discCount.Value ?? 0);
+
+            ApplyDetails(tag, edit.Details);
+        }, art: null);
+
+        if (!save.Success)
+            return TagWriteResult.Fail(save.ErrorMessage!);
+
+        return TagWriteResult.Ok(track.WithSelectedTags(edit, FileStamp.For(track.FilePath)));
+    }
+
+    /// <summary>
     /// Writes/overwrites the folder cover file for one album directory. Independent
     /// of the audio files - never touches TagLib.
     /// <para>

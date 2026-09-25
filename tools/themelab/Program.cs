@@ -107,6 +107,18 @@ internal static class Program
         if (main.FindName("TrackGrid") is System.Windows.Controls.DataGrid grid)
         {
             grid.SelectedIndex = int.Parse(Arg(args, "--row") ?? "4", CultureInfo.InvariantCulture);
+
+            // --rows "1,2,3" selects several rows, as Ctrl-click would, and prints
+            // what the view model saw of it.
+            if (Arg(args, "--rows") is { } rows)
+            {
+                grid.SelectedItems.Clear();
+                foreach (var index in rows.Split(',').Select(int.Parse))
+                    grid.SelectedItems.Add(grid.Items[index]);
+                Settle(100);
+                Console.WriteLine($"grid selected {grid.SelectedItems.Count}; view model SelectedTracks {vm.SelectedTracks.Count}: "
+                    + string.Join(", ", vm.SelectedTracks.Select(t => t.Title)));
+            }
         }
 
         if (Arg(args, "--focus") is { } focusName
@@ -298,8 +310,25 @@ internal static class Program
                 {
                     var album = library.Artists.SelectMany(a => a.Albums)
                         .First(a => string.Equals(a.Title, albumName, StringComparison.OrdinalIgnoreCase));
-                    editVm = new TagEditViewModel(album, new AlbumArtService());
-                    Console.WriteLine($"album: {album.Title} ({album.Tracks.Count} tracks), opened in {clock.ElapsedMilliseconds} ms");
+                    // --pick "1-9" opens the dialog for those tracks of the album
+                    // (1-based, in grid order) as if they were selected in the grid.
+                    if (Arg(args, "--pick") is { } pick)
+                    {
+                        var bounds = pick.Split('-');
+                        var (from, to) = (int.Parse(bounds[0]), int.Parse(bounds[^1]));
+                        var picked = album.Tracks.Skip(from - 1).Take(to - from + 1).ToList();
+                        editVm = new TagEditViewModel(picked);
+                        Console.WriteLine($"selection: {picked.Count} of {album.Title}'s {album.Tracks.Count} tracks, opened in {clock.ElapsedMilliseconds} ms");
+                        foreach (var t in picked)
+                            Console.WriteLine($"    {t.DiscNumber}/{t.DiscCount} #{t.TrackNumber}/{t.TrackCount}  {t.Title}");
+                        Console.WriteLine($"  artist    '{editVm.Artist}' [{editVm.ArtistPlaceholder}]  album artist '{editVm.AlbumArtist}' [{editVm.AlbumArtistPlaceholder}]");
+                        Console.WriteLine($"  album     '{editVm.AlbumTitle}' [{editVm.AlbumTitlePlaceholder}]  year '{editVm.Year}' [{editVm.YearPlaceholder}]  art shown={editVm.ShowsArt}");
+                    }
+                    else
+                    {
+                        editVm = new TagEditViewModel(album, new AlbumArtService());
+                        Console.WriteLine($"album: {album.Title} ({album.Tracks.Count} tracks), opened in {clock.ElapsedMilliseconds} ms");
+                    }
                 }
                 else
                 {
@@ -336,8 +365,17 @@ internal static class Program
 
                 static string Q(string? s) => s is null ? "(keep)" : $"'{s}'";
                 static string N(AudioFool.Core.Library.NumberEdit? n) => n is { } e ? $"'{e.Value}'" : "(keep)";
-                var details = albumName is not null ? editVm.BuildAlbumEdit().Details : editVm.BuildTrackEdit().Details;
-                if (albumName is not null)
+                var details = editVm.IsSelectionMode ? editVm.BuildTracksEdit().Details
+                    : albumName is not null ? editVm.BuildAlbumEdit().Details
+                    : editVm.BuildTrackEdit().Details;
+                if (editVm.IsSelectionMode)
+                {
+                    var tracksEdit = editVm.BuildTracksEdit();
+                    var date = tracksEdit.Date is { } d ? $"'{d.Year}' '{d.Date}'" : "(keep)";
+                    Console.WriteLine($"save: artist {Q(tracksEdit.Artist)} album artist {Q(tracksEdit.AlbumArtist)} album {Q(tracksEdit.Album)} year {date}");
+                    Console.WriteLine($"save: tracks {N(tracksEdit.TrackCount)} disc {N(tracksEdit.DiscNumber)} of {N(tracksEdit.DiscCount)}");
+                }
+                else if (albumName is not null)
                 {
                     var albumEdit = editVm.BuildAlbumEdit();
                     Console.WriteLine($"save: tracks {N(albumEdit.TrackCount)} disc {N(albumEdit.DiscNumber)} of {N(albumEdit.DiscCount)}");

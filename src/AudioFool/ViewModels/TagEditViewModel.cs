@@ -10,8 +10,8 @@ using AudioFool.Services;
 namespace AudioFool.ViewModels;
 
 /// <summary>
-/// Backs the tag-edit dialog for both a single track and a whole album. One class
-/// rather than two: the two modes share every field except which ones are shown
+/// Backs the tag-edit dialog for a single track, a whole album, and tracks picked
+/// in the grid. One class rather than three: the modes share every field except which ones are shown
 /// (<see cref="IsAlbumMode"/> drives that in the XAML) and how Save builds its edit.
 /// <para>
 /// Art only appears in album mode - Title and Track # are the "per-track" fields
@@ -23,7 +23,22 @@ namespace AudioFool.ViewModels;
 /// </summary>
 public sealed partial class TagEditViewModel : ObservableObject
 {
+    /// <summary>
+    /// True for any edit of several tracks - a whole album, or tracks picked in the
+    /// grid (<see cref="IsSelectionMode"/>). It lays the dialog out without Title
+    /// and Track #.
+    /// </summary>
     public bool IsAlbumMode { get; }
+
+    /// <summary>
+    /// An edit of tracks picked in the grid. Laid out like the album dialog, but
+    /// with no art, and every field is kept unless changed - Artist, Album Artist,
+    /// Album and Year included, which the album dialog always writes.
+    /// </summary>
+    public bool IsSelectionMode { get; }
+
+    /// <summary>Art belongs to the whole album, so only the album dialog offers it.</summary>
+    public bool ShowsArt => IsAlbumMode && !IsSelectionMode;
 
     /// <summary>Where "Choose Image..." should open, so it starts at the album's own folder.</summary>
     private readonly string? _artStartDirectory;
@@ -85,6 +100,10 @@ public sealed partial class TagEditViewModel : ObservableObject
     /// tracks disagree on it and the box therefore starts empty. Empty when they
     /// agree, and always empty in track mode.
     /// </summary>
+    public string ArtistPlaceholder { get; private set; } = "";
+    public string AlbumArtistPlaceholder { get; private set; } = "";
+    public string AlbumTitlePlaceholder { get; private set; } = "";
+    public string YearPlaceholder { get; private set; } = "";
     public string TrackCountPlaceholder { get; private set; } = "";
     public string DiscNumberPlaceholder { get; private set; } = "";
     public string DiscCountPlaceholder { get; private set; } = "";
@@ -112,7 +131,10 @@ public sealed partial class TagEditViewModel : ObservableObject
     /// </summary>
     private readonly HashSet<string> _cleared = [];
 
-    public string ClearToolTip => IsAlbumMode ? "Clear this tag on every track" : "Clear this tag";
+    public string ClearToolTip =>
+        IsSelectionMode ? "Clear this tag on every selected track"
+        : IsAlbumMode ? "Clear this tag on every track"
+        : "Clear this tag";
 
     /// <summary>
     /// The text each optional field was pre-filled with. Save writes only the
@@ -231,6 +253,56 @@ public sealed partial class TagEditViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Tracks picked in the grid. Every field pre-fills only when all of them
+    /// agree, and Save writes only what was changed, so picking disc 1 of a set
+    /// and typing a disc number touches the disc number and nothing else.
+    /// Reading the detail fields opens every selected file.
+    /// </summary>
+    public TagEditViewModel(IReadOnlyList<Track> tracks)
+    {
+        IsAlbumMode = true;
+        IsSelectionMode = true;
+        WindowTitle = $"Edit Tags - {tracks.Count} tracks";
+
+        const string varies = "Varies by track - kept unless changed";
+        Artist = Shared(tracks.Select(t => t.Artist), varies, out var artistHint);
+        AlbumArtist = Shared(tracks.Select(t => t.AlbumArtist), varies, out var albumArtistHint);
+        AlbumTitle = Shared(tracks.Select(t => t.Album), varies, out var albumHint);
+        // The cache holds the full date whenever the file names more than a year.
+        Year = Shared(tracks.Select(t => t.ReleaseDate ?? t.Year?.ToString() ?? ""), "Varies", out var yearHint);
+        ArtistPlaceholder = artistHint;
+        AlbumArtistPlaceholder = albumArtistHint;
+        AlbumTitlePlaceholder = albumHint;
+        YearPlaceholder = yearHint;
+
+        TrackCount = Shared(tracks.Select(t => t.TrackCount?.ToString() ?? ""), "Varies", out var trackCountHint);
+        DiscNumber = Shared(tracks.Select(t => t.DiscNumber?.ToString() ?? ""), "Varies", out var discNumberHint);
+        DiscCount = Shared(tracks.Select(t => t.DiscCount?.ToString() ?? ""), "Varies", out var discCountHint);
+        TrackCountPlaceholder = trackCountHint;
+        DiscNumberPlaceholder = discNumberHint;
+        DiscCountPlaceholder = discCountHint;
+
+        var details = tracks.Select(t => TagReader.ReadDetails(t.FilePath)).OfType<TagDetails>().ToList();
+        Publisher = Shared(details.Select(d => d.Publisher), varies, out var publisherHint);
+        Composer = Shared(details.Select(d => d.Composer), varies, out var composerHint);
+        Conductor = Shared(details.Select(d => d.Conductor), varies, out var conductorHint);
+        Genre = Shared(details.Select(d => d.Genre), varies, out var genreHint);
+        Comment = Shared(details.Select(d => d.Comment), varies, out var commentHint);
+        PublisherPlaceholder = publisherHint;
+        ComposerPlaceholder = composerHint;
+        ConductorPlaceholder = conductorHint;
+        GenrePlaceholder = genreHint;
+        CommentPlaceholder = commentHint;
+
+        RememberInitialDetails();
+        _initial[nameof(Artist)] = Artist;
+        _initial[nameof(AlbumArtist)] = AlbumArtist;
+        _initial[nameof(AlbumTitle)] = AlbumTitle;
+        _initial[nameof(Year)] = Year;
+        Revalidate();
+    }
+
+    /// <summary>
     /// The value every track agrees on, or "" with <paramref name="placeholder"/>
     /// set to <paramref name="variesText"/> when they do not.
     /// </summary>
@@ -274,7 +346,10 @@ public sealed partial class TagEditViewModel : ObservableObject
     private void ClearField(string name)
     {
         _cleared.Add(name);
-        var placeholder = IsAlbumMode ? "Will be cleared on every track" : "Will be cleared";
+        var placeholder =
+            IsSelectionMode ? "Will be cleared on every selected track"
+            : IsAlbumMode ? "Will be cleared on every track"
+            : "Will be cleared";
         switch (name)
         {
             case nameof(Publisher): Publisher = ""; PublisherPlaceholder = placeholder; break;
@@ -342,7 +417,11 @@ public sealed partial class TagEditViewModel : ObservableObject
 
     private void Revalidate()
     {
-        if (string.IsNullOrWhiteSpace(AlbumTitle))
+        // A selection whose tracks disagree on the album starts with an empty box,
+        // and empty there means "keep each track's own". Only emptying an album
+        // that was there is refused.
+        var albumMayBeEmpty = IsSelectionMode && _initial.GetValueOrDefault(nameof(AlbumTitle)) is "";
+        if (string.IsNullOrWhiteSpace(AlbumTitle) && !albumMayBeEmpty)
         {
             ValidationError = "Album can't be empty.";
             CanSave = false;
@@ -411,6 +490,22 @@ public sealed partial class TagEditViewModel : ObservableObject
             DiscCount = NumberIfChanged(nameof(DiscCount), DiscCount),
             Details = BuildDetailsEdit(),
             Date = date,
+        };
+    }
+
+    public TracksTagEdit BuildTracksEdit()
+    {
+        var (year, date) = ParsedDate();
+        return new()
+        {
+            Artist = IfChanged(nameof(Artist), Artist),
+            AlbumArtist = IfChanged(nameof(AlbumArtist), AlbumArtist),
+            Album = IfChanged(nameof(AlbumTitle), AlbumTitle),
+            Date = IfChanged(nameof(Year), Year) is null ? null : new DateEdit(year, date),
+            TrackCount = NumberIfChanged(nameof(TrackCount), TrackCount),
+            DiscNumber = NumberIfChanged(nameof(DiscNumber), DiscNumber),
+            DiscCount = NumberIfChanged(nameof(DiscCount), DiscCount),
+            Details = BuildDetailsEdit(),
         };
     }
 

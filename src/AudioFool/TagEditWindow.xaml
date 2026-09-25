@@ -25,10 +25,10 @@
         </ui:TitleBar>
 
         <StackPanel Grid.Row="1">
-            <!-- Cover art - album mode only. Replacing it always applies to every -->
-            <!-- track in the album plus the folder cover file, never just one file. -->
+            <!-- Cover art - the album dialog only, not a track or a selection. Replacing -->
+            <!-- it always applies to every track in the album plus the folder cover file. -->
             <StackPanel Margin="20,12,20,0"
-                        Visibility="{Binding IsAlbumMode, Converter={StaticResource BoolToVisibility}}">
+                        Visibility="{Binding ShowsArt, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Orientation="Horizontal">
                     <Border Width="72" Height="72" Style="{DynamicResource AfArtFrame}">
                         <Grid>
@@ -80,17 +80,21 @@
                             Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}" />
 
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Artist" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <ui:TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Artist, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+                <ui:TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Artist, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="{Binding ArtistPlaceholder}" Margin="0,0,0,8" />
 
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="Album Artist" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <ui:TextBox Grid.Row="2" Grid.Column="1" Text="{Binding AlbumArtist, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+                <ui:TextBox Grid.Row="2" Grid.Column="1" Text="{Binding AlbumArtist, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="{Binding AlbumArtistPlaceholder}" Margin="0,0,0,8" />
 
                 <TextBlock Grid.Row="3" Grid.Column="0" Text="Album" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <ui:TextBox Grid.Row="3" Grid.Column="1" Text="{Binding AlbumTitle, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+                <ui:TextBox Grid.Row="3" Grid.Column="1" Text="{Binding AlbumTitle, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="{Binding AlbumTitlePlaceholder}" Margin="0,0,0,8" />
 
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="Year" VerticalAlignment="Center" Margin="0,0,0,8" />
                 <!-- Wide enough for a full date plus WPF-UI's clear button while focused. -->
                 <ui:TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Year, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="{Binding YearPlaceholder}"
                             ToolTip="A year (2026), or a full date written year-month-day (2026-10-02)."
                             HorizontalAlignment="Left" Width="140" Margin="0,0,0,8" />
 

@@ -333,12 +333,20 @@ public partial class MainWindow : FluentWindow
     /// <summary>
     /// Selects the row under the cursor before its context menu opens, since a
     /// DataGridRow (unlike a ListBoxItem) doesn't select itself on right-click.
+    /// A row already in a multiple selection keeps the selection, so the menu
+    /// edits all of it; any other row replaces the selection, as in Explorer.
     /// </summary>
     private void TrackGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (sender is DataGridRow row)
-            row.IsSelected = true;
+        if (sender is not DataGridRow row || row.IsSelected)
+            return;
+
+        TrackGrid.SelectedItems.Clear();
+        row.IsSelected = true;
     }
+
+    private void TrackGrid_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+        _viewModel.SelectedTracks = TrackGrid.SelectedItems.OfType<Track>().ToList();
 
     private void AlbumList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
