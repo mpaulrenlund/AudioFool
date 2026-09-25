@@ -431,10 +431,12 @@
 
                                 Property setters rather than a template, because this style
                                 also carries a context menu and an event handler that can only
-                                live here. The left marker on a selected row therefore rides on
-                                BorderBrush/BorderThickness, which the stock DataGridRow
-                                template does template-bind - so a theme can add one without
-                                this needing a template of its own.
+                                live here.
+
+                                The left marker on a selected row is drawn by IndicatorColumn's
+                                cell, not by a row border. A border that appears on selection
+                                takes layout space, so every cell of the selected row slid right
+                                by its width.
                             -->
                             <Style TargetType="DataGridRow">
                                 <Setter Property="Background" Value="Transparent" />
@@ -469,22 +471,6 @@
                                     <Trigger Property="IsSelected" Value="True">
                                         <Setter Property="Background"
                                                 Value="{DynamicResource AfSurfaceTrackSelected}" />
-                                        <Setter Property="BorderBrush"
-                                                Value="{DynamicResource AfStrokeSelectionBar}" />
-                                        <Setter Property="BorderThickness"
-                                                Value="{DynamicResource AfStrokeSelectionBarThickness}" />
-                                    </Trigger>
-                                    <!--
-                                        Keyboard focus brightens the marker instead of
-                                        outlining a cell. A dotted focus rectangle is the
-                                        traditional answer and was tried; inside a cell it
-                                        boxes the song title and reads as an edit field.
-                                    -->
-                                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                        <Setter Property="BorderBrush"
-                                                Value="{DynamicResource AfFocusRing}" />
-                                        <Setter Property="BorderThickness"
-                                                Value="{DynamicResource AfStrokeSelectionBarThickness}" />
                                     </Trigger>
                                 </Style.Triggers>
                             </Style>
@@ -492,6 +478,48 @@
                         <DataGrid.Columns>
                             <!-- Now-playing indicator: shows a music note on the active row -->
                             <DataGridTemplateColumn x:Name="IndicatorColumn" Width="22" DisplayIndex="0" CanUserSort="False" CanUserResize="False">
+                                <!--
+                                    This cell also draws the selected row's left marker (PS1's
+                                    blue bar; zero width in the other themes). It lives here,
+                                    overlaid on the cell, so it takes no layout space: as a row
+                                    border it pushed the selected row's cells right by its width.
+                                    A full cell style, not BasedOn, so no theme's cell padding
+                                    can inset the bar from the row edge.
+
+                                    Keyboard focus brightens the marker instead of outlining a
+                                    cell. A dotted focus rectangle is the traditional answer and
+                                    was tried; inside a cell it boxes the song title and reads
+                                    as an edit field.
+                                -->
+                                <DataGridTemplateColumn.CellStyle>
+                                    <Style TargetType="DataGridCell">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="DataGridCell">
+                                                    <Grid Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                                                        <Border x:Name="SelectionBar"
+                                                                BorderBrush="Transparent"
+                                                                BorderThickness="{DynamicResource AfStrokeSelectionBarThickness}" />
+                                                        <ContentPresenter VerticalAlignment="Center" />
+                                                    </Grid>
+                                                    <ControlTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                                                            <Setter TargetName="SelectionBar" Property="BorderBrush"
+                                                                    Value="{DynamicResource AfStrokeSelectionBar}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                                                            <Setter TargetName="SelectionBar" Property="BorderBrush"
+                                                                    Value="{DynamicResource AfFocusRing}" />
+                                                        </DataTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </DataGridTemplateColumn.CellStyle>
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <ui:SymbolIcon Symbol="MusicNote124"

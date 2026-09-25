@@ -584,6 +584,13 @@ within the year.
   app read "AudioFool" through UIA with nothing loaded. The flyout itself cannot be
   seen without hovering the taskbar, which is off limits, so **the user confirmed**
   the buttons, the Play/Pause swap and the track title in the running app.
+- **A selected track row no longer shifts right.** PS1's 3 px selection bar was a
+  row `BorderThickness`, set only on selection, so it took layout space and pushed
+  every cell of that row right by 3 px. The bar is now drawn by `IndicatorColumn`'s
+  own cell style, a `Border` overlaid on the cell (focus still brightens it). Dark
+  and Vista are unaffected (thickness 0). Verified with ThemeLab: the same row
+  selected and unselected has identical glyph start positions, to ±1 px of
+  anti-aliasing.
 - **Relaunch minimised** after installing: `Start-Process ... -WindowStyle Minimized`
   starts AudioFool without it jumping in front of the user's work (confirmed as
   `Minimized` through UIA's `WindowPattern`).
