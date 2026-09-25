@@ -307,9 +307,28 @@ public sealed class AudioEngine : IDisposable
 
         lock (_gate)
         {
+            // Flush the device first. Its buffer still holds up to BufferSeconds of
+            // the old track, already pulled from the mixer, and unplugging the old
+            // stream does not take that back - so without this the old track played
+            // on for about 200 ms under the new one. Gapless handovers never come
+            // through here, so they keep their continuity.
+            //
+            // A paused device keeps its buffer for Resume, and BASSWASAPI cannot
+            // flush a device that is not running (Stop(true) fails), so a paused
+            // chain is closed below and reopened by EnsureOutput instead.
+            var reopen = _state == PlaybackState.Paused;
+            if (!reopen)
+                _output?.Stop();
+
             // Tear the old streams down first: reopening the device below frees the
             // mixer they're plugged into.
             TeardownStreamsLocked();
+
+            if (reopen)
+            {
+                _output?.Dispose();
+                _output = null;
+            }
 
             // In exclusive mode the device follows the source, so the rate has to be
             // known before the output can be opened.

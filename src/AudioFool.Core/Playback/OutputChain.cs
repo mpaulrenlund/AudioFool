@@ -124,6 +124,7 @@ internal sealed class OutputChain : IDisposable
 
     public void Resume() => BassWasapi.Start();
 
+    /// <summary>Stops the device and discards what's buffered.</summary>
     public void Stop() => BassWasapi.Stop(true);
 
     public void SetVolume(double volume)

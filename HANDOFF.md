@@ -614,6 +614,26 @@ within the year.
     writes only that). `--rows 1,2,3,4` selects four grid rows, and all four reach
     `SelectedTracks`. The right-click in the running app was **not** exercised
     (it needs the mouse).
+- **The old track no longer plays on under a new one.** Starting a track directly
+  (a new album, Next/Previous, a double-click) went through `PlayCore`, which
+  unplugged the old stream from the mixer but left the WASAPI buffer
+  (`BufferSeconds`, 0.2 s) full of audio already pulled from it. `PlayCore` now
+  flushes the device (`OutputChain.Stop`, i.e. `BassWasapi.Stop(true)`) before the
+  teardown. **A paused device cannot be flushed**: `Stop(true)` on a stopped
+  device returns false and discards nothing, so when paused `PlayCore` disposes
+  the chain and `EnsureOutput` reopens it. The gapless handover
+  (`OnCurrentStreamEnded`) does not go through `PlayCore` and is unchanged.
+  - **Measured with a headless probe** (`scratchpad/stale`), not reasoned. The
+    probe mutes its own Windows audio session (`BassWasapi.SetMute(Session)`)
+    but keeps the engine volume at 1, so BASSWASAPI's buffer holds real samples
+    while nothing reaches the speakers. Track B is the silent test fixture, so
+    any `BassWasapi.GetLevel` after B starts is track A. Before: A audible for
+    **~205 ms** after B, playing or paused. After: **none** in either case;
+    `Play` returns in 7 ms, or 28 ms from pause (the reopen). This is the
+    technique for any "what is actually coming out" question: zero gain would
+    make silence and stale audio indistinguishable.
+  - Shared mode only. Exclusive mode uses the same flush but was not probed,
+    because it would take the DAC.
 - **Relaunch minimised** after installing: `Start-Process ... -WindowStyle Minimized`
   starts AudioFool without it jumping in front of the user's work (confirmed as
   `Minimized` through UIA's `WindowPattern`).
