@@ -461,10 +461,12 @@ is missing is a button:
     (`/v3/music/albums/{rgid}`). It returns 503 when rate-limiting, which happened
     once in testing, so the app retries once after 1.2 s. The User-Agent is
     `AudioFool/1.0 (personal music player)`, with no email address in it.
-  - **fanart.tv is unverified.** It needs `FanartTvApiKey` in settings.json and
-    returns 401 without one. The parser follows its documented response and has a
-    test, but a real response has never been seen. With no key, the status line says
-    it was skipped.
+  - **fanart.tv needs `FanartTvApiKey` in settings.json** and returns 401 without
+    one; with no key, the status line says it was skipped. The user added a key in
+    session 13 and **confirmed it in the running app**: *A Perfect Circle – Mer de
+    noms* returned three fanart.tv covers, each measured at 1,000 × 1,000, beside
+    iTunes and the Cover Art Archive. ThemeLab cannot check this — see the
+    packaged-AppData gotcha below.
   - **Bandcamp is not searched.** Its search page returns a JavaScript "Client
     Challenge" to non-browsers. That is a bot check, and getting around it is not
     something to build.
@@ -1212,6 +1214,16 @@ off-screen window, so focus rings can be reviewed.
 - **TagLib's ID3v2.3 date handling is wrong**: it writes `TDAT` month-first and reads
   it the same way, so a TagLib round trip passes while other players see day and
   month swapped. Check the bytes on disk. See *Release dates* under session 12.
+- **Claude's shell does not see the real `settings.json`.** The Claude desktop app
+  appears to run packaged (MSIX), and Windows gives its processes a private copy of
+  `AppData\Roaming` files. In session 13, Explorer showed
+  `%APPDATA%\AudioFool\settings.json` saved at 10:09 that day with a fanart.tv key.
+  The same path read from the shell (sandboxed or not) and by ThemeLab was a 260-byte
+  copy from 31 August, with a different theme and folder list and no key. So anything
+  that reads settings from here — ThemeLab, a headless probe, a `Get-Content` — sees
+  stale settings, and a write goes to the copy, not the app. `AppData\Local`
+  (`library.json`) read current. To check a setting, ask the user or verify in the
+  running app.
 - **`library.json` can list files that no longer exist.** It still held 2 m4a and
   10 wav files deleted since the last full scan. Before picking a sample file from
   the cache, check that it exists (`Test-Path -LiteralPath`).
@@ -1235,33 +1247,28 @@ happily rewrite it.
 
 ## Suggested next steps
 
-0. **Confirm the version 3 cache re-read in the running app.** It has only been run
-   headless. On the first launch of the session 12 build, the status bar should read
-   "Updating the library for this version...", finish in about a minute, and leave
-   `library.json` at `"Version":3` with `ReleaseDate` on about 6,900 tracks.
-   *Ephemeral Dance* should then sort last under Cartoon Theory. Read the cache
-   file; do not drive the window.
-1. **Test fanart.tv once the user adds `FanartTvApiKey`.** The parser has never seen
-   a real response. Run `ThemeLab --window artsearch` on a well-known album and check
-   that fanart.tv results appear and measure correctly.
-2. A visible, editable queue view — now the most conspicuous missing player feature.
-3. **Library-wide tag stripping**, if the user wants it. They keep their tags lean and
+*Done in session 13:* the running app has performed the version 3 cache re-read
+(`library.json` is `"Version":3` with `ReleaseDate` on 6,934 tracks, matching the
+headless figure), and fanart.tv is confirmed with a real key.
+
+1. A visible, editable queue view — now the most conspicuous missing player feature.
+2. **Library-wide tag stripping**, if the user wants it. They keep their tags lean and
    use the new dialog fields mainly to *clear* publisher, composer, conductor, genre
    and comment. Clearing album by album is slow over ~2,400 albums; a one-shot "strip
    these tags from every track" would do it at once. They like track and disc counts,
    so those must never be in the strip set. Ask before building: it rewrites every
    file on the drive.
-4. **Dates lost to earlier saves cannot be recovered from the files.** Before
+3. **Dates lost to earlier saves cannot be recovered from the files.** Before
    session 12, every tag-dialog save cut a full date to its year. If the user wants
    them back, MusicBrainz release dates are the source (the release-group search in
    `OnlineArtSearch` is most of the lookup already). Offer it; don't build it
    unasked, since it writes to many files.
-5. **Show the full date in the album header?** It shows only the year today, while
+4. **Show the full date in the album header?** It shows only the year today, while
    the sort uses the date. Not asked for.
-6. MilkDrop 3 / projectM visualisation. Scoped out in session 6 (LGPL-2.1, C API,
+5. MilkDrop 3 / projectM visualisation. Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll` — source only).
    Proposed next step: spike build of `libprojectM.dll`. No implementation started.
-7. Profile the post-scan memory.
-8. TAK and DTS via a libVLC fallback decoder, if those files matter.
-9. Code signing would remove the SmartScreen warning on first launch, but is rarely worth
+6. Profile the post-scan memory.
+7. TAK and DTS via a libVLC fallback decoder, if those files matter.
+8. Code signing would remove the SmartScreen warning on first launch, but is rarely worth
    the cost for a personal build.
