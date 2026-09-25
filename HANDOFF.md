@@ -1373,6 +1373,21 @@ happily rewrite it.
 (`library.json` is `"Version":3` with `ReleaseDate` on 6,934 tracks, matching the
 headless figure), and fanart.tv is confirmed with a real key.
 
+*Done in session 14:* in-place editing of #, Song, Artist and Album (commit
+`8526fb6`, pushed).
+
+0. **Ask the user how in-place editing feels in the running app.** Only ThemeLab
+   has driven it. The real mouse (the slow click's timing against a double-click)
+   and real key presses were off limits. Worth asking: does Enter moving down a
+   row suit them, and is the slow click too easy or too hard to hit?
+0. **Queued tracks keep their old tags.** `AudioEngine` holds the `Track` objects
+   the queue was built from, and `OnEngineTrackChanged` sets `NowPlaying` from
+   them. Edit a track that is waiting in the queue, by either the grid or a
+   dialog, and when it comes up the now-playing bar and window title show the
+   old title and artist until it is played again from the grid. The file and the
+   grid are right. The fix would be to look the track up by path in
+   `_library` in `OnEngineTrackChanged`, or to refresh the engine's queue on
+   save. Not done: nobody has hit it, and it touches playback.
 1. A visible, editable queue view — now the most conspicuous missing player feature.
 2. **Library-wide tag stripping**, if the user wants it. They keep their tags lean and
    use the new dialog fields mainly to *clear* publisher, composer, conductor, genre
