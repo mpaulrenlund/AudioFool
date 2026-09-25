@@ -85,14 +85,18 @@ public static class TagWriter
 
     /// <summary>
     /// Applies one track's share of an edit to hand-picked tracks. Only the
-    /// fields the edit sets are written; everything else, title and track number
-    /// included, stays as the file has it. Never touches the art.
+    /// fields the edit sets are written; everything else stays as the file has it.
+    /// Never touches the art.
     /// </summary>
     public static TagWriteResult WriteSelectedTrackTags(Track track, TracksTagEdit edit)
     {
         var save = SaveTags(track.FilePath, file =>
         {
             var tag = file.Tag;
+            if (edit.Title is { } title)
+                tag.Title = NullIfEmpty(title);
+            if (edit.TrackNumber is { } trackNumber)
+                tag.Track = (uint)(trackNumber.Value ?? 0);
             if (edit.Artist is { } artist)
                 tag.Performers = artist.Length == 0 ? [] : [artist];
             if (edit.AlbumArtist is { } albumArtist)

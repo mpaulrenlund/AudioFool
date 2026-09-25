@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime;
 using System.Windows;
@@ -614,8 +614,16 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         SelectedAlbum = Albums.FirstOrDefault();
     }
 
+    /// <summary>
+    /// Raised just before the track list is replaced - another album, a scan, a
+    /// save - so the window can end an in-place edit: the grid cannot keep one
+    /// open while its rows are cleared.
+    /// </summary>
+    public event EventHandler? TracksChanging;
+
     partial void OnSelectedAlbumChanged(AlbumItemViewModel? value)
     {
+        TracksChanging?.Invoke(this, EventArgs.Empty);
         Tracks.Clear();
 
         if (value is not null)
@@ -1173,6 +1181,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             StatusText += "  Folder cover file couldn't be updated.";
     }
 
+
     private void ReplaceTracksInLibrary(IReadOnlyDictionary<string, Track> updatedByPath)
     {
         var newAll = _library.AllTracks
@@ -1180,7 +1189,63 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             .ToList();
 
         ApplyLibrary(LibraryScanner.Build(newAll), keepSelection: true);
+
+        // The now-playing note and the window title compare by reference, so
+        // they would lose the playing track once its old copy left the library.
+        if (NowPlaying is { } playing && updatedByPath.TryGetValue(playing.FilePath, out var renamed))
+            NowPlaying = renamed;
     }
+
+    /// <summary>
+    /// Saves one cell edited in place in the track grid. Unchanged text writes
+    /// nothing; text the field cannot take is reported and not saved.
+    /// </summary>
+    public async Task ApplyInlineEditAsync(Track track, InlineField field, string text)
+    {
+        var (edit, error) = InlineTagEdit.Build(track, field, text);
+        if (error is not null)
+        {
+            StatusText = $"Not saved: {error}";
+            return;
+        }
+
+        if (edit is null)
+            return;
+
+        // One at a time: two quick edits to the same row would otherwise both
+        // start from the copy the grid held, and the second would put the
+        // first's field back in memory (the file itself would be right).
+        await _inlineSave.WaitAsync();
+        try
+        {
+            var current = _library.AllTracks.FirstOrDefault(t =>
+                string.Equals(t.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase)) ?? track;
+
+            StatusText = "Saving tags...";
+
+            var result = await Task.Run(() => TagWriter.WriteSelectedTrackTags(current, edit));
+
+            if (!result.Success)
+            {
+                StatusText = $"Couldn't save tags for {Path.GetFileName(track.FilePath)}: {result.ErrorMessage}";
+                return;
+            }
+
+            ReplaceTracksInLibrary(new Dictionary<string, Track>(StringComparer.OrdinalIgnoreCase)
+            {
+                [track.FilePath] = result.UpdatedTrack!,
+            });
+
+            StatusText = WithFilterProgress($"Saved tags for {result.UpdatedTrack!.DisplayTitle}.");
+            await PersistLibraryAsync();
+        }
+        finally
+        {
+            _inlineSave.Release();
+        }
+    }
+
+    private readonly SemaphoreSlim _inlineSave = new(1, 1);
 
     private async Task PersistLibraryAsync()
     {

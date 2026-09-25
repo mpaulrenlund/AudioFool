@@ -91,6 +91,10 @@ internal static class Program
         {
             LoadRealLibrary(vm);
         }
+        else if (which == "edit")
+        {
+            LoadTempLibrary(vm);
+        }
         else
         {
             Populate(vm);
@@ -287,6 +291,38 @@ internal static class Program
                 Settle(100);
                 Console.WriteLine($"menu: closed again IsSubmenuOpen={item.IsSubmenuOpen}");
             }
+        }
+
+        if (which == "edit")
+        {
+            // Each save persists the library, and LibraryCache.CachePath is the
+            // real library.json - so it is put back byte for byte afterwards.
+            var cachePath = AudioFool.Core.Library.LibraryCache.CachePath;
+            var backup = cachePath + ".themelab-bak";
+            var hadCache = File.Exists(cachePath);
+            if (hadCache)
+                File.Copy(cachePath, backup, overwrite: true);
+            try
+            {
+                RunInlineEdit(main, vm, outPath, w, h, scale);
+                Settle(500);
+            }
+            finally
+            {
+                if (hadCache)
+                {
+                    File.Copy(backup, cachePath, overwrite: true);
+                    File.Delete(backup);
+                }
+                else if (File.Exists(cachePath))
+                {
+                    File.Delete(cachePath);
+                }
+                Console.WriteLine($"library.json restored ({(hadCache ? new FileInfo(cachePath).Length.ToString("N0") + " B" : "none before")})");
+                if (_scratchDir is not null)
+                    Directory.Delete(_scratchDir, recursive: true);
+            }
+            return 0;
         }
 
         if (which == "tags")
@@ -852,6 +888,226 @@ internal static class Program
             .GetMethod("ApplyLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(vm, [library, false]);
         Console.WriteLine($"library: {library.AllTracks.Count:N0} tracks from {(cached is null ? "samples" : "library.json")}");
+    }
+
+    /// <summary>
+    /// --window edit: a library of four scratch copies of the test fixtures, so
+    /// an in-place edit writes real files without going near the music drive.
+    /// A save still rewrites library.json (LibraryCache.CachePath is fixed), so
+    /// Main backs it up first and restores it afterwards, then deletes the copies.
+    /// </summary>
+    private static string? _scratchDir;
+
+    private static void LoadTempLibrary(MainViewModel vm)
+    {
+        var fixtures = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+            @"..\..\..\..\..\..\tests\AudioFool.Core.Tests\TestData"));
+        var dir = Path.Combine(Path.GetTempPath(), "themelab-edit-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(dir);
+        _scratchDir = dir;
+
+        string[] titles = ["One", "Two", "Three", "Four"];
+        var tracks = new List<Track>();
+        for (var i = 0; i < titles.Length; i++)
+        {
+            var ext = i == 3 ? ".mp3" : ".flac";
+            var path = Path.Combine(dir, $"0{i + 1} {titles[i]}{ext}");
+            File.Copy(Path.Combine(fixtures, "sample" + ext), path);
+            var seeded = AudioFool.Core.Library.TagWriter.WriteTrackTags(
+                AudioFool.Core.Library.TagReader.Read(path),
+                new AudioFool.Core.Library.TrackTagEdit(titles[i], "Lab Artist", "Lab Artist", "Lab Album", 2020, i + 1, 4, 1, 1),
+                art: null, folderArtPath: null);
+            tracks.Add(seeded.UpdatedTrack!);
+        }
+
+        typeof(MainViewModel)
+            .GetMethod("ApplyLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(vm, [AudioFool.Core.Library.LibraryScanner.Build(tracks), false]);
+        Console.WriteLine($"library: {tracks.Count} scratch tracks in {dir}");
+    }
+
+    /// <summary>
+    /// Drives an in-place edit through the real grid: which gestures may open
+    /// one, what the edit box looks like, and what reaches the file.
+    /// </summary>
+    private static void RunInlineEdit(MainWindow main, MainViewModel vm, string outPath, double w, double h, double scale)
+    {
+        // As in the real app: without it, the save's code after await runs on the
+        // thread pool and cannot touch the track list.
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+
+        var grid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
+        System.Windows.Controls.DataGridColumn Column(string name) => (System.Windows.Controls.DataGridColumn)main.FindName(name);
+        Track Row(string title) => vm.Tracks.First(t => t.Title == title);
+        string Rows() => string.Join(" | ", vm.Tracks.Select(t => $"{t.TrackNumber} {t.DisplayTitle} / {t.Artist} / {t.Album}"));
+        void Log(string s) => Console.WriteLine(s);
+
+        System.Windows.Controls.DataGridCell Cell(Track track, string column)
+        {
+            grid.ScrollIntoView(track);
+            grid.UpdateLayout();
+            var row = (System.Windows.Controls.DataGridRow)grid.ItemContainerGenerator.ContainerFromItem(track);
+            return (System.Windows.Controls.DataGridCell)Column(column).GetCellContent(row)!.Parent;
+        }
+
+        void Select(Track track, string column)
+        {
+            grid.SelectedItems.Clear();
+            grid.SelectedItem = track;
+            grid.CurrentCell = new System.Windows.Controls.DataGridCellInfo(track, Column(column));
+            System.Windows.Input.Keyboard.Focus(Cell(track, column));
+            Settle(100);
+        }
+
+        bool Press(UIElement target, System.Windows.Input.Key key)
+        {
+            var source = PresentationSource.FromVisual(target);
+            var args = new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, source, 0, key)
+            { RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent };
+            target.RaiseEvent(args);
+            if (!args.Handled)
+            {
+                args = new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, source, 0, key)
+                { RoutedEvent = System.Windows.Input.Keyboard.KeyDownEvent };
+                target.RaiseEvent(args);
+            }
+            Settle(100);
+            return args.Handled;
+        }
+
+        System.Windows.Controls.TextBox? Box(Track track, string column) =>
+            FindFirst<System.Windows.Controls.TextBox>(Cell(track, column));
+
+        void AwaitSave(string before)
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while ((vm.StatusText == before || vm.StatusText.StartsWith("Saving")) && clock.ElapsedMilliseconds < 5000)
+                Settle(50);
+            Settle(300);
+        }
+
+        string FileTags(string path)
+        {
+            var t = AudioFool.Core.Library.TagReader.Read(path);
+            return $"file: #{t.TrackNumber}/{t.TrackCount} '{t.Title}' / '{t.Artist}' / '{t.AlbumArtist}' / '{t.Album}' disc {t.DiscNumber}/{t.DiscCount} year {t.Year}";
+        }
+
+        Settle(300);
+        Log($"rows: {Rows()}");
+        grid.BeginningEdit += (_, e) => Log($"  [BeginningEdit {e.Column.Header} via {e.EditingEventArgs?.GetType().Name} "
+            + $"key={(e.EditingEventArgs as System.Windows.Input.KeyEventArgs)?.Key} cancel={e.Cancel} selected={grid.SelectedItems.Count}]");
+
+        // 1. Only F2 and the slow click may open an edit.
+        var two = Row("Two");
+        Select(two, "SongColumn");
+        Log($"gate: grid focused={grid.IsKeyboardFocusWithin} grid.IsReadOnly={grid.IsReadOnly} song col ro={Column("SongColumn").IsReadOnly} "
+            + $"cell ro={Cell(two, "SongColumn").IsReadOnly} current={grid.CurrentCell.Column?.Header}/{(grid.CurrentCell.Item as Track)?.Title} "
+            + $"view={grid.Items.GetType().Name} canEdit={(grid.Items as System.ComponentModel.IEditableCollectionView)?.IsEditingItem}");
+        grid.BeginEdit(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left));
+        Log($"gate: grid's own click on a selected cell opens an edit? {Cell(two, "SongColumn").IsEditing}");
+        grid.BeginEdit(new System.Windows.Input.TextCompositionEventArgs(System.Windows.Input.Keyboard.PrimaryDevice,
+            new System.Windows.Input.TextComposition(System.Windows.Input.InputManager.Current, grid, "x")));
+        Log($"gate: typing opens an edit? {Cell(two, "SongColumn").IsEditing}");
+        Select(two, "TimeColumn");
+        Press(Cell(two, "TimeColumn"), System.Windows.Input.Key.F2);
+        Log($"gate: F2 on Time (read-only) opens an edit? {Cell(two, "TimeColumn").IsEditing}");
+        grid.SelectedItems.Add(Row("Three"));
+        grid.CurrentCell = new System.Windows.Controls.DataGridCellInfo(two, Column("SongColumn"));
+        Press(Cell(two, "SongColumn"), System.Windows.Input.Key.F2);
+        Log($"gate: F2 with two rows selected opens an edit? {Cell(two, "SongColumn").IsEditing}");
+
+        // 2. F2 on Song, rendered open.
+        Select(two, "SongColumn");
+        Press(Cell(two, "SongColumn"), System.Windows.Input.Key.F2);
+        var box = Box(two, "SongColumn");
+        Log($"song: F2 opens={Cell(two, "SongColumn").IsEditing} box='{box?.Text}' selected={box?.SelectionLength} focused={box?.IsKeyboardFocused} "
+            + $"box {box?.ActualWidth:0}x{box?.ActualHeight:0} in row {grid.RowHeight:0} style={(box?.Style == main.TryFindResource("AfCellEditBox") ? "AfCellEditBox" : "other")}");
+        main.UpdateLayout();
+        Save(main, outPath, w, h, scale);
+
+        // 3. Enter saves, and does not play the track.
+        box!.Text = "  Two (renamed) ";
+        var before = vm.StatusText;
+        Press(box, System.Windows.Input.Key.Enter);
+        AwaitSave(before);
+        Log($"song: Enter -> status='{vm.StatusText}' playing={vm.NowPlaying?.Title ?? "nothing"}");
+        Log("song: " + FileTags(two.FilePath));
+        Log($"rows: {Rows()}");
+
+        // 4. Track #: a bad number is refused, a good one saved.
+        var renamed = Row("Two (renamed)");
+        Select(renamed, "TrackNumberColumn");
+        Press(Cell(renamed, "TrackNumberColumn"), System.Windows.Input.Key.F2);
+        Box(renamed, "TrackNumberColumn")!.Text = "abc";
+        Press(Box(renamed, "TrackNumberColumn")!, System.Windows.Input.Key.Enter);
+        Settle(200);
+        Log($"number: 'abc' -> status='{vm.StatusText}'");
+        Log("number: " + FileTags(renamed.FilePath));
+        renamed = Row("Two (renamed)");
+        Select(renamed, "TrackNumberColumn");
+        Press(Cell(renamed, "TrackNumberColumn"), System.Windows.Input.Key.F2);
+        Box(renamed, "TrackNumberColumn")!.Text = "9";
+        before = vm.StatusText;
+        Press(Box(renamed, "TrackNumberColumn")!, System.Windows.Input.Key.Enter);
+        AwaitSave(before);
+        Log($"number: '9' -> status='{vm.StatusText}'");
+        Log("number: " + FileTags(renamed.FilePath));
+        Log($"rows: {Rows()}");
+
+        // 5. The slow click opens Artist; moving focus to the search box saves it.
+        var three = Row("Three");
+        Select(three, "ArtistColumn");
+        typeof(MainWindow).GetMethod("ArmSlowClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(main, [Cell(three, "ArtistColumn")]);
+        Log($"slow click: editing at once? {Cell(three, "ArtistColumn").IsEditing}");
+        Settle(900);
+        Log($"slow click: editing after the double-click time? {Cell(three, "ArtistColumn").IsEditing}");
+        Box(three, "ArtistColumn")!.Text = "Guest";
+        before = vm.StatusText;
+        System.Windows.Input.Keyboard.Focus((System.Windows.IInputElement)main.FindName("SearchBox"));
+        AwaitSave(before);
+        Log($"focus away: status='{vm.StatusText}'");
+        Log("focus away: " + FileTags(three.FilePath));
+
+        // 6. Album: emptying is refused; a rebuild mid-edit cancels cleanly;
+        //    a real change moves the track to its new album.
+        var four = Row("Four");
+        Select(four, "AlbumColumn");
+        Press(Cell(four, "AlbumColumn"), System.Windows.Input.Key.F2);
+        Box(four, "AlbumColumn")!.Text = " ";
+        Press(Box(four, "AlbumColumn")!, System.Windows.Input.Key.Enter);
+        Settle(200);
+        Log($"album: ' ' -> status='{vm.StatusText}'");
+
+        four = Row("Four");
+        Select(four, "AlbumColumn");
+        Press(Cell(four, "AlbumColumn"), System.Windows.Input.Key.F2);
+        Box(four, "AlbumColumn")!.Text = "Half typed";
+        try
+        {
+            typeof(MainViewModel)
+                .GetMethod("ReplaceTracksInLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(vm, [new Dictionary<string, Track>()]);
+            Settle(200);
+            Log($"album: rebuild mid-edit ok; still editing={grid.CurrentCell.Column is not null && Cell(Row("Four"), "AlbumColumn").IsEditing}");
+        }
+        catch (Exception ex)
+        {
+            Log($"album: rebuild mid-edit THREW {ex.InnerException?.GetType().Name}: {ex.InnerException?.Message}");
+        }
+        Log("album: " + FileTags(four.FilePath));
+
+        four = Row("Four");
+        Select(four, "AlbumColumn");
+        Press(Cell(four, "AlbumColumn"), System.Windows.Input.Key.F2);
+        Box(four, "AlbumColumn")!.Text = "Other Album";
+        before = vm.StatusText;
+        Press(Box(four, "AlbumColumn")!, System.Windows.Input.Key.Enter);
+        AwaitSave(before);
+        Log($"album: 'Other Album' -> status='{vm.StatusText}'");
+        Log("album: " + FileTags(four.FilePath));
+        Log($"albums now: {string.Join(" | ", vm.Albums.Select(a => $"{a.Album.Title} ({a.Album.Tracks.Count})"))}");
+        Log($"rows: {Rows()}");
     }
 
     private static T? FindFirst<T>(System.Windows.DependencyObject node) where T : System.Windows.DependencyObject

@@ -56,13 +56,20 @@ public sealed record AlbumTagEdit(
 
 /// <summary>
 /// An edit to tracks the user picked by hand - disc 1 of a two-disc set, say.
-/// Title and track number are absent, as in <see cref="AlbumTagEdit"/>, but here
-/// every field is optional: null leaves each track's own value in place. Unlike an
+/// Every field is optional: null leaves each track's own value in place. Unlike an
 /// album, a hand-picked set has no reason to agree on its artist or album, so
 /// nothing is written that the user did not change.
+/// <para>
+/// Also the edit behind a single cell edited in the track grid
+/// (<see cref="InlineTagEdit"/>), which is the only thing that sets
+/// <see cref="Title"/> or <see cref="TrackNumber"/>: the dialog never gives
+/// several tracks one title.
+/// </para>
 /// </summary>
 public sealed record TracksTagEdit
 {
+    public string? Title { get; init; }
+    public NumberEdit? TrackNumber { get; init; }
     public string? Artist { get; init; }
     public string? AlbumArtist { get; init; }
     public string? Album { get; init; }

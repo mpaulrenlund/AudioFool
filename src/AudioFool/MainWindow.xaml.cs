@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -5,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using AudioFool.Core.Library;
 using AudioFool.Services;
 using AudioFool.ViewModels;
 using Wpf.Ui.Controls;
@@ -50,6 +52,12 @@ public partial class MainWindow : FluentWindow
         };
         PreviewTextInput += OnTypeAheadInput;
         PreviewKeyDown += OnTypeAheadKeyDown;
+
+        _slowClickTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(GetDoubleClickTime()) };
+        _slowClickTimer.Tick += SlowClickTimer_Tick;
+        TrackGrid.PreviewMouseWheel += (_, _) => _slowClickTimer.Stop();
+        TrackGrid.LostKeyboardFocus += TrackGrid_LostKeyboardFocus;
+        _viewModel.TracksChanging += OnTracksChanging;
     }
 
     /// <summary>
@@ -118,6 +126,8 @@ public partial class MainWindow : FluentWindow
         _hotkeys.Pressed -= OnHotkeyPressed;
         _hotkeys.Dispose();
         _taskbarControls.Dispose();
+        _slowClickTimer.Stop();
+        _viewModel.TracksChanging -= OnTracksChanging;
 
         if (_trackGridScroller is not null)
             _trackGridScroller.ScrollChanged -= TrackGridScroller_ScrollChanged;
@@ -345,8 +355,11 @@ public partial class MainWindow : FluentWindow
         row.IsSelected = true;
     }
 
-    private void TrackGrid_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+    private void TrackGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        _slowClickTimer.Stop();
         _viewModel.SelectedTracks = TrackGrid.SelectedItems.OfType<Track>().ToList();
+    }
 
     private void AlbumList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
@@ -389,7 +402,18 @@ public partial class MainWindow : FluentWindow
     /// </summary>
     private void TrackGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (e.ClickCount != 2 || e.OriginalSource is not DependencyObject source)
+        _slowClickTimer.Stop();
+
+        if (e.OriginalSource is not DependencyObject source)
+            return;
+
+        if (e.ClickCount == 1)
+        {
+            ArmSlowClick(source);
+            return;
+        }
+
+        if (e.ClickCount != 2)
             return;
 
         if (FindAncestor<DataGridColumnHeader>(source) is not { Column: { } column } header)
@@ -508,7 +532,8 @@ public partial class MainWindow : FluentWindow
 
     private void TrackGrid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key is not (Key.Enter or Key.Return))
+        // Enter in a cell being edited saves it; that is the grid's to handle.
+        if (e.Key is not (Key.Enter or Key.Return) || e.OriginalSource is TextBoxBase)
             return;
 
         if (TrackGrid.SelectedItem is Track track)
@@ -516,6 +541,142 @@ public partial class MainWindow : FluentWindow
             _viewModel.PlayTrackCommand.Execute(track);
             e.Handled = true;
         }
+    }
+
+    // ------------------------------------------------------ in-place tag edits
+
+    /// <summary>
+    /// # / Song / Artist / Album can be edited in their cells, as a file is
+    /// renamed in Explorer: F2, or a second single click on a row that was
+    /// already the one selected. Nothing else opens an edit - not the grid's
+    /// own click on a selected cell, which would open one on the first half of
+    /// every double-click that plays a track, and not typing, which on a grid
+    /// that looks like a list would quietly start rewriting a tag.
+    /// </summary>
+    private readonly DispatcherTimer _slowClickTimer;
+    private DataGridCell? _slowClickCell;
+    private bool _openingEdit;
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
+
+    private InlineField? FieldFor(DataGridColumn? column) =>
+        column == TrackNumberColumn ? InlineField.TrackNumber
+        : column == SongColumn ? InlineField.Title
+        : column == ArtistColumn ? InlineField.Artist
+        : column == AlbumColumn ? InlineField.Album
+        : null;
+
+    /// <summary>
+    /// A plain click on an editable cell of the one row already selected, with
+    /// the grid already focused, opens an edit once the double-click time has
+    /// passed without a second click - which would play the track instead.
+    /// </summary>
+    private void ArmSlowClick(DependencyObject source)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.None
+            || !TrackGrid.IsKeyboardFocusWithin
+            || TrackGrid.SelectedItems.Count != 1
+            || FindAncestor<DataGridCell>(source) is not { IsEditing: false } cell
+            || FieldFor(cell.Column) is null
+            || FindAncestor<DataGridRow>(cell) is not { IsSelected: true, Item: Track })
+            return;
+
+        _slowClickCell = cell;
+        _slowClickTimer.Start();
+    }
+
+    private void SlowClickTimer_Tick(object? sender, EventArgs e)
+    {
+        _slowClickTimer.Stop();
+
+        var cell = _slowClickCell;
+        _slowClickCell = null;
+
+        // Still the same row, still the only one selected, and the button up:
+        // a held button is the start of a drag, not a click.
+        if (cell is null || !cell.IsLoaded || Mouse.LeftButton == MouseButtonState.Pressed
+            || TrackGrid.SelectedItems.Count != 1
+            || !ReferenceEquals(cell.DataContext, TrackGrid.SelectedItem))
+            return;
+
+        OpenEdit(new DataGridCellInfo(cell));
+    }
+
+    private void OpenEdit(DataGridCellInfo cell)
+    {
+        TrackGrid.CurrentCell = cell;
+        _openingEdit = true;
+        try
+        {
+            TrackGrid.BeginEdit();
+        }
+        finally
+        {
+            _openingEdit = false;
+        }
+    }
+
+    private void TrackGrid_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
+    {
+        _slowClickTimer.Stop();
+
+        // F2 arrives through DataGrid.BeginEditCommand, with no input event;
+        // the grid's own click and typing both carry theirs.
+        var allowed = _openingEdit
+            || (e.EditingEventArgs is null or KeyEventArgs { Key: Key.F2 } && TrackGrid.SelectedItems.Count <= 1);
+
+        if (!allowed || FieldFor(e.Column) is null)
+            e.Cancel = true;
+    }
+
+    private void TrackGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
+    {
+        if (e.EditAction != DataGridEditAction.Commit
+            || e.Row.Item is not Track track
+            || e.EditingElement is not System.Windows.Controls.TextBox box
+            || FieldFor(e.Column) is not { } field)
+            return;
+
+        // The column is bound one way - Track is immutable - so the typed text
+        // goes no further than this box unless the save below replaces the row.
+        _ = _viewModel.ApplyInlineEditAsync(track, field, box.Text);
+    }
+
+    /// <summary>
+    /// Clicking away from the grid saves an open edit, as leaving a rename box
+    /// does; the grid itself would leave it open.
+    /// </summary>
+    private void TrackGrid_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        // No new focus is the window being switched away from; the edit waits.
+        if (e.NewFocus is not DependencyObject next || IsInside(next, TrackGrid) || next is ContextMenu || next is System.Windows.Controls.MenuItem)
+            return;
+
+        TrackGrid.CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true);
+    }
+
+    private static bool IsInside(DependencyObject node, DependencyObject ancestor)
+    {
+        for (var current = node; current is not null; current = VisualTreeHelper.GetParent(current))
+        {
+            if (ReferenceEquals(current, ancestor))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The rows are about to be cleared, which the grid cannot do under an open
+    /// edit. Cancelling drops a half-typed value, but only in the rare case that
+    /// a scan or a save lands mid-edit; choosing another album saves it first,
+    /// because the click takes focus off the grid.
+    /// </summary>
+    private void OnTracksChanging(object? sender, EventArgs e)
+    {
+        _slowClickTimer.Stop();
+        TrackGrid.CancelEdit(DataGridEditingUnit.Row);
     }
 
     // The seek bar is bound two-way, so the position timer and the user's drag

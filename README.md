@@ -265,6 +265,7 @@ These only apply when AudioFool has focus:
 | Media keys | Play/pause, next, previous, stop |
 | **F5** | Rescan the library |
 | **Enter** | Play the selected track |
+| **F2** | Edit the selected track's #, Song, Artist or Album in place (the cell you last clicked). A second single click on the selected row does the same. **Enter** saves, **Escape** cancels |
 | **Escape** | Close the album-art viewer |
 
 ### Taskbar controls

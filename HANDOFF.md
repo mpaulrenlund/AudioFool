@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-25 after the thirteenth build session. Read this alongside
+Updated 2026-09-25 after the fourteenth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -638,6 +638,57 @@ within the year.
   starts AudioFool without it jumping in front of the user's work (confirmed as
   `Minimized` through UIA's `WindowPattern`).
 
+### Changes from session 14
+
+- **In-place editing of #, Song, Artist and Album in the track grid.** Opened as
+  a rename is in Explorer: **F2**, or a **second single click** on the one row
+  already selected (after the double-click time, so a double-click still just
+  plays). **Enter** saves and moves down a row, keeping the column, so F2, Enter,
+  F2 walks an album's track numbers. **Esc** cancels. Clicking elsewhere in the
+  window saves; switching to another app leaves the edit open.
+  - **Nothing else opens an edit.** The grid's own "click a selected cell" would
+    open one on the first half of every play double-click, and typing would start
+    rewriting a tag on what looks like a list. `TrackGrid_BeginningEdit` cancels
+    every edit except the slow click's (`_openingEdit`) and F2 with one row
+    selected. F2 is recognised by having **no** `EditingEventArgs`: DataGrid
+    routes it through `BeginEditCommand`, while its click and typing paths each
+    pass their input event.
+  - **`InlineEditColumn`** (`src/AudioFool/InlineEditColumn.cs`) is a
+    `DataGridTextColumn` for the four columns. **`DataGridBoundColumn` coerces any
+    column with a one-way binding to read-only**, and these must be one-way:
+    `Track` is immutable and Song shows `DisplayTitle`, which has no setter. The
+    subclass drops that coercion. The typed text never goes back through the
+    binding: `TrackGrid_CellEditEnding` takes it from the edit box and calls
+    `MainViewModel.ApplyInlineEditAsync`.
+  - **Core**: `InlineTagEdit.Build(track, field, text)` turns the text into a
+    `TracksTagEdit` for that one field, or nothing when it is unchanged, or an
+    error. `TracksTagEdit` gained `Title` and `TrackNumber`, which only this path
+    sets. The rules: trimmed; a title-less row starts with its file name and is
+    not written unless changed; an empty # clears it (the count stays); # must be
+    a whole number ≥ 1; Album cannot be emptied. Errors show as "Not saved: …".
+  - **The grid cannot keep an edit open while its rows are cleared.**
+    `MainViewModel.TracksChanging` is raised in `OnSelectedAlbumChanged`, the one
+    place `Tracks` is cleared (album change, scan, save), and the window cancels
+    any open edit. Inline saves are queued one at a time (`_inlineSave`), each
+    applied to the library's current copy of the track, so two quick edits to one
+    row don't undo each other in memory.
+  - **`NowPlaying` is swapped for the updated track** in `ReplaceTracksInLibrary`.
+    The now-playing note and the window title compare by reference, so the note
+    had been disappearing after *any* tag save of the playing track, the dialogs
+    included.
+  - **The edit box is `AfCellEditBox`** in `Components.xaml` (right-aligned
+    `AfNumericCellEditBox` for #): a template of its own, since WPF-UI's text box
+    doesn't fit in a row and a bare style falls back to Aero's white box.
+  - **Verified with ThemeLab `--window edit`** (below) in all three themes, on
+    FLAC and MP3. The gates hold (click, typing, read-only column, two rows). F2
+    and the slow click open an edit. Enter saves without playing. `abc` and an
+    empty album are refused. Leaving the grid saves. A rebuild mid-edit cancels
+    without throwing. Re-reading the file shows only the edited field changed, and
+    a new album moves the track. **Not exercised in the running app**: the real
+    mouse (the slow click was driven through `ArmSlowClick`) and a real keyboard.
+
+**243 tests pass**: the 225 from session 13 plus 18 in `InlineTagEditTests`.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
@@ -719,6 +770,14 @@ within the year.
 | File | Purpose |
 |---|---|
 | `src/AudioFool/Services/TaskbarControls.cs` | The four taskbar thumbnail buttons: builds the `TaskbarItemInfo`, draws the glyphs, swaps Play/Pause on `IsPlaying`, recolours them when the taskbar's light/dark mode changes. |
+
+## New source files added in session 14
+
+| File | Purpose |
+|---|---|
+| `src/AudioFool.Core/Library/InlineTagEdit.cs` | `InlineField`, `InlineEditResult`, and `InlineTagEdit.Build` / `InitialText`: one cell's text to a one-field `TracksTagEdit`. |
+| `src/AudioFool/InlineEditColumn.cs` | `DataGridTextColumn` that stays editable with a one-way binding. |
+| `tests/AudioFool.Core.Tests/InlineTagEditTests.cs` | 18 tests: unchanged text, the file-name title, each field alone, bad numbers, empty album, round trips on FLAC and MP3. |
 
 ## Logo and icon resource files
 
@@ -1144,7 +1203,18 @@ ThemeLab.exe --window artsearch --artist "Rush" --album "Moving Pictures" --use 
 ThemeLab.exe --theme PS1 --artmenu 1          # the album header art's context menu
 ThemeLab.exe --window tags --album "Goodbye Yellow Brick Road" --pick 1-8 --set "DiscCount=2"  # a grid selection
 ThemeLab.exe --theme PS1 --rows 1,2,3,4       # several selected grid rows
+ThemeLab.exe --window edit --theme PS1 --w 1300 --h 600   # in-place grid edits
 ```
+
+`--window edit` builds a library of four scratch copies of the test fixtures (three
+FLAC, one MP3) and drives in-place edits through the real grid. That means real
+key events, the slow click through `ArmSlowClick`, and real saves. It prints what
+reached each file and renders the open edit box. **A save persists
+`library.json`, and `LibraryCache.CachePath` is the real one.** A first run shrank
+it to 1.7 KB. So this mode copies it aside first and restores it byte for byte in
+a `finally`, then deletes the scratch tracks. It also installs a
+`DispatcherSynchronizationContext`, without which the save's continuation runs
+on the thread pool (see the art-search note) and the grid never updates.
 
 `--window tags --album/--track` reads the real files' tags (read-only) and prints
 every prefill and placeholder. `--set` types into the boxes (`Name=value`) or presses a

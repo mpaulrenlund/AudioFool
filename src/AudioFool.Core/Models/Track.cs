@@ -199,9 +199,9 @@ public sealed class Track
 
         FileSize = stamp.Length,
         ModifiedUtc = stamp.ModifiedUtc,
-        TrackNumber = TrackNumber,
+        TrackNumber = edit.TrackNumber is { } trackNumber ? trackNumber.Value : TrackNumber,
         TrackCount = edit.TrackCount is { } trackCount ? trackCount.Value : TrackCount,
-        Title = Title,
+        Title = edit.Title ?? Title,
         Artist = edit.Artist ?? Artist,
         AlbumArtist = edit.AlbumArtist ?? AlbumArtist,
         Album = edit.Album ?? Album,

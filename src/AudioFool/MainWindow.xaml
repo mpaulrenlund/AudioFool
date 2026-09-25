@@ -394,7 +394,7 @@
                     <DataGrid x:Name="TrackGrid"
                               ItemsSource="{Binding Tracks}"
                               AutoGenerateColumns="False"
-                              IsReadOnly="True"
+                              IsReadOnly="False"
                               SelectionMode="Extended"
                               SelectionUnit="FullRow"
                               SelectionChanged="TrackGrid_SelectionChanged"
@@ -414,7 +414,9 @@
                               VirtualizingPanel.VirtualizationMode="Recycling"
                               PreviewMouseLeftButtonDown="TrackGrid_PreviewMouseLeftButtonDown"
                               MouseDoubleClick="TrackGrid_MouseDoubleClick"
-                              PreviewKeyDown="TrackGrid_PreviewKeyDown">
+                              PreviewKeyDown="TrackGrid_PreviewKeyDown"
+                              BeginningEdit="TrackGrid_BeginningEdit"
+                              CellEditEnding="TrackGrid_CellEditEnding">
                         <!--
                             DisplayIndex is pinned on every column on purpose. Left
                             to itself, DataGrid's width-distribution pass shuffles a
@@ -478,7 +480,7 @@
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
                             <!-- Now-playing indicator: shows a music note on the active row -->
-                            <DataGridTemplateColumn x:Name="IndicatorColumn" Width="22" DisplayIndex="0" CanUserSort="False" CanUserResize="False">
+                            <DataGridTemplateColumn x:Name="IndicatorColumn" Width="22" DisplayIndex="0" CanUserSort="False" CanUserResize="False" IsReadOnly="True">
                                 <!--
                                     This cell also draws the selected row's left marker (PS1's
                                     blue bar; zero width in the other themes). It lives here,
@@ -540,46 +542,50 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <DataGridTextColumn x:Name="TrackNumberColumn" Header="#" Width="44" DisplayIndex="1"
-                                                Binding="{Binding TrackNumber, Converter={StaticResource Number}}"
+                            <local:InlineEditColumn x:Name="TrackNumberColumn" Header="#" Width="44" DisplayIndex="1"
+                                                Binding="{Binding TrackNumber, Converter={StaticResource Number}, Mode=OneWay}"
                                                 SortMemberPath="TrackNumber"
-                                                ElementStyle="{DynamicResource AfNumericCell}" />
+                                                ElementStyle="{DynamicResource AfNumericCell}"
+                                                EditingElementStyle="{DynamicResource AfNumericCellEditBox}" />
 
-                            <DataGridTextColumn x:Name="SongColumn" Header="Song" Width="*" MinWidth="180" DisplayIndex="2"
-                                                Binding="{Binding DisplayTitle}"
-                                                ElementStyle="{DynamicResource AfTrackTitleCell}" />
+                            <local:InlineEditColumn x:Name="SongColumn" Header="Song" Width="*" MinWidth="180" DisplayIndex="2"
+                                                Binding="{Binding DisplayTitle, Mode=OneWay}"
+                                                ElementStyle="{DynamicResource AfTrackTitleCell}"
+                                                EditingElementStyle="{DynamicResource AfCellEditBox}" />
 
-                            <DataGridTextColumn x:Name="ArtistColumn" Header="Artist" Width="140" DisplayIndex="3"
-                                                Binding="{Binding Artist}" />
+                            <local:InlineEditColumn x:Name="ArtistColumn" Header="Artist" Width="140" DisplayIndex="3"
+                                                Binding="{Binding Artist, Mode=OneWay}"
+                                                EditingElementStyle="{DynamicResource AfCellEditBox}" />
 
-                            <DataGridTextColumn x:Name="AlbumColumn" Header="Album" Width="150" DisplayIndex="4"
-                                                Binding="{Binding Album}" />
+                            <local:InlineEditColumn x:Name="AlbumColumn" Header="Album" Width="150" DisplayIndex="4"
+                                                Binding="{Binding Album, Mode=OneWay}"
+                                                EditingElementStyle="{DynamicResource AfCellEditBox}" />
 
-                            <DataGridTextColumn x:Name="TimeColumn" Header="Time" Width="60" DisplayIndex="5"
+                            <DataGridTextColumn x:Name="TimeColumn" IsReadOnly="True" Header="Time" Width="60" DisplayIndex="5"
                                                 Binding="{Binding Duration, Converter={StaticResource Duration}}"
                                                 SortMemberPath="Duration"
                                                 ElementStyle="{DynamicResource AfNumericCell}" />
 
-                            <DataGridTextColumn x:Name="DiscColumn" Header="Disc" Width="46" DisplayIndex="6"
+                            <DataGridTextColumn x:Name="DiscColumn" IsReadOnly="True" Header="Disc" Width="46" DisplayIndex="6"
                                                 Binding="{Binding DiscNumber, Converter={StaticResource Number}}"
                                                 SortMemberPath="DiscNumber"
                                                 ElementStyle="{DynamicResource AfNumericCell}" />
 
 
-                            <DataGridTextColumn x:Name="KindColumn" Header="Kind" Width="74" DisplayIndex="7"
+                            <DataGridTextColumn x:Name="KindColumn" IsReadOnly="True" Header="Kind" Width="74" DisplayIndex="7"
                                                 Binding="{Binding Kind}" />
 
-                            <DataGridTextColumn x:Name="BitrateColumn" Header="Bitrate" Width="82" DisplayIndex="8"
+                            <DataGridTextColumn x:Name="BitrateColumn" IsReadOnly="True" Header="Bitrate" Width="82" DisplayIndex="8"
                                                 Binding="{Binding Bitrate, Converter={StaticResource Bitrate}}"
                                                 SortMemberPath="Bitrate"
                                                 ElementStyle="{DynamicResource AfNumericCell}" />
 
-                            <DataGridTextColumn x:Name="BitDepthColumn" Header="Bit Depth" Width="72" DisplayIndex="9"
+                            <DataGridTextColumn x:Name="BitDepthColumn" IsReadOnly="True" Header="Bit Depth" Width="72" DisplayIndex="9"
                                                 Binding="{Binding BitDepth, Converter={StaticResource BitDepth}}"
                                                 SortMemberPath="BitDepth"
                                                 ElementStyle="{DynamicResource AfNumericCell}" />
 
-                            <DataGridTextColumn x:Name="SampleRateColumn" Header="Sample Rate" Width="94" DisplayIndex="10"
+                            <DataGridTextColumn x:Name="SampleRateColumn" IsReadOnly="True" Header="Sample Rate" Width="94" DisplayIndex="10"
                                                 Binding="{Binding SampleRate, Converter={StaticResource SampleRate}}"
                                                 SortMemberPath="SampleRate"
                                                 ElementStyle="{DynamicResource AfNumericCell}" />

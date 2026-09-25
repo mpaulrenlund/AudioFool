@@ -60,6 +60,42 @@
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
+    <!-- The box a track-grid cell turns into while it is edited in place. A
+         template of its own rather than BasedOn WPF-UI's text box, whose
+         padding and minimum height would not fit inside a row; a bare style
+         with no template would fall back to Aero's white box. -->
+    <Style x:Key="AfCellEditBox" TargetType="TextBox">
+        <Setter Property="Foreground" Value="{DynamicResource AfTextPrimary}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource AfTextPrimary}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource AfFocusRing}" />
+        <Setter Property="Background" Value="{DynamicResource AfSurfaceWell}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AfFocusRing}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="1,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Padding="{TemplateBinding Padding}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="AfNumericCellEditBox" TargetType="TextBox" BasedOn="{StaticResource AfCellEditBox}">
+        <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+
     <!-- Elapsed / remaining timecodes either side of the seek bar. -->
     <Style x:Key="AfReadout" TargetType="TextBlock">
         <Setter Property="FontSize" Value="{DynamicResource AfFontSizeSmall}" />

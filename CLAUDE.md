@@ -40,6 +40,6 @@ absolute path, and never let a missing folder be interpreted as a deleted librar
 
 Playback, DSD correctness and drive behaviour have all been verified by driving the real
 app or a headless probe against `AudioFool.Core` — not by reasoning about the code. Keep
-that standard. `dotnet test` covers the 225 unit tests over sorting, caching, search, path
-handling, play order, tag writing, release dates, library statistics and online
-cover-art parsing.
+that standard. `dotnet test` covers the 243 unit tests over sorting, caching, search, path
+handling, play order, tag writing (including in-place grid edits), release dates,
+library statistics and online cover-art parsing.
