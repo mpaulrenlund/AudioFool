@@ -402,8 +402,21 @@ internal static class Program
                     }
                     else
                     {
+                        // The cover's size and format load after an await; without a
+                        // context the continuation would run on the thread pool.
+                        SynchronizationContext.SetSynchronizationContext(
+                            new System.Windows.Threading.DispatcherSynchronizationContext(System.Windows.Threading.Dispatcher.CurrentDispatcher));
                         editVm = new TagEditViewModel(album, new AlbumArtService());
                         Console.WriteLine($"album: {album.Title} ({album.Tracks.Count} tracks), opened in {clock.ElapsedMilliseconds} ms");
+                        Settle(1500);
+                        Console.WriteLine($"  art       '{editVm.ArtSizeText}' '{editVm.ArtFormatText}' [{editVm.ArtSourceText}]  preview={editVm.ArtPreview?.PixelWidth}px");
+
+                        // --useart <file>: hand the dialog a new cover as Search Internet does.
+                        if (Arg(args, "--useart") is { } artFile)
+                        {
+                            editVm.UseDownloadedArt(File.ReadAllBytes(artFile));
+                            Console.WriteLine($"  new art   '{editVm.ArtSizeText}' '{editVm.ArtFormatText}' [{editVm.ArtSourceText}]");
+                        }
                     }
                 }
                 else

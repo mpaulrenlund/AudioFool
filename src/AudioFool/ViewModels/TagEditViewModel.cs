@@ -372,8 +372,62 @@ public sealed partial class TagEditViewModel : ObservableObject
         Comment = IfChanged(nameof(Comment), Comment),
     };
 
-    private async Task LoadPreviewAsync(Album album, AlbumArtService artService) =>
+    /// <summary>"1400 × 1400" under the cover: the current one, or the one Save would write.</summary>
+    [ObservableProperty]
+    private string _artSizeText = "";
+
+    /// <summary>"JPG" or "PNG".</summary>
+    [ObservableProperty]
+    private string _artFormatText = "";
+
+    /// <summary>Where the shown cover comes from, for the tooltip.</summary>
+    [ObservableProperty]
+    private string? _artSourceText;
+
+    private async Task LoadPreviewAsync(Album album, AlbumArtService artService)
+    {
+        var infoTask = Task.Run(() => ReadCurrentArtInfo(album));
         ArtPreview = await artService.GetAlbumArtAsync(album, decodeWidth: 200);
+
+        var (info, source) = await infoTask;
+
+        // A cover picked while this was reading has already replaced both.
+        if (PickedArtFilePath is null && _downloadedArt is null)
+            ShowArtInfo(info, source);
+    }
+
+    /// <summary>
+    /// The same cover the preview shows, found the way <see cref="AlbumArtService"/>
+    /// finds it: embedded in one of the first five tracks, else the folder file.
+    /// </summary>
+    private static (ImageInfo? Info, string? Source) ReadCurrentArtInfo(Album album)
+    {
+        foreach (var track in album.Tracks.Take(5))
+        {
+            if (TagReader.ReadEmbeddedArt(track.FilePath) is { } embedded)
+                return (ImageInfo.Read(embedded), "Embedded in the tracks");
+        }
+
+        var folderArt = album.FolderArtPath;
+        if (string.IsNullOrEmpty(folderArt))
+            return (null, null);
+
+        try
+        {
+            return (ImageInfo.Read(File.ReadAllBytes(folderArt)), $"Folder file: {Path.GetFileName(folderArt)}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return (null, null);
+        }
+    }
+
+    private void ShowArtInfo(ImageInfo? info, string? source)
+    {
+        ArtSizeText = info?.SizeText ?? "";
+        ArtFormatText = info?.FormatText ?? (source is null ? "" : "Unknown format");
+        ArtSourceText = source;
+    }
 
     [RelayCommand]
     private void ChooseImage()
@@ -401,6 +455,8 @@ public sealed partial class TagEditViewModel : ObservableObject
             PickedArtFilePath = dialog.FileName;
             _downloadedArt = null;
             ArtPreview = bitmap;
+            ShowArtInfo(ImageInfo.Read(File.ReadAllBytes(dialog.FileName)),
+                        $"New cover, from {Path.GetFileName(dialog.FileName)} - written on Save");
         }
         catch (Exception ex) when (ex is NotSupportedException or IOException or UnauthorizedAccessException)
         {
@@ -517,6 +573,7 @@ public sealed partial class TagEditViewModel : ObservableObject
             ArtPreview = ArtSearchViewModel.Decode(jpeg, 200);
             _downloadedArt = jpeg;
             PickedArtFilePath = null;
+            ShowArtInfo(ImageInfo.Read(jpeg), "New cover, downloaded - written on Save");
         }
         catch (Exception ex) when (ex is NotSupportedException or IOException or ArgumentException)
         {

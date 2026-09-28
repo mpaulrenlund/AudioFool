@@ -776,6 +776,24 @@ Bit-Perfect, as the user asked.
 
 **277 tests pass**: the 243 from session 14 plus 34 in `ScrobblingTests`.
 
+**Cover size and format in the album dialog** (session 16). Under the 72 px art:
+"1200 × 1200" and "JPG" or "PNG".
+- **Read from the bytes, not a name.** `AudioFool.Core/Art/ImageInfo.cs` uses
+  `JpegSize` for JPEG and the IHDR chunk for PNG. Anything else shows "Unknown
+  format".
+- **It describes the cover the preview shows.** That is embedded art in the first
+  of five tracks that has it, else the folder file, which is the order
+  `AlbumArtService` uses. The tooltip says which ("Embedded in the tracks" /
+  "Folder file: cover.jpg").
+- **A picked or downloaded cover replaces the text** with the new image's figures,
+  and the tooltip then says it is written on Save.
+- The buttons sit in a 72 px `Grid`, so they stay centred on the art rather than
+  on the art plus its two lines.
+- **Verified** with ThemeLab `--window tags --album`: *Saturn Return* reads
+  1200 × 1200 JPG, and *Goodbye Yellow Brick Road* reads 1000 × 1000 JPG.
+  `--useart <file>` (new) with the 1280 × 974 PlayStation logo gave "1280 × 974
+  PNG". 7 tests in `ImageInfoTests`, **284 in total**.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a

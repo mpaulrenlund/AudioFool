@@ -30,27 +30,38 @@
             <StackPanel Margin="20,12,20,0"
                         Visibility="{Binding ShowsArt, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Orientation="Horizontal">
-                    <Border Width="72" Height="72" Style="{DynamicResource AfArtFrame}">
-                        <Grid>
-                            <ui:SymbolIcon Symbol="MusicNote224"
-                                           FontSize="{DynamicResource AfIconSizeMedium}"
-                                           Foreground="{DynamicResource AfTextPlaceholder}"
-                                           Visibility="{Binding ArtPreview, Converter={StaticResource NullToVisible}}" />
-                            <Image Source="{Binding ArtPreview}" Stretch="UniformToFill"
-                                   Visibility="{Binding ArtPreview, Converter={StaticResource NullToCollapsed}}" />
-                        </Grid>
-                    </Border>
-                    <StackPanel VerticalAlignment="Center" Margin="12,0,0,0">
-                        <StackPanel Orientation="Horizontal">
-                            <ui:Button Content="Choose Image..." Command="{Binding ChooseImageCommand}" />
-                            <ui:Button x:Name="SearchInternetButton" Content="Search Internet..." Margin="8,0,0,0"
-                                       ToolTip="Find a JPEG cover of at least 1,000 × 1,000 on the iTunes Store, the Cover Art Archive or fanart.tv"
-                                       Click="SearchInternet_Click" />
-                        </StackPanel>
-                        <TextBlock Text="Replacing the cover updates every track in this album,&#10;plus its folder cover file."
-                                   Style="{DynamicResource AfMetaText}" TextTrimming="None"
-                                   Margin="0,6,0,0" TextWrapping="Wrap" />
+                    <!-- The cover's size and format, read from its bytes: the current one, -->
+                    <!-- or the one Save would write once a new cover is picked. -->
+                    <StackPanel VerticalAlignment="Top" ToolTip="{Binding ArtSourceText}">
+                        <Border Width="72" Height="72" Style="{DynamicResource AfArtFrame}">
+                            <Grid>
+                                <ui:SymbolIcon Symbol="MusicNote224"
+                                               FontSize="{DynamicResource AfIconSizeMedium}"
+                                               Foreground="{DynamicResource AfTextPlaceholder}"
+                                               Visibility="{Binding ArtPreview, Converter={StaticResource NullToVisible}}" />
+                                <Image Source="{Binding ArtPreview}" Stretch="UniformToFill"
+                                       Visibility="{Binding ArtPreview, Converter={StaticResource NullToCollapsed}}" />
+                            </Grid>
+                        </Border>
+                        <TextBlock x:Name="ArtSizeText" Text="{Binding ArtSizeText}" Style="{DynamicResource AfMetaText}"
+                                   TextTrimming="None" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                        <TextBlock x:Name="ArtFormatText" Text="{Binding ArtFormatText}" Style="{DynamicResource AfMetaText}"
+                                   TextTrimming="None" HorizontalAlignment="Center" />
                     </StackPanel>
+                    <!-- Centred on the art itself, not on the art plus its two lines. -->
+                    <Grid VerticalAlignment="Top" Height="72" Margin="12,0,0,0">
+                        <StackPanel VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:Button Content="Choose Image..." Command="{Binding ChooseImageCommand}" />
+                                <ui:Button x:Name="SearchInternetButton" Content="Search Internet..." Margin="8,0,0,0"
+                                           ToolTip="Find a JPEG cover of at least 1,000 × 1,000 on the iTunes Store, the Cover Art Archive or fanart.tv"
+                                           Click="SearchInternet_Click" />
+                            </StackPanel>
+                            <TextBlock Text="Replacing the cover updates every track in this album,&#10;plus its folder cover file."
+                                       Style="{DynamicResource AfMetaText}" TextTrimming="None"
+                                       Margin="0,6,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </StackPanel>
 
