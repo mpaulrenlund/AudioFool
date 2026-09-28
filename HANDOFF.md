@@ -862,9 +862,10 @@ in the several-tracks dialog).
   nothing. Rendered with the album title at full length; the row fits 460 px.
 - **The label first sat beside Track Count** and was cut off at 460 px, which is
   why it has a row of its own.
-- **Lotus *Hammerstrike* is no longer padded.** Tracks 1–9 were rewritten between
-  13:13 and 13:16 on 2026-09-28, apparently by the user by hand. `library.json` was
-  not rewritten then, so it may have been another tagger.
+- **Lotus *Hammerstrike* is no longer padded.** The user fixed tracks 1–9 in Mp3tag
+  on 2026-09-28, 13:13 to 13:16. That is why `library.json` was not rewritten then.
+  The user tags with Mp3tag as well as AudioFool, so a file on the drive can change
+  without the app knowing. The next scan's size and time check picks it up.
 
 ### Deliberately not done
 
