@@ -771,6 +771,8 @@ Bit-Perfect, as the user asked.
   scrobbler by reflection for one with a scratch queue: **the view model's own
   scrobbler reads the real `scrobbles.json`**, so a ThemeLab mode must never add to
   it.
+- **Confirmed by the user** in the running app (PS1 theme): green dot and
+  "Last.fm" beside Bit-Perfect. The other states have only been seen in ThemeLab.
 
 **277 tests pass**: the 243 from session 14 plus 34 in `ScrobblingTests`.
 
