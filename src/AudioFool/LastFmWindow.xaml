@@ -1,0 +1,147 @@
+<ui:FluentWindow x:Class="AudioFool.LastFmWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="Last.fm"
+                 Icon="/Resources/AudioFool.ico"
+                 Width="480" SizeToContent="Height"
+                 MinWidth="400"
+                 ResizeMode="NoResize"
+                 WindowStartupLocation="Manual"
+                 WindowBackdropType="Mica"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowCornerPreference="Round">
+
+    <ui:FluentWindow.Resources>
+        <!-- The accent's text shade, not WPF's stock hyperlink blue; underlined on hover only. -->
+        <Style TargetType="Hyperlink">
+            <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+            <Setter Property="TextDecorations" Value="{x:Null}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="TextDecorations" Value="Underline" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Last.fm" ShowMinimize="False" ShowMaximize="False">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="/Resources/AudioFool.ico" Width="16" Height="16" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+
+        <StackPanel Grid.Row="1" Margin="20,12,20,8">
+
+            <!-- Not connected, or the saved session was rejected. -->
+            <StackPanel x:Name="SetupPanel"
+                        Visibility="{Binding ShowsSetup, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock TextWrapping="Wrap" Style="{DynamicResource AfMetaText}" TextTrimming="None">
+                    Last.fm gives every application its own API account. Make one for
+                    AudioFool - any name and description will do, and the callback URL
+                    can stay empty - then paste its key and shared secret here.
+                </TextBlock>
+                <TextBlock Margin="0,6,0,0">
+                    <Hyperlink Command="{Binding OpenLinkCommand}"
+                               CommandParameter="{Binding CreateApiAccountUrl}">Create an API account on last.fm</Hyperlink>
+                </TextBlock>
+
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="API key" VerticalAlignment="Center" Margin="0,0,0,8" />
+                    <ui:TextBox x:Name="ApiKeyBox" Grid.Row="0" Grid.Column="1" Margin="0,0,0,8"
+                                Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}"
+                                IsEnabled="{Binding IsWaitingForApproval, Converter={StaticResource InverseBool}}" />
+
+                    <TextBlock Grid.Row="1" Text="Shared secret" VerticalAlignment="Center" />
+                    <ui:TextBox x:Name="ApiSecretBox" Grid.Row="1" Grid.Column="1"
+                                Text="{Binding ApiSecret, UpdateSourceTrigger=PropertyChanged}"
+                                IsEnabled="{Binding IsWaitingForApproval, Converter={StaticResource InverseBool}}" />
+                </Grid>
+
+                <StackPanel Margin="0,12,0,0"
+                            Visibility="{Binding IsWaitingForApproval, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock TextWrapping="Wrap" TextTrimming="None" Style="{DynamicResource AfMetaText}">
+                        Approve AudioFool on the last.fm page that just opened in your browser.
+                        This window finishes by itself once you have.
+                    </TextBlock>
+                    <TextBlock Margin="0,6,0,0">
+                        <Hyperlink Command="{Binding OpenApprovalPageAgainCommand}">Open the page again</Hyperlink>
+                    </TextBlock>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Connected. -->
+            <StackPanel x:Name="ConnectedPanel"
+                        Visibility="{Binding ShowsConnected, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock>
+                    <Hyperlink Command="{Binding OpenLinkCommand}" CommandParameter="{Binding ProfileUrl}">
+                        <Run Text="{Binding ConnectedAs, Mode=OneWay}" />
+                    </Hyperlink>
+                </TextBlock>
+
+                <CheckBox x:Name="ScrobblingCheck" Margin="0,12,0,0"
+                          Content="Scrobble what I play"
+                          IsChecked="{Binding ScrobblingEnabled, Mode=TwoWay}" />
+
+                <TextBlock x:Name="QueueStatusText" Margin="0,10,0,0"
+                           Text="{Binding QueueStatus}"
+                           Style="{DynamicResource AfMetaText}" TextWrapping="Wrap" TextTrimming="None" />
+
+                <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" TextTrimming="None"
+                           Style="{DynamicResource AfMetaTextQuiet}">
+                    A track is scrobbled once it has played for half its length or four
+                    minutes, whichever comes first. Tracks of 30 seconds or less, and
+                    tracks with no title or artist tag, are not. Plays made while offline
+                    are kept and sent later, for up to two weeks.
+                </TextBlock>
+
+                <TextBlock Margin="0,10,0,0" TextWrapping="Wrap" TextTrimming="None"
+                           Style="{DynamicResource AfMetaTextQuiet}">
+                    Disconnecting forgets the session here. To withdraw AudioFool's access
+                    on last.fm too, remove it on your
+                    <Hyperlink Command="{Binding OpenLinkCommand}"
+                               CommandParameter="{Binding ApplicationsSettingsUrl}">applications page</Hyperlink>.
+                </TextBlock>
+            </StackPanel>
+
+            <TextBlock x:Name="ErrorText" Margin="0,10,0,0" Text="{Binding Error}"
+                       Foreground="{DynamicResource AfStatusDangerText}"
+                       FontSize="{DynamicResource AfFontSizeBody}"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding Error, Converter={StaticResource NullToCollapsed}}" />
+        </StackPanel>
+
+        <Grid Grid.Row="2" Margin="20,4,20,16">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <ui:Button x:Name="DisconnectButton" Content="Disconnect" Command="{Binding DisconnectCommand}"
+                           Visibility="{Binding ShowsConnected, Converter={StaticResource BoolToVisibility}}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <ui:Button x:Name="CancelButton" Content="Cancel" Margin="0,0,8,0"
+                           Command="{Binding CancelConnectCommand}"
+                           Visibility="{Binding IsWaitingForApproval, Converter={StaticResource BoolToVisibility}}" />
+                <ui:Button x:Name="ConnectButton" Content="Connect" Appearance="Primary" Margin="0,0,8,0"
+                           Command="{Binding ConnectCommand}"
+                           Visibility="{Binding ShowsSetup, Converter={StaticResource BoolToVisibility}}" />
+                <ui:Button x:Name="CloseButton" Content="Close" IsCancel="True" Click="Close_Click" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

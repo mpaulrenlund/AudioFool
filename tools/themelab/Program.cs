@@ -600,6 +600,65 @@ internal static class Program
             Settle(400);
             Save(root, outPath, w, h, scale);
         }
+        else if (which == "lastfm")
+        {
+            // --window lastfm --state setup|waiting|connected|failing|rejected.
+            // A scratch queue and a fake HTTP handler: nothing reaches Last.fm,
+            // and the throwaway settings above are never saved.
+            var state = Arg(args, "--state") ?? "setup";
+            var queuePath = Path.Combine(Path.GetTempPath(), "ThemeLabLastFm", Guid.NewGuid().ToString("N"), "scrobbles.json");
+            var queue = AudioFool.Core.Scrobbling.ScrobbleQueue.Load(queuePath, DateTimeOffset.UtcNow);
+            var answer = state switch
+            {
+                "failing" => (System.Net.HttpStatusCode.ServiceUnavailable, """{"error":16,"message":"The service is temporarily unavailable, please try again."}"""),
+                "rejected" => (System.Net.HttpStatusCode.Forbidden, """{"error":9,"message":"Invalid session key - Please re-authenticate"}"""),
+                _ => (System.Net.HttpStatusCode.OK, "{}"),
+            };
+            var http = new System.Net.Http.HttpClient(new CannedHandler(answer));
+            var scrobbler = new AudioFool.Core.Scrobbling.LastFmScrobbler(queue, null,
+                (k, s) => new AudioFool.Core.Scrobbling.LastFmApi(k, s, http));
+
+            if (state is "failing" or "rejected")
+                for (var i = 0; i < 3; i++)
+                    queue.Add(new AudioFool.Core.Scrobbling.ScrobbleEntry
+                    {
+                        Artist = "Rush", Track = $"Track {i}", Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                    });
+
+            if (state is not ("setup" or "waiting"))
+            {
+                settings.LastFmApiKey = "0123456789abcdef0123456789abcdef";
+                settings.LastFmApiSecret = "fedcba9876543210fedcba9876543210";
+                scrobbler.Connect(settings.LastFmApiKey, settings.LastFmApiSecret,
+                    new AudioFool.Core.Scrobbling.LastFmSession("marcusrenlund", "sk"));
+                var until = DateTime.UtcNow.AddSeconds(3);
+                while (DateTime.UtcNow < until && scrobbler.Pending > 0 && scrobbler.LastError is null)
+                    Settle(50);
+            }
+
+            var lfmVm = new LastFmViewModel(scrobbler, settings);
+            if (state == "waiting")
+            {
+                lfmVm.ApiKey = "0123456789abcdef0123456789abcdef";
+                lfmVm.ApiSecret = "fedcba9876543210fedcba9876543210";
+                lfmVm.IsWaitingForApproval = true;
+            }
+
+            Console.WriteLine($"lastfm {state}: setup={lfmVm.ShowsSetup} connected={lfmVm.ShowsConnected} "
+                + $"pending={scrobbler.Pending} reconnect={scrobbler.NeedsReconnect} canConnect={lfmVm.ConnectCommand.CanExecute(null)}");
+            Console.WriteLine($"  {lfmVm.ConnectedAs} | {lfmVm.QueueStatus} | error={lfmVm.Error}");
+
+            var dialog = new LastFmWindow(lfmVm, main);
+            dialog.ApplyTemplate();
+            var root = (FrameworkElement)dialog.Content;
+            root.Measure(new Size(w, double.PositiveInfinity));
+            var height = Math.Ceiling(root.DesiredSize.Height);
+            root.Arrange(new Rect(0, 0, w, height));
+            root.UpdateLayout();
+            Settle(400);
+            Save(root, outPath, w, height, scale);
+            Console.WriteLine($"  size {w}x{height}");
+        }
         else if (which == "stats")
         {
             // The real library, read from the cache and never written back:
@@ -1156,4 +1215,11 @@ internal static class Program
 
         Pump();
     }
+}
+
+/// <summary>Answers every request with the same status and body, for --window lastfm.</summary>
+internal sealed class CannedHandler((System.Net.HttpStatusCode Status, string Body) answer) : System.Net.Http.HttpMessageHandler
+{
+    protected override Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage request, CancellationToken ct) =>
+        Task.FromResult(new System.Net.Http.HttpResponseMessage(answer.Status) { Content = new System.Net.Http.StringContent(answer.Body) });
 }

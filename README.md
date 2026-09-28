@@ -20,6 +20,7 @@ with nothing else in the way.
   face-button shapes carrying status beside the words rather than instead of them.
   PS1 respects the Windows "show animations" setting.
 - Gapless playback.
+- [Last.fm scrobbling](#lastfm-scrobbling), with plays kept offline until they can be sent.
 - Optional [bit-perfect output](#output-modes) — exclusive WASAPI at the source's own
   sample rate, with DSD-over-PCM passthrough for DACs that support it.
 
@@ -314,6 +315,43 @@ which has three consequences worth knowing:
 
 Shuffle covers the whole queue exactly once before stopping — or before wrapping, if
 repeat is set to the whole queue. It will not play the same track twice in a pass.
+
+---
+
+## Last.fm scrobbling
+
+Logo menu → **Last.fm…** connects AudioFool to your Last.fm profile.
+
+1. Last.fm gives every application its own API account. Create one at
+   [last.fm/api/account/create](https://www.last.fm/api/account/create). Any name and
+   description will do, and the callback URL can stay empty.
+2. Paste its **API key** and **shared secret** into the Last.fm window and click
+   **Connect**.
+3. Last.fm opens in your browser. Approve AudioFool there, and the window notices by
+   itself within a few seconds. Your password is only ever typed into last.fm.
+
+Once connected, AudioFool sends **now playing** when a track starts and a
+**scrobble** once it has played for half its length or four minutes, whichever comes
+first. Tracks of 30 seconds or less are not scrobbled, and neither are tracks with no
+title or artist tag (a file name makes a poor scrobble). The artist is the track's
+Artist tag; Album Artist is sent in its own field, which is how Last.fm files
+compilations and features.
+
+- **Only listening counts.** Seeking forward, pausing or the PC sleeping adds nothing.
+  Going back to the start of a track (Previous in its first 3 s, or a Repeat One loop)
+  is a new play.
+- **Offline plays are kept.** Anything that can't be sent waits in
+  `%LOCALAPPDATA%\AudioFool\scrobbles.json` and goes out later, retried from one minute
+  up to every half hour. Last.fm refuses scrobbles more than two weeks old, so older
+  ones are dropped.
+- **Scrobble what I play** turns it off without disconnecting. Plays made while it is
+  off are not recorded, not even for later.
+- **Disconnect** forgets the session in AudioFool. To withdraw access on Last.fm's side
+  as well, remove AudioFool on your
+  [applications page](https://www.last.fm/settings/applications).
+
+The key, secret and session are stored in `settings.json`. The session key allows
+scrobbling but does not reveal your password.
 
 ---
 

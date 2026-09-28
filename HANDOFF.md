@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-25 after the fourteenth build session. Read this alongside
+Updated 2026-09-28 after the fifteenth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -689,6 +689,64 @@ within the year.
 
 **243 tests pass**: the 225 from session 13 plus 18 in `InlineTagEditTests`.
 
+### Changes from session 15
+
+- **Last.fm scrobbling.** Logo menu → **Last.fm…** (below Statistics). The user
+  chose: an in-app dialog for the key, scrobbles plus now playing, and track artist
+  with album artist sent separately. User-facing behaviour is in the README.
+  - **Everything but the dialog is in `AudioFool.Core/Scrobbling/`**, BASS-free.
+    `LastFmApi` signs calls: sort the parameters ordinally, concatenate each name
+    and value, append the secret, MD5 of the UTF-8, excluding `format`. `PlayTracker`
+    applies the rules. `ScrobbleQueue` is the offline file. `LastFmScrobbler` joins
+    them.
+  - **Auth is the desktop flow.** auth.getToken, then the browser opens
+    `last.fm/api/auth`, then the view model polls auth.getSession every 3 s for
+    5 min. Error 14 means not approved yet. The user's own API account is needed,
+    since Last.fm issues keys per application. Key, secret, session key and user name
+    go in `settings.json` (`LastFm*`). **My shell can't see that file** (the
+    packaged-AppData gotcha), so ask the user whether they're connected.
+  - **Listening time comes from the audio position, not a clock.** `MainViewModel`'s
+    250 ms position tick calls `Advance(engine.Position, engine.CurrentTrack)`. Only
+    forward steps ≤ 3 s count, so seeks, pauses and sleep add nothing. A jump back
+    to under 3 s from past 3 s is a new play, because **the engine raises no event
+    for a Repeat-One loop or a Previous that restarts**. The same file raising
+    `TrackChanged` before it has scrobbled continues its play: an output-mode switch
+    goes through `JumpTo` and would otherwise throw the time away.
+  - **Ticks whose `CurrentTrack` isn't the tracker's are skipped.** A gapless
+    handover swaps streams on the mixer thread, then posts `TrackChanged`. The tick
+    in between reads the new track's ~0 s against the old one, which looked like a
+    restart.
+  - **Scrobbled at the threshold, not at track end**, so closing the app during
+    the second half doesn't lose the play. Each is queued to disk first, then sent
+    in batches of up to 50.
+    - A failure backs off from 1 min, doubling to 30 min. The next tick after that
+      retries, and so does a new scrobble.
+    - Error codes 4/9/10/13/26 set `NeedsReconnect`. That stops sending, keeps the
+      queue, and puts a status-bar message up once.
+    - Per-scrobble ignored code 5 (daily limit) stays queued. Other ignored codes
+      are dropped.
+    - Entries older than 14 days are dropped on load, because Last.fm refuses them.
+  - **Verified**:
+    - 33 unit tests (`ScrobblingTests`), including the fake-HTTP scrobbler paths.
+    - The live endpoint with a fake key: error 10 comes back as an auth failure.
+    - A headless probe (`scratchpad/scrobprobe`) driving the real `AudioEngine`
+      silently (shared mode, volume 0) over two real 41–44 s FLACs. Repeat One for
+      100 s gave now playing ×3 at 44 s intervals and scrobbles ×2, each at 22 s
+      with that loop's start time. A → B gapless gave exactly one now playing and
+      one scrobble per track.
+    - ThemeLab `--window lastfm` rendered all five states in Dark, plus PS1 and
+      Vista.
+    - The installed build launched minimised with no errors.
+  - **Not verified**: a real connection. That needs the user's API account and
+    their approval in a browser. **Ask the user** whether scrobbles appear on their
+    profile.
+  - **Caught by ThemeLab**: the menu icon was first `Broadcast24`, which doesn't
+    exist in WPF-UI 4.3. It compiled, but `MainWindow` threw at load, so the app
+    would not start. `SymbolIcon` names are only checked at runtime. Render
+    (or launch) after touching one. It is `Live24` now.
+
+**276 tests pass**: the 243 from session 14 plus 33 in `ScrobblingTests`.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
@@ -778,6 +836,19 @@ within the year.
 | `src/AudioFool.Core/Library/InlineTagEdit.cs` | `InlineField`, `InlineEditResult`, and `InlineTagEdit.Build` / `InitialText`: one cell's text to a one-field `TracksTagEdit`. |
 | `src/AudioFool/InlineEditColumn.cs` | `DataGridTextColumn` that stays editable with a one-way binding. |
 | `tests/AudioFool.Core.Tests/InlineTagEditTests.cs` | 18 tests: unchanged text, the file-name title, each field alone, bad numbers, empty album, round trips on FLAC and MP3. |
+
+## New source files added in session 15
+
+| File | Purpose |
+|---|---|
+| `src/AudioFool.Core/Scrobbling/LastFmApi.cs` | Signed Last.fm 2.0 calls: getToken, getSession, updateNowPlaying, scrobble (batches ≤ 50). `LastFmException` classifies error codes. `ParseScrobbleOutcomes` reads per-scrobble ignored codes. |
+| `src/AudioFool.Core/Scrobbling/ScrobbleEntry.cs` | One play as Last.fm sees it. Also the queue file's format. `From` refuses tracks with no title or artist. |
+| `src/AudioFool.Core/Scrobbling/PlayTracker.cs` | The scrobble rule, counted from position steps. Pure, and every time is an argument. |
+| `src/AudioFool.Core/Scrobbling/ScrobbleQueue.cs` | `%LOCALAPPDATA%\AudioFool\scrobbles.json`, saved atomically on every change, 14-day prune on load. |
+| `src/AudioFool.Core/Scrobbling/LastFmScrobbler.cs` | Tracker → now playing, queue, batched flush, backoff, reconnect state. Takes a `TimeProvider` and an API factory for tests. |
+| `src/AudioFool/ViewModels/LastFmViewModel.cs` | Connect (token, browser, poll), disconnect, the scrobbling switch, the queue status line. |
+| `src/AudioFool/LastFmWindow.xaml[.cs]` | The modal dialog: setup panel or connected panel. |
+| `tests/AudioFool.Core.Tests/ScrobblingTests.cs` | 33 tests: signing, entries, the rules (seek, pause, loop, same-file restart, short tracks), response parsing, queue, and the scrobbler against a fake HTTP handler. |
 
 ## Logo and icon resource files
 
@@ -1204,7 +1275,11 @@ ThemeLab.exe --theme PS1 --artmenu 1          # the album header art's context m
 ThemeLab.exe --window tags --album "Goodbye Yellow Brick Road" --pick 1-8 --set "DiscCount=2"  # a grid selection
 ThemeLab.exe --theme PS1 --rows 1,2,3,4       # several selected grid rows
 ThemeLab.exe --window edit --theme PS1 --w 1300 --h 600   # in-place grid edits
+ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
 ```
+
+`--window lastfm` uses a scratch queue and a canned HTTP handler, so nothing
+reaches Last.fm and the throwaway settings are never saved.
 
 `--window edit` builds a library of four scratch copies of the test fixtures (three
 FLAC, one MP3) and drives in-place edits through the real grid. That means real
@@ -1376,6 +1451,11 @@ headless figure), and fanart.tv is confirmed with a real key.
 *Done in session 14:* in-place editing of #, Song, Artist and Album (commit
 `8526fb6`, pushed).
 
+0. **Ask the user whether scrobbles reach their Last.fm profile** (session 15).
+   Everything short of a real account was verified. If they don't, check the queue
+   file, which my shell *can* read: `%LOCALAPPDATA%\AudioFool\scrobbles.json`.
+   Entries piling up mean sending fails, and the Last.fm window shows why.
+   Possible follow-ups, not built: a Love button, and a status-bar indicator.
 0. **Ask the user how in-place editing feels in the running app.** Only ThemeLab
    has driven it. The real mouse (the slow click's timing against a double-click)
    and real key presses were off limits. Worth asking: does Enter moving down a

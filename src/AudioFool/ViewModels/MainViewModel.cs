@@ -10,6 +10,7 @@ using AudioFool.Core.Art;
 using AudioFool.Core.Library;
 using AudioFool.Core.Models;
 using AudioFool.Core.Playback;
+using AudioFool.Core.Scrobbling;
 using AudioFool.Core.Settings;
 using AudioFool.Formatting;
 using AudioFool.Services;
@@ -27,6 +28,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly AppSettings _settings;
     private readonly DispatcherTimer _positionTimer;
     private readonly DispatcherTimer _searchDebounce;
+    private readonly LastFmScrobbler _scrobbler;
 
     private MusicLibrary _library = MusicLibrary.Empty;
     private MusicLibrary _folderFilteredLibrary = MusicLibrary.Empty;
@@ -59,6 +61,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _engine.TrackChanged += OnEngineTrackChanged;
         _engine.StateChanged += OnEngineStateChanged;
         _engine.PlaybackFinished += OnEnginePlaybackFinished;
+
+        _scrobbler = new LastFmScrobbler(ScrobbleQueue.Load(ScrobbleQueue.DefaultPath, DateTimeOffset.UtcNow))
+        {
+            Enabled = settings.LastFmScrobbling,
+        };
+        _scrobbler.AuthFailed += OnScrobblerAuthFailed;
+        if (settings is { LastFmApiKey: { Length: > 0 } key, LastFmApiSecret: { Length: > 0 } secret,
+                          LastFmSessionKey: { Length: > 0 } session })
+            _scrobbler.Connect(key, secret, new LastFmSession(settings.LastFmUserName ?? "", session));
 
         _positionTimer = new DispatcherTimer(DispatcherPriority.Normal)
         {
@@ -961,6 +972,19 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         await ScanAsync();
     }
 
+    // --------------------------------------------------------------- last.fm
+
+    [RelayCommand]
+    private void ShowLastFm()
+    {
+        if (Application.Current.MainWindow is not { } owner)
+            return;
+
+        new LastFmWindow(new LastFmViewModel(_scrobbler, _settings), owner).ShowDialog();
+    }
+
+    private void OnScrobblerAuthFailed(object? sender, string message) => StatusText = message;
+
     // ------------------------------------------------------------ statistics
 
     /// <summary>
@@ -1443,6 +1467,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // description is only accurate once a track is actually running.
         RefreshOutputState();
 
+        _scrobbler.TrackStarted(track, TimeSpan.FromSeconds(DurationSeconds));
+
         _ = LoadNowPlayingArtAsync(track);
     }
 
@@ -1466,6 +1492,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (state == PlaybackState.Stopped)
         {
+            _scrobbler.Stopped();
+
             _updatingPositionFromTimer = true;
             PositionSeconds = 0;
             _updatingPositionFromTimer = false;
@@ -1480,6 +1508,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnPositionTick(object? sender, EventArgs e)
     {
+        // Before the seeking check: the tracker wants the position the audio is
+        // really at, whatever the slider is doing.
+        _scrobbler.Advance(_engine.Position, _engine.CurrentTrack);
+
         if (IsSeeking)
             return;
 
@@ -1506,6 +1538,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _engine.TrackChanged -= OnEngineTrackChanged;
         _engine.StateChanged -= OnEngineStateChanged;
         _engine.PlaybackFinished -= OnEnginePlaybackFinished;
+
+        _scrobbler.AuthFailed -= OnScrobblerAuthFailed;
 
         _scanCts?.Cancel();
         _scanCts?.Dispose();

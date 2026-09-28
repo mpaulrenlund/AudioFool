@@ -171,6 +171,10 @@
                             <MenuItem Header="Statistics…"
                                       Icon="{ui:SymbolIcon DataBarVertical24}"
                                       Command="{Binding ShowStatisticsCommand}" />
+
+                            <MenuItem Header="Last.fm…"
+                                      Icon="{ui:SymbolIcon Live24}"
+                                      Command="{Binding ShowLastFmCommand}" />
                         </MenuItem>
                     </Menu>
 

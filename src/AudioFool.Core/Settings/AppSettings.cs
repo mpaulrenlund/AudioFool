@@ -61,6 +61,26 @@ public sealed class AppSettings
     /// </summary>
     public string? FanartTvApiKey { get; set; }
 
+    /// <summary>
+    /// The user's own Last.fm API account (Last.fm issues one per application),
+    /// entered in the Last.fm window. Kept after disconnecting so reconnecting
+    /// is one click.
+    /// </summary>
+    public string? LastFmApiKey { get; set; }
+
+    public string? LastFmApiSecret { get; set; }
+
+    /// <summary>
+    /// The session from the browser approval. It does not expire; the user can
+    /// revoke it on last.fm. It grants scrobbling, not the password.
+    /// </summary>
+    public string? LastFmSessionKey { get; set; }
+
+    public string? LastFmUserName { get; set; }
+
+    /// <summary>Scrobbling while connected. Off pauses it without disconnecting.</summary>
+    public bool LastFmScrobbling { get; set; } = true;
+
     [JsonIgnore]
     public static string SettingsDirectory { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
