@@ -83,6 +83,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Title" VerticalAlignment="Center" Margin="0,0,0,8"
@@ -137,11 +138,25 @@
                                 PlaceholderText="{Binding DiscCountPlaceholder}" Width="80" />
                 </StackPanel>
 
+                <!-- The album dialog has no track numbers to edit, so this is how -->
+                <!-- "01, 02, 03" becomes "1, 2, 3" across the album. -->
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="Numbers" VerticalAlignment="Center" Margin="0,0,0,8"
+                           Visibility="{Binding ShowsRemoveLeadingZeros, Converter={StaticResource BoolToVisibility}}" />
+                <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8"
+                            Visibility="{Binding ShowsRemoveLeadingZeros, Converter={StaticResource BoolToVisibility}}">
+                    <ui:Button x:Name="RemoveLeadingZerosButton" Content="Remove Leading Zeros"
+                               Command="{Binding RemoveLeadingZerosCommand}"
+                               ToolTip="Rewrite every track's track and disc numbers without leading zeros - 01 becomes 1" />
+                    <TextBlock x:Name="LeadingZerosText" Text="{Binding LeadingZerosText}"
+                               Style="{DynamicResource AfMetaText}" TextTrimming="None"
+                               VerticalAlignment="Center" Margin="8,0,0,0" />
+                </StackPanel>
+
                 <!-- Each detail field has a clear button. In the album dialog it is the
                      only way to clear a field the tracks disagree on: that box starts
                      empty, and an empty box there means "keep each track's own". -->
-                <TextBlock Grid.Row="7" Grid.Column="0" Text="Publisher" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <DockPanel Grid.Row="7" Grid.Column="1" Margin="0,0,0,8">
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="Publisher" VerticalAlignment="Center" Margin="0,0,0,8" />
+                <DockPanel Grid.Row="8" Grid.Column="1" Margin="0,0,0,8">
                     <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Center"
                                Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
                                Command="{Binding ClearFieldCommand}" CommandParameter="Publisher"
@@ -150,8 +165,8 @@
                                 PlaceholderText="{Binding PublisherPlaceholder}" />
                 </DockPanel>
 
-                <TextBlock Grid.Row="8" Grid.Column="0" Text="Composer" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <DockPanel Grid.Row="8" Grid.Column="1" Margin="0,0,0,8">
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="Composer" VerticalAlignment="Center" Margin="0,0,0,8" />
+                <DockPanel Grid.Row="9" Grid.Column="1" Margin="0,0,0,8">
                     <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Center"
                                Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
                                Command="{Binding ClearFieldCommand}" CommandParameter="Composer"
@@ -161,8 +176,8 @@
                                 ToolTip="Separate several composers with a semicolon." />
                 </DockPanel>
 
-                <TextBlock Grid.Row="9" Grid.Column="0" Text="Conductor" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <DockPanel Grid.Row="9" Grid.Column="1" Margin="0,0,0,8">
+                <TextBlock Grid.Row="10" Grid.Column="0" Text="Conductor" VerticalAlignment="Center" Margin="0,0,0,8" />
+                <DockPanel Grid.Row="10" Grid.Column="1" Margin="0,0,0,8">
                     <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Center"
                                Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
                                Command="{Binding ClearFieldCommand}" CommandParameter="Conductor"
@@ -171,8 +186,8 @@
                                 PlaceholderText="{Binding ConductorPlaceholder}" />
                 </DockPanel>
 
-                <TextBlock Grid.Row="10" Grid.Column="0" Text="Genre" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <DockPanel Grid.Row="10" Grid.Column="1" Margin="0,0,0,8">
+                <TextBlock Grid.Row="11" Grid.Column="0" Text="Genre" VerticalAlignment="Center" Margin="0,0,0,8" />
+                <DockPanel Grid.Row="11" Grid.Column="1" Margin="0,0,0,8">
                     <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Center"
                                Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
                                Command="{Binding ClearFieldCommand}" CommandParameter="Genre"
@@ -183,8 +198,8 @@
                 </DockPanel>
 
                 <!-- Top-aligned label: the box grows with the text, up to MaxHeight, then scrolls. -->
-                <TextBlock Grid.Row="11" Grid.Column="0" Text="Comments" VerticalAlignment="Top" Margin="0,8,0,0" />
-                <DockPanel Grid.Row="11" Grid.Column="1">
+                <TextBlock Grid.Row="12" Grid.Column="0" Text="Comments" VerticalAlignment="Top" Margin="0,8,0,0" />
+                <DockPanel Grid.Row="12" Grid.Column="1">
                     <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Top"
                                Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
                                Command="{Binding ClearFieldCommand}" CommandParameter="Comment"

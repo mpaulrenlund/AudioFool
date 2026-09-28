@@ -461,6 +461,8 @@ internal static class Program
                 }
 
                 Console.WriteLine($"  counts    '{editVm.TrackCount}' [{editVm.TrackCountPlaceholder}]  disc '{editVm.DiscNumber}' [{editVm.DiscNumberPlaceholder}] of '{editVm.DiscCount}' [{editVm.DiscCountPlaceholder}]");
+                if (editVm.ShowsRemoveLeadingZeros)
+                    Console.WriteLine($"  zeros     '{editVm.LeadingZerosText}' enabled={editVm.RemoveLeadingZerosCommand.CanExecute(null)}");
                 Console.WriteLine($"  publisher '{editVm.Publisher}' [{editVm.PublisherPlaceholder}]");
                 Console.WriteLine($"  composer  '{editVm.Composer}' [{editVm.ComposerPlaceholder}]");
                 Console.WriteLine($"  conductor '{editVm.Conductor}' [{editVm.ConductorPlaceholder}]");
@@ -473,6 +475,15 @@ internal static class Program
                 {
                     foreach (var pair in sets.Split(';', StringSplitOptions.RemoveEmptyEntries))
                     {
+                        // "^Zeros" presses Remove Leading Zeros.
+                        if (pair == "^Zeros")
+                        {
+                            Console.WriteLine($"  zeros button enabled={editVm.RemoveLeadingZerosCommand.CanExecute(null)}");
+                            editVm.RemoveLeadingZerosCommand.Execute(null);
+                            Console.WriteLine($"  after     '{editVm.LeadingZerosText}' enabled={editVm.RemoveLeadingZerosCommand.CanExecute(null)}");
+                            continue;
+                        }
+
                         // "!Comment" presses that field's clear button instead.
                         if (pair.StartsWith('!'))
                         {
@@ -500,7 +511,7 @@ internal static class Program
                 else if (albumName is not null)
                 {
                     var albumEdit = editVm.BuildAlbumEdit();
-                    Console.WriteLine($"save: tracks {N(albumEdit.TrackCount)} disc {N(albumEdit.DiscNumber)} of {N(albumEdit.DiscCount)}");
+                    Console.WriteLine($"save: tracks {N(albumEdit.TrackCount)} disc {N(albumEdit.DiscNumber)} of {N(albumEdit.DiscCount)}  remove zeros={albumEdit.RemoveLeadingZeros}");
                 }
                 Console.WriteLine($"save: publisher {Q(details.Publisher)} composer {Q(details.Composer)} conductor {Q(details.Conductor)} "
                     + $"genre {Q(details.Genre)} comment {Q(details.Comment)}  valid={editVm.CanSave} {editVm.ValidationError}");

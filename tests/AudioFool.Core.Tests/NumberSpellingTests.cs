@@ -10,7 +10,7 @@ namespace AudioFool.Core.Tests;
 public class NumberSpellingTests
 {
     /// <summary>Writes each format's own number fields directly, bypassing TagLib's formatting.</summary>
-    private static void SetRaw(string path, string track, string trackTotal, string disc)
+    private static void SetRaw(string path, string track, string trackTotal, string disc, string discTotal = "")
     {
         using var file = TagLib.File.Create(path);
         if (file.GetTag(TagLib.TagTypes.Xiph, false) is TagLib.Ogg.XiphComment xiph)
@@ -18,13 +18,61 @@ public class NumberSpellingTests
             xiph.SetField("TRACKNUMBER", track);
             xiph.SetField("TRACKTOTAL", trackTotal);
             xiph.SetField("DISCNUMBER", disc);
+            if (discTotal.Length > 0)
+                xiph.SetField("DISCTOTAL", discTotal);
         }
         if (file is not TagLib.Flac.File && file.GetTag(TagLib.TagTypes.Id3v2, true) is TagLib.Id3v2.Tag id3)
         {
             id3.SetTextFrame("TRCK", $"{track}/{trackTotal}");
-            id3.SetTextFrame("TPOS", disc);
+            id3.SetTextFrame("TPOS", discTotal.Length > 0 ? $"{disc}/{discTotal}" : disc);
         }
         file.Save();
+    }
+
+    [Theory]
+    [InlineData("sample.flac")]
+    [InlineData("sample.mp3")]
+    public void Album_edit_can_remove_every_leading_zero(string fixture)
+    {
+        using var file = new TempAudioFile(fixture);
+        SetRaw(file.Path, "03", "012", "01", "02");
+        var track = TagReader.Read(file.Path);
+
+        var edit = new AlbumTagEdit("Artist", "Album Artist", "Album", 2020) { RemoveLeadingZeros = true };
+        Assert.True(TagWriter.WriteAlbumTrackTags(track, edit, art: null, folderArtPath: null).Success);
+
+        Assert.Equal(new NumberTexts("3", "12", "1", "2"), TagReader.ReadDetails(file.Path)!.Numbers);
+    }
+
+    [Fact]
+    public void Removing_zeros_keeps_a_disc_number_the_edit_sets()
+    {
+        using var file = new TempAudioFile("sample.flac");
+        SetRaw(file.Path, "03", "12", "01");
+        var track = TagReader.Read(file.Path);
+
+        var edit = new AlbumTagEdit("Artist", "Album Artist", "Album", 2020)
+        {
+            RemoveLeadingZeros = true,
+            DiscNumber = new NumberEdit(2),
+        };
+        Assert.True(TagWriter.WriteAlbumTrackTags(track, edit, art: null, folderArtPath: null).Success);
+
+        Assert.Equal(new NumberTexts("3", "12", "2", ""), TagReader.ReadDetails(file.Path)!.Numbers);
+    }
+
+    [Fact]
+    public void Removing_zeros_leaves_a_missing_number_missing()
+    {
+        using var file = new TempAudioFile("sample.mp3");
+        SetRaw(file.Path, "04", "12", "1");
+        using (var tagged = TagLib.File.Create(file.Path)) { tagged.Tag.Disc = 0; tagged.Save(); }
+        var track = TagReader.Read(file.Path);
+
+        var edit = new AlbumTagEdit("Artist", "Album Artist", "Album", 2020) { RemoveLeadingZeros = true };
+        Assert.True(TagWriter.WriteAlbumTrackTags(track, edit, art: null, folderArtPath: null).Success);
+
+        Assert.Equal(new NumberTexts("4", "12", "", ""), TagReader.ReadDetails(file.Path)!.Numbers);
     }
 
     /// <summary>The track field as it sits in the file: Xiph TRACKNUMBER or ID3v2 TRCK.</summary>

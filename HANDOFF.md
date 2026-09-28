@@ -792,8 +792,8 @@ Bit-Perfect, as the user asked.
 - **Verified** with ThemeLab `--window tags --album`: *Saturn Return* reads
   1200 × 1200 JPG, and *Goodbye Yellow Brick Road* reads 1000 × 1000 JPG.
   `--useart <file>` (new) with the 1280 × 974 PlayStation logo gave "1280 × 974
-  PNG". 7 tests in `ImageInfoTests`, 284 in total (**295** after the
-  leading-zeros change below).
+  PNG". 7 tests in `ImageInfoTests`, 284 in total (**299** after the
+  leading-zeros changes below).
 
 **The art viewer's caption adds the format too**: "150cc - Live Recordings · 1500 ×
 1500 · JPG".
@@ -840,6 +840,31 @@ hand, so the dialogs must show the zero. The grid still shows the bare number.
   End* would write only those two. **Not changed:** F2 on the grid's # column starts
   from the cached number, so "01" shows as "1" there, and typing "1" counts as
   unchanged. Use the track dialog to fix those.
+
+**Remove Leading Zeros in Edit Album** (session 16, at the user's request). A
+"Numbers" row under Disc, in the album dialog only (`ShowsRemoveLeadingZeros`; not
+in the several-tracks dialog).
+- **It is enabled only when the album has a padded number.** Beside it: "45 of 89
+  tracks", "None found", or "Removed on Save" once pressed. The count is made from the
+  same `NumberTexts` the boxes are filled from.
+- **Pressing it strips the zero from the three boxes** (track count, disc, disc
+  total). A box is filled only when every track agrees, so saving that text to all
+  of them is safe. It also sets `AlbumTagEdit.RemoveLeadingZeros`.
+- **The writer handles the rest of each track.** It re-sets each number the file
+  already has to the same value through `WriteNumbers`, which spells it plainly.
+  That covers track numbers, which the album dialog has no box for, and fields
+  shown as "Varies". A number the file lacks stays missing. A count or disc edit in
+  the same save wins for its field.
+- **Verified**: 4 tests in `NumberSpellingTests` (299 in total). ThemeLab's `--set`
+  gained `^Zeros` to press the button. *Donkey Kong Country: Tropical Freeze* (MP3,
+  89 tracks) reads 45 of 89. *The Inevitable End* goes to disc "1" of "1" with
+  `remove zeros=True`. *Saturn Return* is disabled, and pressing it anyway writes
+  nothing. Rendered with the album title at full length; the row fits 460 px.
+- **The label first sat beside Track Count** and was cut off at 460 px, which is
+  why it has a row of its own.
+- **Lotus *Hammerstrike* is no longer padded.** Tracks 1–9 were rewritten between
+  13:13 and 13:16 on 2026-09-28, apparently by the user by hand. `library.json` was
+  not rewritten then, so it may have been another tagger.
 
 ### Deliberately not done
 
@@ -1364,6 +1389,7 @@ ThemeLab.exe --window click --click Year --fix 1964   # simulate fixing the sele
 ThemeLab.exe --window tags --album "Saturn Return" --w 460   # album dialog on a real album
 ThemeLab.exe --window tags --track "Polygon Weather"         # track dialog on a real track
 ThemeLab.exe --window tags --album "Saturn Return" --set "!Comment;Genre=Ambient"
+ThemeLab.exe --window tags --album "The Inevitable End" --set "^Zeros"   # press Remove Leading Zeros
 ThemeLab.exe --window artsearch --artist "Rush" --album "Moving Pictures" --use 1 --w 820 --h 640
 ThemeLab.exe --theme PS1 --artmenu 1          # the album header art's context menu
 ThemeLab.exe --window tags --album "Goodbye Yellow Brick Road" --pick 1-8 --set "DiscCount=2"  # a grid selection

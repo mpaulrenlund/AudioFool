@@ -52,6 +52,13 @@ public sealed record AlbumTagEdit(
 
     /// <summary>As <see cref="TrackTagEdit.Date"/>: written album-wide with <see cref="Year"/>.</summary>
     public string? Date { get; init; }
+
+    /// <summary>
+    /// Rewrites each track's own track and disc numbers and totals without
+    /// leading zeros ("01" becomes "1"), keeping every value. A count or disc
+    /// edit above still wins for its field.
+    /// </summary>
+    public bool RemoveLeadingZeros { get; init; }
 }
 
 /// <summary>

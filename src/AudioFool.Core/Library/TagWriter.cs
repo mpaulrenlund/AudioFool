@@ -64,7 +64,14 @@ public static class TagWriter
             tag.AlbumArtists = [edit.AlbumArtist];
             tag.Album = edit.Album;
             WriteDate(file, edit.Date, edit.Year);
-            WriteNumbers(file, track: null, edit.TrackCount, edit.DiscNumber, edit.DiscCount);
+            // Setting a number to the value it already has respells it without
+            // the zero; WriteNumbers undoes TagLib's own padding of the track.
+            var strip = edit.RemoveLeadingZeros;
+            WriteNumbers(file,
+                strip ? Existing(tag.Track) : null,
+                edit.TrackCount ?? (strip ? Existing(tag.TrackCount) : null),
+                edit.DiscNumber ?? (strip ? Existing(tag.Disc) : null),
+                edit.DiscCount ?? (strip ? Existing(tag.DiscCount) : null));
             ApplyDetails(tag, edit.Details);
         }, art);
 
@@ -188,6 +195,9 @@ public static class TagWriter
         if (file.GetTag(TagLib.TagTypes.Id3v2, false) is TagLib.Id3v2.Tag id3)
             id3.SetTextFrame("TRCK", tag.TrackCount > 0 ? $"{tag.Track}/{tag.TrackCount}" : tag.Track.ToString());
     }
+
+    /// <summary>The file's current number as an edit that rewrites it; null (keep) when it has none.</summary>
+    private static NumberEdit? Existing(uint value) => value > 0 ? new NumberEdit((int)value) : null;
 
     private static string? NullIfEmpty(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

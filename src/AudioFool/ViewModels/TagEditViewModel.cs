@@ -315,12 +315,54 @@ public sealed partial class TagEditViewModel : ObservableObject
     private void ShowNumbers(IReadOnlyList<Track> tracks, IReadOnlyList<TagDetails?> read)
     {
         var numbers = tracks.Zip(read, (t, d) => d?.Numbers ?? CachedNumbers(t)).ToList();
+        var padded = numbers.Count(n => IsPadded(n.TrackNumber) || IsPadded(n.TrackCount)
+                                        || IsPadded(n.DiscNumber) || IsPadded(n.DiscCount));
+        LeadingZerosText = padded == 0 ? "None found" : $"{padded} of {tracks.Count} tracks";
+        _hasLeadingZeros = padded > 0;
+
         TrackCount = Shared(numbers.Select(n => n.TrackCount), "Varies", out var trackCountHint);
         DiscNumber = Shared(numbers.Select(n => n.DiscNumber), "Varies", out var discNumberHint);
         DiscCount = Shared(numbers.Select(n => n.DiscCount), "Varies", out var discCountHint);
         TrackCountPlaceholder = trackCountHint;
         DiscNumberPlaceholder = discNumberHint;
         DiscCountPlaceholder = discCountHint;
+    }
+
+    private static bool IsPadded(string number) => number.Length > 1 && number[0] == '0';
+
+    /// <summary>The album dialog's "Remove Leading Zeros" - one button for the whole album.</summary>
+    public bool ShowsRemoveLeadingZeros => IsAlbumMode && !IsSelectionMode;
+
+    /// <summary>How many tracks have a padded number, or that Save will remove them.</summary>
+    [ObservableProperty]
+    private string _leadingZerosText = "";
+
+    private bool _hasLeadingZeros;
+
+    /// <summary>Set by the button: Save rewrites every track's numbers without the zeros.</summary>
+    public bool RemovesLeadingZeros { get; private set; }
+
+    private bool CanRemoveLeadingZeros() => _hasLeadingZeros && !RemovesLeadingZeros;
+
+    /// <summary>
+    /// Marks every track's track and disc numbers to be rewritten without leading
+    /// zeros, and strips them from the boxes too. A box is filled only when every
+    /// track agrees, so writing its stripped text to all of them is safe.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanRemoveLeadingZeros))]
+    private void RemoveLeadingZeros()
+    {
+        if (!CanRemoveLeadingZeros())
+            return;
+        RemovesLeadingZeros = true;
+        TrackCount = Unpadded(TrackCount);
+        DiscNumber = Unpadded(DiscNumber);
+        DiscCount = Unpadded(DiscCount);
+        LeadingZerosText = "Removed on Save";
+        RemoveLeadingZerosCommand.NotifyCanExecuteChanged();
+
+        static string Unpadded(string text) =>
+            IsPadded(text) && int.TryParse(text, out var n) && n > 0 ? n.ToString() : text;
     }
 
     private static NumberTexts CachedNumbers(Track track) => new(
@@ -560,6 +602,7 @@ public sealed partial class TagEditViewModel : ObservableObject
             DiscCount = NumberIfChanged(nameof(DiscCount), DiscCount),
             Details = BuildDetailsEdit(),
             Date = date,
+            RemoveLeadingZeros = RemovesLeadingZeros,
         };
     }
 
