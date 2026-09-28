@@ -794,6 +794,21 @@ Bit-Perfect, as the user asked.
   `--useart <file>` (new) with the 1280 × 974 PlayStation logo gave "1280 × 974
   PNG". 7 tests in `ImageInfoTests`, **284 in total**.
 
+**The art viewer's caption adds the format too**: "150cc — Live Recordings · 1500 ×
+1500 · JPG".
+- **This also fixes a size bug.** The caption used to print the decoded bitmap's
+  size, and the full-size decode is capped at 2,000 px wide (`MaxViewerWidth`). So a
+  3000 × 3000 cover read as 2000 × 2000.
+- `AlbumArtService` now reads `ImageInfo` from the same bytes it decodes.
+  `DecodeFileFull` reads the file whole and goes through `DecodeBytesFull`.
+- It keeps the result in a `ConditionalWeakTable` keyed on the bitmap, and
+  `InfoFor(bitmap)` returns it. The cache and its signatures are unchanged.
+- **Verified** with the new ThemeLab `--window artview --album X` (or `--artfile
+  <image>`), which prints the real viewer's caption:
+  - *Saturn Return* reads 1200 × 1200 JPG, and *Live Recordings* 1500 × 1500 JPG.
+  - Scratch 3000 × 2400 JPEG and PNG covers decode at 2000 × 1600 but are
+    captioned 3000 × 2400 JPG and PNG.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a

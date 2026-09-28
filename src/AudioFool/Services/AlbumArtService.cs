@@ -1,5 +1,7 @@
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Windows.Media.Imaging;
+using AudioFool.Core.Art;
 using AudioFool.Core.Library;
 using AudioFool.Core.Models;
 
@@ -122,6 +124,18 @@ public sealed class AlbumArtService
         }
     }
 
+    /// <summary>
+    /// The source file's format and native size for each full-size bitmap handed
+    /// out. The viewer needs both, and neither survives the decode: the bitmap is
+    /// capped at <see cref="MaxViewerWidth"/> and has no format of its own. Weak,
+    /// so an entry goes when the cache evicts its bitmap.
+    /// </summary>
+    private static readonly ConditionalWeakTable<BitmapSource, ImageInfo> FullArtInfo = new();
+
+    /// <summary>What a bitmap from <see cref="GetFullAlbumArtAsync"/> or <see cref="GetFullTrackArtAsync"/> was decoded from.</summary>
+    public static ImageInfo? InfoFor(BitmapSource art) =>
+        FullArtInfo.TryGetValue(art, out var info) ? info : null;
+
     private static BitmapSource? DecodeBytesFull(byte[]? data)
     {
         if (data is null || data.Length == 0)
@@ -130,7 +144,10 @@ public sealed class AlbumArtService
         try
         {
             using var stream = new MemoryStream(data);
-            return DecodeFull(stream);
+            var art = DecodeFull(stream);
+            if (ImageInfo.Read(data) is { } info)
+                FullArtInfo.AddOrUpdate(art, info);
+            return art;
         }
         catch (Exception ex) when (ex is NotSupportedException or ArgumentException or FileFormatException)
         {
@@ -145,14 +162,10 @@ public sealed class AlbumArtService
 
         try
         {
-            using var stream = File.OpenRead(path);
-            return DecodeFull(stream);
+            // Read whole, so the header can be measured as well as decoded.
+            return DecodeBytesFull(File.ReadAllBytes(path));
         }
-        catch (Exception ex) when (ex is IOException
-                                     or UnauthorizedAccessException
-                                     or NotSupportedException
-                                     or ArgumentException
-                                     or FileFormatException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return null;
         }

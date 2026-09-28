@@ -365,6 +365,39 @@ internal static class Program
             return 0;
         }
 
+        if (which == "artview")
+        {
+            // --window artview --album "<title>": the art viewer's caption for a
+            // real album, through the same full-size load the app uses. --artfile
+            // <image> instead views a lone folder cover, e.g. one over the 2,000 px
+            // decode cap. Never shown; only the caption is printed.
+            var service = new AlbumArtService();
+            AudioFool.Core.Models.Album album;
+            if (Arg(args, "--artfile") is { } artFile)
+            {
+                album = new AudioFool.Core.Models.Album { Title = "Scratch", ArtistName = "ThemeLab", FolderArtPath = artFile };
+            }
+            else
+            {
+                var library = AudioFool.Core.Library.LibraryScanner.Build(AudioFool.Core.Library.LibraryCache.Load()?.Tracks ?? SampleTracks());
+                var albumName = Arg(args, "--album") ?? "Saturn Return";
+                album = library.Artists.SelectMany(a => a.Albums)
+                    .First(a => string.Equals(a.Title, albumName, StringComparison.OrdinalIgnoreCase));
+            }
+
+            var art = service.GetFullAlbumArtAsync(album).GetAwaiter().GetResult();
+            if (art is null)
+            {
+                Console.WriteLine("artview: no art");
+                return 1;
+            }
+
+            var viewer = new ArtWindow(art, $"{album.ArtistName} — {album.Title}", main);
+            Console.WriteLine($"artview: bitmap {art.PixelWidth}x{art.PixelHeight}  caption '{((System.Windows.Controls.TextBlock)viewer.FindName("Caption")).Text}'");
+            viewer.Close();
+            return 0;
+        }
+
         if (which == "tags")
         {
             // Never shown: TagEditWindow re-centres itself over its owner on
