@@ -38,10 +38,8 @@ public static class TagWriter
             tag.AlbumArtists = [edit.AlbumArtist];
             tag.Album = edit.Album;
             WriteDate(file, edit.Date, edit.Year);
-            tag.Track = (uint)(edit.TrackNumber ?? 0);
-            tag.TrackCount = (uint)(edit.TrackCount ?? 0);
-            tag.Disc = (uint)(edit.DiscNumber ?? 0);
-            tag.DiscCount = (uint)(edit.DiscCount ?? 0);
+            WriteNumbers(file, new NumberEdit(edit.TrackNumber), new NumberEdit(edit.TrackCount),
+                         new NumberEdit(edit.DiscNumber), new NumberEdit(edit.DiscCount));
             ApplyDetails(tag, edit.Details);
         }, art);
 
@@ -66,14 +64,7 @@ public static class TagWriter
             tag.AlbumArtists = [edit.AlbumArtist];
             tag.Album = edit.Album;
             WriteDate(file, edit.Date, edit.Year);
-
-            if (edit.TrackCount is { } trackCount)
-                tag.TrackCount = (uint)(trackCount.Value ?? 0);
-            if (edit.DiscNumber is { } discNumber)
-                tag.Disc = (uint)(discNumber.Value ?? 0);
-            if (edit.DiscCount is { } discCount)
-                tag.DiscCount = (uint)(discCount.Value ?? 0);
-
+            WriteNumbers(file, track: null, edit.TrackCount, edit.DiscNumber, edit.DiscCount);
             ApplyDetails(tag, edit.Details);
         }, art);
 
@@ -95,8 +86,6 @@ public static class TagWriter
             var tag = file.Tag;
             if (edit.Title is { } title)
                 tag.Title = NullIfEmpty(title);
-            if (edit.TrackNumber is { } trackNumber)
-                tag.Track = (uint)(trackNumber.Value ?? 0);
             if (edit.Artist is { } artist)
                 tag.Performers = artist.Length == 0 ? [] : [artist];
             if (edit.AlbumArtist is { } albumArtist)
@@ -106,13 +95,7 @@ public static class TagWriter
             if (edit.Date is { } date)
                 WriteDate(file, date.Date, date.Year);
 
-            if (edit.TrackCount is { } trackCount)
-                tag.TrackCount = (uint)(trackCount.Value ?? 0);
-            if (edit.DiscNumber is { } discNumber)
-                tag.Disc = (uint)(discNumber.Value ?? 0);
-            if (edit.DiscCount is { } discCount)
-                tag.DiscCount = (uint)(discCount.Value ?? 0);
-
+            WriteNumbers(file, edit.TrackNumber, edit.TrackCount, edit.DiscNumber, edit.DiscCount);
             ApplyDetails(tag, edit.Details);
         }, art: null);
 
@@ -174,6 +157,36 @@ public static class TagWriter
             tag.Genres = TagDetails.Split(genre);
         if (details.Comment is { } comment)
             tag.Comment = NullIfEmpty(comment);
+    }
+
+    /// <summary>
+    /// Sets the track and disc numbers and totals the caller passes; null keeps
+    /// one. TagLib spells track 1 as "01" - in Xiph TRACKNUMBER when the number
+    /// is set, in ID3v2 TRCK when the number or the total is - and has no switch
+    /// for it, so both are respelled plainly afterwards. Otherwise fixing "01"
+    /// to "1" in the dialog would write "01" straight back. Disc numbers TagLib
+    /// already writes plainly.
+    /// </summary>
+    private static void WriteNumbers(TagLib.File file, NumberEdit? track, NumberEdit? trackCount,
+                                     NumberEdit? disc, NumberEdit? discCount)
+    {
+        var tag = file.Tag;
+        if (track is { } t)
+            tag.Track = (uint)(t.Value ?? 0);
+        if (trackCount is { } tc)
+            tag.TrackCount = (uint)(tc.Value ?? 0);
+        if (disc is { } d)
+            tag.Disc = (uint)(d.Value ?? 0);
+        if (discCount is { } dc)
+            tag.DiscCount = (uint)(dc.Value ?? 0);
+
+        if (tag.Track == 0 || (track is null && trackCount is null))
+            return;
+
+        if (track is not null && file.GetTag(TagLib.TagTypes.Xiph, false) is TagLib.Ogg.XiphComment xiph)
+            xiph.SetField("TRACKNUMBER", tag.Track.ToString());
+        if (file.GetTag(TagLib.TagTypes.Id3v2, false) is TagLib.Id3v2.Tag id3)
+            id3.SetTextFrame("TRCK", tag.TrackCount > 0 ? $"{tag.Track}/{tag.TrackCount}" : tag.Track.ToString());
     }
 
     private static string? NullIfEmpty(string value) =>

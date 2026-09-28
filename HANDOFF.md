@@ -792,7 +792,8 @@ Bit-Perfect, as the user asked.
 - **Verified** with ThemeLab `--window tags --album`: *Saturn Return* reads
   1200 × 1200 JPG, and *Goodbye Yellow Brick Road* reads 1000 × 1000 JPG.
   `--useart <file>` (new) with the 1280 × 974 PlayStation logo gave "1280 × 974
-  PNG". 7 tests in `ImageInfoTests`, **284 in total**.
+  PNG". 7 tests in `ImageInfoTests`, 284 in total (**295** after the
+  leading-zeros change below).
 
 **The art viewer's caption adds the format too**: "150cc - Live Recordings · 1500 ×
 1500 · JPG".
@@ -808,6 +809,37 @@ Bit-Perfect, as the user asked.
   - *Saturn Return* reads 1200 × 1200 JPG, and *Live Recordings* 1500 × 1500 JPG.
   - Scratch 3000 × 2400 JPEG and PNG covers decode at 2000 × 1600 but are
     captioned 3000 × 2400 JPG and PNG.
+
+**Leading zeros in the tag dialogs** (session 16). The user fixes "01" to "1" by
+hand, so the dialogs must show the zero. The grid still shows the bare number.
+- **The dialogs show numbers as the file spells them.** `TagReader.ReadDetails`
+  gained `Numbers` (`NumberTexts`: track #, track total, disc #, disc total). They come
+  from Xiph `TRACKNUMBER` / `TRACKTOTAL` / `DISCNUMBER` / `DISCTOTAL`, ID3v2 `TRCK` /
+  `TPOS` ("01/12"), or APE `Track` / `Disc`. A spelling is used only when it is plain
+  digits naming the number TagLib parsed; otherwise the number is shown. The cache
+  still holds ints, so nothing changed there and no version bump was needed.
+- In the album and selection dialogs, a mix of "01" and "1" reads as "Varies". Typing
+  "1" over "01" counts as a change, because keep-unless-changed compares text.
+- **TagLib pads every track number it writes**, and has no switch to stop it. Setting
+  `Tag.Track = 1` writes `TRACKNUMBER=01` (FLAC) and `TRCK=01/12` (MP3). Setting only
+  `TrackCount` rewrites an MP3's `TRCK` padded too. Before this change, every save
+  from AudioFool padded track numbers. Disc numbers TagLib writes plainly.
+  `TagWriter.WriteNumbers` is now the one place numbers are set. It respells Xiph
+  `TRACKNUMBER` (when the number was set) and ID3v2 `TRCK` (when the number or total
+  was) plainly afterwards.
+- **The track dialog writes every number on Save**, as it always has. So saving any
+  change there also unpads that track's "01" track or disc. The album dialog touches
+  only the fields you change.
+- **Measured** on an 800-file sample of the real library: 9 of 216 MP3s have a padded
+  track number, and 6 of 584 FLACs a padded disc number. Examples: Lotus *Hammerstrike*
+  (MP3, `02/10`), Magdalena Bay *A Little Rhythm and a Wicked Feeling* and Röyksopp
+  *The Inevitable End* (FLAC, disc `01`).
+- **Verified**: 11 tests in `NumberSpellingTests` read raw fields back from the files
+  on disk. ThemeLab `--window tags` on those three real releases shows "02" of 10,
+  "08" / "01", and "01" of "01". `--set "DiscNumber=1;DiscCount=1"` on *The Inevitable
+  End* would write only those two. **Not changed:** F2 on the grid's # column starts
+  from the cached number, so "01" shows as "1" there, and typing "1" counts as
+  unchanged. Use the track dialog to fix those.
 
 ### Deliberately not done
 
@@ -1489,6 +1521,9 @@ off-screen window, so focus rings can be reviewed.
   session. A status-bar indicator that "wasn't there" in session 15 was this, not
   a bug. It is also why a UIA check of a shell-launched app says nothing about
   the user's settings.
+- **TagLib writes track numbers zero-padded** ("01", "01/12") with no option to
+  turn it off. Set numbers through `TagWriter.WriteNumbers`, never `tag.Track`
+  directly. See *Leading zeros* under session 16.
 - **`library.json` can list files that no longer exist.** It still held 2 m4a and
   10 wav files deleted since the last full scan. Before picking a sample file from
   the cache, check that it exists (`Test-Path -LiteralPath`).

@@ -175,12 +175,14 @@ public sealed partial class TagEditViewModel : ObservableObject
         AlbumArtist = track.AlbumArtist;
         AlbumTitle = track.Album;
         Year = track.Year?.ToString() ?? "";
-        TrackNumber = track.TrackNumber?.ToString() ?? "";
-        TrackCount = track.TrackCount?.ToString() ?? "";
-        DiscNumber = track.DiscNumber?.ToString() ?? "";
-        DiscCount = track.DiscCount?.ToString() ?? "";
 
         var details = TagReader.ReadDetails(track.FilePath);
+        var numbers = details?.Numbers ?? CachedNumbers(track);
+        TrackNumber = numbers.TrackNumber;
+        TrackCount = numbers.TrackCount;
+        DiscNumber = numbers.DiscNumber;
+        DiscCount = numbers.DiscCount;
+
         Publisher = details?.Publisher ?? "";
         Composer = details?.Composer ?? "";
         Conductor = details?.Conductor ?? "";
@@ -217,16 +219,12 @@ public sealed partial class TagEditViewModel : ObservableObject
         Year = album.Year?.ToString() ?? "";
 
         var tracks = album.Tracks;
-        TrackCount = Shared(tracks.Select(t => t.TrackCount?.ToString() ?? ""), "Varies", out var trackCountHint);
-        DiscNumber = Shared(tracks.Select(t => t.DiscNumber?.ToString() ?? ""), "Varies", out var discNumberHint);
-        DiscCount = Shared(tracks.Select(t => t.DiscCount?.ToString() ?? ""), "Varies", out var discCountHint);
-        TrackCountPlaceholder = trackCountHint;
-        DiscNumberPlaceholder = discNumberHint;
-        DiscCountPlaceholder = discCountHint;
+        var read = tracks.Select(t => TagReader.ReadDetails(t.FilePath)).ToList();
+        ShowNumbers(tracks, read);
 
         // A file that cannot be opened has no say: its write will fail anyway,
         // and counting it as "empty" would hide a value every other track shares.
-        var details = tracks.Select(t => TagReader.ReadDetails(t.FilePath)).OfType<TagDetails>().ToList();
+        var details = read.OfType<TagDetails>().ToList();
         const string varies = "Varies by track - kept unless changed";
         Publisher = Shared(details.Select(d => d.Publisher), varies, out var publisherHint);
         Composer = Shared(details.Select(d => d.Composer), varies, out var composerHint);
@@ -275,14 +273,10 @@ public sealed partial class TagEditViewModel : ObservableObject
         AlbumTitlePlaceholder = albumHint;
         YearPlaceholder = yearHint;
 
-        TrackCount = Shared(tracks.Select(t => t.TrackCount?.ToString() ?? ""), "Varies", out var trackCountHint);
-        DiscNumber = Shared(tracks.Select(t => t.DiscNumber?.ToString() ?? ""), "Varies", out var discNumberHint);
-        DiscCount = Shared(tracks.Select(t => t.DiscCount?.ToString() ?? ""), "Varies", out var discCountHint);
-        TrackCountPlaceholder = trackCountHint;
-        DiscNumberPlaceholder = discNumberHint;
-        DiscCountPlaceholder = discCountHint;
+        var read = tracks.Select(t => TagReader.ReadDetails(t.FilePath)).ToList();
+        ShowNumbers(tracks, read);
 
-        var details = tracks.Select(t => TagReader.ReadDetails(t.FilePath)).OfType<TagDetails>().ToList();
+        var details = read.OfType<TagDetails>().ToList();
         Publisher = Shared(details.Select(d => d.Publisher), varies, out var publisherHint);
         Composer = Shared(details.Select(d => d.Composer), varies, out var composerHint);
         Conductor = Shared(details.Select(d => d.Conductor), varies, out var conductorHint);
@@ -312,6 +306,26 @@ public sealed partial class TagEditViewModel : ObservableObject
         placeholder = distinct.Count > 1 ? variesText : "";
         return distinct.Count == 1 ? distinct[0] : "";
     }
+
+    /// <summary>
+    /// The count and disc boxes for several tracks, spelled as the files spell
+    /// them, so "01" shows as "01" and a mix of "01" and "1" reads as varying.
+    /// A file that could not be read contributes its cached number instead.
+    /// </summary>
+    private void ShowNumbers(IReadOnlyList<Track> tracks, IReadOnlyList<TagDetails?> read)
+    {
+        var numbers = tracks.Zip(read, (t, d) => d?.Numbers ?? CachedNumbers(t)).ToList();
+        TrackCount = Shared(numbers.Select(n => n.TrackCount), "Varies", out var trackCountHint);
+        DiscNumber = Shared(numbers.Select(n => n.DiscNumber), "Varies", out var discNumberHint);
+        DiscCount = Shared(numbers.Select(n => n.DiscCount), "Varies", out var discCountHint);
+        TrackCountPlaceholder = trackCountHint;
+        DiscNumberPlaceholder = discNumberHint;
+        DiscCountPlaceholder = discCountHint;
+    }
+
+    private static NumberTexts CachedNumbers(Track track) => new(
+        track.TrackNumber?.ToString() ?? "", track.TrackCount?.ToString() ?? "",
+        track.DiscNumber?.ToString() ?? "", track.DiscCount?.ToString() ?? "");
 
     private void RememberInitialDetails()
     {

@@ -238,7 +238,7 @@ public class TagDetailsTests
             Publisher = "", Composer = "", Conductor = "", Genre = "", Comment = "",
         });
 
-        Assert.Equal(new TagDetails("", "", "", "", ""), reread);
+        Assert.Equal(new TagDetails("", "", "", "", "") { Numbers = reread.Numbers }, reread);
     }
 
     [Fact]

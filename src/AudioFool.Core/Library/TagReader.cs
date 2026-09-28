@@ -113,6 +113,7 @@ public static class TagReader
                 Comment: Clean(tag.Comment))
             {
                 Date = ReadDate(file),
+                Numbers = ReadNumbers(file),
             };
         }
         catch (Exception ex) when (ex is TagLib.UnsupportedFormatException
@@ -152,6 +153,53 @@ public static class TagReader
         ];
 
         return raw.Select(ReleaseDate.FromTag).FirstOrDefault(d => d is not null && ReleaseDate.HasMonth(d)) ?? "";
+    }
+
+    /// <summary>
+    /// Track and disc numbers as the file spells them. TagLib parses "01" to 1,
+    /// so the text comes from each format's own field: Xiph TRACKNUMBER and
+    /// friends, ID3v2 TRCK / TPOS ("01/12"), APE Track / Disc. A spelling is used
+    /// only when it is plain digits naming the number TagLib read; anything else
+    /// falls back to that number. MP4 and ASF store integers, so they have no
+    /// spelling to find.
+    /// </summary>
+    private static NumberTexts ReadNumbers(TagLib.File file)
+    {
+        var tag = file.Tag;
+        var xiph = file.GetTag(TagLib.TagTypes.Xiph, false) as TagLib.Ogg.XiphComment;
+        var id3 = file.GetTag(TagLib.TagTypes.Id3v2, false) as TagLib.Id3v2.Tag;
+        var ape = file.GetTag(TagLib.TagTypes.Ape, false) as TagLib.Ape.Tag;
+
+        string?[] track = [xiph?.GetFirstField("TRACKNUMBER"), Id3Text(id3, "TRCK"), ape?.GetItem("Track")?.ToString()];
+        string?[] disc = [xiph?.GetFirstField("DISCNUMBER"), Id3Text(id3, "TPOS"), ape?.GetItem("Disc")?.ToString()];
+
+        return new NumberTexts(
+            TrackNumber: AsWritten(tag.Track, track.Select(t => Part(t, 0))),
+            TrackCount: AsWritten(tag.TrackCount,
+                [xiph?.GetFirstField("TRACKTOTAL"), xiph?.GetFirstField("TOTALTRACKS"), .. track.Select(t => Part(t, 1))]),
+            DiscNumber: AsWritten(tag.Disc, disc.Select(d => Part(d, 0))),
+            DiscCount: AsWritten(tag.DiscCount,
+                [xiph?.GetFirstField("DISCTOTAL"), xiph?.GetFirstField("TOTALDISCS"), .. disc.Select(d => Part(d, 1))]));
+
+        static string? Id3Text(TagLib.Id3v2.Tag? id3, string frame) =>
+            id3 is null ? null : TagLib.Id3v2.TextInformationFrame.Get(id3, frame, false)?.ToString();
+
+        // "01/12" -> "01" or "12".
+        static string? Part(string? text, int index) =>
+            text?.Split('/') is { } parts && parts.Length > index ? parts[index].Trim() : null;
+
+        static string AsWritten(uint value, IEnumerable<string?> spellings)
+        {
+            if (value == 0)
+                return "";
+            foreach (var text in spellings)
+            {
+                if (text is { Length: > 0 } && text.All(char.IsAsciiDigit)
+                    && uint.TryParse(text, out var n) && n == value)
+                    return text;
+            }
+            return value.ToString();
+        }
     }
 
     /// <summary>Embedded cover art bytes, or null when the file carries none.</summary>

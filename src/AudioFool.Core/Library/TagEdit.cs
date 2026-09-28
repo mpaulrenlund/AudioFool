@@ -135,6 +135,13 @@ public sealed record TagDetails(
     /// </summary>
     public string Date { get; init; } = "";
 
+    /// <summary>
+    /// The track and disc numbers and totals as the file spells them, so the
+    /// dialog shows "01" where TagLib's number would read 1 - a leading zero is
+    /// something the user wants to see and fix. "" for a field the file lacks.
+    /// </summary>
+    public NumberTexts Numbers { get; init; } = NumberTexts.Empty;
+
     public static string Join(IEnumerable<string>? values) =>
         values is null
             ? ""
@@ -142,6 +149,15 @@ public sealed record TagDetails(
 
     public static string[] Split(string value) =>
         value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+}
+
+/// <summary>
+/// A file's track and disc numbers and totals as text, leading zeros kept.
+/// Read by <see cref="TagReader.ReadDetails"/>.
+/// </summary>
+public sealed record NumberTexts(string TrackNumber, string TrackCount, string DiscNumber, string DiscCount)
+{
+    public static NumberTexts Empty { get; } = new("", "", "", "");
 }
 
 /// <summary>An image to embed in a track's tags and/or write as a folder cover file.</summary>
