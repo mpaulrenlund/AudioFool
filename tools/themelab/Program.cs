@@ -392,7 +392,7 @@ internal static class Program
                 return 1;
             }
 
-            var viewer = new ArtWindow(art, $"{album.ArtistName} — {album.Title}", main);
+            var viewer = new ArtWindow(art, $"{album.ArtistName} - {album.Title}", main);
             Console.WriteLine($"artview: bitmap {art.PixelWidth}x{art.PixelHeight}  caption '{((System.Windows.Controls.TextBlock)viewer.FindName("Caption")).Text}'");
             viewer.Close();
             return 0;

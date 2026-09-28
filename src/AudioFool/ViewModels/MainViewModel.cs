@@ -664,7 +664,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public string SelectedAlbumCaption =>
         SelectedAlbum is { } item
-            ? $"{item.Album.ArtistName} — {item.Album.Title}"
+            ? $"{item.Album.ArtistName} - {item.Album.Title}"
             : "Album art";
 
     /// <summary>Full-resolution art for whatever is playing.</summary>
@@ -675,7 +675,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public string NowPlayingCaption =>
         NowPlaying is { } track
-            ? $"{(string.IsNullOrWhiteSpace(track.AlbumArtist) ? track.Artist : track.AlbumArtist)} — {track.Album}"
+            ? $"{(string.IsNullOrWhiteSpace(track.AlbumArtist) ? track.Artist : track.AlbumArtist)} - {track.Album}"
             : "Album art";
 
     private async Task LoadAlbumHeaderArtAsync(AlbumItemViewModel? item)
