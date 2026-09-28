@@ -6,6 +6,7 @@
                  xmlns:fmt="clr-namespace:AudioFool.Formatting"
                  xmlns:vm="clr-namespace:AudioFool.ViewModels"
                  xmlns:core="clr-namespace:AudioFool.Core.Models;assembly=AudioFool.Core"
+                 xmlns:scrob="clr-namespace:AudioFool.Core.Scrobbling;assembly=AudioFool.Core"
                  Title="{Binding WindowTitle}"
                  Icon="/Resources/AudioFool.ico"
                  Width="1560" Height="900"
@@ -808,6 +809,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" Orientation="Horizontal">
@@ -855,7 +857,48 @@
                          AutomationProperties.Name="Scan progress"
                          Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" />
 
-            <ToggleButton Grid.Column="2"
+            <!--
+                Last.fm, when connected: a dot and a word, and the word changes with
+                the state, so the colour is never the only signal. Hidden until
+                connected. Clicking opens the Last.fm window.
+            -->
+            <ui:Button x:Name="LastFmIndicator" Grid.Column="2"
+                       Command="{Binding ShowLastFmCommand}"
+                       Appearance="Transparent"
+                       Padding="6,2"
+                       Margin="8,0,0,0"
+                       VerticalAlignment="Center"
+                       ToolTip="{Binding LastFmToolTip}"
+                       AutomationProperties.Name="{Binding LastFmLabel}"
+                       AutomationProperties.HelpText="{Binding LastFmToolTip}"
+                       Visibility="{Binding IsLastFmShown, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Fill" Value="{DynamicResource AfStatusOk}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding LastFmState}" Value="{x:Static scrob:ScrobblerState.Off}">
+                                        <Setter Property="Fill" Value="{DynamicResource AfStatusIdle}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding LastFmState}" Value="{x:Static scrob:ScrobblerState.Failing}">
+                                        <Setter Property="Fill" Value="{DynamicResource AfStatusCaution}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding LastFmState}" Value="{x:Static scrob:ScrobblerState.NeedsReconnect}">
+                                        <Setter Property="Fill" Value="{DynamicResource AfStatusDanger}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Text="{Binding LastFmLabel}"
+                               Style="{DynamicResource AfMetaText}"
+                               FontSize="{DynamicResource AfFontSizeSmall}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </ui:Button>
+
+            <ToggleButton Grid.Column="3"
                           Content="Bit-Perfect"
                           IsChecked="{Binding IsExclusiveOutput, Mode=TwoWay}"
                           IsEnabled="{Binding CanUseExclusiveOutput}"

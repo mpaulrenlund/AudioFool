@@ -102,6 +102,46 @@ internal static class Program
 
         Settle(300);
 
+        // --lastfm scrobbling|off|failing|reconnect: the status-bar indicator.
+        // The view model's own scrobbler reads the real queue file, so it is
+        // swapped for one with a scratch queue and a canned HTTP answer.
+        if (Arg(args, "--lastfm") is { } lfmState)
+        {
+            var answer = lfmState switch
+            {
+                "failing" => (System.Net.HttpStatusCode.ServiceUnavailable, """{"error":11,"message":"Service offline."}"""),
+                "reconnect" => (System.Net.HttpStatusCode.Forbidden, """{"error":9,"message":"Invalid session key - Please re-authenticate"}"""),
+                _ => (System.Net.HttpStatusCode.OK, "{}"),
+            };
+            var http = new System.Net.Http.HttpClient(new CannedHandler(answer));
+            var queue = AudioFool.Core.Scrobbling.ScrobbleQueue.Load(
+                Path.Combine(Path.GetTempPath(), "ThemeLabLastFm", Guid.NewGuid().ToString("N"), "q.json"), DateTimeOffset.UtcNow);
+            if (lfmState is "failing" or "reconnect")
+                for (var i = 0; i < 3; i++)
+                    queue.Add(new AudioFool.Core.Scrobbling.ScrobbleEntry
+                    {
+                        Artist = "Rush", Track = $"Track {i}", Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                    });
+            var swapped = new AudioFool.Core.Scrobbling.LastFmScrobbler(queue, null,
+                (k, s) => new AudioFool.Core.Scrobbling.LastFmApi(k, s, http));
+
+            var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            typeof(MainViewModel).GetField("_scrobbler", flags)!.SetValue(vm, swapped);
+            var refresh = typeof(MainViewModel).GetMethod("RefreshLastFmIndicator", flags)!;
+
+            swapped.Connect("key", "secret", new AudioFool.Core.Scrobbling.LastFmSession("marcusrenlund", "sk"));
+            if (lfmState == "off")
+                swapped.Enabled = false;
+            var until = DateTime.UtcNow.AddSeconds(3);
+            while (DateTime.UtcNow < until && queue.Count > 0 && swapped.LastError is null)
+                Settle(50);
+
+            refresh.Invoke(vm, null);
+            Settle(200);
+            Console.WriteLine($"lastfm indicator: state={vm.LastFmState} shown={vm.IsLastFmShown} "
+                + $"label='{vm.LastFmLabel}' tooltip='{vm.LastFmToolTip}'");
+        }
+
         if (switching)
         {
             ThemeService.Apply(theme);

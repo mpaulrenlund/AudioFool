@@ -634,9 +634,14 @@ within the year.
     make silence and stale audio indistinguishable.
   - Shared mode only. Exclusive mode uses the same flush but was not probed,
     because it would take the DAC.
-- **Relaunch minimised** after installing: `Start-Process ... -WindowStyle Minimized`
-  starts AudioFool without it jumping in front of the user's work (confirmed as
-  `Minimized` through UIA's `WindowPattern`).
+- ~~**Relaunch minimised** after installing~~. **Wrong, corrected in session 15:
+  never launch AudioFool for the user from the shell.** A process started from
+  Claude's shell runs inside the Claude app's package container, so it reads the
+  stale private `settings.json` copy (see the packaged-AppData gotcha). In session
+  15 a relaunched app came up with the Vista theme and no Last.fm session, and
+  had to be closed. Minimised was fine; the settings were not. After installing,
+  ask the user to open it from their shortcut. A launch purely as a smoke test
+  (does it start?) is still fine, provided it is closed straight after.
 
 ### Changes from session 14
 
@@ -736,16 +741,38 @@ within the year.
       one scrobble per track.
     - ThemeLab `--window lastfm` rendered all five states in Dark, plus PS1 and
       Vista.
-    - The installed build launched minimised with no errors.
-  - **Not verified**: a real connection. That needs the user's API account and
-    their approval in a browser. **Ask the user** whether scrobbles appear on their
-    profile.
+    - The installed build launched minimised with no errors (a smoke test, closed straight after).
+  - **Confirmed by the user in the running app**: connected with their own API
+    account, and scrobbles appear on their Last.fm profile. `scrobbles.json` then
+    held 0 pending, rewritten at 08:06, so each play went to disk and was removed
+    once sent.
   - **Caught by ThemeLab**: the menu icon was first `Broadcast24`, which doesn't
     exist in WPF-UI 4.3. It compiled, but `MainWindow` threw at load, so the app
     would not start. `SymbolIcon` names are only checked at runtime. Render
     (or launch) after touching one. It is `Live24` now.
 
-**276 tests pass**: the 243 from session 14 plus 33 in `ScrobblingTests`.
+**A Last.fm indicator in the status bar** (later in session 15), left of
+Bit-Perfect, as the user asked.
+- It is a small `ui:Button` with a dot and a word, and the word changes with the
+  state, so colour is never the only signal:
+  - "Last.fm" (green)
+  - "Last.fm: off" (idle grey)
+  - "Last.fm: 3 waiting" (caution)
+  - "Last.fm: reconnect" (danger)
+- It is hidden until connected, and clicking it opens the Last.fm window.
+- The state is `LastFmScrobbler.State` (`ScrobblerState`) in Core. **"Waiting"
+  needs a failed send**, not just a non-empty queue: every scrobble sits in the
+  queue for a moment before it goes, and that would flicker after every track.
+  `Enabled` now raises `StatusChanged`.
+- Visibility binds a plain bool (`IsLastFmShown`), not a `Style` on the button.
+  A local style would need `BasedOn` WPF-UI's, the trap in the gotchas.
+- **Verified** with ThemeLab `--lastfm scrobbling|off|failing|reconnect` (plus
+  none), in all three themes, cropped and reviewed. It swaps the view model's
+  scrobbler by reflection for one with a scratch queue: **the view model's own
+  scrobbler reads the real `scrobbles.json`**, so a ThemeLab mode must never add to
+  it.
+
+**277 tests pass**: the 243 from session 14 plus 34 in `ScrobblingTests`.
 
 ### Deliberately not done
 
@@ -848,7 +875,7 @@ within the year.
 | `src/AudioFool.Core/Scrobbling/LastFmScrobbler.cs` | Tracker → now playing, queue, batched flush, backoff, reconnect state. Takes a `TimeProvider` and an API factory for tests. |
 | `src/AudioFool/ViewModels/LastFmViewModel.cs` | Connect (token, browser, poll), disconnect, the scrobbling switch, the queue status line. |
 | `src/AudioFool/LastFmWindow.xaml[.cs]` | The modal dialog: setup panel or connected panel. |
-| `tests/AudioFool.Core.Tests/ScrobblingTests.cs` | 33 tests: signing, entries, the rules (seek, pause, loop, same-file restart, short tracks), response parsing, queue, and the scrobbler against a fake HTTP handler. |
+| `tests/AudioFool.Core.Tests/ScrobblingTests.cs` | 34 tests: signing, entries, the rules (seek, pause, loop, same-file restart, short tracks), response parsing, queue, and the scrobbler against a fake HTTP handler. |
 
 ## Logo and icon resource files
 
@@ -1276,6 +1303,7 @@ ThemeLab.exe --window tags --album "Goodbye Yellow Brick Road" --pick 1-8 --set 
 ThemeLab.exe --theme PS1 --rows 1,2,3,4       # several selected grid rows
 ThemeLab.exe --window edit --theme PS1 --w 1300 --h 600   # in-place grid edits
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
+ThemeLab.exe --theme PS1 --w 1300 --h 700 --lastfm failing   # the status-bar indicator
 ```
 
 `--window lastfm` uses a scratch queue and a canned HTTP handler, so nothing
@@ -1421,6 +1449,11 @@ off-screen window, so focus rings can be reviewed.
   stale settings, and a write goes to the copy, not the app. `AppData\Local`
   (`library.json`) read current. To check a setting, ask the user or verify in the
   running app.
+- **The same applies to AudioFool launched from the shell.** It inherits the
+  container and runs on the stale settings: wrong theme and folders, no Last.fm
+  session. A status-bar indicator that "wasn't there" in session 15 was this, not
+  a bug. It is also why a UIA check of a shell-launched app says nothing about
+  the user's settings.
 - **`library.json` can list files that no longer exist.** It still held 2 m4a and
   10 wav files deleted since the last full scan. Before picking a sample file from
   the cache, check that it exists (`Test-Path -LiteralPath`).
@@ -1451,11 +1484,12 @@ headless figure), and fanart.tv is confirmed with a real key.
 *Done in session 14:* in-place editing of #, Song, Artist and Album (commit
 `8526fb6`, pushed).
 
-0. **Ask the user whether scrobbles reach their Last.fm profile** (session 15).
-   Everything short of a real account was verified. If they don't, check the queue
-   file, which my shell *can* read: `%LOCALAPPDATA%\AudioFool\scrobbles.json`.
-   Entries piling up mean sending fails, and the Last.fm window shows why.
-   Possible follow-ups, not built: a Love button, and a status-bar indicator.
+*Done in session 15:* Last.fm scrobbling (commit `1fbdc9d`), confirmed working
+by the user. If scrobbles ever stop, check `%LOCALAPPDATA%\AudioFool\scrobbles.json`,
+which the shell *can* read. Entries piling up mean sending fails, and the Last.fm
+window shows why. The status-bar indicator is done too. Possible follow-up, not built:
+a Love button.
+
 0. **Ask the user how in-place editing feels in the running app.** Only ThemeLab
    has driven it. The real mouse (the slow click's timing against a double-click)
    and real key presses were off limits. Worth asking: does Enter moving down a

@@ -67,9 +67,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             Enabled = settings.LastFmScrobbling,
         };
         _scrobbler.AuthFailed += OnScrobblerAuthFailed;
+        _scrobbler.StatusChanged += OnScrobblerStatusChanged;
         if (settings is { LastFmApiKey: { Length: > 0 } key, LastFmApiSecret: { Length: > 0 } secret,
                           LastFmSessionKey: { Length: > 0 } session })
             _scrobbler.Connect(key, secret, new LastFmSession(settings.LastFmUserName ?? "", session));
+        RefreshLastFmIndicator();
 
         _positionTimer = new DispatcherTimer(DispatcherPriority.Normal)
         {
@@ -985,6 +987,38 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnScrobblerAuthFailed(object? sender, string message) => StatusText = message;
 
+    /// <summary>The status-bar indicator's state; <see cref="ScrobblerState.Disconnected"/> hides it.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLastFmShown))]
+    private ScrobblerState _lastFmState;
+
+    public bool IsLastFmShown => LastFmState != ScrobblerState.Disconnected;
+
+    [ObservableProperty]
+    private string _lastFmLabel = "Last.fm";
+
+    [ObservableProperty]
+    private string _lastFmToolTip = "";
+
+    private void OnScrobblerStatusChanged(object? sender, EventArgs e) => RefreshLastFmIndicator();
+
+    private void RefreshLastFmIndicator()
+    {
+        LastFmState = _scrobbler.State;
+        (LastFmLabel, LastFmToolTip) = LastFmState switch
+        {
+            ScrobblerState.NeedsReconnect =>
+                ("Last.fm: reconnect", "Last.fm stopped accepting scrobbles. Click to reconnect."),
+            ScrobblerState.Off =>
+                ("Last.fm: off", "Scrobbling is switched off. Click to turn it back on."),
+            ScrobblerState.Failing =>
+                ($"Last.fm: {_scrobbler.Pending:N0} waiting",
+                 $"The last send to Last.fm failed: {_scrobbler.LastError.TrimEnd('.')}. "
+                 + "The plays are kept and will be sent once it answers."),
+            _ => ("Last.fm", $"Scrobbling to Last.fm as {_scrobbler.UserName}."),
+        };
+    }
+
     // ------------------------------------------------------------ statistics
 
     /// <summary>
@@ -1540,6 +1574,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _engine.PlaybackFinished -= OnEnginePlaybackFinished;
 
         _scrobbler.AuthFailed -= OnScrobblerAuthFailed;
+        _scrobbler.StatusChanged -= OnScrobblerStatusChanged;
 
         _scanCts?.Cancel();
         _scanCts?.Dispose();

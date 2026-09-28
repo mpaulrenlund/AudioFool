@@ -454,6 +454,46 @@ public class ScrobblingTests
     }
 
     [Fact]
+    public async Task State_follows_connection_switch_failures_and_rejection()
+    {
+        var unconnected = new LastFmScrobbler(ScrobbleQueue.Load(TempQueuePath(), T0));
+        Assert.Equal(ScrobblerState.Disconnected, unconnected.State);
+
+        var (scrobbler, fake, clock) = Connected();
+        var changes = 0;
+        scrobbler.StatusChanged += (_, _) => changes++;
+        Assert.Equal(ScrobblerState.Scrobbling, scrobbler.State);
+
+        scrobbler.Enabled = false;
+        Assert.Equal(ScrobblerState.Off, scrobbler.State);
+        Assert.Equal(1, changes);
+        scrobbler.Enabled = true;
+
+        fake.Answer = f => f["method"] == "track.scrobble"
+            ? (HttpStatusCode.ServiceUnavailable, """{"error":11,"message":"Service offline"}""")
+            : (HttpStatusCode.OK, "{}");
+        scrobbler.TrackStarted(MakeTrack(), TimeSpan.FromSeconds(200));
+        PlayThrough(scrobbler, clock, 101);
+        await Until(() => scrobbler.State == ScrobblerState.Failing);
+
+        // The failed flush may still be unwinding, and a flush in progress makes
+        // another a no-op, so keep asking until one runs.
+        fake.Answer = _ => (HttpStatusCode.OK, "{}");
+        await Until(() =>
+        {
+            _ = scrobbler.FlushAsync();
+            return scrobbler.State == ScrobblerState.Scrobbling;
+        });
+
+        fake.Answer = f => f["method"] == "track.scrobble"
+            ? (HttpStatusCode.Forbidden, """{"error":9,"message":"Invalid session key"}""")
+            : (HttpStatusCode.OK, "{}");
+        scrobbler.TrackStarted(MakeTrack(path: @"D:\Music\Rush\02.flac"), TimeSpan.FromSeconds(200));
+        PlayThrough(scrobbler, clock, 101);
+        await Until(() => scrobbler.State == ScrobblerState.NeedsReconnect);
+    }
+
+    [Fact]
     public async Task Switched_off_nothing_is_sent_or_queued()
     {
         var (scrobbler, fake, clock) = Connected();

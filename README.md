@@ -344,6 +344,11 @@ compilations and features.
   `%LOCALAPPDATA%\AudioFool\scrobbles.json` and goes out later, retried from one minute
   up to every half hour. Last.fm refuses scrobbles more than two weeks old, so older
   ones are dropped.
+- **The status bar shows the state** left of Bit-Perfect once connected. The label
+  is **Last.fm** while scrobbling, **Last.fm: off** when switched off,
+  **Last.fm: 3 waiting** when sending has failed and plays are queued, and
+  **Last.fm: reconnect** when Last.fm rejects the session. Click it to open the
+  Last.fm window.
 - **Scrobble what I play** turns it off without disconnecting. Plays made while it is
   off are not recorded, not even for later.
 - **Disconnect** forgets the session in AudioFool. To withdraw access on Last.fm's side

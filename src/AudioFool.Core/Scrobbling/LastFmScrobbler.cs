@@ -2,6 +2,21 @@ using AudioFool.Core.Models;
 
 namespace AudioFool.Core.Scrobbling;
 
+public enum ScrobblerState
+{
+    Disconnected,
+    Scrobbling,
+
+    /// <summary>Connected, with scrobbling switched off.</summary>
+    Off,
+
+    /// <summary>The last send failed and plays are waiting in the queue.</summary>
+    Failing,
+
+    /// <summary>Last.fm rejected the session or key.</summary>
+    NeedsReconnect,
+}
+
 /// <summary>
 /// Turns playback into Last.fm scrobbles: feeds <see cref="PlayTracker"/>, sends
 /// "now playing" when a play starts, queues each scrobble on disk the moment it
@@ -53,7 +68,31 @@ public sealed class LastFmScrobbler
     /// </summary>
     public event EventHandler<string>? AuthFailed;
 
-    public bool Enabled { get; set; } = true;
+    public bool Enabled
+    {
+        get => _enabled;
+        set
+        {
+            if (_enabled == value)
+                return;
+            _enabled = value;
+            OnStatusChanged();
+        }
+    }
+
+    private bool _enabled = true;
+
+    /// <summary>
+    /// One word for the status bar. A scrobble queued for the moment before it is
+    /// sent is not <see cref="ScrobblerState.Failing"/>: only a failed send is, so the
+    /// indicator does not flicker after every track.
+    /// </summary>
+    public ScrobblerState State =>
+        !IsConnected ? ScrobblerState.Disconnected
+        : NeedsReconnect ? ScrobblerState.NeedsReconnect
+        : !Enabled ? ScrobblerState.Off
+        : LastError is not null && Pending > 0 ? ScrobblerState.Failing
+        : ScrobblerState.Scrobbling;
 
     public bool IsConnected => _session is not null;
 
