@@ -70,6 +70,18 @@ public static class SortRules
             .ThenBy(a => a.Name, NameComparer);
 
     /// <summary>
+    /// Artist groups by their most recently added file, newest first; ties fall
+    /// back to A-Z.
+    /// </summary>
+    public static IEnumerable<ArtistGroup> SortArtistsByRecent(IEnumerable<ArtistGroup> artists) =>
+        artists
+            .Select(a => (Artist: a, Added: a.LastAddedUtc))
+            .OrderByDescending(x => x.Added)
+            .ThenBy(x => x.Artist.SortKey, NameComparer)
+            .ThenBy(x => x.Artist.Name, NameComparer)
+            .Select(x => x.Artist);
+
+    /// <summary>
     /// Albums oldest at the top, newest at the bottom, by full release date where
     /// the files have one: "2026" (year only) comes before "2026-10-02", and
     /// "2026-03" before "2026-10-02". Albums with no year land at the bottom

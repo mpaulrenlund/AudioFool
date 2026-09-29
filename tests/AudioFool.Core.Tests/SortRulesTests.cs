@@ -94,6 +94,115 @@ public class ArtistOrderingTests
     }
 }
 
+public class RecentArtistOrderingTests
+{
+    private static readonly DateTime Day = new(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc);
+
+    /// <summary>An artist whose tracks were added the given number of days after <see cref="Day"/>.</summary>
+    private static ArtistGroup MakeArtist(string name, params int[][] albumDays) => new()
+    {
+        Name = name,
+        SortKey = SortRules.ArtistSortKey(name),
+        Albums = albumDays.Select((days, i) => new Album
+        {
+            Title = $"{name} {i}",
+            ArtistName = name,
+            Tracks = days.Select((d, j) => new Track
+            {
+                FilePath = $@"C:\music\{name}\{i}\{j}.flac",
+                AddedUtc = Day.AddDays(d),
+                // Written long after, and in the opposite order: must not matter.
+                ModifiedUtc = Day.AddDays(100 - d),
+            }).ToList(),
+        }).ToList(),
+    };
+
+    private static string[] Order(params ArtistGroup[] artists) =>
+        SortRules.SortArtistsByRecent(artists).Select(a => a.Name).ToArray();
+
+    [Fact]
+    public void Most_recently_added_artist_comes_first() =>
+        Assert.Equal(
+            ["Cake", "ABBA", "Zebra"],
+            Order(MakeArtist("Zebra", [1]), MakeArtist("ABBA", [5]), MakeArtist("Cake", [9])));
+
+    [Fact]
+    public void One_new_file_anywhere_brings_the_artist_up() =>
+        // Beck's old album gained one track on day 20; Air's all arrived on day 10.
+        Assert.Equal(
+            ["Beck", "Air"],
+            Order(MakeArtist("Air", [10, 10]), MakeArtist("Beck", [1, 1, 20], [2])));
+
+    [Fact]
+    public void Ties_fall_back_to_the_alphabetical_order() =>
+        // Albums copied in together share a date; A-Z (articles ignored) decides.
+        Assert.Equal(
+            ["The Beatles", "Cake", "Zebra"],
+            Order(MakeArtist("Zebra", [3]), MakeArtist("Cake", [3]), MakeArtist("The Beatles", [3])));
+
+    [Fact]
+    public void An_artist_with_no_dated_tracks_sorts_last() =>
+        Assert.Equal(
+            ["Cake", "Empty"],
+            Order(MakeArtist("Empty"), MakeArtist("Cake", [0])));
+}
+
+public class DateAddedTests : IDisposable
+{
+    private readonly string _folder = Path.Combine(Path.GetTempPath(), "audiofool-added-" + Guid.NewGuid().ToString("N"));
+    private readonly string _file;
+    private readonly DateTime _created = new(2026, 7, 14, 12, 0, 0, DateTimeKind.Utc);
+
+    public DateAddedTests()
+    {
+        Directory.CreateDirectory(_folder);
+        _file = Path.Combine(_folder, "one.flac");
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "TestData", "sample.flac"), _file);
+        File.SetCreationTimeUtc(_file, _created);
+    }
+
+    public void Dispose() => Directory.Delete(_folder, recursive: true);
+
+    [Fact]
+    public void Reading_a_file_records_when_it_was_created() =>
+        Assert.Equal(_created, TagReader.Read(_file).AddedUtc);
+
+    [Fact]
+    public async Task A_cache_without_dates_gets_them_from_the_stat_and_counts_as_a_change()
+    {
+        // As a cache written before AddedUtc existed: it matches the file, so its
+        // tags are reused, not read again.
+        var stamp = FileStamp.For(_file);
+        var old = new Track { FilePath = _file, FileSize = stamp.Length, ModifiedUtc = stamp.ModifiedUtc, Title = "Cached" };
+        var known = new Dictionary<string, Track>(StringComparer.OrdinalIgnoreCase) { [_file] = old };
+
+        var result = await LibraryScanner.ScanAsync([_folder], known);
+
+        var track = Assert.Single(result.Library.AllTracks);
+        Assert.Equal("Cached", track.Title);
+        Assert.Equal(_created, track.AddedUtc);
+        Assert.Equal(0, result.Summary.Read);
+        Assert.Equal(1, result.Summary.Backfilled);
+        Assert.True(result.Summary.AnyChanges);
+
+        // The next scan finds nothing to do.
+        var again = await LibraryScanner.ScanAsync([_folder], result.Library.AllTracks.ToDictionary(t => t.FilePath));
+        Assert.False(again.Summary.AnyChanges);
+    }
+
+    [Fact]
+    public void A_tag_save_keeps_the_date_added()
+    {
+        var track = TagReader.Read(_file);
+
+        var result = TagWriter.WriteSelectedTrackTags(track, new TracksTagEdit { Title = "Renamed" });
+
+        Assert.True(result.Success);
+        Assert.Equal(_created, result.UpdatedTrack!.AddedUtc);
+        Assert.Equal(_created, File.GetCreationTimeUtc(_file));
+    }
+}
+
 public class AlbumOrderingTests
 {
     private static Album MakeAlbum(string title, int? year) =>

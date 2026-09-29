@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-29 after the twentieth build session. Read this alongside
+Updated 2026-09-29 after the twenty-first build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1236,6 +1236,57 @@ click didn't open an edit, and Enter didn't carry on to the same field on the ne
   the rebuild, and behind the previous save's `library.json` write), no edit is open, so
   anything typed in that moment is lost.
 
+### Changes from session 21
+
+**Clicking the ARTISTS header toggles the artist order** between A–Z and most recently
+added first, at the user's request. The header reads "ARTISTS · RECENT" in that mode.
+The choice persists (`AppSettings.ArtistsByRecent`), and the selected artist and album
+stay selected.
+
+- **"Added" is the file's creation time, not its modified time.** The user asked for
+  "most recently updated", and that was built first, from `ModifiedUtc`. The real
+  library showed why it doesn't work: about 10,400 files were rewritten on 24–25
+  September, most likely a bulk retag, so the list was a big tie, and any tag edit would
+  jump an artist to the top. Creation time is when the file arrived on the drive. A
+  copy sets it, and tag saves leave it alone: TagLib writes in place, and a test checks
+  this. In a 400-file sample, 85% were created in July (the initial copy), with a
+  steady trickle since. The user chose "recently added".
+- **`Track.AddedUtc`** is cached, and omitted from JSON while null. `ArtistGroup.LastAddedUtc`
+  is the newest across the artist's tracks. `SortRules.SortArtistsByRecent` orders
+  newest first, and ties fall back to A–Z.
+- **No cache version bump and no re-read.** The creation time comes free with the stat
+  the scan already makes (`FileStamp.CreatedUtc`, an init-only member, not part of the
+  stale check). A reused track that lacks it gets it there. `ScanSummary.Backfilled`
+  counts these and makes `AnyChanges` true, so the cache is saved and the view rebuilt.
+  Measured read-only on the real library: 0.5 s, all 26,795 tracks. Top of the list:
+  Connor Kaminski, Keyan, Loam, Ro1 (all 28 September). 75 artists have additions since
+  August; the 424 from the July copy tie and fall back to A–Z. The installed build's
+  smoke-test launch did this for real, and `library.json` now carries the dates.
+- **Caveat:** copying the library to a new drive resets every creation time, which
+  would make the whole library one tie again.
+- **The header is a `Button` with `Style="{x:Null}"` and a bare template**, so the A–Z
+  state renders pixel-identical to before (0 px diff on magenta). Hover and keyboard
+  focus underline the label. A focus-ring border was tried first, but it added 2 px of
+  height and pushed the list down. There are two fixed labels, not one bound label,
+  because `LetterSpacing` applies once and doesn't follow text changes.
+  `BoolToVisibilityConverter` gained `ConverterParameter=Inverse`.
+- **Verified**: 7 new tests (318 in total). ThemeLab renders of both states. ThemeLab
+  `--window click --clickartists 1` clicks the header through its automation peer on the
+  real library: the selection is kept, the tooltip flips, and `settings.json` is
+  restored byte for byte. ThemeLab loads the cache without scanning, so every date
+  there reads as unknown. The real order was checked by a headless probe instead. New
+  ThemeLab switch: `--artistsort recent`.
+
+**Also: the Enter walk from session 20 still has a timing gap.** Re-running `--window
+edit` found the next row's edit box sometimes opens *without keyboard focus*, about 1 run
+in 10 to 15. Session 20's "8 of 8" was luck. `OpenPendingEdit` now looks the cell up
+again when it focuses the box, and retries once at `ApplicationIdle`; straight after a
+rebuild, the row may not be realised yet. That brought it to 1 failure in 16, and not
+to zero. When it fails, focus sits outside any cell, and adding tracing hides the
+failure. The harness now logs the focused element's visual chain at that point, to
+find it next time. **Ask the user** whether, in the running app, the next row's box
+ever opens without taking their typing.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
@@ -2062,7 +2113,8 @@ retag of the playing track reaches the scrobbler.
      or a bolder mark is the fix.
 0. **Ask the user how in-place editing feels in the running app** after the
    session 20 fixes: the slow click, and Enter opening the next row's field. Only
-   ThemeLab has driven it.
+   ThemeLab has driven it, and the Enter walk's focus is still intermittent there
+   (see session 21).
 0. **A new cover on the playing album skips the playing and next tracks** (session
    19: resizing saves to a file playback holds are refused, at the user's
    choice). If that ever annoys them, the alternative they turned down is to

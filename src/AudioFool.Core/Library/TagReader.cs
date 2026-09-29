@@ -70,6 +70,7 @@ public static class TagReader
                 FilePath = path,
                 FileSize = fileStamp.Length,
                 ModifiedUtc = fileStamp.ModifiedUtc,
+                AddedUtc = fileStamp.CreatedUtc == default ? null : fileStamp.CreatedUtc,
                 Title = Clean(tag?.Title),
                 Artist = Clean(tag?.FirstPerformer ?? tag?.FirstAlbumArtist),
                 AlbumArtist = Clean(tag?.FirstAlbumArtist),

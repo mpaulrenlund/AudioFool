@@ -25,7 +25,14 @@ public readonly record struct ScanProgress(int FilesFound, int FilesRead)
 /// </summary>
 public readonly record struct ScanSummary(int Reused, int Read, int Removed)
 {
-    public bool AnyChanges => Read > 0 || Removed > 0;
+    /// <summary>
+    /// Reused tracks that were given their <see cref="Track.AddedUtc"/>, which a
+    /// cache written before it existed lacks. Counts as a change so the cache is
+    /// saved with them, and the artist order by date added is right.
+    /// </summary>
+    public int Backfilled { get; init; }
+
+    public bool AnyChanges => Read > 0 || Removed > 0 || Backfilled > 0;
 
     /// <summary>True when every track came straight from the cache.</summary>
     public bool EntirelyCached => Read == 0 && Removed == 0 && Reused > 0;

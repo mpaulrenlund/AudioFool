@@ -73,6 +73,7 @@ public class RebaseTests
             FolderArtPath = @"E:\Music\cover.jpg",
             FileSize = 4242,
             ModifiedUtc = new DateTime(2026, 5, 6, 7, 8, 9, DateTimeKind.Utc),
+            AddedUtc = new DateTime(2026, 4, 1, 2, 3, 4, DateTimeKind.Utc),
             TrackNumber = 3,
             Title = "Title",
             Artist = "Artist",

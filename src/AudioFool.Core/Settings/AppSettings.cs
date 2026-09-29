@@ -46,6 +46,12 @@ public sealed class AppSettings
     public bool Shuffle { get; set; }
 
     /// <summary>
+    /// List artists by their most recently added file instead of A-Z. Toggled
+    /// by clicking the Artists pane header.
+    /// </summary>
+    public bool ArtistsByRecent { get; set; }
+
+    /// <summary>
     /// What happens at the end of the queue. Stored by name, like the other enums
     /// here, so the file stays readable.
     /// </summary>

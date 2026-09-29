@@ -736,41 +736,61 @@ public partial class MainWindow : FluentWindow
         }
 
         TrackGrid.CurrentCell = new DataGridCellInfo(item, target.Column);
-        var cell = FocusCell(item, target.Column);
+        FocusCell(item, target.Column);
         OpenEdit(new DataGridCellInfo(item, target.Column));
 
         // The grid settles its own focus on the rebuilt rows after this, which
         // leaves the box open but unfocused; hand it the keyboard once that's done.
-        Dispatcher.BeginInvoke(() =>
+        // The cell is looked up again then: straight after a rebuild its row may
+        // not have been realised yet, which is also why this can take a retry.
+        var typedApplied = false;
+        void FocusBox(bool retry)
         {
-            if (cell is not { IsEditing: true } || FindDescendant<System.Windows.Controls.TextBox>(cell) is not { } box)
+            if (CellFor(item, target.Column) is not { IsEditing: true } cell
+                || FindDescendant<System.Windows.Controls.TextBox>(cell) is not { } box)
+            {
+                if (retry)
+                    Dispatcher.BeginInvoke(() => FocusBox(retry: false), DispatcherPriority.ApplicationIdle);
                 return;
+            }
 
             if (!box.IsKeyboardFocused)
                 box.Focus();
 
-            if (target.Typed is { } typed)
+            if (!typedApplied)
             {
-                box.Text = typed.Text;
-                box.Select(typed.SelectionStart, typed.SelectionLength);
+                typedApplied = true;
+                if (target.Typed is { } typed)
+                {
+                    box.Text = typed.Text;
+                    box.Select(typed.SelectionStart, typed.SelectionLength);
+                }
+                else
+                {
+                    box.SelectAll();
+                }
             }
-            else
-            {
-                box.SelectAll();
-            }
-        }, DispatcherPriority.ContextIdle);
+
+            if (retry && !box.IsKeyboardFocused)
+                Dispatcher.BeginInvoke(() => FocusBox(retry: false), DispatcherPriority.ApplicationIdle);
+        }
+
+        Dispatcher.BeginInvoke(() => FocusBox(retry: true), DispatcherPriority.ContextIdle);
     }
+
+    private DataGridCell? CellFor(Track item, DataGridColumn column) =>
+        TrackGrid.ItemContainerGenerator.ContainerFromItem(item) is DataGridRow row
+        && column.GetCellContent(row)?.Parent is DataGridCell cell
+            ? cell
+            : null;
 
     private DataGridCell? FocusCell(Track item, DataGridColumn column)
     {
         TrackGrid.ScrollIntoView(item, column);
         TrackGrid.UpdateLayout();
 
-        if (TrackGrid.ItemContainerGenerator.ContainerFromItem(item) is not DataGridRow row
-            || column.GetCellContent(row)?.Parent is not DataGridCell cell)
-            return null;
-
-        cell.Focus();
+        var cell = CellFor(item, column);
+        cell?.Focus();
         return cell;
     }
 
@@ -810,8 +830,7 @@ public partial class MainWindow : FluentWindow
         _slowClickTimer.Stop();
 
         if (TrackGrid.CurrentCell is { Item: Track editing, Column: { } editColumn }
-            && TrackGrid.ItemContainerGenerator.ContainerFromItem(editing) is DataGridRow editRow
-            && editColumn.GetCellContent(editRow)?.Parent is DataGridCell { IsEditing: true } editCell
+            && CellFor(editing, editColumn) is { IsEditing: true } editCell
             && FindDescendant<System.Windows.Controls.TextBox>(editCell) is { } editBox)
         {
             _editNext = new PendingEdit(editing.FilePath, editColumn,

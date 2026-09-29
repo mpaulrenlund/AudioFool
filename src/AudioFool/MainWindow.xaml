@@ -222,11 +222,53 @@
             <!-- artists -->
             <HeaderedContentControl Grid.Column="0" Style="{DynamicResource AfPane}">
                 <HeaderedContentControl.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <Control Template="{DynamicResource AfPaneMarkArtists}" VerticalAlignment="Center"
-                                 Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
-                        <TextBlock Text="ARTISTS" Style="{DynamicResource AfPaneHeaderText}" />
-                    </StackPanel>
+                    <!--
+                        The header is the sort toggle: A-Z, or most recently added
+                        first. Two fixed labels rather than one bound one, because
+                        LetterSpacing spaces its text once and does not follow changes.
+                        A bare template (Style x:Null) so it reads as the plain label
+                        it always was, in the same place; hover and keyboard focus
+                        underline it rather than adding a ring that would move it.
+                    -->
+                    <Button x:Name="ArtistSortHeader"
+                            Style="{x:Null}"
+                            Command="{Binding ToggleArtistSortCommand}"
+                            ToolTip="{Binding ArtistSortTooltip}"
+                            AutomationProperties.Name="Sort artists"
+                            Cursor="Hand"
+                            FocusVisualStyle="{x:Null}"
+                            HorizontalAlignment="Left">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="Transparent">
+                                    <ContentPresenter />
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <StackPanel Orientation="Horizontal">
+                            <Control Template="{DynamicResource AfPaneMarkArtists}" VerticalAlignment="Center"
+                                     Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
+                            <Grid>
+                                <Grid.Resources>
+                                    <Style x:Key="ArtistSortLabel" TargetType="TextBlock"
+                                           BasedOn="{StaticResource AfPaneHeaderText}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=ArtistSortHeader}" Value="True">
+                                                <Setter Property="TextDecorations" Value="Underline" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsKeyboardFocused, ElementName=ArtistSortHeader}" Value="True">
+                                                <Setter Property="TextDecorations" Value="Underline" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Resources>
+                                <TextBlock Text="ARTISTS" Style="{StaticResource ArtistSortLabel}"
+                                           Visibility="{Binding ArtistsByRecent, Converter={StaticResource BoolToVisibility}, ConverterParameter=Inverse}" />
+                                <TextBlock Text="ARTISTS · RECENT" Style="{StaticResource ArtistSortLabel}"
+                                           Visibility="{Binding ArtistsByRecent, Converter={StaticResource BoolToVisibility}}" />
+                            </Grid>
+                        </StackPanel>
+                    </Button>
                 </HeaderedContentControl.Header>
                 <ListBox x:Name="ArtistList"
                          ItemsSource="{Binding Artists}"

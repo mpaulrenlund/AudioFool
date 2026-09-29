@@ -24,6 +24,15 @@ public sealed class Track
 
     public DateTime ModifiedUtc { get; init; }
 
+    /// <summary>
+    /// When the file arrived on the drive (its creation time). Tag saves leave it
+    /// alone, here and in other taggers, so it means "added", not "edited". Null
+    /// only in a cache written before it existed, until the next scan's stat
+    /// fills it in; omitted from the cache file while null.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTime? AddedUtc { get; init; }
+
     public int? TrackNumber { get; init; }
 
     /// <summary>
@@ -106,6 +115,7 @@ public sealed class Track
 
         FileSize = FileSize,
         ModifiedUtc = ModifiedUtc,
+        AddedUtc = AddedUtc,
         TrackNumber = TrackNumber,
         TrackCount = TrackCount,
         Title = Title,
@@ -142,6 +152,7 @@ public sealed class Track
 
         FileSize = stamp.Length,
         ModifiedUtc = stamp.ModifiedUtc,
+        AddedUtc = AddedUtc,
         TrackNumber = edit.TrackNumber,
         TrackCount = edit.TrackCount,
         Title = edit.Title,
@@ -171,6 +182,7 @@ public sealed class Track
 
         FileSize = stamp.Length,
         ModifiedUtc = stamp.ModifiedUtc,
+        AddedUtc = AddedUtc,
         TrackNumber = TrackNumber,
         TrackCount = edit.TrackCount is { } trackCount ? trackCount.Value : TrackCount,
         Title = Title,
@@ -199,6 +211,7 @@ public sealed class Track
 
         FileSize = stamp.Length,
         ModifiedUtc = stamp.ModifiedUtc,
+        AddedUtc = AddedUtc,
         TrackNumber = edit.TrackNumber is { } trackNumber ? trackNumber.Value : TrackNumber,
         TrackCount = edit.TrackCount is { } trackCount ? trackCount.Value : TrackCount,
         Title = edit.Title ?? Title,
@@ -210,6 +223,32 @@ public sealed class Track
         DiscCount = edit.DiscCount is { } discCount ? discCount.Value : DiscCount,
         Year = edit.Date is { } date ? date.Year : Year,
         ReleaseDate = edit.Date is { } newDate ? newDate.Date : ReleaseDate,
+        Kind = Kind,
+        Bitrate = Bitrate,
+        BitDepth = BitDepth,
+        SampleRate = SampleRate,
+    };
+
+    /// <summary>A copy with the date added filled in, for a track from an older cache.</summary>
+    public Track WithAddedUtc(DateTime addedUtc) => new()
+    {
+        FilePath = FilePath,
+        FolderArtPath = FolderArtPath,
+
+        FileSize = FileSize,
+        ModifiedUtc = ModifiedUtc,
+        AddedUtc = addedUtc,
+        TrackNumber = TrackNumber,
+        TrackCount = TrackCount,
+        Title = Title,
+        Artist = Artist,
+        AlbumArtist = AlbumArtist,
+        Album = Album,
+        Duration = Duration,
+        DiscNumber = DiscNumber,
+        DiscCount = DiscCount,
+        Year = Year,
+        ReleaseDate = ReleaseDate,
         Kind = Kind,
         Bitrate = Bitrate,
         BitDepth = BitDepth,

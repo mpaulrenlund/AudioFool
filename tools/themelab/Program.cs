@@ -54,6 +54,8 @@ internal static class Program
         {
             ScanOnStartup = false,
             GlobalHotkeys = false,
+            // --artistsort recent: start with the most recently added artists first.
+            ArtistsByRecent = Arg(args, "--artistsort") == "recent",
         };
 
         // --window queue plays for real, and the engine posts its events to the
@@ -150,6 +152,33 @@ internal static class Program
             Settle(200);
             Console.WriteLine($"lastfm indicator: state={vm.LastFmState} shown={vm.IsLastFmShown} "
                 + $"label='{vm.LastFmLabel}' tooltip='{vm.LastFmToolTip}'");
+        }
+
+        // --clickartists 1: click the Artists header through its automation peer
+        // and print the order before and after. The toggle saves settings, so the
+        // settings file is copied aside first and put back afterwards.
+        if (Arg(args, "--clickartists") is not null)
+        {
+            string Top() => string.Join(" | ", vm.Artists.Take(8).Select(a => $"{a.Name} ({a.LastAddedUtc:yyyy-MM-dd})"));
+            var header = (System.Windows.Controls.Button)main.FindName("ArtistSortHeader");
+            var settingsBackup = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null;
+            try
+            {
+                Console.WriteLine($"artists before: recent={vm.ArtistsByRecent} selected='{vm.SelectedArtist?.Name}' tip='{header.ToolTip}'");
+                Console.WriteLine($"  {Top()}");
+                var peer = new System.Windows.Automation.Peers.ButtonAutomationPeer(header);
+                ((System.Windows.Automation.Provider.IInvokeProvider)peer.GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke)!).Invoke();
+                Settle(300);
+                Console.WriteLine($"artists after: recent={vm.ArtistsByRecent} selected='{vm.SelectedArtist?.Name}' album='{vm.SelectedAlbum?.Album.Title}' tip='{header.ToolTip}'");
+                Console.WriteLine($"  {Top()}");
+            }
+            finally
+            {
+                if (settingsBackup is not null)
+                    File.WriteAllBytes(AppSettings.SettingsPath, settingsBackup);
+                else
+                    File.Delete(AppSettings.SettingsPath);
+            }
         }
 
         if (main.FindName("TrackGrid") is System.Windows.Controls.DataGrid grid)
@@ -1432,6 +1461,10 @@ internal static class Program
             + $"current={cur.Column?.Header}/{(cur.Item as Track)?.DisplayTitle} focus={focusedCell?.Column?.Header}/{(focusedCell?.DataContext as Track)?.DisplayTitle}");
         var next = vm.Tracks.First(t => t.FilePath == nextPath);
         var nextBox = Box(next, "TrackNumberColumn");
+        var fe = System.Windows.Input.Keyboard.FocusedElement as DependencyObject;
+        var chain = new List<string>();
+        for (var n = fe; n is System.Windows.Media.Visual && chain.Count < 6; n = System.Windows.Media.VisualTreeHelper.GetParent(n)) chain.Add(n.GetType().Name);
+        Log($"enter walk: focused element chain: {string.Join(" < ", chain)} (null={fe is null})");
         var walkOk = sel?.FilePath == nextPath && cur.Column == Column("TrackNumberColumn")
                      && Cell(next, "TrackNumberColumn").IsEditing && nextBox?.IsKeyboardFocused == true;
         Log($"enter walk: # open on the next row? {Cell(next, "TrackNumberColumn").IsEditing} box='{nextBox?.Text}' "

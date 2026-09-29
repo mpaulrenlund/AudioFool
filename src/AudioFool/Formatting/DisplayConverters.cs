@@ -63,8 +63,9 @@ public sealed class NullToVisibleConverter : ReadOnlyConverter
 
 public sealed class BoolToVisibilityConverter : ReadOnlyConverter
 {
+    /// <summary>ConverterParameter="Inverse" shows the element when the value is false.</summary>
     public override object Convert(object? value, Type t, object? p, CultureInfo c) =>
-        value is true ? Visibility.Visible : Visibility.Collapsed;
+        (value is true) != (p as string == "Inverse") ? Visibility.Visible : Visibility.Collapsed;
 }
 
 /// <summary>For disabling a control while the opposite condition holds.</summary>

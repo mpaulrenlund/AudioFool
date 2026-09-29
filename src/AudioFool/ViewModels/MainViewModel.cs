@@ -789,7 +789,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             : LibraryScanner.Build(matched);
 
         Artists.Clear();
-        foreach (var artist in view.Artists)
+        foreach (var artist in ArtistsByRecent ? SortRules.SortArtistsByRecent(view.Artists) : view.Artists)
             Artists.Add(artist);
 
         SelectedArtist = artistName is null
@@ -1392,6 +1392,34 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
     public string ShuffleTooltip => IsShuffle ? "Shuffle: on" : "Shuffle: off";
+
+    /// <summary>
+    /// Artists by most recently added first instead of A-Z. Clicking the pane header flips
+    /// it; the selected artist and album stay selected.
+    /// </summary>
+    public bool ArtistsByRecent
+    {
+        get => _settings.ArtistsByRecent;
+        set
+        {
+            if (_settings.ArtistsByRecent == value)
+                return;
+
+            _settings.ArtistsByRecent = value;
+            _settings.Save();
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ArtistSortTooltip));
+            ApplyToView(keepSelection: true);
+        }
+    }
+
+    public string ArtistSortTooltip => ArtistsByRecent
+        ? "Most recently added first. Click to sort A-Z."
+        : "A-Z. Click to show the most recently added first.";
+
+    [RelayCommand]
+    private void ToggleArtistSort() => ArtistsByRecent = !ArtistsByRecent;
 
     /// <summary>
     /// Off, All or One. A three-way cycle rather than a checkbox, which is what

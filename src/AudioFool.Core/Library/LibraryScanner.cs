@@ -88,6 +88,7 @@ public static class LibraryScanner
         // Counted separately from "reusable": a file whose tags need re-reading has
         // still been *seen*, and must not also be counted as removed.
         var seenBefore = 0;
+        var backfilled = 0;
 
         foreach (var file in files)
         {
@@ -101,9 +102,21 @@ public static class LibraryScanner
                 seenBefore++;
 
             if (wasKnown && !rereadTags && cached!.MatchesFile(stamp.Length, stamp.ModifiedUtc))
+            {
+                // The date added comes with the stat, so an older cache gets it
+                // here rather than needing every tag read again.
+                if (cached.AddedUtc is null && stamp.CreatedUtc != default)
+                {
+                    cached = cached.WithAddedUtc(stamp.CreatedUtc);
+                    backfilled++;
+                }
+
                 reusable.Add(cached);
+            }
             else
+            {
                 toRead.Add((file, stamp));
+            }
         }
 
         // Removed means a cached entry we looked for and could not find - not one
@@ -130,7 +143,7 @@ public static class LibraryScanner
         return new ScanResult
         {
             Library = Build(all),
-            Summary = new ScanSummary(reusable.Count + carriedOver.Count, freshlyRead.Count, removed),
+            Summary = new ScanSummary(reusable.Count + carriedOver.Count, freshlyRead.Count, removed) { Backfilled = backfilled },
             UnavailableFolders = unavailableFolders,
         };
     }
