@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-29 after the seventeenth build session. Read this alongside
+Updated 2026-09-29 after the eighteenth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -138,7 +138,7 @@ Everything below is implemented **and verified working**, not merely written:
   what was saved, since exclusive mode silences every other app on the machine.
 
 ### UI changes from session 3
-- **Theme system.** Logo menu → Themes submenu → checkable items (radio-button
+- **Theme system.** *(Removed in session 18: PS1 is the only theme.)* Logo menu → Themes submenu → checkable items (radio-button
   behaviour — only one can be active). The active theme is persisted to `settings.json`
   as `Theme` (string, default `"Dark"`). Panels, borders and backdrop switch instantly;
   the accent colour does not (see Accent colours below).
@@ -175,7 +175,7 @@ Everything below is implemented **and verified working**, not merely written:
   toggle; repeat cycles off → whole queue → this track. Both persist to `settings.json`.
   Architecture in the section below; the play order lives in a new `PlayOrder` class,
   deliberately kept free of BASS so it can be tested without a sound device.
-- **Teal accent for the Dark theme** — `#14B8A6`. Vista keeps Windows blue `#0078D4`.
+- **Teal accent for the Dark theme** *(Dark removed in session 18)* — `#14B8A6`. Vista keeps Windows blue `#0078D4`.
   See Accent colours below; there are two WPF-UI traps in there.
 - **Bit-Perfect starts off** on every launch, no longer restored from settings.
 - **The "Nothing playing" placeholder is gone.** The now-playing title is blank when
@@ -881,7 +881,7 @@ with critique. Two revisions followed.
 - Warm greys, about 15% darker than the brief: shell `#A7A4A3`, surface `#B6B3B1`.
 - **Play/Pause is the only coloured key**: green while it shows Play, red while it
   shows Pause.
-- Controller-shape labels: a blue ✕ on ARTISTS, a red ○ on ALBUMS, a green △ on
+- Controller-shape labels (removed in session 18): a blue ✕ on ARTISTS, a red ○ on ALBUMS, a green △ on
   the album title.
 - The playing row and the seek bar are green, and a library scan fills a yellow bar.
 - The grid has no focus bar. There is no pink, and the logo keeps its colours.
@@ -928,7 +928,7 @@ Pause key, and yellow Previous/Next keys.
 - **Removed from PS1**: the scanlines, the dither, the low-poly line art, the
   Consolas numerals (Segoe UI with `Typography.NumeralAlignment="Tabular"` now),
   and the logo's entrance animation. The row hover fade and the selection marker
-  animation remain in `Ps1Motion.xaml`.
+  animation remain in `Ps1Motion.xaml` (the marker went in session 18).
 - **Fixed on the way: the PS1 slider never drew its travelled part.** WPF-UI's
   implicit `RepeatButton` style still applies with `OverridesDefaultStyle="True"`,
   and it collapsed the segment to 0 px wide. The old blue fill had never shown.
@@ -981,7 +981,7 @@ Pause key, and yellow Previous/Next keys.
 **Second round of feedback** (same session):
 - **The Pause key is red** (`#DF0024`) instead of blue. It has a light glyph at
   4.2:1, where ink would only reach 3.1:1. Blue is no longer used on the keys.
-- **Controller-shape labels**: an outlined blue ✕ before ARTISTS, a red ○ before
+- **Controller-shape labels** (removed in session 18): an outlined blue ✕ before ARTISTS, a red ○ before
   ALBUMS, and a green △ before the album title over the tracks. The track pane has
   no text label of its own. Each shape is an ink stroke with the colour stroked on
   top, which is the keyline. They use three new slots, `AfPaneMarkArtists` /
@@ -1000,6 +1000,75 @@ Pause key, and yellow Previous/Next keys.
 - Verified: renders of playing, paused and scanning. Dark and Vista are still a
   0-pixel diff against `129a715`. Accents are 0.37% of the window. 299 tests pass.
   The installed build starts.
+
+### Changes from session 18
+
+- **The blue selection bar on Artists and Albums is gone** (PS1), at the user's
+  request: the dark-grey row highlight is enough. See the design-system *PS1*
+  entry. Verified with a ThemeLab render: 0 blue pixels at the selected rows'
+  left edges. 299 tests pass. Installed.
+- **The controller-shape pane marks are gone too** (the blue ✕, red ○ and green
+  △ before ARTISTS, ALBUMS and the album title), at the user's request. PS1 no
+  longer fills `AfPaneMarkArtists` / `AfPaneMarkAlbums` / `AfPaneMarkTracks`, so
+  they fall back to the empty templates in `Components.xaml` and take no space;
+  the labels now line up with the row text, as in Dark. The slots stay in
+  `MainWindow.xaml`. Blue is now used only for links. Verified with a ThemeLab
+  render; installed.
+- **No focus ring on a focused artist or album row** (PS1), at the user's
+  request: the ink outline a click leaves on the row. New token
+  `AfBrowserRowFocusInset` (default 1, the old `AfFocusRingInset`; PS1 0) drives
+  only the two rings in `AfBrowserRowTemplate`, so buttons, Statistics rows and
+  the other controls keep their focus rings. The arrow keys move the selection
+  in these lists, so the grey row still shows where the keyboard is.
+  - ThemeLab gained **`--focusrow ArtistList|AlbumList`**, which focuses the
+    selected row. `--focus` focuses the `ListBox`, which draws no row ring, so it
+    could not show this state.
+  - Verified: in PS1 a focused row renders pixel-identical to an unfocused one,
+    for both lists. Dark still draws its ring (1,144 px differ between the two
+    focus renders). 299 tests pass. Installed.
+
+**Dark and Vista were removed; PS1 is the only theme** (at the user's request, to
+stop spending effort maintaining themes they don't use).
+- **Gone**: `Themes/VistaTheme.xaml`, `ViewModels/ThemeItem.cs`, the Themes menu,
+  `MainViewModel.ThemeItems` and its handler, `AppSettings.Theme`,
+  `ThemeService.Names` / `Backdrop` / `SetBase`, and runtime switching. ThemeLab
+  lost `--theme`, `--switch` and `--from`.
+- **Changed**: `ThemeService.Apply()` takes no argument and always applies PS1.
+  `App.xaml` (and ThemeLab's `LabApp.xaml`) start on WPF-UI's Light base. Every
+  window says `WindowBackdropType="None"` in XAML rather than setting it in code.
+- **Kept**: `DesignTokens.xaml` and `Components.xaml` as the base layer under PS1.
+  See the design-system section for why they weren't folded together.
+- **Verified**: ten ThemeLab cases rendered before and after on magenta. All are
+  0 pixels different with 0 magenta, except the logo menu, which is 80 px shorter
+  with Themes gone. 299 tests pass. The installed build starts under the shell's
+  stale settings, which still say `"Theme": "Vista"`, and shows the main window.
+
+**The title-strip seam is gone** (the user's request). A 1 px warm-grey line
+(`AfStrokeWarm`, `#8F8B8A`) ran the full width under the title bar and showed in
+the gaps between and beside the panes. The `Border` in `MainWindow.xaml` and the
+token (in both `DesignTokens.xaml` and `Ps1Theme.xaml`) were deleted outright
+rather than made transparent, now that there is only one theme. Verified: the
+render differs from the previous one in exactly one row, 1,300 px, and nowhere
+else. Installed.
+
+**The output readout moved from the status bar to under the volume slider**
+("Shared 96 kHz/32-bit", "Exclusive 192 kHz/24-bit (bit-perfect)"), at the user's
+request. It is right-aligned to the slider, in the small type size, with the
+device name still in its tooltip.
+- **It takes no layout space.** The volume group is now a `Grid` holding the old
+  slider `StackPanel` and a zero-height `Canvas` at its bottom, with the readout
+  at `Canvas.Right="0"`, `Canvas.Top="6"`. A Canvas neither measures nor clips
+  its children. So the slider stays level with the seek bar, and the long
+  exclusive readout runs left under the duration rather than widening the column
+  and resizing the seek bar whenever the mode changes.
+- **It sits outside the dimmed volume group**, so it stays at full strength in
+  exclusive mode, which is when it matters.
+- ThemeLab's sample readout now uses the real format, and **`--output "<text>"`**
+  overrides it.
+- **Verified**: shared and exclusive renders both fit inside the deck with no
+  overlap. A pixel diff against the previous render changed only the two
+  readout regions: the new one under the slider and the old one in the status
+  bar. 299 tests pass. Installed.
 
 ### Deliberately not done
 
@@ -1028,7 +1097,6 @@ Pause key, and yellow Previous/Next keys.
 |---|---|
 | `src/AudioFool/ViewModels/ThemeItem.cs` | Observable VM wrapping a theme name + `IsSelected` bool. Follows the same pattern as `FolderFilterItem`. |
 | `src/AudioFool/ThemeService.cs` | Static helper that swaps resource-dictionary overlays and sets the window `BackdropType`. Called from `MainViewModel` on theme change and from `App.OnStartup` for the saved theme. |
-| `src/AudioFool/Themes/VistaTheme.xaml` | Vista Aero Glass resource dictionary. Overrides `ControlFillColorDefaultBrush` (glass gradient), `ControlElevationBorderBrush` (glass-edge highlight), `ControlFillColorSecondaryBrush`, and slider brushes. |
 
 ## New source files added in session 6
 
@@ -1051,7 +1119,7 @@ Pause key, and yellow Previous/Next keys.
 | `src/AudioFool/Themes/DesignTokens.xaml` | Every colour, surface, text ramp, accent, stroke, spacing, type, radius, icon size, texture and motion value the app's chrome uses. Its defaults are the Dark theme. |
 | `src/AudioFool/Themes/Components.xaml` | The reusable pieces built from those tokens: `AfPane`/`AfPaneDisplay`/`AfDeck`, the browser row template and its hover/selection states, art frames, the slider, text styles, and the four themeable slots. |
 | `src/AudioFool/Themes/Ps1Theme.xaml` | The PS1 theme. Token overrides, WPF-UI key overrides for the stock controls, and the components it restyles: chassis panes, the display pane, grid header and cell, slider, segmented progress, the bit-perfect key, and three of the four slots (all but `AfBrandMark`). |
-| `src/AudioFool/Themes/Ps1Motion.xaml` | PS1's animated states, merged only when Windows has control animations on. Row hover, selection marker, logo entrance. |
+| `src/AudioFool/Themes/Ps1Motion.xaml` | PS1's animated states, merged only when Windows has control animations on. Row hover (the selection marker and logo entrance were removed later). |
 | `src/AudioFool/Formatting/LetterSpacing.cs` | `LetterSpacing.Spacer` attached property: interleaves a spacer character between letters and keeps the unspaced text as the automation name. WPF has no tracking property. |
 | `tools/themelab/` | Renders the real windows off-screen to a PNG for theme review. Not in the solution. |
 
@@ -1131,41 +1199,25 @@ search active) or `LibraryScanner.Build(matched)` (search active).
 Drive-letter relocation (`RelocateMovedFoldersAsync`) updates `FolderFilterItem.FolderPath`
 in place alongside `MusicFolders[index]`.
 
-### Theme switching
-`AppSettings.Theme` (a `string`, default `"Dark"`) stores the active theme name.
-`MainViewModel.ThemeItems` is an `ObservableCollection<ThemeItem>` built from the known
-theme names at startup. Radio-button behaviour: when one item's `IsSelected` goes true,
-`OnThemeItemChanged` unchecks the others, saves settings, and calls
-`ThemeService.Apply(name)`. Unchecking the active theme is blocked — the handler
-re-checks it immediately.
+### The theme (one, since session 18)
+PS1 is the only theme. The Dark and Vista themes, the Themes menu, `ThemeItem`,
+`AppSettings.Theme` and runtime switching were removed in session 18 at the user's
+request, so that no session spends time keeping them working. A leftover `"Theme"`
+key in `settings.json` is ignored on load and dropped on the next save.
 
-`ThemeService.Apply` is the single entry point for theme changes, and
-`ThemeService.Names` is the single list of them (the theme menu is built from it).
-For `"Dark"` it removes any overlay dictionary and sets `WindowBackdropType.Mica`;
-for `"Vista"` it merges `Themes/VistaTheme.xaml` and sets `Acrylic`; for `"PS1"` it
-merges `Themes/Ps1Theme.xaml` (plus `Ps1Motion.xaml` when animations are on) and
-sets `None`. Everything themeable is referenced with `DynamicResource`, so the swap
-takes effect live - see "Apply the theme before building the window" for the one
-case where it does not.
+`ThemeService.Apply()` runs once in `App.OnStartup`, before the window is built. It
+merges `Themes/Ps1Theme.xaml`, plus `Ps1Motion.xaml` when Windows animations are on,
+then applies and pins the accent (below). `App.xaml` starts on WPF-UI's **Light**
+base, and every window declares `WindowBackdropType="None"` in its XAML, since PS1 is
+opaque.
 
-To add a new theme: create a `Themes/FooTheme.xaml` resource dictionary overriding
-the tokens and components it wants, add `"Foo"` to `ThemeService.Names`, and add a
-case to `ThemeService.Apply`.
-
-**Accent colours (session 5).** Each theme names its accent explicitly:
-Dark is teal `#14B8A6`, Vista is Windows blue `#0078D4`. Two things about this were
-learned the hard way and are easy to trip over again:
-
+**The accent.** PS1's is the dark-grey key `#4A4746`.
 - **`ApplicationAccentColorManager.ApplySystemAccent()` silently does nothing here.**
-  It resolves the theme through `ApplicationThemeManager`, which this app never drives —
-  the theme comes from a `ThemesDictionary` in `App.xaml` — so it leaves whichever accent
-  was applied last in place. Use the explicit
-  `Apply(color, ApplicationTheme.Dark)` overload instead.
-- **Only the first `Apply` call in a process takes effect.** Verified by launching with
-  each theme saved: Dark starts teal, Vista starts blue, but switching themes from the
-  menu at runtime leaves the accent where it was. Everything else about the theme swap —
-  panel brushes, borders, backdrop — does update live. Changing the accent of a running
-  app would need the WPF-UI theme dictionary re-merged, which has not been attempted.
+  It resolves the theme through `ApplicationThemeManager`, which this app never
+  drives. Use the explicit `Apply(color, ApplicationTheme.Light)` overload.
+- **It writes its brushes into `Application.Resources`**, which outranks every merged
+  dictionary, so `ThemeService` copies PS1's values for those keys back over the top
+  afterwards (see *PS1* below).
 
 ---
 
@@ -1177,27 +1229,31 @@ those tokens are in `Themes/Components.xaml`. Both are merged in `App.xaml` afte
 WPF-UI's dictionaries. Screens reference them by key; nothing in `MainWindow.xaml`
 carries a literal colour or measurement any more.
 
-**The defaults in `DesignTokens.xaml` *are* the Dark theme**, and the colour values in
-it are the ones WPF-UI's dark dictionary actually resolves to at runtime — dumped from
-a live app with the ThemeLab harness below, not guessed — so moving the app onto tokens
-left Dark looking as it did. Where a token has no WPF-UI equivalent (the four accents,
-texture, decor, motion) the default is the inert one: neutral colour, transparent
-brush, zero opacity. A theme opts in.
+**The defaults in `DesignTokens.xaml` and `Components.xaml` are a base layer under
+PS1.** They are the retired Dark theme's values. Where PS1 restates a key, the base
+value never shows; where it doesn't, the base value is live. The inert defaults
+(transparent brushes, zero widths, empty slot templates) are how PS1 opts in to a
+mark by restating one key, and how it drops one by *removing* its override (session
+18 did this for the selection bar, the pane marks and the row focus ring).
+
+**Not done: folding PS1 into the base layer.** Merging `Ps1Theme.xaml` into
+`DesignTokens.xaml` / `Components.xaml` would leave one set of files and no dead base
+values. It is a large diff for no visible change, so it was left. If it is ever done,
+the ThemeLab pixel diff below is how to prove nothing moved.
 
 Three conventions that are load-bearing:
 
 - **`MainWindow` uses `DynamicResource` for styles and templates, not `StaticResource`.**
-  A `StaticResource` is resolved once at load and would ignore a theme overlay.
-- **A theme restyles a control WPF-UI already themes with an implicit style** in its
-  own dictionary - `Style TargetType`, no key - and Dark keeps WPF-UI's look by there
-  being nothing to find. PS1 does this for `DataGridColumnHeader`, `DataGridCell`,
-  `ProgressBar` and `ToggleButton`.
+  A `StaticResource` is resolved once at load and would ignore the PS1 dictionary.
+- **PS1 restyles a control WPF-UI already themes with an implicit style** in its
+  own dictionary - `Style TargetType`, no key. It does this for `DataGridColumnHeader`,
+  `DataGridCell`, `ProgressBar` and `ToggleButton`.
 
   The obvious alternative is a trap, and it was tried: keying an optional style to
   `x:Null` and setting `Style="{DynamicResource X}"` on the control does **not** mean
   "leave it unset". It drops WPF-UI's implicit style and the control falls back to the
   *Aero* theme style, which gave the track grid a white header strip with unreadable
-  titles and a near-white selected row - in Dark, not just in PS1.
+  titles and a near-white selected row.
 - **Themeable slots** (`AfWindowDecor`, `AfBrandMark`, `AfStatusLamp`, `AfEmptyState`)
   are `ControlTemplate`s on a plain `Control`, so they cost one element and a theme can
   replace one without touching the window. Three are empty by default and draw nothing;
@@ -1233,9 +1289,9 @@ the user's request.
 
   | Colour | Used for |
   |---|---|
-  | Green `#00AC9F` | the Play/Pause key while it shows **Play**; the playing row's ▶; the seek bar's travelled part; the ready lamp; Bit-Perfect ON; the △ before the album title |
-  | Red `#DF0024` | the Play/Pause key while it shows **Pause**; the ○ before ALBUMS; error text (darkened `#7A0015`); Last.fm "reconnect" |
-  | Blue `#2E6DB4` | the 3 px marker on the selected artist and album; the ✕ before ARTISTS; links (darkened `#143860`) |
+  | Green `#00AC9F` | the Play/Pause key while it shows **Play**; the playing row's ▶; the seek bar's travelled part; the ready lamp; Bit-Perfect ON |
+  | Red `#DF0024` | the Play/Pause key while it shows **Pause**; error text (darkened `#7A0015`); Last.fm "reconnect" |
+  | Blue `#2E6DB4` | links (darkened `#143860`) |
   | Yellow `#F3C300` | the scanning lamp; the scan progress bar; Last.fm "waiting" |
   | Pink | **never**, at the user's request |
 
@@ -1243,9 +1299,13 @@ the user's request.
   Next, shuffle, repeat, selection, hover, focus, volume, Primary buttons and the
   Statistics bars are all neutral. If a new control seems to need a colour, it
   probably wants ink. Ask before adding one.
-- **The track grid has no marker at all**: none for selection (a selected, playing
-  row carries only green) and none for keyboard focus. The user asked for the ink
-  focus bar to go. Selection is the grey row.
+- **No list has a selection marker.** The track grid never had one (a selected,
+  playing row carries only green), and the user asked for its ink focus bar to go.
+  The blue 3 px bar on the selected artist and album went too, in session 18: the
+  user found the dark-grey highlight enough. Selection is the grey row everywhere.
+  PS1 no longer overrides `AfStrokeSelectionBar` / `AfSizeSelectionBar`, and
+  `Ps1Motion.xaml` no longer animates `AfRowSelectionBar`; the element is still in
+  `AfBrowserRowTemplate`, inert, so a theme can bring a marker back.
 - **Contrast** is measured, and the table is in `Ps1Theme.xaml`'s header comment.
   Ink is 6.3:1 on the shell and 7.4:1 on the surface; secondary `#353332` is 5.1:1
   and 6.0:1. **Green is only 1.0–1.4:1 against these greys**, so every accent mark
@@ -1514,12 +1574,15 @@ whole window):
 - **Accent share.** Classify each pixel: neutral if max−min channel ≤ 24, an
   accent if the spread is > 60, then assign it to the nearest token colour.
   Exclude the logo (x < 72, y < 48). PS1 ended at 99.6% neutral and 0.37% accent.
-- **"Other themes unchanged" is a pixel diff, not a glance.** Build the previous
-  commit in a scratch worktree
-  (`git worktree add --detach <scratch>\base HEAD`, then build its
-  `tools/themelab`). Render the same Dark and Vista cases from both builds and
-  count differing pixels. It should be 0. Remove the worktree afterwards
-  (`git worktree remove --force`).
+- **"Nothing else moved" is a pixel diff, not a glance.** For a refactor or a
+  change meant to touch one element, render a set of cases before the change and
+  again after, and count differing pixels. Unchanged cases should be 0. Session 18
+  used main, `--paused 1`, `--scanning 0.4`, `--focusrow AlbumList`,
+  `--window tags`, `--window stats`, `--window lastfm`, `--lastfm failing`,
+  `--artmenu 1` and `--menushot`, all on `--bg "#FF00FF"`. To render the previous
+  commit rather than the working tree, build it in a scratch worktree
+  (`git worktree add --detach <scratch>\base HEAD`, build its `tools/themelab`,
+  then `git worktree remove --force`).
 
 When writing these in PowerShell, see *Two PowerShell traps in pixel scripts*
 under Gotchas.
@@ -1549,8 +1612,8 @@ the DAC, and that an advancing position proves the WASAPI callback is actually r
   first render. That is what makes this so easy to miss: getting it backwards looks
   like a *half*-applied theme — right colours, wrong panels — rather than no theme.
 
-Switching themes from the menu later is unaffected: by then the window is open and does
-get the invalidation.
+There is no switching at runtime since session 18, so this is the only time the theme
+is applied.
 
 ## ThemeLab: reviewing a theme without touching the desktop
 
@@ -1561,14 +1624,14 @@ also has a `--dump` mode that prints what a list of theme resource keys resolves
 which is how the token defaults were baked from WPF-UI's real values instead of guessed.
 
 ```bash
-ThemeLab.exe --theme PS1 --out shot.png [--w 1560 --h 900 --scale 2]
-ThemeLab.exe --theme PS1 --focus ArtistList     # keyboard focus visuals do render
-ThemeLab.exe --theme PS1 --window tags          # the tag dialog
-ThemeLab.exe --theme PS1 --switch 1             # start in Dark, swap at runtime
-ThemeLab.exe --theme Dark --dump keys.txt
-ThemeLab.exe --theme Dark --menu               # does the logo open the menu?
-ThemeLab.exe --theme Dark --menu --menutree   # sizes and clips under the menu item
-ThemeLab.exe --theme PS1 --window stats --w 900 # statistics, from the real library.json
+ThemeLab.exe --out shot.png [--w 1560 --h 900 --scale 2]
+ThemeLab.exe --focus ArtistList     # keyboard focus visuals do render
+ThemeLab.exe --focusrow AlbumList  # focus the selected row (the ring a click leaves)
+ThemeLab.exe --window tags          # the tag dialog
+ThemeLab.exe --dump keys.txt
+ThemeLab.exe --menu               # does the logo open the menu?
+ThemeLab.exe --menu --menutree   # sizes and clips under the menu item
+ThemeLab.exe --window stats --w 900 # statistics, from the real library.json
 ThemeLab.exe --window click --click Year        # click a Statistics row, render the result
 ThemeLab.exe --window click --click Rush --search Buckethead
 ThemeLab.exe --window click --click Year --fix 1964   # simulate fixing the selected album
@@ -1577,15 +1640,15 @@ ThemeLab.exe --window tags --track "Polygon Weather"         # track dialog on a
 ThemeLab.exe --window tags --album "Saturn Return" --set "!Comment;Genre=Ambient"
 ThemeLab.exe --window tags --album "The Inevitable End" --set "^Zeros"   # press Remove Leading Zeros
 ThemeLab.exe --window artsearch --artist "Rush" --album "Moving Pictures" --use 1 --w 820 --h 640
-ThemeLab.exe --theme PS1 --artmenu 1          # the album header art's context menu
+ThemeLab.exe --artmenu 1          # the album header art's context menu
 ThemeLab.exe --window tags --album "Goodbye Yellow Brick Road" --pick 1-8 --set "DiscCount=2"  # a grid selection
-ThemeLab.exe --theme PS1 --rows 1,2,3,4       # several selected grid rows
-ThemeLab.exe --window edit --theme PS1 --w 1300 --h 600   # in-place grid edits
+ThemeLab.exe --rows 1,2,3,4       # several selected grid rows
+ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
-ThemeLab.exe --theme PS1 --w 1300 --h 700 --lastfm failing   # the status-bar indicator
-ThemeLab.exe --theme PS1 --menushot menu.png --scale 2      # the logo menu's drop-down, without opening it
-ThemeLab.exe --theme Dark --switch 1 --from PS1             # start in PS1, switch to Dark at runtime
-ThemeLab.exe --theme PS1 --bg "#FF00FF"                     # magenta behind the window: any unpainted gap shows
+ThemeLab.exe --w 1300 --h 700 --lastfm failing   # the status-bar indicator
+ThemeLab.exe --menushot menu.png --scale 2      # the logo menu's drop-down, without opening it
+ThemeLab.exe --bg "#FF00FF"                     # magenta behind the window: any unpainted gap shows
+ThemeLab.exe --output "Exclusive 192 kHz/24-bit (bit-perfect)"   # the output readout under the volume slider
 ```
 
 `--menushot` renders the `Popup.Child` of the logo `MenuItem` directly. Opening
@@ -1645,10 +1708,10 @@ Three things it took a while to get right, all worth keeping if it is rebuilt:
   `ThemeService` use the assembly-qualified form
   (`pack://application:,,,/AudioFool;component/Themes/...`). The harness also mirrors
   `Resources/logo.png` and `AudioFool.ico`, which `MainWindow.xaml` loads by relative URI.
-- **Mica and Acrylic windows have a transparent background** — the composited backdrop
-  belongs to the desktop, not the window — so a `RenderTargetBitmap` of Dark or Vista
-  comes out on nothing. The harness paints `--bg` behind the window first. PS1 is
-  opaque and needs none of that.
+- **The harness paints `--bg` behind the window first** (dark grey by default).
+  PS1 is opaque, so none of it should show; that is what makes `--bg "#FF00FF"` a
+  gap detector. `--theme` and `--switch` went with the other themes in session 18;
+  `--theme` is now ignored if passed.
 
 It renders off-screen at `Left = -20000` with `ShowActivated = false`, so nothing
 appears and nothing takes focus. `Keyboard.Focus` still works on an unactivated
@@ -1795,19 +1858,17 @@ a Love button.
 *Done in session 17:* the grey-console PS1 theme (commit `eea12aa`), revised
 twice from the user's feedback.
 
+*Done in session 18:* PS1 lost its selection bar, pane marks and row focus ring,
+and became the only theme.
+
 0. **PS1 is open to more critique.** The user works in a screenshot loop: they
-   look, then give precise notes. The last change (Previous/Next back to grey) is
-   installed but not yet commented on. Things to know going in:
+   look, then give precise notes. Lately each note removes decoration. Things to
+   know going in:
    - **Suggested and not picked**: filled transport glyphs, and coloured
      shuffle/repeat when on. Don't add them unasked.
    - **Watch the green.** At the darker greys it is 1.0–1.4:1, so the seek fill
      and the ▶ read by hue alone. If the user finds them faint, a thicker keyline
      or a bolder mark is the fix.
-   - **Choosing a theme at runtime leaves the grid headers and the accent from
-     the previous theme until a restart.** This predates session 17 (see *Accent
-     colours*). Fixing it would mean re-applying the grid's header style and
-     re-merging WPF-UI's accent at runtime. Until then, tell the user to restart
-     once after switching.
 0. **Ask the user how in-place editing feels in the running app.** Only ThemeLab
    has driven it. The real mouse (the slow click's timing against a double-click)
    and real key presses were off limits. Worth asking: does Enter moving down a

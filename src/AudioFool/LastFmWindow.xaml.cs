@@ -20,9 +20,6 @@ public partial class LastFmWindow : FluentWindow
 
         InitializeComponent();
 
-        // A Mica dialog in front of an opaque theme reads as a different app.
-        WindowBackdropType = ThemeService.Backdrop;
-
         Owner = owner;
 
         // Height depends on SizeToContent, so position once layout has run.

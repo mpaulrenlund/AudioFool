@@ -8,7 +8,7 @@
                  MinWidth="400"
                  ResizeMode="NoResize"
                  WindowStartupLocation="Manual"
-                 WindowBackdropType="Mica"
+                 WindowBackdropType="None"
                  ExtendsContentIntoTitleBar="True"
                  WindowCornerPreference="Round">
 

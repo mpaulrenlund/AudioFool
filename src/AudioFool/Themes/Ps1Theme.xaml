@@ -35,14 +35,15 @@
 
           triangle  #00AC9F   playing: the playing row's mark, the seek bar's
                               travelled part, the ready lamp, Bit-Perfect on,
-                              the transport key while it shows Play, and the
-                              triangle before the album title
-          cross     #2E6DB4   the selected artist and album marker, the ARTISTS
-                              label's cross, links
+                              and the transport key while it shows Play
+          cross     #2E6DB4   links
           yellow    #F3C300   the scanning lamp and scan progress bar,
                               Last.fm "waiting"
-          circle    #DF0024   the transport key while it shows Pause, the ALBUMS
-                              label's circle, error text, Last.fm "reconnect"
+          circle    #DF0024   the transport key while it shows Pause, error
+                              text, Last.fm "reconnect"
+
+        The pane labels (ARTISTS, ALBUMS, the album title) carry no mark: the
+        user had the controller-shape marks removed.
 
         The Play/Pause key is the one place an accent is a fill: a small key,
         like a controller's face button, outlined in ink. The
@@ -170,15 +171,11 @@
     <SolidColorBrush x:Key="AfStrokeBevelHighlight" Color="#FFC6C3C2" />
     <SolidColorBrush x:Key="AfStrokeBevelShadow" Color="#FF837F7F" />
 
-    <!-- The seam under the title strip. -->
-    <SolidColorBrush x:Key="AfStrokeWarm" Color="#FF8F8B8A" />
-
-    <!-- Blue marks the selected artist and album. The track grid has no marker
-         at all - not for selection, because a grid row can also be playing
-         (green), and not for keyboard focus either: the user found the ink bar
-         distracting, and the grey selection moves with the keyboard anyway. -->
-    <SolidColorBrush x:Key="AfStrokeSelectionBar" Color="#FF2E6DB4" />
-    <sys:Double x:Key="AfSizeSelectionBar">3</sys:Double>
+    <!-- No selection marker anywhere: the grey row is the selection. The user
+         had the blue bar on the selected artist and album removed, and the
+         track grid never had one - a grid row can also be playing (green), and
+         the ink keyboard-focus bar was distracting. AfStrokeSelectionBar and
+         AfSizeSelectionBar keep their inert defaults. -->
     <Thickness x:Key="AfStrokeSelectionBarThickness">0</Thickness>
     <SolidColorBrush x:Key="AfStrokeTrackSelectionBar" Color="Transparent" />
 
@@ -217,6 +214,10 @@
     <!-- Ink, not an accent: focus is not one of the four states. -->
     <SolidColorBrush x:Key="AfFocusRing" Color="#FF242424" />
     <SolidColorBrush x:Key="AfFocusRingSpacer" Color="Transparent" />
+
+    <!-- No ring on a focused artist or album row, at the user's request: the
+         grey selection is enough. Buttons and dialogs keep theirs. -->
+    <Thickness x:Key="AfBrowserRowFocusInset">0</Thickness>
 
     <!-- ====================================================== typography -->
 
@@ -706,47 +707,6 @@
                 <Setter TargetName="Busy" Property="Visibility" Value="Visible" />
             </DataTrigger>
         </ControlTemplate.Triggers>
-    </ControlTemplate>
-
-    <!--
-        Controller-shape labels, at the user's request: a blue cross before
-        ARTISTS, a red circle before ALBUMS, a green triangle before the album
-        title over the tracks. Outline shapes, as printed on the pad, each drawn
-        twice: a wider ink stroke underneath, then the colour, so the keyline
-        holds them against the grey. The pane marks sit in the label's left
-        margin; the text keeps its own.
-    -->
-    <PathGeometry x:Key="Ps1MarkCross" Figures="M 2.5,2.5 L 9.5,9.5 M 9.5,2.5 L 2.5,9.5" />
-    <EllipseGeometry x:Key="Ps1MarkCircle" Center="6,6" RadiusX="4" RadiusY="4" />
-    <PathGeometry x:Key="Ps1MarkTriangle" Figures="M 6,2 L 10.3,9.6 L 1.7,9.6 Z" />
-
-    <ControlTemplate x:Key="AfPaneMarkArtists" TargetType="Control">
-        <Grid Width="12" Height="12" Margin="10,0,-5,0">
-            <Path Data="{StaticResource Ps1MarkCross}" Stroke="{DynamicResource AfStatusKeyline}"
-                  StrokeThickness="3.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
-            <Path Data="{StaticResource Ps1MarkCross}" Stroke="{DynamicResource AfAccentBlue}"
-                  StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
-        </Grid>
-    </ControlTemplate>
-
-    <ControlTemplate x:Key="AfPaneMarkAlbums" TargetType="Control">
-        <Grid Width="12" Height="12" Margin="10,0,-5,0">
-            <Path Data="{StaticResource Ps1MarkCircle}" Stroke="{DynamicResource AfStatusKeyline}"
-                  StrokeThickness="3.4" />
-            <Path Data="{StaticResource Ps1MarkCircle}" Stroke="{DynamicResource AfAccentRed}"
-                  StrokeThickness="1.8" />
-        </Grid>
-    </ControlTemplate>
-
-    <ControlTemplate x:Key="AfPaneMarkTracks" TargetType="Control">
-        <Grid Width="18" Height="18" Margin="0,1,10,0">
-            <Path Data="{StaticResource Ps1MarkTriangle}" Stretch="Uniform"
-                  Stroke="{DynamicResource AfStatusKeyline}"
-                  StrokeThickness="4" StrokeLineJoin="Round" />
-            <Path Data="{StaticResource Ps1MarkTriangle}" Stretch="Uniform"
-                  Stroke="{DynamicResource AfAccentGreen}" Margin="0.8"
-                  StrokeThickness="2.2" StrokeLineJoin="Round" />
-        </Grid>
     </ControlTemplate>
 
     <!-- Nothing selected yet: a square outline and two lines of text. -->

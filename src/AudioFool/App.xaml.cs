@@ -49,14 +49,10 @@ public partial class App : Application
         // shown yet. Brush references survive the wrong order because they are
         // evaluated lazily, at first render, which is why getting this backwards
         // looks like a half-applied theme rather than no theme at all.
-        //
-        // Switching themes from the menu later is unaffected - by then the window
-        // is open and does get the invalidation.
-        ThemeService.Apply(settings.Theme);
+        ThemeService.Apply();
 
         var window = new MainWindow(_viewModel);
         MainWindow = window;
-        window.WindowBackdropType = ThemeService.Backdrop;
         window.Show();
     }
 

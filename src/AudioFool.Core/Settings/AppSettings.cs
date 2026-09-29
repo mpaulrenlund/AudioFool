@@ -42,8 +42,6 @@ public sealed class AppSettings
     [JsonConverter(typeof(JsonStringEnumConverter<Playback.DsdMode>))]
     public Playback.DsdMode DsdMode { get; set; } = Playback.DsdMode.ConvertToPcm;
 
-    public string Theme { get; set; } = "Dark";
-
     /// <summary>Play the queue in a shuffled order.</summary>
     public bool Shuffle { get; set; }
 

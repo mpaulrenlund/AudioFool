@@ -15,9 +15,6 @@ public partial class ArtWindow : FluentWindow
     {
         InitializeComponent();
 
-        // A Mica window in front of an opaque theme reads as a different app.
-        WindowBackdropType = ThemeService.Backdrop;
-
         Owner = owner;
         Title = caption;
         Bar.Title = caption;

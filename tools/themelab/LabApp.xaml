@@ -9,8 +9,7 @@
         The harness cannot construct AudioFool.App itself: Application's
         constructor queues OnStartup onto the dispatcher, so the first time the
         harness pumps the queue the real startup path runs - loading the user's
-        settings, applying THEIR theme over the one under test, and building and
-        showing a second MainWindow on the desktop.
+        settings and building and showing a second MainWindow on the desktop.
 
         The two AudioFool dictionaries below are the real files, so anything
         themeable is shared rather than copied. Only this list and the converter
@@ -19,7 +18,7 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ui:ThemesDictionary Theme="Dark" />
+                <ui:ThemesDictionary Theme="Light" />
                 <ui:ControlsDictionary />
                 <ResourceDictionary Source="pack://application:,,,/AudioFool;component/Themes/DesignTokens.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/AudioFool;component/Themes/Components.xaml" />

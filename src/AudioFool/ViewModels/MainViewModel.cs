@@ -94,13 +94,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             item.PropertyChanged += OnFolderFilterItemChanged;
             FolderFilters.Add(item);
         }
-
-        foreach (var theme in ThemeService.Names)
-        {
-            var themeItem = new ThemeItem(theme, theme == settings.Theme);
-            themeItem.PropertyChanged += OnThemeItemChanged;
-            ThemeItems.Add(themeItem);
-        }
     }
 
     private void OnFolderFilterItemChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -117,45 +110,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         StatusText = DescribeStatus(default);
     }
 
-    private bool _updatingTheme;
-
-    private void OnThemeItemChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        if (_updatingTheme || e.PropertyName != nameof(ThemeItem.IsSelected) || sender is not ThemeItem changed)
-            return;
-
-        _updatingTheme = true;
-        try
-        {
-            if (!changed.IsSelected)
-            {
-                if (changed.Name == _settings.Theme)
-                    changed.IsSelected = true;
-                return;
-            }
-
-            foreach (var item in ThemeItems)
-            {
-                if (!ReferenceEquals(item, changed))
-                    item.IsSelected = false;
-            }
-
-            _settings.Theme = changed.Name;
-            _settings.Save();
-            ThemeService.Apply(changed.Name);
-        }
-        finally
-        {
-            _updatingTheme = false;
-        }
-    }
-
     public ObservableCollection<ArtistGroup> Artists { get; } = [];
     public ObservableCollection<AlbumItemViewModel> Albums { get; } = [];
     public ObservableCollection<Track> Tracks { get; } = [];
     public ObservableCollection<string> MusicFolders { get; }
     public ObservableCollection<FolderFilterItem> FolderFilters { get; } = [];
-    public ObservableCollection<ThemeItem> ThemeItems { get; } = [];
 
     [ObservableProperty]
     private ArtistGroup? _selectedArtist;

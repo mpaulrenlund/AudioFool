@@ -10,20 +10,20 @@
 
         The reusable pieces the screens are built from. Every value here comes from
         DesignTokens.xaml, and every screen reaches these by key rather than
-        restating a look. A theme overlay redefines a key in this file to change
+        restating a look. Ps1Theme.xaml redefines a key in this file to change
         the component everywhere it is used, which is why MainWindow references
         these with DynamicResource rather than StaticResource - a StaticResource
-        is resolved once at load and would ignore the overlay.
+        is resolved once at load and would ignore the theme.
 
-        What is here IS the Dark look: the templates reproduce, element for
-        element, what the app drew before it was pulled onto tokens.
+        PS1 is the only theme. What is here is the base layer under it (the
+        retired Dark look); a template PS1 restates never shows from this file.
 
         Two conventions worth knowing:
 
-        - A theme restyles a stock control WPF-UI already themes - the grid
+        - PS1 restyles a stock control WPF-UI already themes - the grid
           header and cell, the progress bar, the bit-perfect key - with an
-          implicit style in its own dictionary, not through a key here. Dark then
-          keeps WPF-UI look by there being nothing to find. Keying an optional
+          implicit style in its own dictionary, not through a key here. Without
+          one, the control keeps WPF-UI look by there being nothing to find. Keying an optional
           style to x:Null does not work: Style="{DynamicResource X}" resolving to
           null drops WPF-UI implicit style and the control falls back to the Aero
           theme style, which put a white header strip on the track grid.
@@ -261,14 +261,14 @@
                     Visibility="Collapsed"
                     IsHitTestVisible="False"
                     BorderBrush="{DynamicResource AfFocusRingSpacer}"
-                    BorderThickness="{DynamicResource AfFocusRingInset}"
+                    BorderThickness="{DynamicResource AfBrowserRowFocusInset}"
                     CornerRadius="{DynamicResource AfRadiusWell}" />
             <Border x:Name="FocusRing"
                     Visibility="Collapsed"
                     IsHitTestVisible="False"
                     Margin="1"
                     BorderBrush="{DynamicResource AfFocusRing}"
-                    BorderThickness="{DynamicResource AfFocusRingInset}"
+                    BorderThickness="{DynamicResource AfBrowserRowFocusInset}"
                     CornerRadius="{DynamicResource AfRadiusWell}" />
         </Grid>
         <ControlTemplate.Triggers>

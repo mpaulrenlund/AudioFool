@@ -12,7 +12,7 @@
                  Width="1560" Height="900"
                  MinWidth="900" MinHeight="560"
                  WindowStartupLocation="Manual"
-                 WindowBackdropType="Mica"
+                 WindowBackdropType="None"
                  ExtendsContentIntoTitleBar="True"
                  WindowCornerPreference="Round">
 
@@ -73,8 +73,8 @@
         <!--
             The shell surface. First in the Grid so it draws behind everything
             else - a theme may put its plate, texture or geometry here, and it is
-            the only place any of those are allowed to go. Dark and Vista leave
-            the template empty and let the window backdrop show through.
+            the only place any of those are allowed to go. PS1 paints the grey
+            shell here.
         -->
         <Control Grid.Row="0" Grid.RowSpan="4"
                  Template="{DynamicResource AfWindowDecor}"
@@ -155,20 +155,6 @@
         
                             <Separator />
         
-                            <MenuItem Header="Themes"
-                                      Icon="{ui:SymbolIcon Color24}"
-                                      ItemsSource="{Binding ThemeItems}">
-                                <MenuItem.ItemContainerStyle>
-                                    <Style TargetType="MenuItem">
-                                        <Setter Property="Header" Value="{Binding Name}" />
-                                        <Setter Property="IsCheckable" Value="True" />
-                                        <Setter Property="IsChecked" Value="{Binding IsSelected, Mode=TwoWay}" />
-                                    </Style>
-                                </MenuItem.ItemContainerStyle>
-                            </MenuItem>
-
-                            <Separator />
-
                             <MenuItem Header="Statistics…"
                                       Icon="{ui:SymbolIcon DataBarVertical24}"
                                       Command="{Binding ShowStatisticsCommand}" />
@@ -220,12 +206,6 @@
                 </StackPanel>
             </ui:TitleBar.Header>
         </ui:TitleBar>
-
-        <!-- The moulding seam where the title strip meets the browser. Warm grey
-             in PS1, invisible in the themes that do not use it. -->
-        <Border Grid.Row="0" Height="1" VerticalAlignment="Bottom"
-                Background="{DynamicResource AfStrokeWarm}"
-                IsHitTestVisible="False" />
 
         <!-- ============================================ artist | album | tracks -->
         <Grid Grid.Row="1" Margin="{DynamicResource AfPadWindowBrowser}">
@@ -795,27 +775,47 @@
                                MinWidth="42" />
                 </Grid>
 
-                <!--
-                    Volume goes dead in exclusive mode, where the gain has to stay at
-                    unity. The whole group dims: WPF-UI's disabled Slider still draws
-                    an accent-coloured thumb, which reads as active.
-                -->
-                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"
-                            ToolTip="{Binding VolumeTooltip}"
-                            Opacity="{Binding IsVolumeEnabled, Converter={StaticResource EnabledOpacity}}">
-                    <ui:SymbolIcon Symbol="Speaker224"
-                                   FontSize="{DynamicResource AfIconSizeSmall}"
-                                   VerticalAlignment="Center" />
-                    <Slider Width="96" Margin="8,0,0,0"
-                            Style="{DynamicResource AfSlider}"
-                            Minimum="0" Maximum="1"
-                            SmallChange="0.05" LargeChange="0.1"
-                            IsMoveToPointEnabled="True"
-                            Value="{Binding Volume, Mode=TwoWay}"
-                            IsEnabled="{Binding IsVolumeEnabled}"
-                            VerticalAlignment="Center"
-                            AutomationProperties.Name="Volume" />
-                </StackPanel>
+                <Grid Grid.Column="4" VerticalAlignment="Center">
+                    <!--
+                        Volume goes dead in exclusive mode, where the gain has to stay at
+                        unity. The whole group dims: WPF-UI's disabled Slider still draws
+                        an accent-coloured thumb, which reads as active.
+                    -->
+                    <StackPanel Orientation="Horizontal"
+                                ToolTip="{Binding VolumeTooltip}"
+                                Opacity="{Binding IsVolumeEnabled, Converter={StaticResource EnabledOpacity}}">
+                        <ui:SymbolIcon Symbol="Speaker224"
+                                       FontSize="{DynamicResource AfIconSizeSmall}"
+                                       VerticalAlignment="Center" />
+                        <Slider Width="96" Margin="8,0,0,0"
+                                Style="{DynamicResource AfSlider}"
+                                Minimum="0" Maximum="1"
+                                SmallChange="0.05" LargeChange="0.1"
+                                IsMoveToPointEnabled="True"
+                                Value="{Binding Volume, Mode=TwoWay}"
+                                IsEnabled="{Binding IsVolumeEnabled}"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="Volume" />
+                    </StackPanel>
+
+                    <!--
+                        The output readout, right-aligned under the slider. It sits in
+                        a zero-height Canvas so it takes no layout space: the slider
+                        stays level with the seek bar, and a long exclusive readout
+                        runs left rather than widening the column and squeezing the
+                        seek bar each time the mode changes. Outside the dimmed
+                        group, because exclusive mode is exactly when it matters.
+                    -->
+                    <Canvas Height="0" VerticalAlignment="Bottom"
+                            Visibility="{Binding IsOutputActive, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock x:Name="OutputReadout"
+                                   Canvas.Right="0" Canvas.Top="6"
+                                   Text="{Binding OutputDescription}"
+                                   Style="{DynamicResource AfReadout}"
+                                   FontSize="{DynamicResource AfFontSizeSmall}"
+                                   ToolTip="{Binding OutputDeviceName}" />
+                    </Canvas>
+                </Grid>
             </Grid>
         </ContentControl>
 
@@ -849,20 +849,6 @@
                 <TextBlock Text="{Binding StatusText}"
                            Style="{DynamicResource AfMetaText}"
                            VerticalAlignment="Center" />
-
-                <!--
-                    Separator and readout share one panel so the dangling "·"
-                    disappears with the text, rather than sitting there alone.
-                -->
-                <StackPanel Orientation="Horizontal"
-                            Visibility="{Binding IsOutputActive, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="  ·  "
-                               Style="{DynamicResource AfMetaTextQuiet}"
-                               VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding OutputDescription}"
-                               Style="{DynamicResource AfReadout}"
-                               ToolTip="{Binding OutputDeviceName}" />
-                </StackPanel>
             </StackPanel>
 
             <ProgressBar Grid.Column="1"

@@ -23,7 +23,6 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
-        var theme = Arg(args, "--theme") ?? "Dark";
         var outPath = Arg(args, "--out") ?? "shot.png";
         var w = double.Parse(Arg(args, "--w") ?? "1560", CultureInfo.InvariantCulture);
         var h = double.Parse(Arg(args, "--h") ?? "900", CultureInfo.InvariantCulture);
@@ -41,9 +40,9 @@ internal static class Program
 
         if (dumpPath is not null)
         {
-            // After Apply, so the dump shows what the theme overlay and
+            // After Apply, so the dump shows what the theme and
             // ApplicationAccentColorManager actually leave in place.
-            ThemeService.Apply(theme);
+            ThemeService.Apply();
             Dump(dumpPath);
             return 0;
         }
@@ -53,7 +52,6 @@ internal static class Program
         // short-circuits before any scan.
         var settings = new AppSettings
         {
-            Theme = theme,
             ScanOnStartup = false,
             GlobalHotkeys = false,
         };
@@ -63,16 +61,11 @@ internal static class Program
         var vm = new MainViewModel(engine, runtime, new AlbumArtService(), settings);
 
         // Same order as App.OnStartup: theme first, then the window, because a
-        // DynamicResource Style is resolved as the element initialises. --switch
-        // starts under Dark and swaps afterwards instead, which is what choosing
-        // a theme from the menu does.
-        var switching = Arg(args, "--switch") is not null;
-        var startTheme = switching ? Arg(args, "--from") ?? "Dark" : theme;
-        ThemeService.Apply(startTheme);
+        // DynamicResource Style is resolved as the element initialises.
+        ThemeService.Apply();
 
         var main = new MainWindow(vm);
         Application.Current.MainWindow = main;
-        main.WindowBackdropType = ThemeService.Backdrop;
 
         // Far off every monitor and shown without activation, so nothing appears
         // on the desktop and nothing takes focus.
@@ -154,12 +147,6 @@ internal static class Program
                 + $"label='{vm.LastFmLabel}' tooltip='{vm.LastFmToolTip}'");
         }
 
-        if (switching)
-        {
-            ThemeService.Apply(theme);
-            Settle(300);
-        }
-
         if (main.FindName("TrackGrid") is System.Windows.Controls.DataGrid grid)
         {
             grid.SelectedIndex = int.Parse(Arg(args, "--row") ?? "4", CultureInfo.InvariantCulture);
@@ -182,6 +169,23 @@ internal static class Program
         {
             System.Windows.Input.Keyboard.Focus(target);
             Console.WriteLine($"focus {focusName}: keyboard={(target as UIElement)?.IsKeyboardFocused}");
+        }
+
+        // --focus on a list focuses the ListBox, which draws no row ring; this
+        // focuses its selected row, the state a click leaves behind.
+        if (Arg(args, "--focusrow") is { } rowListName
+            && main.FindName(rowListName) is System.Windows.Controls.ListBox rowList)
+        {
+            main.UpdateLayout();
+            if (rowList.ItemContainerGenerator.ContainerFromItem(rowList.SelectedItem) is UIElement row)
+            {
+                System.Windows.Input.Keyboard.Focus(row);
+                Console.WriteLine($"focusrow {rowListName}: keyboard={row.IsKeyboardFocused}");
+            }
+            else
+            {
+                Console.WriteLine($"focusrow {rowListName}: no selected row realised");
+            }
         }
 
         Settle(1200);
@@ -897,7 +901,7 @@ internal static class Program
             "SliderOuterThumbBackground", "SliderThumbBackground",
             "SliderThumbBackgroundPointerOver",
             "ContentControlThemeFontFamily", "ControlContentThemeFontSize",
-            "AfSurfacePanel", "AfSurfaceShell", "AfRadiusPanel", "AfFontMono", "AfStrokeWarm",
+            "AfSurfacePanel", "AfSurfaceShell", "AfRadiusPanel", "AfFontMono",
             "AfSizeBrandMark", "AfSizeTrackRowHeight", "AfStrokeSelectionBar",
         ];
 
@@ -1000,17 +1004,18 @@ internal static class Program
         vm.PositionSeconds = 138;
         vm.DurationDisplay = "5:32";
         vm.StatusText = "26,418 tracks in 1,204 albums by 312 artists";
-        vm.OutputDescription = "24-bit / 96 kHz - shared";
+        // The format OutputChain.Describe produces. --output overrides it, e.g.
+        // --output "Exclusive 192 kHz/24-bit (bit-perfect)" for the longest.
+        vm.OutputDescription = Arg(Environment.GetCommandLineArgs(), "--output") ?? "Shared 96 kHz/32-bit";
         vm.IsOutputActive = true;
     }
 
     // -------------------------------------------------------------- rendering
 
     /// <summary>
-    /// Colour painted behind the window before it is drawn. A Mica or Acrylic
-    /// window has a transparent background - the composited backdrop is the
-    /// desktop's, not the window's - so without this, Dark and Vista render onto
-    /// nothing. Matches WPF-UI's dark ApplicationBackgroundBrush.
+    /// Colour painted behind the window before it is drawn. PS1 is opaque, so
+    /// none of it should show: pass --bg "#FF00FF" and any magenta pixel in the
+    /// render is a gap the theme failed to paint.
     /// </summary>
     private static Color _backdrop = Color.FromRgb(0x20, 0x20, 0x20);
 

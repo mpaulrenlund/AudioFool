@@ -9,17 +9,15 @@
 
         Every colour, size, radius, border, shadow, duration and easing the app's
         own chrome uses is named here. Screens and component styles reference these
-        keys with DynamicResource; a theme overlay in this folder redefines the
-        keys it wants to change and the whole app follows. Nothing else in the app
-        should carry a literal colour or measurement.
+        keys with DynamicResource; Ps1Theme.xaml, merged over this file at
+        startup, redefines the keys it wants to change and the whole app follows.
+        Nothing else in the app should carry a literal colour or measurement.
 
-        These defaults ARE the Dark theme. The colour values are the ones WPF-UI's
-        dark dictionary resolves to at runtime (dumped from a live app rather than
-        guessed), so pulling the app onto tokens left Dark looking exactly as it
-        did. Where a value has no WPF-UI equivalent - the four accent colours, the
-        texture and decor layers, the motion tokens - the default is the inert one:
-        a neutral colour, a transparent brush, zero opacity. A theme that wants
-        those effects opts in.
+        PS1 is the only theme. These defaults are the base layer under it, and
+        are what the retired Dark theme used to look like, so where PS1 restates
+        a key the value here never shows. Where PS1 does not, this value is live.
+        The inert defaults - transparent brushes, zero widths, zero opacity - are
+        what let PS1 opt in to a mark or a layer by restating just that key.
 
         Naming: Af<group><role>. Groups are Surface, Text, Accent, Status, Stroke,
         Space, Font, Radius, Icon, Focus and Duration.
@@ -32,8 +30,7 @@
         header strip or control face, Well is a recess content sits inside, and
         Overlay is a flyout or dialog above everything.
 
-        Dark leaves Shell transparent on purpose: the Mica backdrop is the window
-        base there, and painting over it would throw the effect away.
+        Shell is transparent here; PS1 paints it grey.
     -->
     <SolidColorBrush x:Key="AfSurfaceShell" Color="Transparent" />
     <SolidColorBrush x:Key="AfSurfacePanel" Color="#0FFFFFFF" />
@@ -157,10 +154,6 @@
     <SolidColorBrush x:Key="AfStrokeSeam" Color="Transparent" />
     <SolidColorBrush x:Key="AfStrokeBevelHighlight" Color="#18FFFFFF" />
     <SolidColorBrush x:Key="AfStrokeBevelShadow" Color="#12FFFFFF" />
-
-    <!-- A warm hairline, for the moulding seam where two sections of a plastic
-         chassis meet. Invisible unless a theme gives it a colour. -->
-    <SolidColorBrush x:Key="AfStrokeWarm" Color="Transparent" />
 
     <Thickness x:Key="AfStrokeThin">1</Thickness>
     <Thickness x:Key="AfStrokeNone">0</Thickness>
@@ -343,6 +336,12 @@
     <Thickness x:Key="AfFocusRingInset">1</Thickness>
     <CornerRadius x:Key="AfFocusRingRadius">4</CornerRadius>
     <DoubleCollection x:Key="AfFocusRingDash">2 2</DoubleCollection>
+
+    <!-- The ring on a focused artist or album row. Separate from AfFocusRingInset
+         so a theme can drop it there without losing focus on buttons: in a list,
+         the arrow keys move the selection, so the grey row already shows where
+         the keyboard is. -->
+    <Thickness x:Key="AfBrowserRowFocusInset">1</Thickness>
 
     <!-- ========================================================= motion -->
 

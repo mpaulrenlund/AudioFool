@@ -25,9 +25,6 @@ public partial class TagEditWindow : FluentWindow
 
         InitializeComponent();
 
-        // A Mica dialog in front of an opaque theme reads as a different app.
-        WindowBackdropType = ThemeService.Backdrop;
-
         Owner = owner;
         Title = viewModel.WindowTitle;
 

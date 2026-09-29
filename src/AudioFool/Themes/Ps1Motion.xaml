@@ -19,18 +19,15 @@
         pieces that animate were split out into styles of their own precisely so
         this file could stay this short.
 
-        Two movements, both one-shot, neither looping, neither costing a render pass:
-
-          - a row's hover wash fades in and out
-          - a row's selection marker snaps in vertically, like a menu highlight
-            landing on the line you moved to
+        One movement, one-shot, not looping, costing no render pass: a row's
+        hover wash fades in and out. (A selection marker used to snap in too;
+        PS1 no longer draws one.)
 
         Durations are restated here rather than read from AfDuration* for the
-        frozen-storyboard reason above. They are the same numbers.
+        frozen-storyboard reason above. It is the same number.
     -->
 
     <Duration x:Key="Ps1DurationFast">0:0:0.09</Duration>
-    <Duration x:Key="Ps1DurationNormal">0:0:0.14</Duration>
 
     <!-- ===================================================== row hover -->
 
@@ -60,48 +57,6 @@
                         </Storyboard>
                     </BeginStoryboard>
                 </DataTrigger.ExitActions>
-            </DataTrigger>
-        </Style.Triggers>
-    </Style>
-
-    <!-- ================================================ selection marker -->
-
-    <!--
-        Scaled, not resized: the ScaleTransform is declared in the row template,
-        so animating it costs no layout pass and no repaint of the row's content.
-        A freezable set through a style setter would be frozen and could not be
-        animated at all - which is why the transform lives in the template and
-        only the animation lives here.
-    -->
-    <Style x:Key="AfRowSelectionBar" TargetType="Border">
-        <Setter Property="Background" Value="{DynamicResource AfStrokeSelectionBar}" />
-        <Setter Property="Width" Value="{DynamicResource AfSizeSelectionBar}" />
-        <Setter Property="HorizontalAlignment" Value="Left" />
-        <Setter Property="IsHitTestVisible" Value="False" />
-        <Setter Property="Visibility" Value="Collapsed" />
-        <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
-        <Style.Triggers>
-            <DataTrigger Value="True"
-                         Binding="{Binding IsSelected,
-                                   RelativeSource={RelativeSource AncestorType=ListBoxItem}}">
-                <Setter Property="Visibility" Value="Visible" />
-                <DataTrigger.EnterActions>
-                    <BeginStoryboard>
-                        <Storyboard>
-                            <DoubleAnimation
-                                Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                From="0" To="1"
-                                Duration="{StaticResource Ps1DurationNormal}">
-                                <DoubleAnimation.EasingFunction>
-                                    <CubicEase EasingMode="EaseOut" />
-                                </DoubleAnimation.EasingFunction>
-                            </DoubleAnimation>
-                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                             From="0" To="1"
-                                             Duration="{StaticResource Ps1DurationFast}" />
-                        </Storyboard>
-                    </BeginStoryboard>
-                </DataTrigger.EnterActions>
             </DataTrigger>
         </Style.Triggers>
     </Style>

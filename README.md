@@ -11,17 +11,14 @@ with nothing else in the way.
   files carry one, so two albums from the same year still come out in release order.
   An album tagged with only a year sorts at the start of that year.
 - Songs sort by disc number, then track number.
-- Three themes, chosen from the logo menu in the title bar and remembered between runs:
-  **Dark** (Fluent, Mica backdrop, teal accent), **Vista** (Aero Glass over an
-  Acrylic backdrop), and **PS1** - the original grey console as 1990s consumer
-  electronics: warm grey plastic (`#A7A4A3`) filling the window, slightly lighter
-  raised panels, recessed inputs and tracks, 1 px outlines and small corners. The
-  controller colours are rare, like the face buttons on a pad: the Play/Pause key
-  is green while it shows Play and red while it shows Pause, and the pane labels carry the pad's shapes (a blue ✕ for artists, a red ○
-  for albums, a green △ before the album title). The playing track and the seek
-  bar are green, the selected artist and album get a blue marker, and a library
-  scan fills a yellow bar. Every coloured mark also has a shape or a word. PS1 respects the
-  Windows "show animations" setting.
+- One look, **PS1**: the original grey console as 1990s consumer electronics.
+  Warm grey plastic (`#A7A4A3`) fills the window, with slightly lighter raised
+  panels, recessed inputs and tracks, 1 px outlines and small corners. The
+  controller colours are rare, like the face buttons on a pad. The Play/Pause key
+  is green while it shows Play and red while it shows Pause. The playing track and
+  the seek bar are green, and a library scan fills a yellow bar. Selection is a
+  darker grey row, with no marker or outline. Every coloured mark also has a shape
+  or a word. It respects the Windows "show animations" setting.
 - Gapless playback.
 - [Last.fm scrobbling](#lastfm-scrobbling), with plays kept offline until they can be sent.
 - Optional [bit-perfect output](#output-modes) — exclusive WASAPI at the source's own
@@ -391,7 +388,7 @@ device; re-clocking a DAC from 44.1 kHz to 96 kHz means stopping it. So a 44.1 k
 track following a 96 kHz one in the same queue has an audible gap. That's physics,
 not a shortcut — and within an album (where rates are uniform) it never happens.
 
-The status bar shows what the output is actually doing, e.g.
+The line under the volume slider shows what the output is actually doing, e.g.
 `Exclusive 96 kHz/24-bit (bit-perfect)`. If exclusive mode is refused — another app
 already has the device exclusively — it falls back to shared and says so.
 

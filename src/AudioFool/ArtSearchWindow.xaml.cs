@@ -22,7 +22,6 @@ public partial class ArtSearchWindow : FluentWindow
 
         InitializeComponent();
 
-        WindowBackdropType = ThemeService.Backdrop;
         Owner = owner;
 
         Loaded += (_, _) => _viewModel.SearchCommand.Execute(null);

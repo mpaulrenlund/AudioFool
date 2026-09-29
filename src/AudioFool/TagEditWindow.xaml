@@ -7,7 +7,7 @@
                  Width="460" SizeToContent="Height"
                  MinWidth="380"
                  WindowStartupLocation="Manual"
-                 WindowBackdropType="Mica"
+                 WindowBackdropType="None"
                  ExtendsContentIntoTitleBar="True"
                  WindowCornerPreference="Round">
 
