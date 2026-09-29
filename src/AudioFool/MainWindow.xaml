@@ -467,7 +467,7 @@
                                     </Trigger>
                                     <Trigger Property="IsMouseOver" Value="True">
                                         <Setter Property="Background"
-                                                Value="{DynamicResource AfSurfaceRowHover}" />
+                                                Value="{DynamicResource AfSurfaceTrackHover}" />
                                     </Trigger>
                                     <Trigger Property="IsSelected" Value="True">
                                         <Setter Property="Background"

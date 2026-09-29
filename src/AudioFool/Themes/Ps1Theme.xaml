@@ -92,11 +92,13 @@
     <SolidColorBrush x:Key="AfSurfaceOverlay" Color="#FFB6B3B1" />
     <SolidColorBrush x:Key="AfSurfaceMat" Color="#FF999593" />
 
-    <!-- Row states are all neutral. Selection is a darker grey; the browser
-         lists add the blue marker, the track grid does not. -->
+    <!-- Row states are all neutral, and selection is a darker grey. The track
+         grid's band is 8 levels under the panel; its hover sits between the
+         band and selection, so hovering a banded row still darkens it. -->
     <SolidColorBrush x:Key="AfSurfaceRowHover" Color="#FFAEABA9" />
     <SolidColorBrush x:Key="AfSurfaceRowSelected" Color="#FFA19D9C" />
-    <SolidColorBrush x:Key="AfSurfaceRowAlternate" Color="#FFB2AEAD" />
+    <SolidColorBrush x:Key="AfSurfaceRowAlternate" Color="#FFAEABA9" />
+    <SolidColorBrush x:Key="AfSurfaceTrackHover" Color="#FFA8A5A3" />
     <SolidColorBrush x:Key="AfSurfaceTrackSelected" Color="#FFA19D9C" />
 
     <!-- ============================================================ text -->

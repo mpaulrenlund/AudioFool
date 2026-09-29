@@ -58,6 +58,10 @@
          WinUI accent; the accent fought the now-playing indicator. -->
     <SolidColorBrush x:Key="AfSurfaceTrackSelected" Color="#50A0A0A0" />
 
+    <!-- The track grid's hover. Separate from the browser lists' because the
+         grid is banded, and its hover has to stay darker than the band. -->
+    <SolidColorBrush x:Key="AfSurfaceTrackHover" Color="#08FFFFFF" />
+
     <!-- ============================================================ text -->
 
     <SolidColorBrush x:Key="AfTextPrimary" Color="#FFFFFFFF" />

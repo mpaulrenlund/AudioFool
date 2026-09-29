@@ -1161,6 +1161,16 @@ device name still in its tooltip.
   - Session 14's note that the now-playing note "had been disappearing after any
     tag save of the playing track" can't have been observed: that save always
     failed before this change.
+- **Darker banding in the track grid** (PS1), at the user's request. The
+  alternate row (`AfSurfaceRowAlternate`) went from `#B2AEAD` to `#AEABA9`: 8
+  levels under the panel `#B6B3B1` instead of 4. That is where the shared hover
+  grey sat, so hover on a banded row would have vanished. The grid now has its own
+  hover, **`AfSurfaceTrackHover`** `#A8A5A3`, between the band and selection
+  (`#A19D9C`, unchanged). This mirrors `AfSurfaceTrackSelected`. The browser
+  lists keep `AfSurfaceRowHover`, unchanged, since they have no banding.
+  Verified with a ThemeLab render: the banded rows sample at `#AEABA9`, and a
+  pixel diff against the previous render changes only those rows. The hover
+  state can't be rendered without a mouse, so it is unseen. Installed.
 
 ### Deliberately not done
 
