@@ -241,7 +241,11 @@
             <!-- artists -->
             <HeaderedContentControl Grid.Column="0" Style="{DynamicResource AfPane}">
                 <HeaderedContentControl.Header>
-                    <TextBlock Text="ARTISTS" Style="{DynamicResource AfPaneHeaderText}" />
+                    <StackPanel Orientation="Horizontal">
+                        <Control Template="{DynamicResource AfPaneMarkArtists}" VerticalAlignment="Center"
+                                 Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
+                        <TextBlock Text="ARTISTS" Style="{DynamicResource AfPaneHeaderText}" />
+                    </StackPanel>
                 </HeaderedContentControl.Header>
                 <ListBox x:Name="ArtistList"
                          ItemsSource="{Binding Artists}"
@@ -277,7 +281,11 @@
             <!-- albums, oldest first -->
             <HeaderedContentControl Grid.Column="2" Style="{DynamicResource AfPane}">
                 <HeaderedContentControl.Header>
-                    <TextBlock Text="ALBUMS" Style="{DynamicResource AfPaneHeaderText}" />
+                    <StackPanel Orientation="Horizontal">
+                        <Control Template="{DynamicResource AfPaneMarkAlbums}" VerticalAlignment="Center"
+                                 Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
+                        <TextBlock Text="ALBUMS" Style="{DynamicResource AfPaneHeaderText}" />
+                    </StackPanel>
                 </HeaderedContentControl.Header>
                 <ListBox x:Name="AlbumList"
                          ItemsSource="{Binding Albums}"
@@ -378,8 +386,13 @@
                         <StackPanel Grid.Column="1"
                                     Margin="{DynamicResource AfPadBesideArtLarge}"
                                     VerticalAlignment="Center">
-                            <TextBlock Text="{Binding AlbumHeaderTitle}"
-                                       Style="{DynamicResource AfAlbumTitle}" />
+                            <DockPanel>
+                                <Control DockPanel.Dock="Left" Template="{DynamicResource AfPaneMarkTracks}"
+                                         VerticalAlignment="Center"
+                                         Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
+                                <TextBlock Text="{Binding AlbumHeaderTitle}"
+                                           Style="{DynamicResource AfAlbumTitle}" />
+                            </DockPanel>
                             <ItemsControl ItemsSource="{Binding AlbumHeaderSubtitleLines}"
                                           Margin="0,6,0,0" Focusable="False">
                                 <ItemsControl.ItemTemplate>
@@ -516,7 +529,7 @@
                                                     <ControlTemplate.Triggers>
                                                         <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
                                                             <Setter TargetName="SelectionBar" Property="BorderBrush"
-                                                                    Value="{DynamicResource AfStrokeSelectionBar}" />
+                                                                    Value="{DynamicResource AfStrokeTrackSelectionBar}" />
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
                                                             <Setter TargetName="SelectionBar" Property="BorderBrush"
@@ -530,19 +543,18 @@
                                 </DataGridTemplateColumn.CellStyle>
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <ui:SymbolIcon Symbol="MusicNote124"
-                                                       FontSize="{DynamicResource AfIconSizeMicro}"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource AfStatusInfo}"
-                                                       ToolTip="Now playing">
-                                            <ui:SymbolIcon.Visibility>
+                                        <Control Template="{DynamicResource AfNowPlayingGlyph}"
+                                                 Focusable="False" IsTabStop="False"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 ToolTip="Now playing">
+                                            <Control.Visibility>
                                                 <MultiBinding Converter="{StaticResource IsCurrentTrack}">
                                                     <Binding />
                                                     <Binding Source="{StaticResource Proxy}" Path="Data.NowPlaying" />
                                                 </MultiBinding>
-                                            </ui:SymbolIcon.Visibility>
-                                        </ui:SymbolIcon>
+                                            </Control.Visibility>
+                                        </Control>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
@@ -676,7 +688,7 @@
                                             <DataTrigger Binding="{Binding IsShuffle}" Value="True">
                                                 <Setter Property="Symbol" Value="ArrowShuffle24" />
                                                 <Setter Property="Foreground"
-                                                        Value="{DynamicResource AfStatusInfoText}" />
+                                                        Value="{DynamicResource AfStateQueue}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -686,13 +698,16 @@
                     </ui:Button>
 
                     <ui:Button Command="{Binding PreviousCommand}"
+                               Style="{DynamicResource AfSkipKey}"
                                Icon="{ui:SymbolIcon Previous24}"
-                               Appearance="Secondary"
                                AutomationProperties.Name="Previous track"
                                ToolTip="Previous (or restart)" />
 
+                    <!-- Appearance comes from the style, not from here: a theme that
+                         colours this key needs it off Primary, whose colours WPF-UI
+                         sets in template triggers that no style can override. -->
                     <ui:Button Command="{Binding TogglePlayCommand}"
-                               Appearance="Primary"
+                               Style="{DynamicResource AfPlayKey}"
                                Width="46" Height="38"
                                Margin="8,0"
                                AutomationProperties.Name="Play or pause"
@@ -714,8 +729,8 @@
                     </ui:Button>
 
                     <ui:Button Command="{Binding NextCommand}"
+                               Style="{DynamicResource AfSkipKey}"
                                Icon="{ui:SymbolIcon Next24}"
-                               Appearance="Secondary"
                                AutomationProperties.Name="Next track"
                                ToolTip="Next" />
 
@@ -734,12 +749,12 @@
                                             <DataTrigger Binding="{Binding IsRepeatAll}" Value="True">
                                                 <Setter Property="Symbol" Value="ArrowRepeatAll24" />
                                                 <Setter Property="Foreground"
-                                                        Value="{DynamicResource AfStatusInfoText}" />
+                                                        Value="{DynamicResource AfStateQueue}" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsRepeatOne}" Value="True">
                                                 <Setter Property="Symbol" Value="ArrowRepeat124" />
                                                 <Setter Property="Foreground"
-                                                        Value="{DynamicResource AfStatusInfoText}" />
+                                                        Value="{DynamicResource AfStateQueue}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -764,6 +779,7 @@
                     <Slider x:Name="SeekBar" Grid.Column="1"
                             Margin="10,0"
                             Style="{DynamicResource AfSlider}"
+                            Foreground="{DynamicResource AfSliderSeekFill}"
                             Minimum="0"
                             Maximum="{Binding DurationSeconds}"
                             Value="{Binding PositionSeconds, Mode=TwoWay}"
@@ -873,7 +889,9 @@
                        AutomationProperties.HelpText="{Binding LastFmToolTip}"
                        Visibility="{Binding IsLastFmShown, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Orientation="Horizontal">
-                    <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center">
+                    <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center"
+                             Stroke="{DynamicResource AfStatusKeyline}"
+                             StrokeThickness="{DynamicResource AfStatusKeylineThickness}">
                         <Ellipse.Style>
                             <Style TargetType="Ellipse">
                                 <Setter Property="Fill" Value="{DynamicResource AfStatusOk}" />

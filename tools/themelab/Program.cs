@@ -67,7 +67,7 @@ internal static class Program
         // starts under Dark and swaps afterwards instead, which is what choosing
         // a theme from the menu does.
         var switching = Arg(args, "--switch") is not null;
-        var startTheme = switching ? "Dark" : theme;
+        var startTheme = switching ? Arg(args, "--from") ?? "Dark" : theme;
         ThemeService.Apply(startTheme);
 
         var main = new MainWindow(vm);
@@ -98,6 +98,18 @@ internal static class Program
         else
         {
             Populate(vm);
+        }
+
+        // --paused 1: the sample track loaded but not playing, so the transport
+        // key shows Play rather than Pause.
+        if (Arg(args, "--paused") is not null)
+            vm.IsPlaying = false;
+
+        // --scanning 0.4: the status bar mid-scan, with its progress bar.
+        if (Arg(args, "--scanning") is { } fraction)
+        {
+            vm.IsScanning = true;
+            vm.ScanFraction = double.Parse(fraction, CultureInfo.InvariantCulture);
         }
 
         Settle(300);
@@ -174,6 +186,25 @@ internal static class Program
 
         Settle(1200);
         main.UpdateLayout();
+
+        // --menushot <png>: renders the logo menu's drop-down without opening it.
+        // A popup is its own window and is clamped onto a monitor, so opening it
+        // could flash on the desktop; its content, though, is an ordinary visual
+        // in the item's template and can be measured and rendered on its own.
+        if (Arg(args, "--menushot") is { } menuShot
+            && FindFirst<System.Windows.Controls.MenuItem>(main) is { } logoItem
+            && FindFirst<System.Windows.Controls.Primitives.Popup>(logoItem)?.Child is FrameworkElement drop)
+        {
+            drop.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            drop.Arrange(new Rect(drop.DesiredSize));
+            drop.UpdateLayout();
+            Settle(200);
+            drop.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            drop.Arrange(new Rect(drop.DesiredSize));
+            Console.WriteLine($"menushot: {drop.GetType().Name} {drop.ActualWidth:0}x{drop.ActualHeight:0} "
+                + $"bg={Describe((drop as System.Windows.Controls.Border)?.Background)}");
+            Save(drop, menuShot, Math.Max(1, drop.ActualWidth), Math.Max(1, drop.ActualHeight), scale);
+        }
 
         if (Arg(args, "--probe") is not null)
         {

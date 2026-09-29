@@ -180,6 +180,30 @@
     <sys:Double x:Key="AfSizeSelectionBar">0</sys:Double>
     <Thickness x:Key="AfStrokeSelectionBarThickness">0</Thickness>
 
+    <!-- The track grid's own selection marker, separate from the browser rows'
+         because a grid row can also be the playing one: a theme that marks
+         playback in colour can leave this clear, so one row never carries two
+         accents. Keyboard focus still uses the marker, in AfFocusRing. -->
+    <SolidColorBrush x:Key="AfStrokeTrackSelectionBar" Color="Transparent" />
+
+    <!-- ========================================================= states -->
+
+    <!-- Shuffle or repeat switched on. The glyph changes too; this is the tint. -->
+    <SolidColorBrush x:Key="AfStateQueue" Color="#FF8FBBFF" />
+
+    <!-- The travelled part of the seek bar, for a theme whose slider draws one.
+         The stock slider template below ignores it. -->
+    <SolidColorBrush x:Key="AfSliderSeekFill" Color="Transparent" />
+
+    <!-- Bars in the Statistics "missing tags" section. -->
+    <SolidColorBrush x:Key="AfStatBarCaution" Color="#FFE5B83E" />
+
+    <!-- An outline round a small status shape, for a theme whose status colours
+         are too close in brightness to its surfaces to stand on their own.
+         Zero-width by default, so the shapes draw exactly as before. -->
+    <SolidColorBrush x:Key="AfStatusKeyline" Color="Transparent" />
+    <sys:Double x:Key="AfStatusKeylineThickness">0</sys:Double>
+
     <!-- ========================================================== spacing -->
 
     <sys:Double x:Key="AfSpaceXxs">2</sys:Double>

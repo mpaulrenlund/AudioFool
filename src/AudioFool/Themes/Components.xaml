@@ -430,6 +430,21 @@
         </Setter>
     </Style>
 
+    <!-- ==================================================== transport keys -->
+
+    <!--
+        Play/Pause, and Previous and Next. Here they are exactly WPF-UI's own
+        button; a theme that colours its transport keys restates these two keys.
+        BasedOn resolves because a style's content is loaded lazily, by which time
+        WPF-UI's dictionary is in the application's resources.
+    -->
+    <Style x:Key="AfPlayKey" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+        <Setter Property="Appearance" Value="Primary" />
+    </Style>
+    <Style x:Key="AfSkipKey" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+        <Setter Property="Appearance" Value="Secondary" />
+    </Style>
+
     <!-- ==================================================== themeable slots -->
 
     <!--
@@ -463,6 +478,22 @@
 
     <!-- Status-bar state indicator: shape plus colour plus the text beside it. -->
     <ControlTemplate x:Key="AfStatusLamp" TargetType="Control" />
+
+    <!-- The mark on the playing row of the track grid. The grid decides whether
+         it shows; the theme decides what it looks like. -->
+    <ControlTemplate x:Key="AfNowPlayingGlyph" TargetType="Control">
+        <ui:SymbolIcon Symbol="MusicNote124"
+                       FontSize="{DynamicResource AfIconSizeMicro}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource AfStatusInfo}" />
+    </ControlTemplate>
+
+    <!-- A small mark before each pane's title: the artists and albums labels, and
+         the album title over the track list. Empty here, so they take no space. -->
+    <ControlTemplate x:Key="AfPaneMarkArtists" TargetType="Control" />
+    <ControlTemplate x:Key="AfPaneMarkAlbums" TargetType="Control" />
+    <ControlTemplate x:Key="AfPaneMarkTracks" TargetType="Control" />
 
     <!-- Shown in the track pane when no album is selected. -->
     <ControlTemplate x:Key="AfEmptyState" TargetType="Control" />

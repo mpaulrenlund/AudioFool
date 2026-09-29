@@ -29,8 +29,12 @@ public static class ThemeService
     /// </summary>
     private static readonly Color VistaAccent = Color.FromRgb(0x00, 0x78, 0xD4);
 
-    /// <summary>PlayStation blue, the accent PS1 selects and acts with.</summary>
-    private static readonly Color Ps1Accent = Color.FromRgb(0x2D, 0x7D, 0xFF);
+    /// <summary>
+    /// PS1's primary keys are a dark grey, not a colour: its four controller
+    /// colours are kept for state, and WPF-UI's accent would otherwise spread one
+    /// of them over every Primary button, check box and switch.
+    /// </summary>
+    private static readonly Color Ps1Accent = Color.FromRgb(0x4A, 0x47, 0x46);
 
     /// <summary>
     /// The accent brushes <see cref="ApplicationAccentColorManager"/> writes.
@@ -55,7 +59,16 @@ public static class ThemeService
         "AccentTextFillColorTertiaryBrush",
         "AccentTextFillColorDisabledBrush",
         "AccentControlElevationBorderBrush",
+        "AccentFillColorSelectedTextBackgroundBrush",
     ];
+
+    /// <summary>
+    /// The WPF-UI base palette currently merged. PS1 is a light theme - dark ink
+    /// on grey plastic - so it runs on WPF-UI's Light dictionary, and any stock
+    /// key its overlay does not restate falls back to a light value rather than
+    /// to white text. App.xaml starts on Dark.
+    /// </summary>
+    private static ApplicationTheme _base = ApplicationTheme.Dark;
 
     private static ResourceDictionary? _overlay;
     private static ResourceDictionary? _motion;
@@ -87,6 +100,7 @@ public static class ThemeService
 
         var backdrop = WindowBackdropType.Mica;
         var accent = DarkAccent;
+        var baseTheme = ApplicationTheme.Dark;
 
         switch (theme)
         {
@@ -99,9 +113,10 @@ public static class ThemeService
             case "PS1":
                 _overlay = Load("Ps1Theme");
                 accent = Ps1Accent;
+                baseTheme = ApplicationTheme.Light;
 
-                // Opaque on purpose: PS1 is a moulded hardware surface, and Mica
-                // would let the desktop show through the chassis.
+                // Opaque on purpose: PS1 is grey moulded plastic, and Mica would
+                // tint the shell with whatever is on the desktop behind it.
                 backdrop = WindowBackdropType.None;
 
                 // Motion lives in its own dictionary, so honouring Windows'
@@ -116,13 +131,15 @@ public static class ThemeService
                 break;
         }
 
+        SetBase(baseTheme);
+
         if (_overlay is not null)
             app.Resources.MergedDictionaries.Add(_overlay);
 
         if (_motion is not null)
             app.Resources.MergedDictionaries.Add(_motion);
 
-        ApplicationAccentColorManager.Apply(accent, ApplicationTheme.Dark);
+        ApplicationAccentColorManager.Apply(accent, baseTheme);
 
         if (_overlay is not null)
         {
@@ -137,6 +154,28 @@ public static class ThemeService
 
         if (app.MainWindow is FluentWindow window)
             window.WindowBackdropType = backdrop;
+    }
+
+    /// <summary>
+    /// Swaps WPF-UI's base palette in place. Replacing the dictionary instance,
+    /// rather than changing the existing one's Source, is what makes open
+    /// windows re-resolve their DynamicResources.
+    /// </summary>
+    private static void SetBase(ApplicationTheme theme)
+    {
+        if (theme == _base)
+            return;
+
+        var merged = Application.Current.Resources.MergedDictionaries;
+        for (var i = 0; i < merged.Count; i++)
+        {
+            if (merged[i] is Wpf.Ui.Markup.ThemesDictionary)
+            {
+                merged[i] = new Wpf.Ui.Markup.ThemesDictionary { Theme = theme };
+                _base = theme;
+                return;
+            }
+        }
     }
 
     private static ResourceDictionary Load(string name) => new()

@@ -9,163 +9,181 @@
         PS1
         ============================================================================
 
-        A first-generation PlayStation reading of the app: grey moulded plastic,
-        dark recessed wells where content lives, hairline bevels, square corners,
-        and four saturated accents used strictly by role. It is an original design
-        in that idiom, not a copy of any console screen - no BIOS, memory-card or
-        disc-player interface is reproduced here.
+        The original grey PlayStation console as a piece of 1990s consumer
+        electronics: warm moulded-plastic greys, crisp 1px outlines, understated
+        bevels, compact spacing, and the controller's colours used as sparse,
+        semantic punctuation.
 
-        Where the personality lives:
+        The PS1 grey is the primary surface, not a supporting colour. The bright
+        controller colours are semantic punctuation, not the theme's dominant
+        visual treatment.
 
-          - Chassis, not cards. Panels are moulded plastic with a light top edge
-            and a dark bottom edge, separated by dark seams. Nothing is rounded
-            past 2px and nothing is blurred.
-          - The four face-button shapes carry status. Circle is ready, triangle
-            is caution, cross is error, square is information - always beside the
-            word, never instead of it.
-          - Numbers are monospaced. Bitrate, depth, sample rate and timecodes read
-            as instrumentation, and the digits stop shifting as they change.
-          - The track list is the display: the one surface with texture behind it.
-            Everything else is opaque plastic.
+        Palette. Five neutrals carry the whole interface:
 
-        What it deliberately is not: a CRT filter, a pixel-art skin, or an
-        emulator front end. Texture never sits over text, nothing loops, and no
-        effect costs a render pass - depth is drawn with borders.
+          shell     #A7A4A3   window base, gutters, title and status strips
+          surface   #B6B3B1   raised panels, cards, keys
+          recessed  #999593   inputs, slider and progress tracks, art mats
+          shadow    #656362   outlines, dividers, neutral fills
+          ink       #242424   text and icons
 
-        This dictionary is merged over WPF-UI's dark base, so it works on two
-        levels. It redefines AudioFool's own tokens and components, and it
-        redefines the WPF-UI keys that the stock controls resolve at runtime, so
-        buttons, menus, scrollbars, text boxes and tooltips follow without any of
-        them needing a hand-written template.
+        These are the brief's greys (#C5C1C0, #D6D2D0, #AAA6A4, #777473) taken
+        about 15% darker at the user's request; the recess only 10%, so ink on
+        it still clears 4.5:1.
+
+        and four accents, each with one job and a short list of places it may
+        appear. One accent per component:
+
+          triangle  #00AC9F   playing: the playing row's mark, the seek bar's
+                              travelled part, the ready lamp, Bit-Perfect on,
+                              the transport key while it shows Play, and the
+                              triangle before the album title
+          cross     #2E6DB4   the selected artist and album marker, the ARTISTS
+                              label's cross, links
+          yellow    #F3C300   the scanning lamp and scan progress bar,
+                              Last.fm "waiting"
+          circle    #DF0024   the transport key while it shows Pause, the ALBUMS
+                              label's circle, error text, Last.fm "reconnect"
+
+        The Play/Pause key is the one place an accent is a fill: a small key,
+        like a controller's face button, outlined in ink. The
+        square colour is not used, at the user's request.
+
+        Contrast (WCAG, measured). Ink is 6.3:1 on the shell, 7.4:1 on the
+        surface and 5.2:1 in a recess; secondary text 5.1:1 and 6.0:1, and 4.7:1
+        on a selected row. Recessed regions carry ink only. The accents are close
+        in brightness to these greys - green is 1.0-1.4:1, so it reads by hue
+        alone - which is why every accent mark has an ink keyline, and every
+        state also has a shape or a word. Accent text uses darkened variants
+        that clear 4.5:1 on the shell. On the keys: ink on green 5.5:1, light on
+        red 4.2:1.
+
+        WPF-UI. ThemeService runs this theme on WPF-UI's Light base dictionary,
+        so any stock key not restated below is already a light value rather than
+        white-on-grey. The WPF-UI section at the end re-points the keys its
+        controls read, at both levels it has: the shared palette
+        (ControlFillColorDefaultBrush and friends) and the per-control keys
+        (ButtonBackground, TextControlBackground, ContextMenuBackground...).
     -->
 
-    <!-- ==================================================== shape glyphs -->
+    <!-- ===================================================== primitives -->
 
-    <!--
-        The four face-button shapes on a 10x10 box. Kept here rather than in
-        DesignTokens because they are this theme's vocabulary, and defined before
-        first use so the templates below can reach them with StaticResource - a
-        merged dictionary cannot StaticResource a sibling dictionary's key.
-    -->
+    <Color x:Key="Ps1Shell">#FFA7A4A3</Color>
+    <Color x:Key="Ps1Surface">#FFB6B3B1</Color>
+    <Color x:Key="Ps1Recessed">#FF999593</Color>
+    <Color x:Key="Ps1Shadow">#FF656362</Color>
+    <Color x:Key="Ps1Ink">#FF242424</Color>
+
+    <!-- Shapes on a 10x10 box, for status marks. Defined before first use so the
+         templates below can reach them with StaticResource. -->
     <EllipseGeometry x:Key="Ps1Circle" Center="5,5" RadiusX="3.5" RadiusY="3.5" />
-    <PathGeometry x:Key="Ps1Triangle" Figures="M 5,1.1 L 9.3,8.6 L 0.7,8.6 Z" />
+    <PathGeometry x:Key="Ps1Triangle" Figures="M 5,1.3 L 9,8.4 L 1,8.4 Z" />
+    <PathGeometry x:Key="Ps1Play" Figures="M 2.2,1 L 9,5 L 2.2,9 Z" />
     <PathGeometry x:Key="Ps1Square" Figures="M 1.5,1.5 L 8.5,1.5 L 8.5,8.5 L 1.5,8.5 Z" />
-    <PathGeometry x:Key="Ps1Cross" Figures="M 1.5,1.5 L 8.5,8.5 M 8.5,1.5 L 1.5,8.5" />
 
     <!-- ======================================================== surfaces -->
 
-    <!--
-        Five depths of moulded grey. Shell is opaque here, unlike Dark: the theme
-        wants a hardware surface rather than the desktop showing through, so
-        ThemeService turns the window backdrop off for PS1.
-    -->
-    <SolidColorBrush x:Key="AfSurfaceShell" Color="#FF0E0F11" />
-    <SolidColorBrush x:Key="AfSurfacePanel" Color="#FF1E2023" />
-    <SolidColorBrush x:Key="AfSurfaceRaised" Color="#FF2A2C30" />
-    <SolidColorBrush x:Key="AfSurfaceRaisedHover" Color="#FF34373C" />
-    <SolidColorBrush x:Key="AfSurfaceRaisedPressed" Color="#FF17181B" />
-    <SolidColorBrush x:Key="AfSurfaceWell" Color="#FF141518" />
-    <SolidColorBrush x:Key="AfSurfaceOverlay" Color="#FF23252A" />
-    <SolidColorBrush x:Key="AfSurfaceMat" Color="#FF0A0B0C" />
+    <SolidColorBrush x:Key="AfSurfaceShell" Color="#FFA7A4A3" />
+    <SolidColorBrush x:Key="AfSurfacePanel" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="AfSurfaceRaised" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="AfSurfaceRaisedHover" Color="#FFBDB9B8" />
+    <SolidColorBrush x:Key="AfSurfaceRaisedPressed" Color="#FFA19D9C" />
+    <SolidColorBrush x:Key="AfSurfaceWell" Color="#FF999593" />
+    <SolidColorBrush x:Key="AfSurfaceOverlay" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="AfSurfaceMat" Color="#FF999593" />
 
-    <SolidColorBrush x:Key="AfSurfaceRowHover" Color="#12FFFFFF" />
-    <SolidColorBrush x:Key="AfSurfaceRowSelected" Color="#332D7DFF" />
-    <SolidColorBrush x:Key="AfSurfaceRowAlternate" Color="#06FFFFFF" />
-    <SolidColorBrush x:Key="AfSurfaceTrackSelected" Color="#332D7DFF" />
+    <!-- Row states are all neutral. Selection is a darker grey; the browser
+         lists add the blue marker, the track grid does not. -->
+    <SolidColorBrush x:Key="AfSurfaceRowHover" Color="#FFAEABA9" />
+    <SolidColorBrush x:Key="AfSurfaceRowSelected" Color="#FFA19D9C" />
+    <SolidColorBrush x:Key="AfSurfaceRowAlternate" Color="#FFB2AEAD" />
+    <SolidColorBrush x:Key="AfSurfaceTrackSelected" Color="#FFA19D9C" />
 
     <!-- ============================================================ text -->
 
-    <SolidColorBrush x:Key="AfTextPrimary" Color="#FFF1F0EC" />
-    <SolidColorBrush x:Key="AfTextSecondary" Color="#FFB8B6B0" />
-    <SolidColorBrush x:Key="AfTextTertiary" Color="#FF9A9893" />
+    <SolidColorBrush x:Key="AfTextPrimary" Color="#FF242424" />
+    <SolidColorBrush x:Key="AfTextSecondary" Color="#FF353332" />
+    <SolidColorBrush x:Key="AfTextTertiary" Color="#FF3B3938" />
 
-    <!-- Ornament only - placeholder glyphs and empty-state line art. Below the
-         contrast floor for text, which is why nothing readable uses it. -->
-    <SolidColorBrush x:Key="AfTextQuaternary" Color="#FF5C5B57" />
+    <!-- Ornament only: placeholder glyphs and empty-state line art. -->
+    <SolidColorBrush x:Key="AfTextQuaternary" Color="#FF7A7675" />
+    <SolidColorBrush x:Key="AfTextPlaceholder" Color="#FF5E5B5A" />
 
-    <SolidColorBrush x:Key="AfTextDisabled" Color="#FF5A5955" />
-    <SolidColorBrush x:Key="AfTextInverse" Color="#FF16171A" />
-    <SolidColorBrush x:Key="AfTextPlaceholder" Color="#FF5C5B57" />
+    <SolidColorBrush x:Key="AfTextDisabled" Color="#FF6A6766" />
+    <SolidColorBrush x:Key="AfTextInverse" Color="#FFEEEBE9" />
 
     <!-- ========================================================= accents -->
 
     <!--
-        Blue selects and acts, green confirms, red destroys or fails, yellow
-        cautions. Each has three jobs and three values: the bright hue for
-        hairlines, bars and glyphs; Solid for a filled surface carrying white
-        text; Text for accent-coloured words on a dark panel. The bright hue is
-        never used as small text and Solid is never used as a hairline.
+        Bright is the token colour, for marks and hairlines. Text is darkened
+        until it clears 4.5:1 on the surface. Solid carries light text. Fill is a
+        faint tint, kept only because shared code may ask for it.
     -->
-    <SolidColorBrush x:Key="AfAccentBlue" Color="#FF2D7DFF" />
-    <SolidColorBrush x:Key="AfAccentBlueFill" Color="#332D7DFF" />
-    <SolidColorBrush x:Key="AfAccentBlueText" Color="#FF8FBBFF" />
-    <SolidColorBrush x:Key="AfAccentBlueSolid" Color="#FF1F5FD0" />
+    <SolidColorBrush x:Key="AfAccentBlue" Color="#FF2E6DB4" />
+    <SolidColorBrush x:Key="AfAccentBlueFill" Color="#1F2E6DB4" />
+    <SolidColorBrush x:Key="AfAccentBlueText" Color="#FF143860" />
+    <SolidColorBrush x:Key="AfAccentBlueSolid" Color="#FF2E6DB4" />
 
-    <SolidColorBrush x:Key="AfAccentGreen" Color="#FF37B86D" />
-    <SolidColorBrush x:Key="AfAccentGreenFill" Color="#3337B86D" />
-    <SolidColorBrush x:Key="AfAccentGreenText" Color="#FF7FDAA4" />
-    <SolidColorBrush x:Key="AfAccentGreenSolid" Color="#FF23844B" />
+    <SolidColorBrush x:Key="AfAccentGreen" Color="#FF00AC9F" />
+    <SolidColorBrush x:Key="AfAccentGreenFill" Color="#1F00AC9F" />
+    <SolidColorBrush x:Key="AfAccentGreenText" Color="#FF004A44" />
+    <SolidColorBrush x:Key="AfAccentGreenSolid" Color="#FF00776E" />
 
-    <SolidColorBrush x:Key="AfAccentRed" Color="#FFE64B4B" />
-    <SolidColorBrush x:Key="AfAccentRedFill" Color="#33E64B4B" />
-    <SolidColorBrush x:Key="AfAccentRedText" Color="#FFF29A9A" />
-    <SolidColorBrush x:Key="AfAccentRedSolid" Color="#FFB23434" />
+    <SolidColorBrush x:Key="AfAccentRed" Color="#FFDF0024" />
+    <SolidColorBrush x:Key="AfAccentRedFill" Color="#1FDF0024" />
+    <SolidColorBrush x:Key="AfAccentRedText" Color="#FF7A0015" />
+    <SolidColorBrush x:Key="AfAccentRedSolid" Color="#FFB3001D" />
 
-    <SolidColorBrush x:Key="AfAccentYellow" Color="#FFE5B83E" />
-    <SolidColorBrush x:Key="AfAccentYellowFill" Color="#33E5B83E" />
-    <SolidColorBrush x:Key="AfAccentYellowText" Color="#FFEFD285" />
-    <SolidColorBrush x:Key="AfAccentYellowSolid" Color="#FF8A6B14" />
+    <SolidColorBrush x:Key="AfAccentYellow" Color="#FFF3C300" />
+    <SolidColorBrush x:Key="AfAccentYellowFill" Color="#1FF3C300" />
+    <SolidColorBrush x:Key="AfAccentYellowText" Color="#FF463700" />
+    <SolidColorBrush x:Key="AfAccentYellowSolid" Color="#FF463700" />
 
-    <SolidColorBrush x:Key="AfStatusOk" Color="#FF37B86D" />
-    <SolidColorBrush x:Key="AfStatusOkText" Color="#FF7FDAA4" />
-    <SolidColorBrush x:Key="AfStatusCaution" Color="#FFE5B83E" />
-    <SolidColorBrush x:Key="AfStatusCautionText" Color="#FFEFD285" />
-    <SolidColorBrush x:Key="AfStatusDanger" Color="#FFE64B4B" />
-    <SolidColorBrush x:Key="AfStatusDangerText" Color="#FFF29A9A" />
-    <SolidColorBrush x:Key="AfStatusInfo" Color="#FF2D7DFF" />
-    <SolidColorBrush x:Key="AfStatusInfoText" Color="#FF8FBBFF" />
-    <SolidColorBrush x:Key="AfStatusIdle" Color="#FF6E6C68" />
+    <SolidColorBrush x:Key="AfStatusOk" Color="#FF00AC9F" />
+    <!-- Ink, not a green: "complete" in Statistics is a word, not a playback
+         state, and green is kept for playing. -->
+    <SolidColorBrush x:Key="AfStatusOkText" Color="#FF242424" />
+    <SolidColorBrush x:Key="AfStatusCaution" Color="#FFF3C300" />
+    <SolidColorBrush x:Key="AfStatusCautionText" Color="#FF463700" />
+    <SolidColorBrush x:Key="AfStatusDanger" Color="#FFDF0024" />
+    <SolidColorBrush x:Key="AfStatusDangerText" Color="#FF7A0015" />
+    <SolidColorBrush x:Key="AfStatusInfo" Color="#FF2E6DB4" />
+    <SolidColorBrush x:Key="AfStatusInfoText" Color="#FF143860" />
+    <SolidColorBrush x:Key="AfStatusIdle" Color="#FF837F7F" />
+
+    <SolidColorBrush x:Key="AfStatusKeyline" Color="#FF242424" />
+    <sys:Double x:Key="AfStatusKeylineThickness">1</sys:Double>
+
+    <!-- Shuffle and repeat: the glyph says on or off, in ink. No accent. -->
+    <SolidColorBrush x:Key="AfStateQueue" Color="#FF242424" />
+    <SolidColorBrush x:Key="AfSliderSeekFill" Color="#FF00AC9F" />
+    <SolidColorBrush x:Key="AfStatBarCaution" Color="#FF656362" />
 
     <!-- ========================================================= strokes -->
 
-    <!--
-        Bevels, as a 3px absolute-mapped gradient on a 1px border: the top edge
-        picks up the first stop and every edge below it pads to the last, so one
-        border draws a light top and a dark bottom. Raised stands proud, Inset is
-        the same idea inverted for a recess. This is why the theme needs no drop
-        shadows.
-    -->
-    <LinearGradientBrush x:Key="AfStrokeRaised" StartPoint="0,0" EndPoint="0,3"
-                         MappingMode="Absolute">
-        <GradientStop Color="#2EFFFFFF" Offset="0" />
-        <GradientStop Color="#59000000" Offset="1" />
-    </LinearGradientBrush>
+    <!-- Solid, not the 3px bevel gradients the dark themes use: a 1px shadow
+         outline, with the raised look drawn as a separate highlight line inside
+         the templates below. -->
+    <SolidColorBrush x:Key="AfStrokeRaised" Color="#FF656362" />
+    <SolidColorBrush x:Key="AfStrokeInset" Color="#FF656362" />
+    <SolidColorBrush x:Key="AfStrokeDivider" Color="#FF8F8B8A" />
+    <SolidColorBrush x:Key="AfStrokeSeam" Color="#FF656362" />
+    <SolidColorBrush x:Key="AfStrokeBevelHighlight" Color="#FFC6C3C2" />
+    <SolidColorBrush x:Key="AfStrokeBevelShadow" Color="#FF837F7F" />
 
-    <LinearGradientBrush x:Key="AfStrokeInset" StartPoint="0,0" EndPoint="0,3"
-                         MappingMode="Absolute">
-        <GradientStop Color="#73000000" Offset="0" />
-        <GradientStop Color="#1FFFFFFF" Offset="1" />
-    </LinearGradientBrush>
+    <!-- The seam under the title strip. -->
+    <SolidColorBrush x:Key="AfStrokeWarm" Color="#FF8F8B8A" />
 
-    <SolidColorBrush x:Key="AfStrokeDivider" Color="#1FFFFFFF" />
-    <SolidColorBrush x:Key="AfStrokeSeam" Color="#FF08090A" />
-    <SolidColorBrush x:Key="AfStrokeBevelHighlight" Color="#2EFFFFFF" />
-    <SolidColorBrush x:Key="AfStrokeBevelShadow" Color="#59000000" />
-
-    <!-- The moulding seam: warm grey, the colour of the console's own plastic,
-         at the join between chassis sections. -->
-    <SolidColorBrush x:Key="AfStrokeWarm" Color="#2ED8D4CA" />
-
-    <!-- Selection reads as a blue marker down the left edge of the row, so it
-         survives being looked at in greyscale or by someone who cannot separate
-         the tint from the row beside it. -->
-    <SolidColorBrush x:Key="AfStrokeSelectionBar" Color="#FF2D7DFF" />
-    <Thickness x:Key="AfStrokeSelectionBarThickness">3,0,0,0</Thickness>
+    <!-- Blue marks the selected artist and album. The track grid has no marker
+         at all - not for selection, because a grid row can also be playing
+         (green), and not for keyboard focus either: the user found the ink bar
+         distracting, and the grey selection moves with the keyboard anyway. -->
+    <SolidColorBrush x:Key="AfStrokeSelectionBar" Color="#FF2E6DB4" />
+    <sys:Double x:Key="AfSizeSelectionBar">3</sys:Double>
+    <Thickness x:Key="AfStrokeSelectionBarThickness">0</Thickness>
+    <SolidColorBrush x:Key="AfStrokeTrackSelectionBar" Color="Transparent" />
 
     <!-- ================================================= spacing, density -->
 
-    <!-- Tighter than Dark throughout: this is a dense instrument panel, not a
-         page of cards. -->
     <Thickness x:Key="AfPadWindowBrowser">12,0,12,0</Thickness>
     <Thickness x:Key="AfPadWindowDeck">12,10,12,0</Thickness>
     <Thickness x:Key="AfPadWindowStatus">12,6,12,8</Thickness>
@@ -180,259 +198,28 @@
 
     <!-- =========================================================== radii -->
 
-    <CornerRadius x:Key="AfRadiusControl">1</CornerRadius>
-    <CornerRadius x:Key="AfRadiusWell">0</CornerRadius>
-    <CornerRadius x:Key="AfRadiusPanel">2</CornerRadius>
+    <CornerRadius x:Key="AfRadiusControl">2</CornerRadius>
+    <CornerRadius x:Key="AfRadiusWell">2</CornerRadius>
+    <CornerRadius x:Key="AfRadiusPanel">3</CornerRadius>
     <CornerRadius x:Key="AfRadiusArt">2</CornerRadius>
     <CornerRadius x:Key="AfRadiusArtSmall">1</CornerRadius>
-    <CornerRadius x:Key="AfFocusRingRadius">0</CornerRadius>
+    <CornerRadius x:Key="AfFocusRingRadius">2</CornerRadius>
 
     <!-- ============================================================ type -->
 
-    <!--
-        The UI face stays the system one - this has to read as a Windows
-        application at any DPI or text scale, and a period bitmap font would
-        throw that away. Only the numbers change: a monospaced face makes the
-        bitrate, depth, sample-rate and timecode columns line up digit for digit
-        and stop twitching as they update.
-    -->
-    <FontFamily x:Key="AfFontMono">Consolas, Cascadia Mono, Courier New</FontFamily>
-
-    <!-- Hair spaces between characters, for the spaced-caps hardware labels
-         above each pane. See Formatting/LetterSpacing.cs - WPF has no tracking
-         property, so this is inserted into the text and the unspaced original is
-         kept as the automation name. -->
+    <!-- The system face throughout, numbers included: tabular figures (set on
+         the numeric styles below) keep columns aligned without a monospaced
+         font. Pane labels keep a little tracking, like a printed legend. -->
     <sys:String x:Key="AfTrackingLabel" xml:space="preserve">&#x200A;</sys:String>
 
     <!-- =========================================================== focus -->
 
-    <SolidColorBrush x:Key="AfFocusRing" Color="#FF79AFFF" />
-    <SolidColorBrush x:Key="AfFocusRingSpacer" Color="#FF0A0B0C" />
-
-    <!-- =============================================== texture and decor -->
-
-    <!--
-        Three static brushes, all of them behind content and none of them
-        animated. Tiled and vector fills cost one draw each - there is no blur,
-        no bitmap effect and nothing that repaints per frame.
-    -->
-
-    <!-- Scanlines: one hairline every 3px. At 3% over a near-black plate this is
-         a texture you notice on the chassis and cannot see under text. -->
-    <DrawingBrush x:Key="AfTextureBrush" TileMode="Tile" Stretch="None"
-                  Viewport="0,0,4,3" ViewportUnits="Absolute">
-        <DrawingBrush.Drawing>
-            <GeometryDrawing Brush="#FFFFFFFF">
-                <GeometryDrawing.Geometry>
-                    <RectangleGeometry Rect="0,0,4,1" />
-                </GeometryDrawing.Geometry>
-            </GeometryDrawing>
-        </DrawingBrush.Drawing>
-    </DrawingBrush>
-    <sys:Double x:Key="AfTextureOpacity">0.03</sys:Double>
-
-    <!-- Ordered dither, the 4x4 cell early hardware used to fake shades it did
-         not have. Two lit cells out of sixteen, at 2%. -->
-    <DrawingBrush x:Key="AfGrainBrush" TileMode="Tile" Stretch="None"
-                  Viewport="0,0,4,4" ViewportUnits="Absolute">
-        <DrawingBrush.Drawing>
-            <GeometryDrawing Brush="#FFFFFFFF">
-                <GeometryDrawing.Geometry>
-                    <GeometryGroup>
-                        <RectangleGeometry Rect="0,0,1,1" />
-                        <RectangleGeometry Rect="2,2,1,1" />
-                    </GeometryGroup>
-                </GeometryDrawing.Geometry>
-            </GeometryDrawing>
-        </DrawingBrush.Drawing>
-    </DrawingBrush>
-    <sys:Double x:Key="AfGrainOpacity">0.02</sys:Double>
-
-    <!--
-        Low-poly geometry, the sort of faceted object an early 3D demo would
-        rotate on a title screen. Drawn at natural size and anchored to the
-        bottom-right rather than stretched, so the lines stay hairlines at every
-        DPI instead of thickening with the pane.
-    -->
-    <DrawingBrush x:Key="AfDecorBrush" Stretch="None" TileMode="None"
-                  AlignmentX="Right" AlignmentY="Bottom">
-        <DrawingBrush.Drawing>
-            <DrawingGroup>
-                <GeometryDrawing>
-                    <GeometryDrawing.Pen>
-                        <Pen Brush="#FF2D7DFF" Thickness="1.25" />
-                    </GeometryDrawing.Pen>
-                    <GeometryDrawing.Geometry>
-                        <PathGeometry Figures="M 24,150 L 78,44 L 168,96 L 122,204 Z
-                                               M 24,150 L 168,96
-                                               M 78,44 L 122,204
-                                               M 168,96 L 240,30 L 286,118 L 214,166 Z
-                                               M 168,96 L 286,118
-                                               M 240,30 L 214,166" />
-                    </GeometryDrawing.Geometry>
-                </GeometryDrawing>
-            </DrawingGroup>
-        </DrawingBrush.Drawing>
-    </DrawingBrush>
-    <sys:Double x:Key="AfDecorOpacity">0.07</sys:Double>
-
-    <!-- ===================================================== WPF-UI keys -->
-
-    <!--
-        Everything below re-points WPF-UI's own semantic keys at PS1 surfaces.
-        Its controls resolve these with DynamicResource, so buttons, text boxes,
-        menus, scrollbars, checkboxes and tooltips all land on this palette
-        without a single hand-written template - which is both far less code and
-        far less to get wrong than replacing their templates would be.
-    -->
-
-    <SolidColorBrush x:Key="ApplicationBackgroundBrush" Color="#FF0E0F11" />
-    <SolidColorBrush x:Key="SolidBackgroundFillColorBaseBrush" Color="#FF0E0F11" />
-    <SolidColorBrush x:Key="SolidBackgroundFillColorBaseAltBrush" Color="#FF08090A" />
-    <SolidColorBrush x:Key="SolidBackgroundFillColorSecondaryBrush" Color="#FF1E2023" />
-    <SolidColorBrush x:Key="SolidBackgroundFillColorTertiaryBrush" Color="#FF23252A" />
-    <SolidColorBrush x:Key="SolidBackgroundFillColorQuarternaryBrush" Color="#FF2A2C30" />
-
-    <!-- Control faces. Pressed is darker than default, not lighter: a key that
-         goes in when you push it. -->
-    <SolidColorBrush x:Key="ControlFillColorDefaultBrush" Color="#FF2A2C30" />
-    <SolidColorBrush x:Key="ControlFillColorSecondaryBrush" Color="#FF34373C" />
-    <SolidColorBrush x:Key="ControlFillColorTertiaryBrush" Color="#FF17181B" />
-    <SolidColorBrush x:Key="ControlFillColorDisabledBrush" Color="#FF1E2023" />
-    <SolidColorBrush x:Key="ControlFillColorInputActiveBrush" Color="#FF141518" />
-    <SolidColorBrush x:Key="ControlFillColorTransparentBrush" Color="Transparent" />
-
-    <SolidColorBrush x:Key="ControlAltFillColorSecondaryBrush" Color="#FF141518" />
-    <SolidColorBrush x:Key="ControlAltFillColorTertiaryBrush" Color="#FF2A2C30" />
-    <SolidColorBrush x:Key="ControlAltFillColorQuarternaryBrush" Color="#FF34373C" />
-    <SolidColorBrush x:Key="ControlAltFillColorDisabledBrush" Color="#FF1E2023" />
-
-    <SolidColorBrush x:Key="ControlSolidFillColorDefaultBrush" Color="#FF2A2C30" />
-    <SolidColorBrush x:Key="ControlStrongFillColorDefaultBrush" Color="#FF8C8A85" />
-    <SolidColorBrush x:Key="ControlStrongFillColorDisabledBrush" Color="#FF3A3C40" />
-    <SolidColorBrush x:Key="ControlStrongStrokeColorDefaultBrush" Color="#FFB8B6B0" />
-    <SolidColorBrush x:Key="ControlStrongStrokeColorDisabledBrush" Color="#FF3A3C40" />
-
-    <!-- Bevelled edges on every stock control, from the same gradient the panels
-         use. -->
-    <LinearGradientBrush x:Key="ControlElevationBorderBrush" StartPoint="0,0" EndPoint="0,3"
-                         MappingMode="Absolute">
-        <GradientStop Color="#2EFFFFFF" Offset="0" />
-        <GradientStop Color="#59000000" Offset="1" />
-    </LinearGradientBrush>
-
-    <LinearGradientBrush x:Key="TextControlElevationBorderBrush" StartPoint="0,0" EndPoint="0,3"
-                         MappingMode="Absolute">
-        <GradientStop Color="#73000000" Offset="0" />
-        <GradientStop Color="#1FFFFFFF" Offset="1" />
-    </LinearGradientBrush>
-
-    <LinearGradientBrush x:Key="CircleElevationBorderBrush" StartPoint="0,0" EndPoint="0,3"
-                         MappingMode="Absolute">
-        <GradientStop Color="#2EFFFFFF" Offset="0" />
-        <GradientStop Color="#59000000" Offset="1" />
-    </LinearGradientBrush>
-
-    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="#26FFFFFF" />
-    <SolidColorBrush x:Key="ControlStrokeColorSecondaryBrush" Color="#1AFFFFFF" />
-    <SolidColorBrush x:Key="ControlStrokeColorTertiaryBrush" Color="#12FFFFFF" />
-    <SolidColorBrush x:Key="ControlStrokeColorOnAccentDefaultBrush" Color="#33FFFFFF" />
-    <SolidColorBrush x:Key="ControlStrokeColorOnAccentSecondaryBrush" Color="#59000000" />
-
-    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#FF1E2023" />
-    <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush" Color="#FF141518" />
-    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="#FF08090A" />
-    <SolidColorBrush x:Key="CardStrokeColorDefaultSolidBrush" Color="#FF08090A" />
-
-    <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="#FF1E2023" />
-    <SolidColorBrush x:Key="LayerFillColorAltBrush" Color="#FF2A2C30" />
-    <SolidColorBrush x:Key="LayerOnAcrylicFillColorDefaultBrush" Color="#FF23252A" />
-    <SolidColorBrush x:Key="LayerOnMicaBaseAltFillColorDefaultBrush" Color="#FF23252A" />
-    <SolidColorBrush x:Key="LayerOnMicaBaseAltFillColorSecondaryBrush" Color="#FF2A2C30" />
-    <SolidColorBrush x:Key="LayerOnMicaBaseAltFillColorTertiaryBrush" Color="#FF34373C" />
-
-    <!-- Hover and press for the flat, borderless controls: the window buttons,
-         the rescan button, menu bar items. -->
-    <SolidColorBrush x:Key="SubtleFillColorSecondaryBrush" Color="#18FFFFFF" />
-    <SolidColorBrush x:Key="SubtleFillColorTertiaryBrush" Color="#0CFFFFFF" />
-    <SolidColorBrush x:Key="SubtleFillColorTransparentBrush" Color="Transparent" />
-    <SolidColorBrush x:Key="SubtleFillColorDisabledBrush" Color="Transparent" />
-
-    <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="#1FFFFFFF" />
-    <SolidColorBrush x:Key="SurfaceStrokeColorDefaultBrush" Color="#FF08090A" />
-    <SolidColorBrush x:Key="SurfaceStrokeColorFlyoutBrush" Color="#FF08090A" />
-    <SolidColorBrush x:Key="ContextMenuBorderBrush" Color="#FF08090A" />
-    <SolidColorBrush x:Key="FlyoutBorderBrush" Color="#FF08090A" />
-    <SolidColorBrush x:Key="ToolTipBorderBrush" Color="#FF08090A" />
-    <SolidColorBrush x:Key="MenuBarItemBorderBrush" Color="Transparent" />
-    <SolidColorBrush x:Key="ProgressBarBorderBrush" Color="#1FFFFFFF" />
-    <SolidColorBrush x:Key="ContentDialogBorderBrush" Color="#FF08090A" />
-    <SolidColorBrush x:Key="ContentDialogSeparatorBorderBrush" Color="#1FFFFFFF" />
-
-    <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="#FFF1F0EC" />
-    <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#FFB8B6B0" />
-    <SolidColorBrush x:Key="TextFillColorTertiaryBrush" Color="#FF8C8A85" />
-    <SolidColorBrush x:Key="TextFillColorDisabledBrush" Color="#FF5A5955" />
-    <SolidColorBrush x:Key="TextFillColorInverseBrush" Color="#FF16171A" />
-    <SolidColorBrush x:Key="TextPlaceholderColorBrush" Color="#FF8C8A85" />
-    <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#FFFFFFFF" />
-    <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="#B3FFFFFF" />
-    <SolidColorBrush x:Key="TextOnAccentFillColorDisabledBrush" Color="#FF5A5955" />
-
-    <!--
-        The accent WPF-UI derives from a seed colour is a light pastel on dark
-        surfaces, which is the WinUI convention but not this one: a primary key
-        here is saturated blue with a white glyph. These four therefore restate
-        the accent explicitly, and ThemeService writes them over what
-        ApplicationAccentColorManager leaves behind - it puts its values directly
-        into Application.Resources, which outranks any merged dictionary.
-    -->
-    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#FF1F5FD0" />
-    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#FF2A6EE0" />
-    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#FF184FB0" />
-    <SolidColorBrush x:Key="AccentFillColorDisabledBrush" Color="#FF262A31" />
-    <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FF8FBBFF" />
-    <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="#FFB9D3FF" />
-    <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush" Color="#FF8FBBFF" />
-    <SolidColorBrush x:Key="AccentTextFillColorDisabledBrush" Color="#FF5A5955" />
-
-    <LinearGradientBrush x:Key="AccentControlElevationBorderBrush" StartPoint="0,0" EndPoint="0,3"
-                         MappingMode="Absolute">
-        <GradientStop Color="#3DFFFFFF" Offset="0" />
-        <GradientStop Color="#66000000" Offset="1" />
-    </LinearGradientBrush>
-
-    <!-- A focus ring the eye lands on: a bright outline over a dark spacer, so
-         it stays visible on a raised key, a selected row and a dark well alike. -->
-    <SolidColorBrush x:Key="FocusStrokeColorOuterBrush" Color="#FF79AFFF" />
-    <SolidColorBrush x:Key="FocusStrokeColorInnerBrush" Color="#FF0A0B0C" />
-    <SolidColorBrush x:Key="KeyboardFocusBorderColorBrush" Color="#FF79AFFF" />
-
-    <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="#FF37B86D" />
-    <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFE5B83E" />
-    <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFE64B4B" />
-    <SolidColorBrush x:Key="SystemFillColorAttentionBrush" Color="#FF2D7DFF" />
-    <SolidColorBrush x:Key="SystemFillColorNeutralBrush" Color="#FFB8B6B0" />
-    <SolidColorBrush x:Key="SystemFillColorSuccessBackgroundBrush" Color="#3337B86D" />
-    <SolidColorBrush x:Key="SystemFillColorCautionBackgroundBrush" Color="#33E5B83E" />
-    <SolidColorBrush x:Key="SystemFillColorCriticalBackgroundBrush" Color="#33E64B4B" />
-    <SolidColorBrush x:Key="SystemFillColorAttentionBackgroundBrush" Color="#332D7DFF" />
-
-    <!-- Square corners on every stock control. -->
-    <CornerRadius x:Key="ControlCornerRadius">1</CornerRadius>
-    <CornerRadius x:Key="OverlayCornerRadius">2</CornerRadius>
-
-    <!-- Slider rail and thumb, shared with the seek and volume sliders. -->
-    <SolidColorBrush x:Key="SliderTrackFill" Color="#FF3A3C40" />
-    <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#FF474A4F" />
-    <SolidColorBrush x:Key="SliderOuterThumbBackground" Color="#FF34373C" />
-    <SolidColorBrush x:Key="SliderThumbBackground" Color="#FF2D7DFF" />
-    <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FF5B9AFF" />
+    <!-- Ink, not an accent: focus is not one of the four states. -->
+    <SolidColorBrush x:Key="AfFocusRing" Color="#FF242424" />
+    <SolidColorBrush x:Key="AfFocusRingSpacer" Color="Transparent" />
 
     <!-- ====================================================== typography -->
 
-    <!-- Hardware labels: small, spaced capitals, the way a moulded legend is
-         printed above a socket. -->
     <Style x:Key="AfPaneHeaderText" TargetType="TextBlock">
         <Setter Property="FontSize" Value="{DynamicResource AfFontSizeMicro}" />
         <Setter Property="FontWeight" Value="{DynamicResource AfFontWeightSemiBold}" />
@@ -441,36 +228,26 @@
         <Setter Property="fmt:LetterSpacing.Spacer" Value="{DynamicResource AfTrackingLabel}" />
     </Style>
 
-    <!-- Numeric columns and timecodes, monospaced. -->
     <Style x:Key="AfNumericCell" TargetType="TextBlock">
         <Setter Property="TextAlignment" Value="Right" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Margin" Value="{DynamicResource AfPadNumericCell}" />
-        <Setter Property="FontFamily" Value="{DynamicResource AfFontMono}" />
-        <Setter Property="FontSize" Value="{DynamicResource AfFontSizeSmall}" />
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
     </Style>
 
     <Style x:Key="AfReadout" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{DynamicResource AfFontMono}" />
         <Setter Property="FontSize" Value="{DynamicResource AfFontSizeSmall}" />
         <Setter Property="Foreground" Value="{DynamicResource AfTextSecondary}" />
         <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
-
-    <Style x:Key="AfAlbumTitle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="{DynamicResource AfFontSizeTitle}" />
-        <Setter Property="FontWeight" Value="{DynamicResource AfFontWeightSemiBold}" />
-        <Setter Property="Foreground" Value="{DynamicResource AfTextPrimary}" />
-        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-        <Setter Property="LineHeight" Value="{DynamicResource AfLineHeightTitle}" />
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
     </Style>
 
     <!-- =========================================================== panes -->
 
     <!--
-        Moulded chassis: a dark seam on the outside, a bevelled edge inside it, a
-        raised header strip with a warm moulding line along its top, and the body
-        recessed into a well. Four elements, no effects.
+        A raised panel: surface grey, a 1px shadow outline, and a 1px highlight
+        just inside the top edge - the light catching the moulded lip. The
+        header strip is the same grey, separated from the body by a divider.
     -->
     <Style x:Key="AfPane" TargetType="HeaderedContentControl">
         <Setter Property="Focusable" Value="False" />
@@ -485,32 +262,21 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{DynamicResource AfRadiusPanel}"
                             SnapsToDevicePixels="True">
-                        <Border BorderBrush="{DynamicResource AfStrokeRaised}"
-                                BorderThickness="{DynamicResource AfStrokeThin}"
-                                SnapsToDevicePixels="True">
+                        <Grid>
                             <DockPanel>
                                 <Border x:Name="HeaderStrip"
                                         DockPanel.Dock="Top"
-                                        Background="{DynamicResource AfSurfaceRaised}"
-                                        BorderBrush="{DynamicResource AfStrokeSeam}"
+                                        BorderBrush="{DynamicResource AfStrokeDivider}"
                                         BorderThickness="0,0,0,1"
                                         SnapsToDevicePixels="True">
-                                    <Grid>
-                                        <ContentPresenter ContentSource="Header" />
-                                        <Border Height="1" VerticalAlignment="Top"
-                                                Background="{DynamicResource AfStrokeWarm}" />
-                                    </Grid>
+                                    <ContentPresenter ContentSource="Header" />
                                 </Border>
-
-                                <Border x:Name="Well"
-                                        Background="{DynamicResource AfSurfaceWell}"
-                                        BorderBrush="{DynamicResource AfStrokeInset}"
-                                        BorderThickness="0,1,0,0"
-                                        SnapsToDevicePixels="True">
-                                    <ContentPresenter />
-                                </Border>
+                                <ContentPresenter />
                             </DockPanel>
-                        </Border>
+                            <Border Height="1" VerticalAlignment="Top" Margin="1,0"
+                                    Background="{DynamicResource AfStrokeBevelHighlight}"
+                                    IsHitTestVisible="False" />
+                        </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="Header" Value="{x:Null}">
@@ -522,71 +288,11 @@
         </Setter>
     </Style>
 
-    <!--
-        The display: the track pane. Identical chassis, with the theme's one
-        textured surface behind its content - low-poly geometry anchored bottom
-        right, plus scanlines, both under the rows and both far too faint to
-        touch the contrast of anything written over them.
-    -->
+    <!-- The track pane: the same panel. No texture or decoration here. -->
     <Style x:Key="AfPaneDisplay" TargetType="HeaderedContentControl"
-           BasedOn="{StaticResource AfPane}">
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="HeaderedContentControl">
-                    <Border Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{DynamicResource AfRadiusPanel}"
-                            SnapsToDevicePixels="True">
-                        <Border BorderBrush="{DynamicResource AfStrokeRaised}"
-                                BorderThickness="{DynamicResource AfStrokeThin}"
-                                SnapsToDevicePixels="True">
-                            <DockPanel>
-                                <Border x:Name="HeaderStrip"
-                                        DockPanel.Dock="Top"
-                                        Background="{DynamicResource AfSurfaceRaised}"
-                                        BorderBrush="{DynamicResource AfStrokeSeam}"
-                                        BorderThickness="0,0,0,1"
-                                        SnapsToDevicePixels="True">
-                                    <Grid>
-                                        <ContentPresenter ContentSource="Header" />
-                                        <Border Height="1" VerticalAlignment="Top"
-                                                Background="{DynamicResource AfStrokeWarm}" />
-                                    </Grid>
-                                </Border>
+           BasedOn="{StaticResource AfPane}" />
 
-                                <Border Background="{DynamicResource AfSurfaceWell}"
-                                        BorderBrush="{DynamicResource AfStrokeInset}"
-                                        BorderThickness="0,1,0,0"
-                                        SnapsToDevicePixels="True">
-                                    <Grid>
-                                        <Border Background="{DynamicResource AfDecorBrush}"
-                                                Opacity="{DynamicResource AfDecorOpacity}"
-                                                IsHitTestVisible="False" />
-                                        <Border Background="{DynamicResource AfTextureBrush}"
-                                                Opacity="{DynamicResource AfTextureOpacity}"
-                                                IsHitTestVisible="False" />
-                                        <ContentPresenter />
-                                    </Grid>
-                                </Border>
-                            </DockPanel>
-                        </Border>
-                    </Border>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="Header" Value="{x:Null}">
-                            <Setter TargetName="HeaderStrip" Property="Visibility" Value="Collapsed" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <!--
-        The transport deck. Raised rather than recessed - it is the front panel
-        you press, so it sits proud of the shell with a warm moulding line along
-        its top edge.
-    -->
+    <!-- The transport deck: the same raised panel, padded. -->
     <Style x:Key="AfDeck" TargetType="ContentControl">
         <Setter Property="Focusable" Value="False" />
         <Setter Property="Background" Value="{DynamicResource AfSurfaceRaised}" />
@@ -601,22 +307,19 @@
                             BorderThickness="{TemplateBinding BorderThickness}"
                             CornerRadius="{DynamicResource AfRadiusPanel}"
                             SnapsToDevicePixels="True">
-                        <Border BorderBrush="{DynamicResource AfStrokeRaised}"
-                                BorderThickness="{DynamicResource AfStrokeThin}"
-                                SnapsToDevicePixels="True">
-                            <Grid>
-                                <ContentPresenter Margin="{TemplateBinding Padding}" />
-                                <Border Height="1" VerticalAlignment="Top"
-                                        Background="{DynamicResource AfStrokeWarm}" />
-                            </Grid>
-                        </Border>
+                        <Grid>
+                            <ContentPresenter Margin="{TemplateBinding Padding}" />
+                            <Border Height="1" VerticalAlignment="Top" Margin="1,0"
+                                    Background="{DynamicResource AfStrokeBevelHighlight}"
+                                    IsHitTestVisible="False" />
+                        </Grid>
                     </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
     </Style>
 
-    <!-- Cover slots are recessed, like the disc window in a console lid. -->
+    <!-- Cover slots are recessed: the disc window in the lid. -->
     <Style x:Key="AfArtFrame" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource AfSurfaceMat}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AfStrokeInset}" />
@@ -631,16 +334,12 @@
 
     <!-- ======================================================= track grid -->
 
-    <!--
-        Column titles sit on a raised strip with a seam under it, separated by
-        hairlines: a legend plate over the display rather than text floating
-        above rows. Kept to property setters so the stock header keeps its sort
-        indicator and its resize grips - templating it would mean rebuilding both.
-    -->
+    <!-- Column titles on the panel grey with a divider under them. Property
+         setters only, so the stock header keeps its sort arrow and grips. -->
     <Style TargetType="DataGridColumnHeader">
-        <Setter Property="Background" Value="{DynamicResource AfSurfaceRaised}" />
+        <Setter Property="Background" Value="{DynamicResource AfSurfacePanel}" />
         <Setter Property="Foreground" Value="{DynamicResource AfTextSecondary}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AfStrokeSeam}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AfStrokeDivider}" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
         <Setter Property="SeparatorBrush" Value="{DynamicResource AfStrokeDivider}" />
         <Setter Property="SeparatorVisibility" Value="Visible" />
@@ -651,12 +350,7 @@
         <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
 
-    <!--
-        Cells paint nothing: the row owns selection, and it owns keyboard focus
-        too - a focused row brightens its marker rather than drawing a box round
-        a cell. FocusVisualStyle is cleared for the same reason, or WPF would put
-        its own dotted rectangle there.
-    -->
+    <!-- Cells paint nothing; the row owns selection and focus. -->
     <Style TargetType="DataGridCell">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
@@ -676,37 +370,53 @@
         </Setter>
     </Style>
 
+    <!-- The playing row: a small green play mark with an ink keyline. -->
+    <ControlTemplate x:Key="AfNowPlayingGlyph" TargetType="Control">
+        <Path Data="{StaticResource Ps1Play}"
+              Width="9" Height="9"
+              Stretch="Uniform"
+              Fill="{DynamicResource AfStatusOk}"
+              Stroke="{DynamicResource AfStatusKeyline}"
+              StrokeThickness="1"
+              StrokeLineJoin="Round"
+              SnapsToDevicePixels="True" />
+    </ControlTemplate>
+
     <!-- ========================================================== slider -->
 
     <!--
-        A rectangular thumb in an inset rail, with the travelled part filled
-        blue. Keeps the rail inset by the thumb's half-width so neither end cap
-        shows past the thumb at 0% or 100% - the reason this app has always
-        carried its own slider template.
+        A recessed rail with a raised grey key for a thumb. The travelled part
+        is the slider's Foreground: shadow grey by default (volume), and the
+        seek bar sets the playing green through AfSliderSeekFill. The rail is
+        inset by the thumb's half-width so no end cap shows past it.
+
+        The repeat buttons need Style={x:Null} as well as OverridesDefaultStyle:
+        WPF-UI's implicit RepeatButton style still applies without it, and it
+        collapses the travelled segment to zero width.
     -->
     <Style x:Key="AfSlider" TargetType="Slider">
+        <Setter Property="Foreground" Value="{DynamicResource AfStrokeSeam}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Slider">
                     <Grid x:Name="Root" VerticalAlignment="Center" Height="20">
-                        <Border Height="6" Margin="6,0"
+                        <Border Height="6" Margin="5,0"
                                 Background="{DynamicResource AfSurfaceWell}"
-                                BorderBrush="{DynamicResource AfStrokeInset}"
+                                BorderBrush="{DynamicResource AfStrokeSeam}"
                                 BorderThickness="1"
+                                CornerRadius="1"
                                 SnapsToDevicePixels="True" />
                         <Track x:Name="PART_Track">
                             <Track.DecreaseRepeatButton>
                                 <RepeatButton Focusable="False" IsTabStop="False"
-                                              OverridesDefaultStyle="True">
+                                              Style="{x:Null}" OverridesDefaultStyle="True"
+                                              Foreground="{TemplateBinding Foreground}">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton">
-                                            <!-- The filled part of the rail. Transparent
-                                                 padding either side keeps it inside the
-                                                 well's own border. -->
                                             <Grid Background="Transparent">
-                                                <Border Height="4" Margin="7,0,0,0"
+                                                <Border Height="4" Margin="6,0,0,0"
                                                         HorizontalAlignment="Stretch"
-                                                        Background="{DynamicResource AfAccentBlue}"
+                                                        Background="{TemplateBinding Foreground}"
                                                         SnapsToDevicePixels="True" />
                                             </Grid>
                                         </ControlTemplate>
@@ -715,7 +425,7 @@
                             </Track.DecreaseRepeatButton>
                             <Track.IncreaseRepeatButton>
                                 <RepeatButton Focusable="False" IsTabStop="False"
-                                              OverridesDefaultStyle="True">
+                                              Style="{x:Null}" OverridesDefaultStyle="True">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton">
                                             <Border Background="Transparent" />
@@ -725,29 +435,25 @@
                             </Track.IncreaseRepeatButton>
                             <Track.Thumb>
                                 <Thumb x:Name="Thumb"
-                                       Height="18" Width="12"
+                                       Height="16" Width="10"
                                        OverridesDefaultStyle="True"
                                        SnapsToDevicePixels="True"
-                                       Background="{DynamicResource AfSurfaceRaised}"
-                                       BorderBrush="{DynamicResource AfStrokeSeam}"
-                                       Foreground="{DynamicResource AfAccentBlue}">
+                                       Background="{DynamicResource AfSurfaceRaised}">
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
                                             <Border Background="{TemplateBinding Background}"
-                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderBrush="{DynamicResource AfStrokeSeam}"
                                                     BorderThickness="1"
                                                     CornerRadius="{DynamicResource AfRadiusControl}"
                                                     SnapsToDevicePixels="True">
-                                                <Border BorderBrush="{DynamicResource AfStrokeRaised}"
-                                                        BorderThickness="1"
-                                                        SnapsToDevicePixels="True">
-                                                    <!-- Grip line, so the thumb reads as
-                                                         something to take hold of. -->
-                                                    <Border Width="2" Height="8"
+                                                <Grid>
+                                                    <Border Height="1" VerticalAlignment="Top"
+                                                            Background="{DynamicResource AfStrokeBevelHighlight}" />
+                                                    <Border Width="1" Height="6"
                                                             HorizontalAlignment="Center"
                                                             VerticalAlignment="Center"
-                                                            Background="{TemplateBinding Foreground}" />
-                                                </Border>
+                                                            Background="{DynamicResource AfTextSecondary}" />
+                                                </Grid>
                                             </Border>
                                         </ControlTemplate>
                                     </Thumb.Template>
@@ -759,7 +465,8 @@
                                 Visibility="Collapsed"
                                 IsHitTestVisible="False"
                                 BorderBrush="{DynamicResource AfFocusRing}"
-                                BorderThickness="{DynamicResource AfFocusRingInset}" />
+                                BorderThickness="{DynamicResource AfFocusRingInset}"
+                                CornerRadius="{DynamicResource AfFocusRingRadius}" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -779,29 +486,60 @@
         </Setter>
     </Style>
 
-    <!-- ======================================================== progress -->
+    <!-- ================================================== transport keys -->
 
     <!--
-        A segmented bar, masked into ticks rather than drawn as a smooth fill.
-        Determinate is what the app uses - the scan reports a fraction - and the
-        indeterminate case falls back to a dim full-width fill rather than an
-        animation, because nothing in this theme loops.
-    -->
-    <DrawingBrush x:Key="Ps1SegmentMask" TileMode="Tile" Stretch="None"
-                  Viewport="0,0,4,1" ViewportUnits="Absolute">
-        <DrawingBrush.Drawing>
-            <GeometryDrawing Brush="#FFFFFFFF">
-                <GeometryDrawing.Geometry>
-                    <RectangleGeometry Rect="0,0,3,1" />
-                </GeometryDrawing.Geometry>
-            </GeometryDrawing>
-        </DrawingBrush.Drawing>
-    </DrawingBrush>
+        The one place accents are fills: three small keys, like a controller's
+        face buttons, each outlined in ink. Play/Pause is green while it shows
+        Play and red while it shows Pause. Ink glyph on green; light on red
+        (4.2:1), where ink would only reach 3.1:1.
 
+        The colours are set in triggers rather than plain setters: WPF-UI's base
+        style sets its Appearance colours in triggers, and a base style's trigger
+        outranks a derived style's setter. A derived trigger, defined later, wins.
+        Disabled keeps WPF-UI's grey disabled face.
+
+        Appearance is Secondary, not Primary: WPF-UI colours a Primary button in
+        its template's own triggers, which no style can override.
+    -->
+    <Style x:Key="AfPlayKey" TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+        <Setter Property="Appearance" Value="Secondary" />
+        <Style.Triggers>
+            <Trigger Property="IsEnabled" Value="True">
+                <Setter Property="Background" Value="#FF00AC9F" />
+                <Setter Property="MouseOverBackground" Value="#FF1DBDB0" />
+                <Setter Property="PressedBackground" Value="#FF00968A" />
+                <Setter Property="Foreground" Value="#FF242424" />
+                <Setter Property="PressedForeground" Value="#FF242424" />
+                <Setter Property="BorderBrush" Value="#FF242424" />
+                <Setter Property="MouseOverBorderBrush" Value="#FF242424" />
+                <Setter Property="PressedBorderBrush" Value="#FF242424" />
+            </Trigger>
+            <MultiDataTrigger>
+                <MultiDataTrigger.Conditions>
+                    <Condition Binding="{Binding IsPlaying}" Value="True" />
+                    <Condition Binding="{Binding IsEnabled, RelativeSource={RelativeSource Self}}" Value="True" />
+                </MultiDataTrigger.Conditions>
+                <Setter Property="Background" Value="#FFDF0024" />
+                <Setter Property="MouseOverBackground" Value="#FFE8203F" />
+                <Setter Property="PressedBackground" Value="#FFB8001E" />
+                <Setter Property="Foreground" Value="#FFEEEBE9" />
+                <Setter Property="PressedForeground" Value="#FFEEEBE9" />
+            </MultiDataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Previous and Next are plain grey keys: no AfSkipKey here, so they use
+         the neutral default from Components.xaml. They were yellow for a round;
+         the user preferred them without colour. -->
+
+    <!-- ======================================================== progress -->
+
+    <!-- The scan bar: recessed track, yellow fill (scanning, like the lamp beside the status text), ink outline, no animation. -->
     <Style TargetType="ProgressBar">
         <Setter Property="Background" Value="{DynamicResource AfSurfaceWell}" />
-        <Setter Property="Foreground" Value="{DynamicResource AfAccentBlue}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource AfStrokeInset}" />
+        <Setter Property="Foreground" Value="{DynamicResource AfAccentYellow}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AfStatusKeyline}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Template">
             <Setter.Value>
@@ -814,8 +552,7 @@
                             <Border x:Name="PART_Track" />
                             <Border x:Name="PART_Indicator"
                                     HorizontalAlignment="Left"
-                                    Background="{TemplateBinding Foreground}"
-                                    OpacityMask="{StaticResource Ps1SegmentMask}" />
+                                    Background="{TemplateBinding Foreground}" />
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -833,10 +570,10 @@
     <!-- ========================================================== toggle -->
 
     <!--
-        The bit-perfect key. Three cues for one state, none of them colour on its
-        own: the key sits in rather than proud, a square lamp lights, and the
-        word beside it changes. That matters here - engaging it silences every
-        other application on the machine.
+        The Bit-Perfect key. Three cues for one state, none of them colour on
+        its own: the key sits in rather than proud, the lamp lights green, and
+        the word beside it changes from OFF to ON. That matters here - engaging
+        it silences every other application on the machine.
     -->
     <Style TargetType="ToggleButton">
         <Setter Property="Foreground" Value="{DynamicResource AfTextSecondary}" />
@@ -852,12 +589,10 @@
                                 BorderThickness="1"
                                 CornerRadius="{DynamicResource AfRadiusControl}"
                                 SnapsToDevicePixels="True">
-                            <Border x:Name="Bevel"
-                                    BorderBrush="{DynamicResource AfStrokeRaised}"
-                                    BorderThickness="1"
-                                    Padding="{TemplateBinding Padding}"
-                                    SnapsToDevicePixels="True">
-                                <StackPanel Orientation="Horizontal">
+                            <Grid>
+                                <Border x:Name="Highlight" Height="1" VerticalAlignment="Top"
+                                        Background="{DynamicResource AfStrokeBevelHighlight}" />
+                                <StackPanel Orientation="Horizontal" Margin="{TemplateBinding Padding}">
                                     <Border x:Name="Lamp"
                                             Width="7" Height="7"
                                             VerticalAlignment="Center"
@@ -875,7 +610,7 @@
                                                FontWeight="{DynamicResource AfFontWeightSemiBold}"
                                                Foreground="{DynamicResource AfTextTertiary}" />
                                 </StackPanel>
-                            </Border>
+                            </Grid>
                         </Border>
 
                         <Border x:Name="FocusRing"
@@ -883,7 +618,8 @@
                                 IsHitTestVisible="False"
                                 Margin="-2"
                                 BorderBrush="{DynamicResource AfFocusRing}"
-                                BorderThickness="{DynamicResource AfFocusRingThickness}" />
+                                BorderThickness="{DynamicResource AfFocusRingThickness}"
+                                CornerRadius="{DynamicResource AfFocusRingRadius}" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -893,19 +629,19 @@
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Face" Property="Background"
                                     Value="{DynamicResource AfSurfaceRaisedPressed}" />
-                            <Setter TargetName="Bevel" Property="BorderBrush"
-                                    Value="{DynamicResource AfStrokeInset}" />
+                            <Setter TargetName="Highlight" Property="Visibility" Value="Collapsed" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Face" Property="Background"
                                     Value="{DynamicResource AfSurfaceRaisedPressed}" />
-                            <Setter TargetName="Bevel" Property="BorderBrush"
-                                    Value="{DynamicResource AfStrokeInset}" />
+                            <Setter TargetName="Highlight" Property="Visibility" Value="Collapsed" />
                             <Setter TargetName="Lamp" Property="Background"
                                     Value="{DynamicResource AfStatusOk}" />
+                            <Setter TargetName="Lamp" Property="BorderBrush"
+                                    Value="{DynamicResource AfStatusKeyline}" />
                             <Setter TargetName="State" Property="Text" Value="ON" />
                             <Setter TargetName="State" Property="Foreground"
-                                    Value="{DynamicResource AfStatusOkText}" />
+                                    Value="{DynamicResource AfTextPrimary}" />
                             <Setter Property="Foreground"
                                     Value="{DynamicResource AfTextPrimary}" />
                         </Trigger>
@@ -924,41 +660,39 @@
 
     <!-- ==================================================== themed slots -->
 
-    <!--
-        The shell plate. Scanlines and dither over near-black, behind every
-        pixel of content - visible in the title strip, the status strip and the
-        gutters between panels, and never between the reader and a word.
-    -->
+    <!-- The shell: plain PS1 grey behind every pixel of the window. -->
     <ControlTemplate x:Key="AfWindowDecor" TargetType="Control">
-        <Grid IsHitTestVisible="False">
-            <Border Background="{DynamicResource AfSurfaceShell}" />
-            <Border Background="{DynamicResource AfTextureBrush}"
-                    Opacity="{DynamicResource AfTextureOpacity}" />
-            <Border Background="{DynamicResource AfGrainBrush}"
-                    Opacity="{DynamicResource AfGrainOpacity}" />
-        </Grid>
+        <Border Background="{DynamicResource AfSurfaceShell}" IsHitTestVisible="False" />
     </ControlTemplate>
 
     <!--
-        Library state, in the status bar. Shape and word change together with the
-        colour: a yellow triangle while scanning, a green circle when the library
-        is loaded and the output is live, a grey circle otherwise.
+        Library state in the status bar. Shape, colour and the words beside it
+        change together: a grey circle when idle, a green circle when the output
+        is live, a yellow triangle while scanning. Accent shapes get the ink
+        keyline so they read against the grey.
     -->
     <ControlTemplate x:Key="AfStatusLamp" TargetType="Control">
-        <Grid Width="12" Height="12" ToolTip="{Binding StatusText}">
+        <Grid Width="12" Height="12" Margin="0,0,6,0" ToolTip="{Binding StatusText}">
             <Path x:Name="Idle"
                   Data="{StaticResource Ps1Circle}"
                   Fill="{DynamicResource AfStatusIdle}"
-                  Stretch="Uniform" Margin="1" />
+                  Stroke="{DynamicResource AfStrokeSeam}"
+                  StrokeThickness="1"
+                  Stretch="Uniform" Margin="1.5" />
             <Path x:Name="Ready"
                   Data="{StaticResource Ps1Circle}"
                   Fill="{DynamicResource AfStatusOk}"
-                  Stretch="Uniform" Margin="1"
+                  Stroke="{DynamicResource AfStatusKeyline}"
+                  StrokeThickness="1"
+                  Stretch="Uniform" Margin="1.5"
                   Visibility="Collapsed" />
             <Path x:Name="Busy"
                   Data="{StaticResource Ps1Triangle}"
                   Fill="{DynamicResource AfStatusCaution}"
-                  Stretch="Uniform" Margin="0"
+                  Stroke="{DynamicResource AfStatusKeyline}"
+                  StrokeThickness="1"
+                  StrokeLineJoin="Round"
+                  Stretch="Uniform" Margin="0.5"
                   Visibility="Collapsed" />
         </Grid>
         <ControlTemplate.Triggers>
@@ -974,8 +708,48 @@
         </ControlTemplate.Triggers>
     </ControlTemplate>
 
-    <!-- Nothing selected yet: line art in the ornament grey, and two lines
-         saying what to do about it. -->
+    <!--
+        Controller-shape labels, at the user's request: a blue cross before
+        ARTISTS, a red circle before ALBUMS, a green triangle before the album
+        title over the tracks. Outline shapes, as printed on the pad, each drawn
+        twice: a wider ink stroke underneath, then the colour, so the keyline
+        holds them against the grey. The pane marks sit in the label's left
+        margin; the text keeps its own.
+    -->
+    <PathGeometry x:Key="Ps1MarkCross" Figures="M 2.5,2.5 L 9.5,9.5 M 9.5,2.5 L 2.5,9.5" />
+    <EllipseGeometry x:Key="Ps1MarkCircle" Center="6,6" RadiusX="4" RadiusY="4" />
+    <PathGeometry x:Key="Ps1MarkTriangle" Figures="M 6,2 L 10.3,9.6 L 1.7,9.6 Z" />
+
+    <ControlTemplate x:Key="AfPaneMarkArtists" TargetType="Control">
+        <Grid Width="12" Height="12" Margin="10,0,-5,0">
+            <Path Data="{StaticResource Ps1MarkCross}" Stroke="{DynamicResource AfStatusKeyline}"
+                  StrokeThickness="3.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+            <Path Data="{StaticResource Ps1MarkCross}" Stroke="{DynamicResource AfAccentBlue}"
+                  StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+        </Grid>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="AfPaneMarkAlbums" TargetType="Control">
+        <Grid Width="12" Height="12" Margin="10,0,-5,0">
+            <Path Data="{StaticResource Ps1MarkCircle}" Stroke="{DynamicResource AfStatusKeyline}"
+                  StrokeThickness="3.4" />
+            <Path Data="{StaticResource Ps1MarkCircle}" Stroke="{DynamicResource AfAccentRed}"
+                  StrokeThickness="1.8" />
+        </Grid>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="AfPaneMarkTracks" TargetType="Control">
+        <Grid Width="18" Height="18" Margin="0,1,10,0">
+            <Path Data="{StaticResource Ps1MarkTriangle}" Stretch="Uniform"
+                  Stroke="{DynamicResource AfStatusKeyline}"
+                  StrokeThickness="4" StrokeLineJoin="Round" />
+            <Path Data="{StaticResource Ps1MarkTriangle}" Stretch="Uniform"
+                  Stroke="{DynamicResource AfAccentGreen}" Margin="0.8"
+                  StrokeThickness="2.2" StrokeLineJoin="Round" />
+        </Grid>
+    </ControlTemplate>
+
+    <!-- Nothing selected yet: a square outline and two lines of text. -->
     <ControlTemplate x:Key="AfEmptyState" TargetType="Control">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <Path Data="{StaticResource Ps1Square}"
@@ -996,5 +770,217 @@
                        Foreground="{DynamicResource AfTextTertiary}" />
         </StackPanel>
     </ControlTemplate>
+
+    <!-- ===================================================== WPF-UI keys -->
+
+    <!--
+        Stock controls read these with DynamicResource. Neutral greys throughout;
+        WPF-UI's accent becomes a dark-grey key (ThemeService pins these accent
+        values over what ApplicationAccentColorManager writes), so Primary
+        buttons, check boxes and switches carry no controller colour.
+    -->
+
+    <!-- window and layers -->
+    <SolidColorBrush x:Key="ApplicationBackgroundBrush" Color="#FFA7A4A3" />
+    <SolidColorBrush x:Key="WindowBackground" Color="#FFA7A4A3" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorBaseBrush" Color="#FFA7A4A3" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorBaseAltBrush" Color="#FFA7A4A3" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorSecondaryBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorTertiaryBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="SolidBackgroundFillColorQuarternaryBrush" Color="#FFB6B3B1" />
+
+    <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="LayerFillColorAltBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="LayerOnAcrylicFillColorDefaultBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="LayerOnMicaBaseAltFillColorDefaultBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="LayerOnMicaBaseAltFillColorSecondaryBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="LayerOnMicaBaseAltFillColorTertiaryBrush" Color="#FFAEABA9" />
+
+    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush" Color="#FFA7A4A3" />
+    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="CardStrokeColorDefaultSolidBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="CardBackground" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="CardBackgroundPointerOver" Color="#FFBDB9B8" />
+    <SolidColorBrush x:Key="CardBackgroundPressed" Color="#FFA19D9C" />
+    <SolidColorBrush x:Key="CardBorderBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="CardForeground" Color="#FF242424" />
+
+    <!-- control faces: raised surface grey; pressed goes in, darker -->
+    <SolidColorBrush x:Key="ControlFillColorDefaultBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="ControlFillColorSecondaryBrush" Color="#FFBDB9B8" />
+    <SolidColorBrush x:Key="ControlFillColorTertiaryBrush" Color="#FFA19D9C" />
+    <SolidColorBrush x:Key="ControlFillColorDisabledBrush" Color="#FFB0ADAB" />
+    <SolidColorBrush x:Key="ControlFillColorInputActiveBrush" Color="#FF999593" />
+    <SolidColorBrush x:Key="ControlFillColorTransparentBrush" Color="Transparent" />
+
+    <SolidColorBrush x:Key="ControlAltFillColorSecondaryBrush" Color="#FFA19D9C" />
+    <SolidColorBrush x:Key="ControlAltFillColorTertiaryBrush" Color="#FF9A9795" />
+    <SolidColorBrush x:Key="ControlAltFillColorQuarternaryBrush" Color="#FF999593" />
+    <SolidColorBrush x:Key="ControlAltFillColorDisabledBrush" Color="#FFB0ADAB" />
+
+    <SolidColorBrush x:Key="ControlSolidFillColorDefaultBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="ControlStrongFillColorDefaultBrush" Color="#FF4A4746" />
+    <SolidColorBrush x:Key="ControlStrongFillColorDisabledBrush" Color="#FF837F7F" />
+    <SolidColorBrush x:Key="ControlStrongStrokeColorDefaultBrush" Color="#FF4A4746" />
+    <SolidColorBrush x:Key="ControlStrongStrokeColorDisabledBrush" Color="#FF837F7F" />
+
+    <!-- outlines: solid 1px shadow grey on every stock control -->
+    <SolidColorBrush x:Key="ControlElevationBorderBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="TextControlElevationBorderBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="CircleElevationBorderBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="AccentControlElevationBorderBrush" Color="#FF242424" />
+
+    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="ControlStrokeColorSecondaryBrush" Color="#FF757271" />
+    <SolidColorBrush x:Key="ControlStrokeColorTertiaryBrush" Color="#FF837F7F" />
+    <SolidColorBrush x:Key="ControlStrokeColorOnAccentDefaultBrush" Color="#FF242424" />
+    <SolidColorBrush x:Key="ControlStrokeColorOnAccentSecondaryBrush" Color="#FF242424" />
+
+    <!-- borderless controls (window buttons, rescan, menu bar): an ink wash -->
+    <SolidColorBrush x:Key="SubtleFillColorSecondaryBrush" Color="#1F000000" />
+    <SolidColorBrush x:Key="SubtleFillColorTertiaryBrush" Color="#14000000" />
+    <SolidColorBrush x:Key="SubtleFillColorTransparentBrush" Color="Transparent" />
+    <SolidColorBrush x:Key="SubtleFillColorDisabledBrush" Color="Transparent" />
+
+    <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush" Color="#FF8F8B8A" />
+    <SolidColorBrush x:Key="SurfaceStrokeColorDefaultBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="SurfaceStrokeColorFlyoutBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="SeparatorBorderBrush" Color="#FF8F8B8A" />
+    <SolidColorBrush x:Key="MenuBorderColorDefaultBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="ProgressBarBorderBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="ContentDialogBorderBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="ContentDialogSeparatorBorderBrush" Color="#FF8F8B8A" />
+
+    <!-- text -->
+    <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="#FF242424" />
+    <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#FF353332" />
+    <SolidColorBrush x:Key="TextFillColorTertiaryBrush" Color="#FF3B3938" />
+    <SolidColorBrush x:Key="TextFillColorDisabledBrush" Color="#FF6A6766" />
+    <SolidColorBrush x:Key="TextFillColorInverseBrush" Color="#FFEEEBE9" />
+    <SolidColorBrush x:Key="TextPlaceholderColorBrush" Color="#FF2E2C2B" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#FFEEEBE9" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorDisabledBrush" Color="#FF7A7675" />
+
+    <!-- the accent: a dark-grey key; accent text is the darkened cross blue,
+         used for links -->
+    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#FF4A4746" />
+    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#FF555150" />
+    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#FF3A3837" />
+    <SolidColorBrush x:Key="AccentFillColorDisabledBrush" Color="#FF9A9795" />
+    <SolidColorBrush x:Key="AccentFillColorSelectedTextBackgroundBrush" Color="#FF4A4746" />
+    <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FF143860" />
+    <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="#FF143860" />
+    <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush" Color="#FF143860" />
+    <SolidColorBrush x:Key="AccentTextFillColorDisabledBrush" Color="#FF6A6766" />
+
+    <!-- buttons -->
+    <SolidColorBrush x:Key="ButtonBackground" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#FFBDB9B8" />
+    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#FFA19D9C" />
+    <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="#FFB0ADAB" />
+    <SolidColorBrush x:Key="ButtonForeground" Color="#FF242424" />
+    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="#FF242424" />
+    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="#FF353332" />
+    <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="#FF6A6766" />
+    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#FF656362" />
+    <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="#FF837F7F" />
+
+    <SolidColorBrush x:Key="AccentButtonBackground" Color="#FF4A4746" />
+    <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#FF555150" />
+    <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#FF3A3837" />
+    <SolidColorBrush x:Key="AccentButtonForeground" Color="#FFEEEBE9" />
+    <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#FFEEEBE9" />
+    <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="AccentButtonBorderBrushPressed" Color="#FF242424" />
+
+    <SolidColorBrush x:Key="HyperlinkButtonForeground" Color="#FF143860" />
+    <SolidColorBrush x:Key="HyperlinkButtonForegroundPointerOver" Color="#FF0F2D4E" />
+    <SolidColorBrush x:Key="HyperlinkButtonForegroundPressed" Color="#FF0F2D4E" />
+    <SolidColorBrush x:Key="HyperlinkButtonBackgroundPointerOver" Color="#14000000" />
+    <SolidColorBrush x:Key="HyperlinkButtonBackgroundPressed" Color="#1F000000" />
+
+    <!-- text boxes: recessed, ink text, ink focus underline -->
+    <SolidColorBrush x:Key="TextControlBackground" Color="#FF999593" />
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#FF9D9997" />
+    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFA09C9A" />
+    <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#FFA19D9C" />
+    <SolidColorBrush x:Key="TextControlForeground" Color="#FF242424" />
+    <SolidColorBrush x:Key="TextControlForegroundDisabled" Color="#FF6A6766" />
+    <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#FF2E2C2B" />
+    <SolidColorBrush x:Key="TextControlButtonForeground" Color="#FF242424" />
+    <SolidColorBrush x:Key="TextControlFocusedBorderBrush" Color="#FF242424" />
+    <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="#FF837F7F" />
+
+    <!-- check boxes and switches: the dark-grey key when on -->
+    <SolidColorBrush x:Key="CheckBoxCheckGlyphForeground" Color="#FFEEEBE9" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#FF4A4746" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#FF555150" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#FF3A3837" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnDisabled" Color="#FF9A9795" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#FF242424" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFEEEBE9" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOff" Color="#FF999593" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOffPointerOver" Color="#FFA09C9A" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOffPressed" Color="#FF8C8987" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOff" Color="#FF656362" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOffPointerOver" Color="#FF4A4746" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOff" Color="#FF4A4746" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOffPointerOver" Color="#FF242424" />
+    <SolidColorBrush x:Key="ToggleSwitchContentForeground" Color="#FF242424" />
+
+    <!-- menus, flyouts, tooltips -->
+    <SolidColorBrush x:Key="MenuBarBackground" Color="Transparent" />
+    <SolidColorBrush x:Key="MenuBarItemBackgroundSelected" Color="#1F000000" />
+    <SolidColorBrush x:Key="MenuBarItemBackgroundPressed" Color="#14000000" />
+    <SolidColorBrush x:Key="MenuBarItemBorderBrush" Color="Transparent" />
+    <SolidColorBrush x:Key="ContextMenuBackground" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="ContextMenuForeground" Color="#FF242424" />
+    <SolidColorBrush x:Key="ContextMenuBorderBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="FlyoutBackground" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="FlyoutBorderBrush" Color="#FF656362" />
+    <SolidColorBrush x:Key="ToolTipBackground" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="ToolTipForeground" Color="#FF242424" />
+    <SolidColorBrush x:Key="ToolTipBorderBrush" Color="#FF656362" />
+
+    <!-- scrollbars -->
+    <SolidColorBrush x:Key="ScrollBarThumbFill" Color="#FF656362" />
+    <SolidColorBrush x:Key="ScrollBarTrackFillPointerOver" Color="#FFAEABA9" />
+    <SolidColorBrush x:Key="ScrollBarButtonBackground" Color="Transparent" />
+    <SolidColorBrush x:Key="ScrollBarButtonArrowForeground" Color="#FF353332" />
+
+    <!-- progress ring (art search, Last.fm waiting) -->
+    <SolidColorBrush x:Key="ProgressRingForegroundThemeBrush" Color="#FF4A4746" />
+    <SolidColorBrush x:Key="ProgressRingBackgroundThemeBrush" Color="#FF999593" />
+
+    <!-- focus -->
+    <SolidColorBrush x:Key="FocusStrokeColorOuterBrush" Color="#FF242424" />
+    <SolidColorBrush x:Key="FocusStrokeColorInnerBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="KeyboardFocusBorderColorBrush" Color="#FF242424" />
+
+    <!-- system states: the token colours; their tinted backgrounds are kept
+         neutral so no stock control paints a broad accent fill -->
+    <SolidColorBrush x:Key="SystemFillColorSuccessBrush" Color="#FF00AC9F" />
+    <SolidColorBrush x:Key="SystemFillColorCautionBrush" Color="#FFF3C300" />
+    <SolidColorBrush x:Key="SystemFillColorCriticalBrush" Color="#FFDF0024" />
+    <SolidColorBrush x:Key="SystemFillColorAttentionBrush" Color="#FF2E6DB4" />
+    <SolidColorBrush x:Key="SystemFillColorNeutralBrush" Color="#FF4A4746" />
+    <SolidColorBrush x:Key="SystemFillColorSuccessBackgroundBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="SystemFillColorCautionBackgroundBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="SystemFillColorCriticalBackgroundBrush" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="SystemFillColorAttentionBackgroundBrush" Color="#FFB6B3B1" />
+
+    <!-- modest corners on every stock control -->
+    <CornerRadius x:Key="ControlCornerRadius">2</CornerRadius>
+    <CornerRadius x:Key="OverlayCornerRadius">3</CornerRadius>
+    <CornerRadius x:Key="PopupCornerRadius">3</CornerRadius>
+
+    <!-- the stock slider, used by nothing in PS1 but kept neutral -->
+    <SolidColorBrush x:Key="SliderTrackFill" Color="#FF999593" />
+    <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#FF8C8987" />
+    <SolidColorBrush x:Key="SliderOuterThumbBackground" Color="#FFB6B3B1" />
+    <SolidColorBrush x:Key="SliderThumbBackground" Color="#FF4A4746" />
+    <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FF242424" />
 
 </ResourceDictionary>

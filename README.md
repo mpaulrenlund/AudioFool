@@ -13,12 +13,15 @@ with nothing else in the way.
 - Songs sort by disc number, then track number.
 - Three themes, chosen from the logo menu in the title bar and remembered between runs:
   **Dark** (Fluent, Mica backdrop, teal accent), **Vista** (Aero Glass over an
-  Acrylic backdrop), and **PS1** - a first-generation PlayStation reading of the
-  app: moulded grey chassis, recessed wells, hairline bevels, square corners,
-  monospaced bitrate and timecode columns, and four accents used strictly by role
-  (blue selects, green confirms, red fails, yellow cautions), with the four
-  face-button shapes carrying status beside the words rather than instead of them.
-  PS1 respects the Windows "show animations" setting.
+  Acrylic backdrop), and **PS1** - the original grey console as 1990s consumer
+  electronics: warm grey plastic (`#A7A4A3`) filling the window, slightly lighter
+  raised panels, recessed inputs and tracks, 1 px outlines and small corners. The
+  controller colours are rare, like the face buttons on a pad: the Play/Pause key
+  is green while it shows Play and red while it shows Pause, and the pane labels carry the pad's shapes (a blue ✕ for artists, a red ○
+  for albums, a green △ before the album title). The playing track and the seek
+  bar are green, the selected artist and album get a blue marker, and a library
+  scan fills a yellow bar. Every coloured mark also has a shape or a word. PS1 respects the
+  Windows "show animations" setting.
 - Gapless playback.
 - [Last.fm scrobbling](#lastfm-scrobbling), with plays kept offline until they can be sent.
 - Optional [bit-perfect output](#output-modes) — exclusive WASAPI at the source's own

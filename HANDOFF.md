@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-28 after the fifteenth build session. Read this alongside
+Updated 2026-09-28 after the seventeenth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -867,6 +867,123 @@ in the several-tracks dialog).
   The user tags with Mp3tag as well as AudioFool, so a file on the drive can change
   without the app knowing. The next scan's size and time check picks it up.
 
+### Changes from session 17
+
+**PS1 was replaced with a grey-console theme**, at the user's request, from a
+written brief: the original grey PlayStation hardware, not a dark games UI. The
+rule the user set is that the grey is the main surface and the controller colours
+are sparse punctuation, each with one meaning. It keeps the name "PS1", so the
+saved setting and the Themes menu are unchanged. Design notes are under *PS1* in
+the design-system section below.
+
+- **The palette was given, not chosen**: shell `#C5C1C0`, surface `#D6D2D0`,
+  recessed `#AAA6A4`, shadow `#777473`, ink `#242424`. Green `#00AC9F` means
+  playing, blue `#2E6DB4` the selected artist and album, red `#DF0024` errors and
+  Last.fm "reconnect", yellow `#F3C300` only while scanning. **The user ruled out
+  pink** (`#D15A9C` in the brief) entirely. The multi-colour logo is kept as an
+  agreed exception.
+- **Green, yellow and the greys are close in brightness** (green 1.9:1 on the
+  surface, yellow 1.3:1). The user accepted drawing those marks with a 1 px ink
+  keyline (`AfStatusKeyline`). Accent-coloured text uses darkened variants that
+  clear 4.5:1 (`#245A96` links, `#A3001C` errors).
+- **PS1 runs on WPF-UI's Light base.** `ThemeService.SetBase` swaps the
+  `ThemesDictionary` instance in `Application.Resources` (Dark for the other two
+  themes). Any WPF-UI key the overlay misses then falls back to a light value, not
+  white text on grey. The overlay restates both levels of WPF-UI keys: the shared
+  palette (`ControlFillColorDefaultBrush`...) and the per-control keys
+  (`ButtonBackground`, `TextControlBackground`, `ContextMenuBackground`,
+  `ToggleSwitchFillOn`...).
+- **WPF-UI's accent is a dark-grey key in PS1** (`#4A4746`, light text). Play,
+  Save, Connect, check boxes, switches and the Statistics bars carry no controller
+  colour.
+- **New tokens**, whose defaults are the old values, so Dark and Vista did not
+  change:
+  - `AfStrokeTrackSelectionBar`: the track grid's own selection marker, clear in
+    PS1 so a selected, playing row shows only green.
+  - `AfStateQueue`: shuffle and repeat when on. Ink in PS1.
+  - `AfSliderSeekFill`: the seek bar's travelled part.
+  - `AfStatBarCaution`: the Statistics missing-tag bars.
+  - `AfStatusKeyline` and `AfStatusKeylineThickness`.
+- **New slot `AfNowPlayingGlyph`.** The track grid's now-playing mark is a
+  template now. Dark and Vista keep the blue note; PS1 draws a green ▶ with a
+  keyline.
+- **The dialogs paint `AfSurfaceShell` on their root grid.** They had no shell of
+  their own, so under PS1 the window behind them was transparent. The old dark PS1
+  hid this. The token is transparent in Dark and Vista.
+- **Removed from PS1**: the scanlines, the dither, the low-poly line art, the
+  Consolas numerals (Segoe UI with `Typography.NumeralAlignment="Tabular"` now),
+  and the logo's entrance animation. The row hover fade and the selection marker
+  animation remain in `Ps1Motion.xaml`.
+- **Fixed on the way: the PS1 slider never drew its travelled part.** WPF-UI's
+  implicit `RepeatButton` style still applies with `OverridesDefaultStyle="True"`,
+  and it collapsed the segment to 0 px wide. The old blue fill had never shown.
+  `Style="{x:Null}"` on the two repeat buttons fixes it.
+- **Not done: the tag dialog's ✕ buttons stay ink.** The plan was red when armed,
+  but "armed" is the view model's private `_cleared` set, which nothing binds to.
+  Showing it would be a functional change.
+- **Verified**, with no window on the desktop:
+  - ThemeLab renders of the main window, the tag editor, Statistics, Last.fm (setup
+    and failing), the Last.fm indicator states, and the logo menu (`--menushot`).
+    All used a magenta `--bg` so an unpainted gap would show. There were 0 magenta
+    pixels.
+  - A pixel count of the main window, logo excluded: 99.9% neutral. Saturated
+    pixels are 0.11% (green 0.09%, blue 0.02%, no red, yellow or pink).
+  - **Dark and Vista are pixel-identical to the previous commit.** Six renders from
+    a build of `129a715` in a scratch worktree were compared: 0 differing pixels.
+  - Runtime switching Dark ↔ PS1 works. It has the existing limitation that the grid
+    headers keep the previous theme's style until restart, and the accent too (see
+    below). The pre-change build does the same.
+  - 299 tests pass. The installed build starts (smoke test, closed at once).
+  - **Not yet seen by the user** in the running app.
+
+**Revised after the user's first look** (same session):
+- **About 15% darker, at the user's request** ("a little too light"). Shell
+  `#A7A4A3`, surface `#B6B3B1`, shadow `#656362`. The recess `#999593` is only 10%
+  darker, so ink on it still clears 4.5:1. Every derived grey moved with them.
+  Secondary text went to `#353332` and tertiary to `#3B3938` to keep 4.5:1 on the
+  shell. The darkened accent text moved too: links `#143860`, errors `#7A0015`,
+  caution `#463700`. The contrast table is in the header comment of
+  `Ps1Theme.xaml`, measured, not estimated.
+- **Coloured transport keys**, as the user specified:
+  - Play/Pause is green while it shows Play and blue while it shows Pause.
+  - Previous and Next are yellow.
+  - All three have an ink outline. Glyphs are ink, except a light glyph on blue.
+  - These are the one place accents are fills.
+  - Implemented as `AfPlayKey` / `AfSkipKey` styles. The defaults in
+    `Components.xaml` are WPF-UI's button plus the old `Appearance`, so Dark and
+    Vista are unchanged (0-pixel diff again).
+- **`Appearance` moved from `MainWindow.xaml` into those styles.** WPF-UI colours
+  a *Primary* button in its **template's** triggers, and those outrank every style.
+  PS1's Play key is therefore `Secondary` plus its own colours.
+- **The grid's keyboard-focus bar is gone** (`AfStrokeSelectionBarThickness` 0).
+  The user found the black bar on a selected row distracting. Selection is still
+  the grey row.
+- ThemeLab gained `--paused 1` (the transport key shows Play).
+- Accent share of the window is now 0.35%, up from 0.11%.
+
+**Second round of feedback** (same session):
+- **The Pause key is red** (`#DF0024`) instead of blue. It has a light glyph at
+  4.2:1, where ink would only reach 3.1:1. Blue is no longer used on the keys.
+- **Controller-shape labels**: an outlined blue ✕ before ARTISTS, a red ○ before
+  ALBUMS, and a green △ before the album title over the tracks. The track pane has
+  no text label of its own. Each shape is an ink stroke with the colour stroked on
+  top, which is the keyline. They use three new slots, `AfPaneMarkArtists` /
+  `AfPaneMarkAlbums` / `AfPaneMarkTracks`, which are empty in `Components.xaml`, so
+  Dark and Vista are unchanged. Each pane label in `MainWindow.xaml` is now a
+  horizontal `StackPanel` of the mark plus the text. The album title is a
+  `DockPanel`, so its trimming still works.
+- **The scan progress bar is yellow** with an ink outline, matching the scanning
+  lamp.
+- **Previous and Next went back to plain grey keys** (2026-09-29, the user's
+  call). PS1 no longer restates `AfSkipKey`, so they use the neutral default from
+  `Components.xaml`. Play/Pause is now the only coloured key. The
+  `Style="{DynamicResource AfSkipKey}"` hooks in `MainWindow.xaml` stay, so a theme
+  can still colour them.
+- ThemeLab gained `--scanning 0.4`.
+- Verified: renders of playing, paused and scanning. Dark and Vista are still a
+  0-pixel diff against `129a715`. Accents are 0.37% of the window. 299 tests pass.
+  The installed build starts.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
@@ -1081,25 +1198,41 @@ standalone dictionary can reach. Their *looks* still come from theme-owned resou
 
 ### PS1
 
-`Themes/Ps1Theme.xaml` plus `Themes/Ps1Motion.xaml`. A first-generation PlayStation
-reading of the app: moulded grey chassis, recessed wells, hairline bevels drawn with
-borders rather than shadows, square corners, monospaced numeric columns, and four
-accents used strictly by role (blue selects and acts, green confirms, red fails,
-yellow cautions). The four face-button shapes carry status beside the word, never
-instead of it. The track pane is the one surface with texture behind it.
+`Themes/Ps1Theme.xaml` plus `Themes/Ps1Motion.xaml`. Rewritten in session 17 (the
+earlier dark version is in git history before that session). The original grey console as
+1990s consumer electronics. **The grey is the primary surface; the controller
+colours are semantic punctuation.**
 
-It works on two levels: it redefines AudioFool's tokens *and* the WPF-UI keys the stock
-controls resolve at runtime, so buttons, menus, scrollbars, text boxes and tooltips
-follow without a hand-written template each. That is far less code than replacing their
-templates, and far less to get wrong — it is also why the WPF-UI key list in that file
-is long.
+- **Surfaces**: shell `#C5C1C0` behind everything (the `AfWindowDecor` slot, and
+  `AfSurfaceShell` on each dialog's root grid). Panes, deck, keys and menus are
+  surface `#D6D2D0` with a 1 px shadow `#777473` outline and a 1 px highlight
+  `#E4E1DF` inside the top edge. Inputs, slider and progress tracks and art mats are
+  recessed `#AAA6A4`, and carry ink text only. Corners are 1–3 px.
+- **Accent rule: one job each, one accent per component, never a broad fill.**
+  Green is the playing row's ▶, the seek bar's travelled part, the ready lamp and
+  Bit-Perfect ON. Blue is the 3 px marker on the selected artist and album, plus
+  links. Red is error text and Last.fm "reconnect". Yellow is the scanning lamp and
+  Last.fm "waiting". There is no pink. Selection, focus (ink), hover, shuffle and
+  repeat, volume and scan progress are all neutral. If a new control seems to need
+  a colour, it probably wants ink.
+- **The track grid shows no blue selection marker**, so a selected, playing row
+  carries only green. The 3 px slot is still drawn, in ink, for keyboard focus.
+- **Contrast**: ink is 8.6:1 on the shell and 10:1 on the surface. Secondary
+  `#474443` is 5.4:1 and 6.1:1, tertiary `#52504E` is 4.5:1 on the shell. Green and
+  yellow marks get an ink keyline; accent text uses the darkened `*Text` tokens.
+
+It works on two levels: it redefines AudioFool's tokens *and* the WPF-UI keys the
+stock controls resolve at runtime. It also runs on WPF-UI's **Light** base
+(`ThemeService.SetBase`), so anything it misses is light rather than white-on-grey.
+That is why the WPF-UI key list in that file is long, and covers the per-control
+keys as well as the palette.
 
 - **Motion is a separate dictionary** so honouring Windows' "show animations" setting is
   a matter of not merging it — `ThemeService` checks `SystemParameters.ClientAreaAnimation`.
   The obvious alternative, zeroing the duration tokens at runtime, is not available:
   a storyboard held by a style cannot read a `DynamicResource`, because applying a
   style seals it and freezes the freezables it holds. For the same reason the animated
-  pieces (row hover, selection marker, logo entrance) were split into small styles of
+  pieces (row hover, selection marker, and until session 17 the logo entrance) were split into small styles of
   their own, so `Ps1Motion.xaml` replaces those rather than duplicating whole templates.
   A `ScaleTransform` declared *in a template* can be animated; one set through a style
   setter cannot.
@@ -1110,8 +1243,8 @@ is long.
   its brushes straight into `Application.Resources`, which outranks every merged
   dictionary, so a theme cannot restate the accent by redefining those keys in its own
   file. `ThemeService` clears them, calls `Apply`, then copies PS1's values back over
-  the top — WinUI derives a pastel accent for dark surfaces, and a primary key here is
-  saturated blue with a white glyph.
+  the top. PS1's accent is the dark-grey key `#4A4746`, applied with
+  `ApplicationTheme.Light`.
 - **Letter spacing** is `Formatting/LetterSpacing.cs`. WPF has no tracking property, so
   the spacer character is interleaved into the text and the unspaced original is kept as
   the automation name. Only for short labels whose text never changes — it applies on
@@ -1398,7 +1531,14 @@ ThemeLab.exe --theme PS1 --rows 1,2,3,4       # several selected grid rows
 ThemeLab.exe --window edit --theme PS1 --w 1300 --h 600   # in-place grid edits
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
 ThemeLab.exe --theme PS1 --w 1300 --h 700 --lastfm failing   # the status-bar indicator
+ThemeLab.exe --theme PS1 --menushot menu.png --scale 2      # the logo menu's drop-down, without opening it
+ThemeLab.exe --theme Dark --switch 1 --from PS1             # start in PS1, switch to Dark at runtime
+ThemeLab.exe --theme PS1 --bg "#FF00FF"                     # magenta behind the window: any unpainted gap shows
 ```
+
+`--menushot` renders the `Popup.Child` of the logo `MenuItem` directly. Opening
+the real popup is avoided because popups are clamped onto a monitor and could
+flash on the desktop.
 
 `--window lastfm` uses a scratch queue and a canned HTTP handler, so nothing
 reaches Last.fm and the throwaway settings are never saved.
@@ -1551,6 +1691,19 @@ off-screen window, so focus rings can be reviewed.
 - **TagLib writes track numbers zero-padded** ("01", "01/12") with no option to
   turn it off. Set numbers through `TagWriter.WriteNumbers`, never `tag.Track`
   directly. See *Leading zeros* under session 16.
+- **WPF-UI's implicit styles survive `OverridesDefaultStyle="True"`.** That flag
+  only skips the *theme* style; an implicit app-level style (WPF-UI's
+  `ControlsDictionary` has one for `RepeatButton`) still applies. It collapsed the
+  PS1 slider's travelled segment to 0 px, unnoticed since session 7. Add
+  `Style="{x:Null}"` as well when a template part must be bare.
+- **A dialog has no shell unless it paints one.** With `WindowBackdropType.None`,
+  a `FluentWindow` is transparent behind its content. The main window has the
+  `AfWindowDecor` slot; dialogs paint `AfSurfaceShell` on their root grid. Render
+  with `--bg "#FF00FF"` to catch a gap: the default dark backdrop hides it.
+- **Two PowerShell traps in pixel scripts.** Variable names are case-insensitive,
+  so `$B` (a blue byte) overwrites `$b` (the bitmap). And `diff` is a built-in alias
+  for `Compare-Object`, which wins over a function named `Diff`. Both fail quietly,
+  with plausible but wrong output.
 - **`library.json` can list files that no longer exist.** It still held 2 m4a and
   10 wav files deleted since the last full scan. Before picking a sample file from
   the cache, check that it exists (`Test-Path -LiteralPath`).
@@ -1587,6 +1740,14 @@ which the shell *can* read. Entries piling up mean sending fails, and the Last.f
 window shows why. The status-bar indicator is done too. Possible follow-up, not built:
 a Love button.
 
+0. **Ask the user for PS1 screenshot feedback** (session 17). Only ThemeLab has
+   rendered the new theme. The user's brief expects a loop: they look, then give
+   precise critique. Their settings copy is invisible to the shell, so they have to
+   pick PS1 from the Themes menu themselves. **Picking it at runtime leaves the
+   grid headers and the Play key's accent from the previous theme until a restart**
+   (pre-existing, see *Accent colours*). Tell them to restart once after switching.
+   Fixing that would mean re-applying the grid's header style and re-merging
+   WPF-UI's accent at runtime.
 0. **Ask the user how in-place editing feels in the running app.** Only ThemeLab
    has driven it. The real mouse (the slow click's timing against a double-click)
    and real key presses were off limits. Worth asking: does Enter moving down a

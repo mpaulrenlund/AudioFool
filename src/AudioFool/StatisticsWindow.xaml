@@ -126,7 +126,8 @@
         </DataTemplate>
     </ui:FluentWindow.Resources>
 
-    <Grid>
+    <!-- The shell colour, for a theme that paints one; transparent (the backdrop) otherwise. -->
+    <Grid Background="{DynamicResource AfSurfaceShell}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -225,7 +226,7 @@
                                 <!-- Caution, not danger: a missing tag is a gap to fill, not a fault. -->
                                 <ItemsControl x:Name="TagGapList" ItemsSource="{Binding TagGaps}"
                                               ItemTemplate="{StaticResource BarRowTemplate}"
-                                              Tag="{DynamicResource AfStatusCaution}"
+                                              Tag="{DynamicResource AfStatBarCaution}"
                                               Focusable="False" />
                             </StackPanel>
                         </HeaderedContentControl>

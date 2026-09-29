@@ -11,7 +11,8 @@
                  ExtendsContentIntoTitleBar="True"
                  WindowCornerPreference="Round">
 
-    <Grid>
+    <!-- The shell colour, for a theme that paints one; transparent (the backdrop) otherwise. -->
+    <Grid Background="{DynamicResource AfSurfaceShell}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
