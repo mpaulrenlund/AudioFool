@@ -56,6 +56,11 @@ internal static class Program
             GlobalHotkeys = false,
         };
 
+        // --window queue plays for real, and the engine posts its events to the
+        // context it is built on - as the app's does - so it needs one first.
+        if (which == "queue")
+            SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+
         var runtime = new BassRuntime();
         var engine = new AudioEngine(runtime);
         var vm = new MainViewModel(engine, runtime, new AlbumArtService(), settings);
@@ -84,7 +89,7 @@ internal static class Program
         {
             LoadRealLibrary(vm);
         }
-        else if (which == "edit")
+        else if (which is "edit" or "queue")
         {
             LoadTempLibrary(vm);
         }
@@ -368,7 +373,7 @@ internal static class Program
             }
         }
 
-        if (which == "edit")
+        if (which is "edit" or "queue")
         {
             // Each save persists the library, and LibraryCache.CachePath is the
             // real library.json - so it is put back byte for byte afterwards.
@@ -379,7 +384,10 @@ internal static class Program
                 File.Copy(cachePath, backup, overwrite: true);
             try
             {
-                RunInlineEdit(main, vm, outPath, w, h, scale);
+                if (which == "queue")
+                    RunQueueEdit(vm, engine);
+                else
+                    RunInlineEdit(main, vm, outPath, w, h, scale);
                 Settle(500);
             }
             finally
@@ -1116,6 +1124,95 @@ internal static class Program
             .GetMethod("ApplyLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(vm, [AudioFool.Core.Library.LibraryScanner.Build(tracks), false]);
         Console.WriteLine($"library: {tracks.Count} scratch tracks in {dir}");
+    }
+
+    /// <summary>
+    /// --window queue: plays the scratch album on the real engine, silently
+    /// (shared mode, volume 0, and the fixtures are silence anyway), edits tracks
+    /// while they wait in the queue, and prints what the now-playing bar, the
+    /// window title and the scrobbler get as each comes up - once through a
+    /// gapless handover and once through Next.
+    /// </summary>
+    private static void RunQueueEdit(MainViewModel vm, AudioEngine engine)
+    {
+        var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+
+        // Not connected, and on a scratch queue: nothing can reach the real
+        // scrobbles.json or Last.fm. TrackStarted still runs, so the tracker's
+        // copy of the track can be read back.
+        var scrobbler = new AudioFool.Core.Scrobbling.LastFmScrobbler(
+            AudioFool.Core.Scrobbling.ScrobbleQueue.Load(
+                Path.Combine(_scratchDir!, "scrobbles.json"), DateTimeOffset.UtcNow));
+        typeof(MainViewModel).GetField("_scrobbler", flags)!.SetValue(vm, scrobbler);
+        var tracker = (AudioFool.Core.Scrobbling.PlayTracker)typeof(AudioFool.Core.Scrobbling.LastFmScrobbler)
+            .GetField("_tracker", flags)!.GetValue(scrobbler)!;
+
+        vm.Volume = 0;
+
+        Track Row(string file) => vm.Tracks.First(t => Path.GetFileName(t.FilePath).Contains(file));
+        void Log(string s) => Console.WriteLine(s);
+
+        void Await(Task task)
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (!task.IsCompleted && clock.ElapsedMilliseconds < 5000)
+                Settle(20);
+            task.GetAwaiter().GetResult();
+            Log($"  status: {vm.StatusText}");
+        }
+
+        bool WaitFor(string file)
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (clock.ElapsedMilliseconds < 5000)
+            {
+                if (vm.NowPlaying is { } p && Path.GetFileName(p.FilePath).Contains(file))
+                    return true;
+                Settle(10);
+            }
+            return false;
+        }
+
+        void Report(string how, string file, string expectTitle, string expectArtist)
+        {
+            var arrived = WaitFor(file);
+            var p = vm.NowPlaying;
+            var row = Row(file);
+            var ok = arrived && p is not null && p.Title == expectTitle && p.Artist == expectArtist
+                     && vm.WindowTitle == $"{expectArtist} – {expectTitle}"
+                     && tracker.Current?.Title == expectTitle && tracker.Current?.Artist == expectArtist;
+            Log($"{how} -> {file}: arrived={arrived} title='{p?.Title}' artist='{p?.Artist}' window='{vm.WindowTitle}' "
+                + $"scrobbler='{tracker.Current?.Artist} / {tracker.Current?.Title}' note={ReferenceEquals(p, row)} "
+                + $"engine='{engine.CurrentTrack?.Title}' {(ok ? "OK" : "STALE")}");
+        }
+
+        Log($"rows: {string.Join(" | ", vm.Tracks.Select(t => $"{t.TrackNumber} {t.Title} / {t.Artist}"))}");
+
+        // Start the album and pause at once, so the edits land while One holds
+        // the device and Three and Four are only queue entries. Two is left
+        // alone: the engine already has it open for the gapless handover, and
+        // that open stream refuses the write.
+        vm.PlayTrackCommand.Execute(Row("01"));
+        engine.Pause();
+        Log($"playing One, paused: state={engine.State} mode={engine.OutputMode}");
+
+        Await(vm.ApplyInlineEditAsync(Row("03"), AudioFool.Core.Library.InlineField.Title, "Three Edited"));
+        Await(vm.ApplyInlineEditAsync(Row("04"), AudioFool.Core.Library.InlineField.Artist, "Edited Artist"));
+        Log($"edited: {string.Join(" | ", vm.Tracks.Select(t => $"{t.TrackNumber} {t.Title} / {t.Artist}"))}");
+
+        // One runs out and hands over to the unedited Two gaplessly.
+        engine.TogglePause();
+        Report("gapless", "02", "Two", "Lab Artist");
+
+        // Next goes through JumpTo, the other way a queued track comes up.
+        vm.NextCommand.Execute(null);
+        Report("next", "03", "Three Edited", "Lab Artist");
+
+        // And a gapless handover into the MP3, whose artist changed.
+        Report("gapless", "04", "Four", "Edited Artist");
+
+        engine.Stop();
+        Settle(200);
     }
 
     /// <summary>

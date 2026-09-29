@@ -1214,6 +1214,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// The library's current copy of a track, matched by path, or the track itself
+    /// when the library no longer holds it (a rescan dropped it).
+    /// </summary>
+    private Track LibraryCopyOf(Track track) =>
+        _library.AllTracks.FirstOrDefault(t =>
+            string.Equals(t.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase)) ?? track;
+
+    /// <summary>
     /// Saves one cell edited in place in the track grid. Unchanged text writes
     /// nothing; text the field cannot take is reported and not saved.
     /// </summary>
@@ -1235,8 +1243,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         await _inlineSave.WaitAsync();
         try
         {
-            var current = _library.AllTracks.FirstOrDefault(t =>
-                string.Equals(t.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase)) ?? track;
+            var current = LibraryCopyOf(track);
 
             StatusText = "Saving tags...";
 
@@ -1446,8 +1453,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     // ---------------------------------------------------------- engine events
 
-    private void OnEngineTrackChanged(object? sender, Track track)
+    private void OnEngineTrackChanged(object? sender, Track engineTrack)
     {
+        // The engine plays the Track objects its queue was built from. A tag save
+        // since then replaced them in the library, so the engine's copy of a
+        // queued track can carry the old title and artist - and, being a
+        // different object, would lose the grid's now-playing note too.
+        var track = LibraryCopyOf(engineTrack);
+
         NowPlaying = track;
 
         DurationSeconds = track.Duration.TotalSeconds > 0

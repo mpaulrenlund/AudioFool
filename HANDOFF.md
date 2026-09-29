@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-29 after the eighteenth build session. Read this alongside
+Updated 2026-09-29 after the nineteenth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1070,6 +1070,45 @@ device name still in its tooltip.
   readout regions: the new one under the slider and the old one in the status
   bar. 299 tests pass. Installed.
 
+### Changes from session 19
+
+- **A queued track now shows its new tags when it comes up.** Before this, a track
+  edited (in the grid or a dialog) while it waited in the queue came up with its old
+  title and artist in the now-playing bar and window title. It was also scrobbled
+  under them, and the grid's now-playing note didn't show on its row. The cause:
+  `AudioEngine` plays the `Track` objects its queue was built from, and a save
+  replaces them in the library with new ones.
+  - **The fix is in the view model, not the engine.** `OnEngineTrackChanged` looks
+    the engine's track up by path (`MainViewModel.LibraryCopyOf`) and uses the
+    library's copy for `NowPlaying`, the scrobbler's `TrackStarted` and the art. It
+    falls back to the engine's copy if a rescan dropped the file. The engine's queue
+    is untouched, so `engine.CurrentTrack` can still be stale. Anything new that
+    reads it for tags should go through `LibraryCopyOf` too. The scrobbler's
+    `Advance` compares by path, so it is unaffected. `ApplyInlineEditAsync` uses the
+    same helper for the lookup it already did.
+  - **Verified** with the new ThemeLab **`--window queue`**, which runs the real
+    engine silently (shared mode, volume 0, silent fixtures) over the four scratch
+    tracks of `--window edit`. It starts One, pauses, edits Three's title and Four's
+    artist, and resumes. It then checks the now-playing title and artist, the window
+    title, the scrobbler's track and the note for three hand-overs: a gapless one
+    into the unedited Two (the control), Next into Three, and gapless into Four.
+    Before the fix, Three and Four were stale on every check, and Two passed. After
+    it, all three pass, with `engine.CurrentTrack` still showing the old title.
+    `library.json` hash unchanged, and the scratch folder deleted. 299 tests pass.
+    Installed; the installed build starts.
+  - **Not covered**: editing the track that is *playing* still leaves the
+    scrobbler's copy old. `ReplaceTracksInLibrary` swaps `NowPlaying`, but the
+    tracker keeps the `Track` it was started with, so that play is scrobbled under
+    the old tags.
+- **Found, not fixed: the next track in the queue can't be saved.** The engine
+  opens it ahead of time for the gapless handover (`_prefetchedStream`), and that
+  open stream makes TagLib's write fail. The status line says "Couldn't save tags
+  for 02 Two.flac: the file may be open in another program". This happens in the
+  real app too, for any save to the track after the playing one. The fix would be
+  to drop the prefetch before writing and reopen it afterwards (`RefreshPrefetch`
+  does the reopen already). That touches playback, so it was left for the user
+  to decide.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
@@ -1660,6 +1699,7 @@ ThemeLab.exe --artmenu 1          # the album header art's context menu
 ThemeLab.exe --window tags --album "Goodbye Yellow Brick Road" --pick 1-8 --set "DiscCount=2"  # a grid selection
 ThemeLab.exe --rows 1,2,3,4       # several selected grid rows
 ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
+ThemeLab.exe --window queue       # edit queued tracks while the real engine plays silently
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
 ThemeLab.exe --w 1300 --h 700 --lastfm failing   # the status-bar indicator
 ThemeLab.exe --menushot menu.png --scale 2      # the logo menu's drop-down, without opening it
@@ -1877,6 +1917,8 @@ twice from the user's feedback.
 *Done in session 18:* PS1 lost its selection bar, pane marks and row focus ring,
 and became the only theme.
 
+*Done in session 19:* queued tracks show their new tags when they come up.
+
 0. **PS1 is open to more critique.** The user works in a screenshot loop: they
    look, then give precise notes. Lately each note removes decoration. Things to
    know going in:
@@ -1889,14 +1931,12 @@ and became the only theme.
    has driven it. The real mouse (the slow click's timing against a double-click)
    and real key presses were off limits. Worth asking: does Enter moving down a
    row suit them, and is the slow click too easy or too hard to hit?
-0. **Queued tracks keep their old tags.** `AudioEngine` holds the `Track` objects
-   the queue was built from, and `OnEngineTrackChanged` sets `NowPlaying` from
-   them. Edit a track that is waiting in the queue, by either the grid or a
-   dialog, and when it comes up the now-playing bar and window title show the
-   old title and artist until it is played again from the grid. The file and the
-   grid are right. The fix would be to look the track up by path in
-   `_library` in `OnEngineTrackChanged`, or to refresh the engine's queue on
-   save. Not done: nobody has hit it, and it touches playback.
+0. **Saving the next queued track fails** while it is prefetched (see session
+   19). Ask the user whether to fix it: release the prefetched stream around a
+   tag write, then prefetch again.
+0. **Editing the playing track leaves the scrobble on the old tags** (session 19,
+   *Not covered*). A small fix would be to hand the scrobbler the new copy from
+   `ReplaceTracksInLibrary` when the path matches and it has not yet scrobbled.
 1. A visible, editable queue view — now the most conspicuous missing player feature.
 2. **Library-wide tag stripping**, if the user wants it. They keep their tags lean and
    use the new dialog fields mainly to *clear* publisher, composer, conductor, genre
