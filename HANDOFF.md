@@ -86,7 +86,7 @@ Three decisions baked into the first commit, so you do not have to re-derive the
 
 Verified, not assumed: a fresh `git clone` of this repo into a scratch directory builds
 with 0 warnings and passes the whole suite (73 tests when that was checked in session 5;
-225 now, though the clean-clone check has not been repeated since). If you add a dependency that lives outside NuGet, re-run that check — it is
+299 now, though the clean-clone check has not been repeated since). If you add a dependency that lives outside NuGet, re-run that check — it is
 the only thing that catches a file you forgot to track.
 
 ---
@@ -111,7 +111,7 @@ Everything below is implemented **and verified working**, not merely written:
   mistaken for a deleted library.
 - Global hotkeys: **F9** play/pause, **F10** previous-or-restart, **F11** next.
 - App icon built from `logo.png` (the 1994 PlayStation mark) by `tools/make-icon.ps1`.
-  The same image is the title-bar identity at 30 px, in every theme.
+  The same image is the title-bar identity at 30 px.
 - **Type-ahead scroll** on Artists and Albums panes — hover and type to jump to a match.
 
 ### UI changes from session 2
@@ -141,7 +141,7 @@ Everything below is implemented **and verified working**, not merely written:
 - **Theme system.** *(Removed in session 18: PS1 is the only theme.)* Logo menu → Themes submenu → checkable items (radio-button
   behaviour — only one can be active). The active theme is persisted to `settings.json`
   as `Theme` (string, default `"Dark"`). Panels, borders and backdrop switch instantly;
-  the accent colour does not (see Accent colours below).
+  the accent colour does not (see *The accent* under *The theme*, below).
 - **"Dark" theme** — the existing look. WPF-UI dark base, Mica backdrop.
 - **"Vista" theme** — Windows Vista Aero Glass aesthetic. Switches the window backdrop
   from Mica to Acrylic (blur-through transparency), then merges a resource dictionary
@@ -176,7 +176,7 @@ Everything below is implemented **and verified working**, not merely written:
   Architecture in the section below; the play order lives in a new `PlayOrder` class,
   deliberately kept free of BASS so it can be tested without a sound device.
 - **Teal accent for the Dark theme** *(Dark removed in session 18)* — `#14B8A6`. Vista keeps Windows blue `#0078D4`.
-  See Accent colours below; there are two WPF-UI traps in there.
+  See *The accent* under *The theme*, below; there are two WPF-UI traps in there.
 - **Bit-Perfect starts off** on every launch, no longer restored from settings.
 - **The "Nothing playing" placeholder is gone.** The now-playing title is blank when
   nothing is loaded, leaving just the placeholder art tile.
@@ -903,7 +903,7 @@ Pause key, and yellow Previous/Next keys.
   clear 4.5:1 (`#245A96` links, `#A3001C` errors).
 - **PS1 runs on WPF-UI's Light base.** `ThemeService.SetBase` swaps the
   `ThemesDictionary` instance in `Application.Resources` (Dark for the other two
-  themes). Any WPF-UI key the overlay misses then falls back to a light value, not
+  themes). *(`SetBase` went in session 18: `App.xaml` now starts on Light.)* Any WPF-UI key the overlay misses then falls back to a light value, not
   white text on grey. The overlay restates both levels of WPF-UI keys: the shared
   palette (`ControlFillColorDefaultBrush`...) and the per-control keys
   (`ButtonBackground`, `TextControlBackground`, `ContextMenuBackground`,
@@ -1095,8 +1095,8 @@ device name still in its tooltip.
 
 | File | Purpose |
 |---|---|
-| `src/AudioFool/ViewModels/ThemeItem.cs` | Observable VM wrapping a theme name + `IsSelected` bool. Follows the same pattern as `FolderFilterItem`. |
-| `src/AudioFool/ThemeService.cs` | Static helper that swaps resource-dictionary overlays and sets the window `BackdropType`. Called from `MainViewModel` on theme change and from `App.OnStartup` for the saved theme. |
+| ~~`src/AudioFool/ViewModels/ThemeItem.cs`~~ | *Deleted in session 18* with the Themes menu. Was the observable VM for one theme menu item. |
+| `src/AudioFool/ThemeService.cs` | `Apply()`, called once from `App.OnStartup` before the window is built: merges `Ps1Theme.xaml` (plus `Ps1Motion.xaml` when Windows animations are on), then applies and pins the accent. Since session 18 it no longer switches themes or sets a backdrop. |
 
 ## New source files added in session 6
 
@@ -1105,7 +1105,7 @@ device name still in its tooltip.
 | `src/AudioFool.Core/Library/TagEdit.cs` | `TrackTagEdit`, `AlbumTagEdit`, `ArtPayload` — immutable records describing a pending write. Their positional fields are authoritative. Since session 11 their init-only members (`NumberEdit?` counts, `TagDetailsEdit`) use null for "keep", and `TagDetails` holds what a file currently has for the five detail fields. |
 | `src/AudioFool.Core/Library/TagWriter.cs` | Static write layer: `WriteTrackTags`, `WriteAlbumTrackTags`, `WriteFolderArt`. Never throws — all results are `TagWriteResult`/`FolderArtWriteResult` records. Re-stamps `FileSize`/`ModifiedUtc` via `FileStamp.For(path)` after each write so `Track.MatchesFile` stays correct. |
 | `src/AudioFool/ViewModels/TagEditViewModel.cs` | Backs `TagEditWindow` for both single-track and album-batch modes. `IsAlbumMode` flag drives which fields are visible. `BuildTrackEdit()` / `BuildAlbumEdit()` / `PickedArtPayload()` are read after `ShowDialog() == true`. |
-| `src/AudioFool/TagEditWindow.xaml[.cs]` | Modal dialog (FluentWindow/Mica, owner-centered). Save/Cancel in code-behind set `DialogResult`. Album mode hides Title and the Track # row and shows the art panel and a standalone Track Count, via `Visibility` bindings. Disc and the five detail rows (each with a ✕ clear button) are in both modes. |
+| `src/AudioFool/TagEditWindow.xaml[.cs]` | Modal dialog (FluentWindow, `WindowBackdropType="None"`, owner-centered). Save/Cancel in code-behind set `DialogResult`. Album mode hides Title and the Track # row and shows the art panel and a standalone Track Count, via `Visibility` bindings. Disc and the five detail rows (each with a ✕ clear button) are in both modes. |
 | `tests/AudioFool.Core.Tests/TagWriterTests.cs` | Round-trip tests: all fields survive write+read; art bytes match; `FileStamp` changes after write; album mode leaves Title/Track# untouched; missing file fails cleanly. |
 | `tests/AudioFool.Core.Tests/TestData/sample.flac` | 0.5 s silence fixture for tag-writer tests (generated by ffmpeg). `.gitattributes` marks as binary. |
 | `tests/AudioFool.Core.Tests/TestData/sample.mp3` | Same for MP3 path (different TagLib code path). |
@@ -1116,9 +1116,9 @@ device name still in its tooltip.
 
 | File | Purpose |
 |---|---|
-| `src/AudioFool/Themes/DesignTokens.xaml` | Every colour, surface, text ramp, accent, stroke, spacing, type, radius, icon size, texture and motion value the app's chrome uses. Its defaults are the Dark theme. |
-| `src/AudioFool/Themes/Components.xaml` | The reusable pieces built from those tokens: `AfPane`/`AfPaneDisplay`/`AfDeck`, the browser row template and its hover/selection states, art frames, the slider, text styles, and the four themeable slots. |
-| `src/AudioFool/Themes/Ps1Theme.xaml` | The PS1 theme. Token overrides, WPF-UI key overrides for the stock controls, and the components it restyles: chassis panes, the display pane, grid header and cell, slider, segmented progress, the bit-perfect key, and three of the four slots (all but `AfBrandMark`). |
+| `src/AudioFool/Themes/DesignTokens.xaml` | Every colour, surface, text ramp, accent, stroke, spacing, type, radius, icon size, texture and motion value the app's chrome uses. Its defaults are the retired Dark theme's values, now the base layer under PS1. |
+| `src/AudioFool/Themes/Components.xaml` | The reusable pieces built from those tokens: `AfPane`/`AfPaneDisplay`/`AfDeck`, the browser row template and its hover/selection states, art frames, the slider, text styles, the `AfPlayKey`/`AfSkipKey` styles, and the themeable slots (see the design-system section). |
+| `src/AudioFool/Themes/Ps1Theme.xaml` | The PS1 theme, the only one. Token overrides, WPF-UI key overrides for the stock controls, and the components it restyles: panes, the display pane, deck, grid header and cell, slider, the scan progress bar, the Bit-Perfect key, the Play/Pause key, and four slots (`AfWindowDecor`, `AfStatusLamp`, `AfEmptyState`, `AfNowPlayingGlyph`). |
 | `src/AudioFool/Themes/Ps1Motion.xaml` | PS1's animated states, merged only when Windows has control animations on. Row hover (the selection marker and logo entrance were removed later). |
 | `src/AudioFool/Formatting/LetterSpacing.cs` | `LetterSpacing.Spacer` attached property: interleaves a spacer character between letters and keeps the unspaced text as the automation name. WPF has no tracking property. |
 | `tools/themelab/` | Renders the real windows off-screen to a PNG for theme review. Not in the solution. |
@@ -1244,7 +1244,10 @@ the ThemeLab pixel diff below is how to prove nothing moved.
 Three conventions that are load-bearing:
 
 - **`MainWindow` uses `DynamicResource` for styles and templates, not `StaticResource`.**
-  A `StaticResource` is resolved once at load and would ignore the PS1 dictionary.
+  This was essential while themes switched at runtime, since a `StaticResource` is
+  resolved once at load. PS1 is now merged before any window is built, so a
+  `StaticResource` in a window might resolve to PS1's value too, but that has not been
+  tested. Keep using `DynamicResource`.
 - **PS1 restyles a control WPF-UI already themes with an implicit style** in its
   own dictionary - `Style TargetType`, no key. It does this for `DataGridColumnHeader`,
   `DataGridCell`, `ProgressBar` and `ToggleButton`.
@@ -1254,13 +1257,21 @@ Three conventions that are load-bearing:
   "leave it unset". It drops WPF-UI's implicit style and the control falls back to the
   *Aero* theme style, which gave the track grid a white header strip with unreadable
   titles and a near-white selected row.
-- **Themeable slots** (`AfWindowDecor`, `AfBrandMark`, `AfStatusLamp`, `AfEmptyState`)
-  are `ControlTemplate`s on a plain `Control`, so they cost one element and a theme can
-  replace one without touching the window. Three are empty by default and draw nothing;
-  `AfBrandMark` is the exception — it carries the logo for every theme, and a theme that
-  wants to animate it fills the `AfBrandMarkImage` style instead of restating the
-  template. The `Control` inherits the window's DataContext, so a filled slot can bind
-  to the view model.
+- **Themeable slots** are `ControlTemplate`s on a plain `Control`, so they cost one
+  element, and the theme can fill one without touching the window. `Components.xaml`
+  defines them:
+  - **Filled by PS1**: `AfWindowDecor` (the shell), `AfStatusLamp`, `AfEmptyState` and
+    `AfNowPlayingGlyph`. The first three are empty in the base layer. The base
+    `AfNowPlayingGlyph` is the old blue note, which PS1 replaces with a green ▶.
+  - **Base layer only**: `AfBrandMark` carries the logo. `AfBrandMarkImage` is an
+    empty style hook for animating it, and PS1 no longer fills it (the entrance
+    animation went in session 17).
+  - **Empty and unused**: `AfPaneMarkArtists` / `AfPaneMarkAlbums` / `AfPaneMarkTracks`,
+    since PS1 dropped its pane marks in session 18. They stay in `MainWindow.xaml`, take
+    no space, and are the place to bring a mark back.
+
+  The `Control` inherits the window's DataContext, so a filled slot can bind to the
+  view model.
 
 Two things could not be tokenised and are property-styled in `MainWindow.xaml` on
 purpose, each with the reason in a comment there: the browser `ListBoxItem` styles and
@@ -1276,8 +1287,8 @@ earlier dark version is in git history before that session). The original grey c
 1990s consumer electronics. **The grey is the primary surface; the controller
 colours are semantic punctuation.**
 
-This is the state as of `eea12aa`. The brief's greys were darkened about 15% at
-the user's request.
+This is the state as of session 18 (`f6b57c2` and after). The brief's greys were
+darkened about 15% at the user's request.
 
 - **Surfaces**: shell `#A7A4A3` behind everything (the `AfWindowDecor` slot, and
   `AfSurfaceShell` on each dialog's root grid). Panes, deck, keys and menus are
@@ -1313,8 +1324,9 @@ the user's request.
   ink on green 5.5:1, light on red 4.2:1.
 
 It works on two levels: it redefines AudioFool's tokens *and* the WPF-UI keys the
-stock controls resolve at runtime. It also runs on WPF-UI's **Light** base
-(`ThemeService.SetBase`), so anything it misses is light rather than white-on-grey.
+stock controls resolve at runtime. It also runs on WPF-UI's **Light** base (the
+`ThemesDictionary` in `App.xaml`, and in ThemeLab's `LabApp.xaml`), so anything it
+misses is light rather than white-on-grey.
 That is why the WPF-UI key list in that file is long, and covers the per-control
 keys as well as the palette.
 
@@ -1323,17 +1335,19 @@ keys as well as the palette.
   The obvious alternative, zeroing the duration tokens at runtime, is not available:
   a storyboard held by a style cannot read a `DynamicResource`, because applying a
   style seals it and freezes the freezables it holds. For the same reason the animated
-  pieces (row hover, selection marker, and until session 17 the logo entrance) were split into small styles of
-  their own, so `Ps1Motion.xaml` replaces those rather than duplicating whole templates.
+  pieces were split into small styles of their own, so `Ps1Motion.xaml` replaces those
+  rather than duplicating whole templates. Only the row hover (`AfRowHoverWash`) is
+  left: the logo entrance went in session 17 and the selection marker in session 18.
   A `ScaleTransform` declared *in a template* can be animated; one set through a style
   setter cannot.
 - **`WindowBackdropType.None`.** PS1 is an opaque hardware surface; Mica would let the
-  desktop through the chassis. `ThemeService.Backdrop` exposes the choice so
-  `TagEditWindow` and `ArtWindow` do not open as glass in front of it.
+  desktop through the chassis. Every window, dialogs included, declares
+  `WindowBackdropType="None"` in its XAML. A new window must do the same, and paint
+  `AfSurfaceShell` on its root grid (see *A dialog has no shell* under Gotchas).
 - **The accent is pinned after `ApplicationAccentColorManager.Apply`.** That call writes
   its brushes straight into `Application.Resources`, which outranks every merged
   dictionary, so a theme cannot restate the accent by redefining those keys in its own
-  file. `ThemeService` clears them, calls `Apply`, then copies PS1's values back over
+  file. `ThemeService` calls `Apply`, then copies PS1's values for those keys back over
   the top. PS1's accent is the dark-grey key `#4A4746`, applied with
   `ApplicationTheme.Light`.
 - **Letter spacing** is `Formatting/LetterSpacing.cs`. WPF has no tracking property, so
@@ -1599,7 +1613,7 @@ the DAC, and that an advancing position proves the WASAPI callback is actually r
 
 ## Apply the theme *before* building the window
 
-`App.OnStartup` calls `ThemeService.Apply(settings.Theme)` before
+`App.OnStartup` calls `ThemeService.Apply()` before
 `new MainWindow(...)`, and the order matters:
 
 - A `DynamicResource` for a **Style or Template** is resolved while the element is
@@ -1617,8 +1631,10 @@ is applied.
 
 ## ThemeLab: reviewing a theme without touching the desktop
 
-`scratchpad/themelab` (session 7) renders the real `MainWindow` and `TagEditWindow`
-off-screen to a PNG. It references `AudioFool.csproj`, so it renders the actual windows
+`tools/themelab` (session 7; it started in a session scratchpad and has been tracked in
+the repo since, outside the solution) renders the real windows off-screen to a PNG: the
+main window, and through `--window` the tag, Statistics, Last.fm, art search and art
+viewer dialogs. It references `AudioFool.csproj`, so it renders the actual windows
 with the actual theme dictionaries — no mock, and no window on the user's desktop. It
 also has a `--dump` mode that prints what a list of theme resource keys resolves to,
 which is how the token defaults were baked from WPF-UI's real values instead of guessed.
@@ -1699,8 +1715,8 @@ Three things it took a while to get right, all worth keeping if it is rebuilt:
 
 - **It must not construct `AudioFool.App`.** `Application`'s constructor queues
   `OnStartup` onto the dispatcher, so the first time the harness pumps the queue the
-  real startup path runs: it loads the user's settings, applies *their* theme over the
-  one under test, and builds and shows a second `MainWindow` on the desktop. The
+  real startup path runs: it loads the user's settings, applies the theme a second
+  time, and builds and shows a second `MainWindow` on the desktop. The
   harness has its own `LabApp.xaml` that merges the same dictionaries and declares the
   same converters, and nothing else. (Subclassing `App` to override `OnStartup` does
   not work — the generated `InitializeComponent` rejects a derived type.)
