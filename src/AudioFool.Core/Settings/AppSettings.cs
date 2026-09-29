@@ -16,6 +16,12 @@ public sealed class AppSettings
 
     public double Volume { get; set; } = 1.0;
 
+    /// <summary>
+    /// Where the main window was when it last closed; it opens there again when
+    /// that is still on a screen. Null until the window has been closed once.
+    /// </summary>
+    public WindowBounds? Window { get; set; }
+
     /// <summary>Rescan the library on startup rather than waiting to be asked.</summary>
     public bool ScanOnStartup { get; set; } = true;
 
@@ -44,12 +50,6 @@ public sealed class AppSettings
 
     /// <summary>Play the queue in a shuffled order.</summary>
     public bool Shuffle { get; set; }
-
-    /// <summary>
-    /// List artists by their most recently added file instead of A-Z. Toggled
-    /// by clicking the Artists pane header.
-    /// </summary>
-    public bool ArtistsByRecent { get; set; }
 
     /// <summary>
     /// What happens at the end of the queue. Stored by name, like the other enums

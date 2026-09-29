@@ -20,6 +20,9 @@ namespace ThemeLab;
 /// </summary>
 internal static class Program
 {
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -47,6 +50,44 @@ internal static class Program
             return 0;
         }
 
+        // --window placement: WindowPlacement's round trip on a window that gets
+        // a handle but is never shown, so nothing appears on the desktop.
+        if (which == "placement")
+        {
+            var areas = AudioFool.Services.WindowPlacement.WorkAreas();
+            Console.WriteLine($"work areas: {string.Join(" | ", areas.Select(a => $"({a.Left},{a.Top})-({a.Right},{a.Bottom})"))}");
+
+            var primary = areas.First(a => a.Left <= 0 && a.Top <= 0 && a.Right > 0 && a.Bottom > 0);
+            AudioFool.Core.Settings.WindowBounds[] cases =
+            [
+                new(primary.Left + 137, primary.Top + 91, 1203, 707, false),
+                new(primary.Right - 300, primary.Top + 50, 1100, 650, false),
+                new(primary.Left + 60, primary.Top + 40, 1300, 760, true),
+                new(primary.Right + 50_000, primary.Top + 40, 1300, 760, false),
+                // One on every monitor: a different scaling rescales the window on arrival.
+                .. areas.Select(a => new AudioFool.Core.Settings.WindowBounds(a.Left + 101, a.Top + 67, 1250, 720, false)),
+            ];
+
+            foreach (var wanted in cases)
+            {
+                var probe = new Window { ShowActivated = false, ShowInTaskbar = false, Width = 400, Height = 300, Left = 0, Top = 0 };
+                var hwnd = new System.Windows.Interop.WindowInteropHelper(probe).EnsureHandle();
+                var applied = AudioFool.Services.WindowPlacement.Apply(probe, wanted);
+                var got = AudioFool.Services.WindowPlacement.Capture(probe);
+                var visible = IsWindowVisible(hwnd);
+                var ok = applied
+                    ? got is not null && got.Left == wanted.Left && got.Top == wanted.Top && got.Width == wanted.Width
+                      && got.Height == wanted.Height && probe.WindowState == (wanted.Maximized ? WindowState.Maximized : WindowState.Normal)
+                    : !wanted.IsReachableOn(areas);
+                Console.WriteLine($"{wanted} -> applied={applied} got=({got?.Left},{got?.Top} {got?.Width}x{got?.Height}) "
+                    + $"state={probe.WindowState} shown={visible} {(ok && !visible ? "OK" : "WRONG")}");
+                probe.WindowState = WindowState.Normal;
+                probe.Close();
+            }
+
+            return 0;
+        }
+
         // A throwaway settings object: never Load()ed and never Save()d, so the
         // real settings.json is untouched. No music folders means InitialiseAsync
         // short-circuits before any scan.
@@ -54,8 +95,6 @@ internal static class Program
         {
             ScanOnStartup = false,
             GlobalHotkeys = false,
-            // --artistsort recent: start with the most recently added artists first.
-            ArtistsByRecent = Arg(args, "--artistsort") == "recent",
         };
 
         // --window queue plays for real, and the engine posts its events to the
@@ -99,6 +138,11 @@ internal static class Program
         {
             Populate(vm);
         }
+
+        // --artistsort recent: the most recently added artists first, as after a
+        // click on the header (the app itself always opens A-Z).
+        if (Arg(args, "--artistsort") == "recent")
+            vm.ArtistsByRecent = true;
 
         // --paused 1: the sample track loaded but not playing, so the transport
         // key shows Play rather than Pause.
@@ -162,14 +206,25 @@ internal static class Program
             string Top() => string.Join(" | ", vm.Artists.Take(8).Select(a => $"{a.Name} ({a.LastAddedUtc:yyyy-MM-dd})"));
             var header = (System.Windows.Controls.Button)main.FindName("ArtistSortHeader");
             var settingsBackup = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null;
+            var artistList = (System.Windows.Controls.ListBox)main.FindName("ArtistList");
+            double Offset() => FindFirst<System.Windows.Controls.ScrollViewer>(artistList)?.VerticalOffset ?? -1;
             try
             {
-                Console.WriteLine($"artists before: recent={vm.ArtistsByRecent} selected='{vm.SelectedArtist?.Name}' tip='{header.ToolTip}'");
+                // --clickfrom N: select the N-th artist first, as if browsed to.
+                if (Arg(args, "--clickfrom") is { } from)
+                {
+                    vm.SelectedArtist = vm.Artists[int.Parse(from, CultureInfo.InvariantCulture)];
+                    Settle(300);
+                }
+
+                Console.WriteLine($"artists before: recent={vm.ArtistsByRecent} selected='{vm.SelectedArtist?.Name}' "
+                    + $"(#{vm.Artists.IndexOf(vm.SelectedArtist!)}) scroll={Offset():0} tip='{header.ToolTip}'");
                 Console.WriteLine($"  {Top()}");
                 var peer = new System.Windows.Automation.Peers.ButtonAutomationPeer(header);
                 ((System.Windows.Automation.Provider.IInvokeProvider)peer.GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke)!).Invoke();
                 Settle(300);
-                Console.WriteLine($"artists after: recent={vm.ArtistsByRecent} selected='{vm.SelectedArtist?.Name}' album='{vm.SelectedAlbum?.Album.Title}' tip='{header.ToolTip}'");
+                Console.WriteLine($"artists after: recent={vm.ArtistsByRecent} selected='{vm.SelectedArtist?.Name}' "
+                    + $"(#{vm.Artists.IndexOf(vm.SelectedArtist!)}) scroll={Offset():0} album='{vm.SelectedAlbum?.Album.Title}' tip='{header.ToolTip}'");
                 Console.WriteLine($"  {Top()}");
             }
             finally
@@ -872,7 +927,15 @@ internal static class Program
             Save(main, outPath, w, h, scale);
         }
 
+        // Closing saves the window's position into the settings file - here the
+        // off-screen spot the harness uses - so the file is put back afterwards.
+        var settingsBefore = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null;
         main.Close();
+        if (settingsBefore is not null)
+            File.WriteAllBytes(AppSettings.SettingsPath, settingsBefore);
+        else if (File.Exists(AppSettings.SettingsPath))
+            File.Delete(AppSettings.SettingsPath);
+
         Console.WriteLine("wrote " + outPath);
         return 0;
     }

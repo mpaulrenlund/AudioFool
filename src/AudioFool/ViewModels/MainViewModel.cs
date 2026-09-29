@@ -1395,24 +1395,28 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>
     /// Artists by most recently added first instead of A-Z. Clicking the pane header flips
-    /// it; the selected artist and album stay selected.
+    /// it and starts again at the top of the new order, as startup does. Keeping the
+    /// selection would scroll to wherever the old artist landed, which is usually
+    /// just the first A-Z artist the app opened on. For this session only: the
+    /// app always opens A-Z, at the user's request.
     /// </summary>
     public bool ArtistsByRecent
     {
-        get => _settings.ArtistsByRecent;
+        get => _artistsByRecent;
         set
         {
-            if (_settings.ArtistsByRecent == value)
+            if (_artistsByRecent == value)
                 return;
 
-            _settings.ArtistsByRecent = value;
-            _settings.Save();
+            _artistsByRecent = value;
 
             OnPropertyChanged();
             OnPropertyChanged(nameof(ArtistSortTooltip));
-            ApplyToView(keepSelection: true);
+            ApplyToView(keepSelection: false);
         }
     }
+
+    private bool _artistsByRecent;
 
     public string ArtistSortTooltip => ArtistsByRecent
         ? "Most recently added first. Click to sort A-Z."
@@ -1420,6 +1424,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void ToggleArtistSort() => ArtistsByRecent = !ArtistsByRecent;
+
+    /// <summary>Where the window was when it last closed, if it has been closed before.</summary>
+    public WindowBounds? SavedWindowBounds => _settings.Window;
+
+    public void SaveWindowBounds(WindowBounds bounds)
+    {
+        _settings.Window = bounds;
+        _settings.Save();
+    }
 
     /// <summary>
     /// Off, All or One. A three-way cycle rather than a checkbox, which is what

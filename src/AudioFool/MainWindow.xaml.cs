@@ -41,6 +41,7 @@ public partial class MainWindow : FluentWindow
 
         Loaded += OnLoaded;
         SourceInitialized += OnSourceInitialized;
+        Closing += OnClosing;
         Closed += OnClosed;
 
         _typeAheadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
@@ -92,6 +93,11 @@ public partial class MainWindow : FluentWindow
     {
         SourceInitialized -= OnSourceInitialized;
 
+        // Back where it was last closed, before it is first shown. When that is
+        // no longer on a screen, it keeps the centred size FitToWorkArea gave it.
+        if (_viewModel.SavedWindowBounds is { } bounds)
+            WindowPlacement.Apply(this, bounds);
+
         if (!_viewModel.GlobalHotkeysEnabled)
             return;
 
@@ -118,6 +124,17 @@ public partial class MainWindow : FluentWindow
                 _viewModel.NextCommand.Execute(null);
                 break;
         }
+    }
+
+    /// <summary>Remembers where the window is, while it still has a handle to ask.</summary>
+    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (e.Cancel)
+            return;
+
+        Closing -= OnClosing;
+        if (WindowPlacement.Capture(this) is { } bounds)
+            _viewModel.SaveWindowBounds(bounds);
     }
 
     private void OnClosed(object? sender, EventArgs e)

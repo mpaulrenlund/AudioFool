@@ -1240,8 +1240,10 @@ click didn't open an edit, and Enter didn't carry on to the same field on the ne
 
 **Clicking the ARTISTS header toggles the artist order** between A–Z and most recently
 added first, at the user's request. The header reads "ARTISTS · RECENT" in that mode.
-The choice persists (`AppSettings.ArtistsByRecent`), and the selected artist and album
-stay selected.
+**The app always opens A–Z** (the user's request). The toggle lasts for the session only
+(`MainViewModel._artistsByRecent`). It was first saved as `AppSettings.ArtistsByRecent`,
+which has been removed; a leftover key in `settings.json` is ignored on load and dropped
+on the next save.
 
 - **"Added" is the file's creation time, not its modified time.** The user asked for
   "most recently updated", and that was built first, from `ModifiedUtc`. The real
@@ -1262,6 +1264,12 @@ stay selected.
   Connor Kaminski, Keyan, Loam, Ro1 (all 28 September). 75 artists have additions since
   August; the 424 from the July copy tie and fall back to A–Z. The installed build's
   smoke-test launch did this for real, and `library.json` now carries the dates.
+- **A toggle starts again at the top** of the new order and selects its first artist
+  (`ApplyToView(keepSelection: false)`), as startup does. It first kept the selection.
+  The user found that dragged them down to wherever 150cc, the A–Z first artist the
+  app opens on, landed in the recent order. Verified with `--clickartists 1
+  --clickfrom 250` in both directions: the first artist is selected and the scroll
+  offset is 0.
 - **Caveat:** copying the library to a new drive resets every creation time, which
   would make the whole library one tie again.
 - **The header is a `Button` with `Style="{x:Null}"` and a bare template**, so the A–Z
@@ -1286,6 +1294,37 @@ to zero. When it fails, focus sits outside any cell, and adding tracing hides th
 failure. The harness now logs the focused element's visual chain at that point, to
 find it next time. **Ask the user** whether, in the running app, the next row's box
 ever opens without taking their typing.
+
+**The window opens where it was last closed** (later in session 21, the user's request).
+- **Saved on `Closing`** as `AppSettings.Window`, a `WindowBounds`: the normal
+  rectangle in physical pixels, plus whether the window was maximised. **Applied in
+  `SourceInitialized`**, before the window is first shown, so it never appears anywhere
+  else first. With nothing saved, or a spot that's no longer reachable, it keeps
+  `FitToWorkArea`'s centred size, as before.
+- **Win32, not WPF's Left/Top/Width/Height** (`Services/WindowPlacement.cs`). The app
+  is PerMonitorV2, where a DIP is a different number of pixels on each monitor, and WPF
+  doesn't see Aero Snap. Capture uses `GetWindowRect` for a normal window, so a snapped
+  window keeps its snapped spot. For a maximised or minimised window it uses
+  `GetWindowPlacement`'s normal rectangle, converted from workspace to screen
+  coordinates (they differ when the taskbar is on the top or left). Minimised-while-
+  maximised comes back maximised. Apply uses `SetWindowPos`, twice if needed, because
+  arriving on a monitor with a different DPI rescales the window once. It then sets
+  `WindowState = Maximized` if saved that way.
+- **Reachability** (`WindowBounds.IsReachableOn`, in Core, 9 tests): at least 120 px of
+  a 32 px title band must land on one monitor's current work area. This rejects an
+  unplugged monitor, a smaller remote-desktop screen, and a title strip off the top or
+  behind the taskbar.
+- **ThemeLab closes the real MainWindow**, which now saves settings. It restores
+  `settings.json` byte for byte around that `Close()`, so a render can't store its
+  -20000 position.
+- **Verified**: ThemeLab **`--window placement`** runs apply-then-capture on a window
+  that gets a handle and is never shown (`IsWindowVisible` false throughout). It passes
+  for the primary, a window hanging off an edge, maximised, and one spot on each of the
+  three monitors: (0,0)–(3440,1392) primary, (3440,11)–(6880,1403) and
+  (-1920,10)–(0,1042). A spot 50,000 px off is refused. **All three monitors are
+  96 dpi, so the DPI-rescale retry has not been exercised.** 327 tests pass. Not
+  launched from the shell: that instance would save into the stale container
+  settings.
 
 ### Deliberately not done
 
