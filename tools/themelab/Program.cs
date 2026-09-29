@@ -1211,6 +1211,33 @@ internal static class Program
         // And a gapless handover into the MP3, whose artist changed.
         Report("gapless", "04", "Four", "Edited Artist");
 
+        // Edit the track that is playing: the bar and the scrobbler should both
+        // follow. Today the save itself is refused - the engine's stream holds
+        // the file open and TagLib wants it unshared - so this reports that.
+        engine.Pause();
+        Await(vm.ApplyInlineEditAsync(Row("04"), AudioFool.Core.Library.InlineField.Title, "Four Edited"));
+        var refused = vm.StatusText.StartsWith("Couldn't save");
+        var playingOk = vm.NowPlaying?.Title == "Four Edited" && tracker.Current?.Title == "Four Edited"
+                        && tracker.Current?.Artist == "Edited Artist";
+        Log($"playing edit -> 04: title='{vm.NowPlaying?.Title}' scrobbler='{tracker.Current?.Artist} / {tracker.Current?.Title}' "
+            + (refused ? "SAVE REFUSED (file open for playback)" : playingOk ? "OK" : "STALE"));
+
+        // What the engine's open stream allows: TagLib opens for writing with no
+        // sharing, which fails against any open handle; a writer that shares
+        // tells whether BASS's own handle permits writes at all.
+        foreach (var share in new[] { FileShare.None, FileShare.ReadWrite })
+        {
+            try
+            {
+                using var fs = File.Open(Row("04").FilePath, FileMode.Open, FileAccess.ReadWrite, share);
+                Log($"  open for write, share {share}: allowed");
+            }
+            catch (IOException ex)
+            {
+                Log($"  open for write, share {share}: refused ({ex.Message.Trim()})");
+            }
+        }
+
         engine.Stop();
         Settle(200);
     }

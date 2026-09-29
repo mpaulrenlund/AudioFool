@@ -229,6 +229,36 @@ public class ScrobblingTests
         Assert.All(Play(tracker, 50, 150, T0), r => Assert.Null(r.Due));
     }
 
+    [Fact]
+    public void Retagging_mid_play_scrobbles_the_new_tags_without_restarting()
+    {
+        var tracker = new PlayTracker();
+        tracker.Start(MakeTrack(), TimeSpan.FromSeconds(200), T0);
+        Play(tracker, 0, 60, T0);
+
+        Assert.True(tracker.Retag(MakeTrack(title: "Tom Sawyer (Live)", artist: "Rush.")));
+        Assert.Equal(TimeSpan.FromSeconds(60), tracker.Played);
+
+        var due = Play(tracker, 60.25, 150, T0.AddSeconds(60.25)).Single(r => r.Due is not null).Due!;
+        Assert.Equal("Tom Sawyer (Live)", due.Track);
+        Assert.Equal("Rush.", due.Artist);
+        Assert.Equal(T0.ToUnixTimeSeconds(), due.Timestamp);
+    }
+
+    [Fact]
+    public void Retagging_another_file_changes_nothing()
+    {
+        var tracker = new PlayTracker();
+        tracker.Start(MakeTrack(), TimeSpan.FromSeconds(200), T0);
+
+        Assert.False(tracker.Retag(MakeTrack(title: "Red Barchetta", path: @"D:\Music\Rush\02.flac")));
+        Assert.Equal("Tom Sawyer", tracker.Current!.Title);
+
+        tracker.Stop();
+        Assert.False(tracker.Retag(MakeTrack(title: "Limelight")));
+        Assert.Null(tracker.Current);
+    }
+
     // ------------------------------------------------------------ responses
 
     [Fact]
@@ -448,6 +478,42 @@ public class ScrobblingTests
         // position starts again near zero, but TrackChanged has not arrived.
         scrobbler.Advance(TimeSpan.FromSeconds(0.25), next);
         scrobbler.Advance(TimeSpan.FromSeconds(0.5), next);
+        await Task.Delay(50);
+
+        Assert.Single(fake.Of("track.updateNowPlaying"));
+    }
+
+    [Fact]
+    public async Task Retagging_the_playing_track_resends_now_playing_and_scrobbles_the_new_tags()
+    {
+        var (scrobbler, fake, clock) = Connected();
+
+        scrobbler.TrackStarted(MakeTrack(), TimeSpan.FromSeconds(200));
+        PlayThrough(scrobbler, clock, 40);
+        await Until(() => fake.Of("track.updateNowPlaying").Count == 1);
+
+        scrobbler.TrackRetagged(MakeTrack(title: "Tom Sawyer (Live)"));
+        await Until(() => fake.Of("track.updateNowPlaying").Count == 2);
+        Assert.Equal("Tom Sawyer (Live)", fake.Of("track.updateNowPlaying")[1]["track"]);
+
+        PlayThrough(scrobbler, clock, 150, from: 40.25);
+        await Until(() => fake.Of("track.scrobble").Count == 1 && scrobbler.Pending == 0);
+        var sent = fake.Of("track.scrobble")[0];
+        Assert.Equal("Tom Sawyer (Live)", sent["track[0]"]);
+        Assert.Equal(T0.ToUnixTimeSeconds().ToString(), sent["timestamp[0]"]);
+    }
+
+    [Fact]
+    public async Task Retagging_with_nothing_last_fm_shows_changed_sends_nothing()
+    {
+        var (scrobbler, fake, clock) = Connected();
+
+        scrobbler.TrackStarted(MakeTrack(), TimeSpan.FromSeconds(200));
+        await Until(() => fake.Of("track.updateNowPlaying").Count == 1);
+
+        // A comment, genre or cover save: a new Track, the same scrobble.
+        scrobbler.TrackRetagged(MakeTrack());
+        scrobbler.TrackRetagged(MakeTrack(title: "Red Barchetta", path: @"D:\Music\Rush\02.flac"));
         await Task.Delay(50);
 
         Assert.Single(fake.Of("track.updateNowPlaying"));

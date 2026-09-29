@@ -139,6 +139,18 @@ public sealed class LastFmScrobbler
     public void Stopped() => _tracker.Stop();
 
     /// <summary>
+    /// The playing track's tags were saved. The play carries on and scrobbles
+    /// under the new tags; "now playing" is sent again only if what it shows
+    /// changed, so saving a comment or a cover sends nothing.
+    /// </summary>
+    public void TrackRetagged(Track track)
+    {
+        var before = _tracker.NowPlaying();
+        if (_tracker.Retag(track) && _tracker.NowPlaying() != before)
+            SendNowPlaying();
+    }
+
+    /// <summary>
     /// The playing position, reported a few times a second while playing, with
     /// the track the engine says is playing now. A gapless handover swaps the
     /// stream on the mixer thread and only then posts the track change, so for

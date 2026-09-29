@@ -1209,8 +1209,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         // The now-playing note and the window title compare by reference, so
         // they would lose the playing track once its old copy left the library.
+        // The scrobbler holds its own copy, which would scrobble the old tags.
         if (NowPlaying is { } playing && updatedByPath.TryGetValue(playing.FilePath, out var renamed))
+        {
             NowPlaying = renamed;
+            _scrobbler.TrackRetagged(renamed);
+        }
     }
 
     /// <summary>

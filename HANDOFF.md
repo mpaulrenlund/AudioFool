@@ -1096,18 +1096,38 @@ device name still in its tooltip.
     it, all three pass, with `engine.CurrentTrack` still showing the old title.
     `library.json` hash unchanged, and the scratch folder deleted. 299 tests pass.
     Installed; the installed build starts.
-  - **Not covered**: editing the track that is *playing* still leaves the
-    scrobbler's copy old. `ReplaceTracksInLibrary` swaps `NowPlaying`, but the
-    tracker keeps the `Track` it was started with, so that play is scrobbled under
-    the old tags.
-- **Found, not fixed: the next track in the queue can't be saved.** The engine
-  opens it ahead of time for the gapless handover (`_prefetchedStream`), and that
-  open stream makes TagLib's write fail. The status line says "Couldn't save tags
-  for 02 Two.flac: the file may be open in another program". This happens in the
-  real app too, for any save to the track after the playing one. The fix would be
-  to drop the prefetch before writing and reopen it afterwards (`RefreshPrefetch`
-  does the reopen already). That touches playback, so it was left for the user
-  to decide.
+- **A retag of the playing track reaches the scrobbler** (later in session 19).
+  `ReplaceTracksInLibrary` swapped `NowPlaying` but not the tracker's `Track`, so
+  that play would have scrobbled under the old tags. It now calls
+  `LastFmScrobbler.TrackRetagged`, which calls `PlayTracker.Retag`. That swaps the
+  track when the path matches and leaves the play itself alone: time heard, start
+  time and whether it has scrobbled. "Now playing" is re-sent only if the
+  `ScrobbleEntry` it would show changed, so a comment or cover save sends nothing.
+  4 new tests in `ScrobblingTests` (**303** in total).
+  - **Dormant in practice, because the playing track can't be saved** (next
+    item). The code is correct and tested, and takes effect once such a save can
+    succeed.
+- **Found, not fixed: a file the engine has open can't be saved.** That means both
+  the playing track (even when paused) and the next one, which is opened ahead of
+  time for the gapless handover (`_prefetchedStream`). The status line says
+  "Couldn't save tags for 04 Four.mp3: the file may be open in another program".
+  The same save code runs in the real app, so it happens there too, from the grid
+  or a dialog, with FLAC and MP3 alike. An album save that includes those tracks
+  commits the rest and names them as failed.
+  - **The cause, measured** in `--window queue` against a paused stream: opening the
+    file for writing with `FileShare.None` is refused; with `FileShare.ReadWrite`
+    it is allowed. So BASS (`Bass.CreateStream(path, ...)`) shares its handle, and
+    it is TagLib's unshared write open that fails.
+  - **Two ways to fix it, both touching playback, so it's the user's call**:
+    - Release the stream around the write. For the prefetched track, free it and
+      re-prefetch (`RefreshPrefetch` does that). The playing track would need to be
+      reopened at its position, which may be audible.
+    - Give TagLib a shared-write `IFileAbstraction`. The risk: if the tag block
+      grows, TagLib rewrites the file and moves the audio under a stream that is
+      decoding it.
+  - Session 14's note that the now-playing note "had been disappearing after any
+    tag save of the playing track" was probably never observed. That save can't
+    succeed while the track is loaded.
 
 ### Deliberately not done
 
@@ -1699,7 +1719,7 @@ ThemeLab.exe --artmenu 1          # the album header art's context menu
 ThemeLab.exe --window tags --album "Goodbye Yellow Brick Road" --pick 1-8 --set "DiscCount=2"  # a grid selection
 ThemeLab.exe --rows 1,2,3,4       # several selected grid rows
 ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
-ThemeLab.exe --window queue       # edit queued tracks while the real engine plays silently
+ThemeLab.exe --window queue       # edit queued and playing tracks while the real engine plays silently
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
 ThemeLab.exe --w 1300 --h 700 --lastfm failing   # the status-bar indicator
 ThemeLab.exe --menushot menu.png --scale 2      # the logo menu's drop-down, without opening it
@@ -1917,7 +1937,8 @@ twice from the user's feedback.
 *Done in session 18:* PS1 lost its selection bar, pane marks and row focus ring,
 and became the only theme.
 
-*Done in session 19:* queued tracks show their new tags when they come up.
+*Done in session 19:* queued tracks show their new tags when they come up, and a
+retag of the playing track reaches the scrobbler.
 
 0. **PS1 is open to more critique.** The user works in a screenshot loop: they
    look, then give precise notes. Lately each note removes decoration. Things to
@@ -1931,12 +1952,9 @@ and became the only theme.
    has driven it. The real mouse (the slow click's timing against a double-click)
    and real key presses were off limits. Worth asking: does Enter moving down a
    row suit them, and is the slow click too easy or too hard to hit?
-0. **Saving the next queued track fails** while it is prefetched (see session
-   19). Ask the user whether to fix it: release the prefetched stream around a
-   tag write, then prefetch again.
-0. **Editing the playing track leaves the scrobble on the old tags** (session 19,
-   *Not covered*). A small fix would be to hand the scrobbler the new copy from
-   `ReplaceTracksInLibrary` when the path matches and it has not yet scrobbled.
+0. **Saving the playing or next track fails** because the engine holds it open
+   (see session 19 for the cause and the two fixes). Ask the user which fix they
+   want, if any.
 1. A visible, editable queue view — now the most conspicuous missing player feature.
 2. **Library-wide tag stripping**, if the user wants it. They keep their tags lean and
    use the new dialog fields mainly to *clear* publisher, composer, conductor, genre

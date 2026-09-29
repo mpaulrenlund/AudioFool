@@ -80,6 +80,21 @@ public sealed class PlayTracker
         return true;
     }
 
+    /// <summary>
+    /// The tracked file's tags were saved mid-play. Swaps in the new copy so the
+    /// scrobble carries what the file says now; the play itself - time heard,
+    /// start time, whether it has scrobbled - is untouched. Returns false when
+    /// <paramref name="track"/> is not the file being tracked.
+    /// </summary>
+    public bool Retag(Track track)
+    {
+        if (_track is null || !string.Equals(_track.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        _track = track;
+        return true;
+    }
+
     /// <summary>Playback stopped: the play is over, scrobbled or not.</summary>
     public void Stop() => _track = null;
 
