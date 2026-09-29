@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-28 after the seventeenth build session. Read this alongside
+Updated 2026-09-29 after the seventeenth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -873,8 +873,23 @@ in the several-tracks dialog).
 written brief: the original grey PlayStation hardware, not a dark games UI. The
 rule the user set is that the grey is the main surface and the controller colours
 are sparse punctuation, each with one meaning. It keeps the name "PS1", so the
-saved setting and the Themes menu are unchanged. Design notes are under *PS1* in
-the design-system section below.
+saved setting and the Themes menu are unchanged. It was done in rounds: the user
+approved a plan, a first pass shipped, and they sent a screenshot of it running,
+with critique. Two revisions followed.
+
+**Where it ended up** (commit `eea12aa`, pushed and installed, 2026-09-29):
+- Warm greys, about 15% darker than the brief: shell `#A7A4A3`, surface `#B6B3B1`.
+- **Play/Pause is the only coloured key**: green while it shows Play, red while it
+  shows Pause.
+- Controller-shape labels: a blue ✕ on ARTISTS, a red ○ on ALBUMS, a green △ on
+  the album title.
+- The playing row and the seek bar are green, and a library scan fills a yellow bar.
+- The grid has no focus bar. There is no pink, and the logo keeps its colours.
+
+The design-system section's *PS1* entry below is the current reference,
+including the full list of accent uses. The notes that follow are the history.
+**Earlier values in them are superseded**: the first pass's lighter greys, a blue
+Pause key, and yellow Previous/Next keys.
 
 - **The palette was given, not chosen**: shell `#C5C1C0`, surface `#D6D2D0`,
   recessed `#AAA6A4`, shadow `#777473`, ink `#242424`. Green `#00AC9F` means
@@ -934,7 +949,8 @@ the design-system section below.
     headers keep the previous theme's style until restart, and the accent too (see
     below). The pre-change build does the same.
   - 299 tests pass. The installed build starts (smoke test, closed at once).
-  - **Not yet seen by the user** in the running app.
+  - The user then saw it in the running app and sent a screenshot with
+    critique, which led to the revisions below.
 
 **Revised after the user's first look** (same session):
 - **About 15% darker, at the user's request** ("a little too light"). Shell
@@ -944,7 +960,8 @@ the design-system section below.
   shell. The darkened accent text moved too: links `#143860`, errors `#7A0015`,
   caution `#463700`. The contrast table is in the header comment of
   `Ps1Theme.xaml`, measured, not estimated.
-- **Coloured transport keys**, as the user specified:
+- **Coloured transport keys**, as the user specified at that point. Both of these
+  choices were later changed, see below:
   - Play/Pause is green while it shows Play and blue while it shows Pause.
   - Previous and Next are yellow.
   - All three have an ink outline. Glyphs are ink, except a light glyph on blue.
@@ -1203,23 +1220,37 @@ earlier dark version is in git history before that session). The original grey c
 1990s consumer electronics. **The grey is the primary surface; the controller
 colours are semantic punctuation.**
 
-- **Surfaces**: shell `#C5C1C0` behind everything (the `AfWindowDecor` slot, and
+This is the state as of `eea12aa`. The brief's greys were darkened about 15% at
+the user's request.
+
+- **Surfaces**: shell `#A7A4A3` behind everything (the `AfWindowDecor` slot, and
   `AfSurfaceShell` on each dialog's root grid). Panes, deck, keys and menus are
-  surface `#D6D2D0` with a 1 px shadow `#777473` outline and a 1 px highlight
-  `#E4E1DF` inside the top edge. Inputs, slider and progress tracks and art mats are
-  recessed `#AAA6A4`, and carry ink text only. Corners are 1–3 px.
-- **Accent rule: one job each, one accent per component, never a broad fill.**
-  Green is the playing row's ▶, the seek bar's travelled part, the ready lamp and
-  Bit-Perfect ON. Blue is the 3 px marker on the selected artist and album, plus
-  links. Red is error text and Last.fm "reconnect". Yellow is the scanning lamp and
-  Last.fm "waiting". There is no pink. Selection, focus (ink), hover, shuffle and
-  repeat, volume and scan progress are all neutral. If a new control seems to need
-  a colour, it probably wants ink.
-- **The track grid shows no blue selection marker**, so a selected, playing row
-  carries only green. The 3 px slot is still drawn, in ink, for keyboard focus.
-- **Contrast**: ink is 8.6:1 on the shell and 10:1 on the surface. Secondary
-  `#474443` is 5.4:1 and 6.1:1, tertiary `#52504E` is 4.5:1 on the shell. Green and
-  yellow marks get an ink keyline; accent text uses the darkened `*Text` tokens.
+  surface `#B6B3B1` with a 1 px shadow `#656362` outline and a 1 px highlight
+  `#C6C3C2` inside the top edge. Inputs, slider and progress tracks and art mats are
+  recessed `#999593`, and carry ink text only. Ink is `#242424`. Corners are 1–3 px.
+- **Where each accent is used.** This is the whole list, and each item was asked
+  for or approved by the user:
+
+  | Colour | Used for |
+  |---|---|
+  | Green `#00AC9F` | the Play/Pause key while it shows **Play**; the playing row's ▶; the seek bar's travelled part; the ready lamp; Bit-Perfect ON; the △ before the album title |
+  | Red `#DF0024` | the Play/Pause key while it shows **Pause**; the ○ before ALBUMS; error text (darkened `#7A0015`); Last.fm "reconnect" |
+  | Blue `#2E6DB4` | the 3 px marker on the selected artist and album; the ✕ before ARTISTS; links (darkened `#143860`) |
+  | Yellow `#F3C300` | the scanning lamp; the scan progress bar; Last.fm "waiting" |
+  | Pink | **never**, at the user's request |
+
+  One accent per component. The Play/Pause key is the only accent *fill*. Previous,
+  Next, shuffle, repeat, selection, hover, focus, volume, Primary buttons and the
+  Statistics bars are all neutral. If a new control seems to need a colour, it
+  probably wants ink. Ask before adding one.
+- **The track grid has no marker at all**: none for selection (a selected, playing
+  row carries only green) and none for keyboard focus. The user asked for the ink
+  focus bar to go. Selection is the grey row.
+- **Contrast** is measured, and the table is in `Ps1Theme.xaml`'s header comment.
+  Ink is 6.3:1 on the shell and 7.4:1 on the surface; secondary `#353332` is 5.1:1
+  and 6.0:1. **Green is only 1.0–1.4:1 against these greys**, so every accent mark
+  has an ink keyline (`AfStatusKeyline`) and a shape or word beside it. The keys:
+  ink on green 5.5:1, light on red 4.2:1.
 
 It works on two levels: it redefines AudioFool's tokens *and* the WPF-UI keys the
 stock controls resolve at runtime. It also runs on WPF-UI's **Light** base
@@ -1471,6 +1502,27 @@ for ($y=0; $y -lt 48; $y++) { for ($x=0; $x -lt 74; $x++) {
 Element rects are worth reading straight out of the live window too — UIA
 `BoundingRectangle` on the window, the menu item and `SearchBox` is how the title-bar
 geometry in this document was established, and it needs no screenshot at all.
+
+**Three checks from session 17 for any theme change.** The scripts lived in that
+session's scratchpad, which is gone, so rebuild them. Each is a few lines of
+`System.Drawing` using `LockBits` and `Marshal.Copy` (`GetPixel` is too slow for a
+whole window):
+
+- **Unpainted gaps.** Render with `--bg "#FF00FF"` and count magenta pixels. It
+  should be 0. This found the dialogs' missing shell, which the default dark
+  backdrop hid.
+- **Accent share.** Classify each pixel: neutral if max−min channel ≤ 24, an
+  accent if the spread is > 60, then assign it to the nearest token colour.
+  Exclude the logo (x < 72, y < 48). PS1 ended at 99.6% neutral and 0.37% accent.
+- **"Other themes unchanged" is a pixel diff, not a glance.** Build the previous
+  commit in a scratch worktree
+  (`git worktree add --detach <scratch>\base HEAD`, then build its
+  `tools/themelab`). Render the same Dark and Vista cases from both builds and
+  count differing pixels. It should be 0. Remove the worktree afterwards
+  (`git worktree remove --force`).
+
+When writing these in PowerShell, see *Two PowerShell traps in pixel scripts*
+under Gotchas.
 
 **Verify what screenshots cannot show** with a small headless console app referencing
 `AudioFool.Core`. Several are left in the session scratchpad. That approach caught things
@@ -1740,14 +1792,22 @@ which the shell *can* read. Entries piling up mean sending fails, and the Last.f
 window shows why. The status-bar indicator is done too. Possible follow-up, not built:
 a Love button.
 
-0. **Ask the user for PS1 screenshot feedback** (session 17). Only ThemeLab has
-   rendered the new theme. The user's brief expects a loop: they look, then give
-   precise critique. Their settings copy is invisible to the shell, so they have to
-   pick PS1 from the Themes menu themselves. **Picking it at runtime leaves the
-   grid headers and the Play key's accent from the previous theme until a restart**
-   (pre-existing, see *Accent colours*). Tell them to restart once after switching.
-   Fixing that would mean re-applying the grid's header style and re-merging
-   WPF-UI's accent at runtime.
+*Done in session 17:* the grey-console PS1 theme (commit `eea12aa`), revised
+twice from the user's feedback.
+
+0. **PS1 is open to more critique.** The user works in a screenshot loop: they
+   look, then give precise notes. The last change (Previous/Next back to grey) is
+   installed but not yet commented on. Things to know going in:
+   - **Suggested and not picked**: filled transport glyphs, and coloured
+     shuffle/repeat when on. Don't add them unasked.
+   - **Watch the green.** At the darker greys it is 1.0–1.4:1, so the seek fill
+     and the ▶ read by hue alone. If the user finds them faint, a thicker keyline
+     or a bolder mark is the fix.
+   - **Choosing a theme at runtime leaves the grid headers and the accent from
+     the previous theme until a restart.** This predates session 17 (see *Accent
+     colours*). Fixing it would mean re-applying the grid's header style and
+     re-merging WPF-UI's accent at runtime. Until then, tell the user to restart
+     once after switching.
 0. **Ask the user how in-place editing feels in the running app.** Only ThemeLab
    has driven it. The real mouse (the slow click's timing against a double-click)
    and real key presses were off limits. Worth asking: does Enter moving down a
