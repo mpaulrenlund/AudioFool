@@ -1088,7 +1088,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             foreach (var track in tracks)
             {
-                var writeResult = TagWriter.WriteSelectedTrackTags(track, edit);
+                var writeResult = TagWriter.WriteSelectedTrackTags(track, edit, _engine.HoldsFile);
                 if (writeResult.Success)
                     okTracks.Add(writeResult.UpdatedTrack!);
                 else
@@ -1115,7 +1115,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         StatusText = "Saving tags...";
 
         var result = await Task.Run(() =>
-            TagWriter.WriteTrackTags(track, edit, art: null, folderArtPath: track.FolderArtPath));
+            TagWriter.WriteTrackTags(track, edit, art: null, folderArtPath: track.FolderArtPath, _engine.HoldsFile));
 
         if (!result.Success)
         {
@@ -1168,7 +1168,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                     ? mapped
                     : track.FolderArtPath;
 
-                var writeResult = TagWriter.WriteAlbumTrackTags(track, edit, art, folderArtPath);
+                var writeResult = TagWriter.WriteAlbumTrackTags(track, edit, art, folderArtPath, _engine.HoldsFile);
                 if (writeResult.Success)
                     okTracks.Add(writeResult.UpdatedTrack!);
                 else
@@ -1251,7 +1251,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             StatusText = "Saving tags...";
 
-            var result = await Task.Run(() => TagWriter.WriteSelectedTrackTags(current, edit));
+            var result = await Task.Run(() => TagWriter.WriteSelectedTrackTags(current, edit, _engine.HoldsFile));
 
             if (!result.Success)
             {

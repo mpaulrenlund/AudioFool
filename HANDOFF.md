@@ -1103,31 +1103,64 @@ device name still in its tooltip.
   track when the path matches and leaves the play itself alone: time heard, start
   time and whether it has scrobbled. "Now playing" is re-sent only if the
   `ScrobbleEntry` it would show changed, so a comment or cover save sends nothing.
-  4 new tests in `ScrobblingTests` (**303** in total).
-  - **Dormant in practice, because the playing track can't be saved** (next
-    item). The code is correct and tested, and takes effect once such a save can
-    succeed.
-- **Found, not fixed: a file the engine has open can't be saved.** That means both
-  the playing track (even when paused) and the next one, which is opened ahead of
-  time for the gapless handover (`_prefetchedStream`). The status line says
-  "Couldn't save tags for 04 Four.mp3: the file may be open in another program".
-  The same save code runs in the real app, so it happens there too, from the grid
-  or a dialog, with FLAC and MP3 alike. An album save that includes those tracks
-  commits the rest and names them as failed.
-  - **The cause, measured** in `--window queue` against a paused stream: opening the
-    file for writing with `FileShare.None` is refused; with `FileShare.ReadWrite`
-    it is allowed. So BASS (`Bass.CreateStream(path, ...)`) shares its handle, and
-    it is TagLib's unshared write open that fails.
-  - **Two ways to fix it, both touching playback, so it's the user's call**:
-    - Release the stream around the write. For the prefetched track, free it and
-      re-prefetch (`RefreshPrefetch` does that). The playing track would need to be
-      reopened at its position, which may be audible.
-    - Give TagLib a shared-write `IFileAbstraction`. The risk: if the tag block
-      grows, TagLib rewrites the file and moves the audio under a stream that is
-      decoding it.
+  4 new tests in `ScrobblingTests` (303 at that point). It only became reachable
+  with the next change: until then, the playing track could not be saved at all.
+- **The playing track and the next one can be saved now.** Until this change, any
+  save to a file the engine had open failed with "the file may be open in another
+  program". That was the playing track (paused included) and the next one, opened
+  ahead for the gapless handover (`_prefetchedStream`). It failed from the grid
+  and the dialogs, for FLAC and MP3 alike.
+  - **The cause, measured** against a paused stream: opening for writing with
+    `FileShare.None` is refused, and with `FileShare.ReadWrite` it is allowed.
+    BASS (`Bass.CreateStream(path, ...)`) shares its handle. TagLib's default
+    `LocalFileAbstraction` opens for writing unshared, and that was what failed.
+  - **The fix**: `TagWriter` opens files through its own `SharedFile`
+    `IFileAbstraction`, which shares reads and writes. Every save goes through
+    it. Reads (`TagReader`) are unchanged.
+  - **Measured before building** (scratch probe, no sound device, on copies of a
+    real FLAC, MP3 and DSF). Each copy was decoded while being saved, then
+    compared sample by sample with an untouched copy:
+    - A small edit (title) is written in place. The size doesn't change, and the
+      open stream's output is **bit-identical**, for all three formats.
+    - A save that grows the tag (a 300 KB comment) moved the MP3's audio by
+      599 KB, and grew the FLAC by 286 KB. The open stream then read the wrong
+      bytes: nearly every sample in the next 6 s differed, up to full scale. It
+      would audibly jump back and lose its end.
+    - In every case, a fresh stream on the written file matched the original
+      exactly. Only a stream already decoding the file is hurt.
+  - **So a resizing save is refused for a file playback holds.** This was the
+    user's choice, over reopening the stream or accepting the jump. The engine's
+    new `HoldsFile(path)` answers under its lock. The view model passes it to
+    `WriteTrackTags` / `WriteAlbumTrackTags` / `WriteSelectedTrackTags` as
+    `holdsFile`. For a held file, `SaveTags` makes the save on a scratch copy in
+    `%TEMP%` (`AudioFool-trial-*`, same extension, deleted afterwards). If the
+    copy changed size, it refuses with "it is playing or up next, and this change
+    would rewrite the whole file. Save it again when it isn't loaded". Otherwise
+    it makes the real save.
+    - The usual trigger is **Edit Album Tags with a new cover while the album
+      plays**. The other tracks and the folder `cover.jpg` are written; the
+      playing and next tracks are named as failed, and re-saving the album later
+      fills them in.
+    - A held DSF costs a full copy (about 330 MB) per save.
+    - Not handled: a stream opened *during* a resizing save, if the track changes
+      at that moment. The window is the length of one save.
+  - **Verified**:
+    - 8 tests in `TagWriteSharingTests` (**311** in total). They cover: a save
+      against a BASS-style open handle; a held file taking a same-size save; a
+      held file refusing a resizing one and staying byte-identical, with no trial
+      file left; and the same resizing save succeeding when nothing holds the
+      file. The MP3 fixture has no tag, so any title grows it. The same-size test
+      seeds it with one save first, which gives it the padding real files have.
+    - ThemeLab `--window queue` against the real engine. `HoldsFile` is true for
+      the playing and prefetched tracks and false beyond them. The prefetched
+      track saves, then plays through the gapless handover with its new title.
+      The playing track saves, and the now-playing bar and scrobbler follow. A
+      300,000-character title on the playing track is refused and leaves the file
+      byte-identical. Playback then resumes.
+    - Installed; the installed build starts.
   - Session 14's note that the now-playing note "had been disappearing after any
-    tag save of the playing track" was probably never observed. That save can't
-    succeed while the track is loaded.
+    tag save of the playing track" can't have been observed: that save always
+    failed before this change.
 
 ### Deliberately not done
 
@@ -1879,6 +1912,10 @@ off-screen window, so focus rings can be reviewed.
   session. A status-bar indicator that "wasn't there" in session 15 was this, not
   a bug. It is also why a UIA check of a shell-launched app says nothing about
   the user's settings.
+- **TagLib opens a file for writing unshared** (`TagLib.File.Create(path)`), so
+  it fails against any other open handle, including playback's. Save through
+  `TagWriter`, which uses its shared `SharedFile` abstraction. Never call
+  `TagLib.File.Create(path)` directly for a write.
 - **TagLib writes track numbers zero-padded** ("01", "01/12") with no option to
   turn it off. Set numbers through `TagWriter.WriteNumbers`, never `tag.Track`
   directly. See *Leading zeros* under session 16.
@@ -1937,7 +1974,8 @@ twice from the user's feedback.
 *Done in session 18:* PS1 lost its selection bar, pane marks and row focus ring,
 and became the only theme.
 
-*Done in session 19:* queued tracks show their new tags when they come up, and a
+*Done in session 19:* queued tracks show their new tags when they come up; the
+playing and next tracks can be saved (resizing saves to them are refused); a
 retag of the playing track reaches the scrobbler.
 
 0. **PS1 is open to more critique.** The user works in a screenshot loop: they
@@ -1952,9 +1990,10 @@ retag of the playing track reaches the scrobbler.
    has driven it. The real mouse (the slow click's timing against a double-click)
    and real key presses were off limits. Worth asking: does Enter moving down a
    row suit them, and is the slow click too easy or too hard to hit?
-0. **Saving the playing or next track fails** because the engine holds it open
-   (see session 19 for the cause and the two fixes). Ask the user which fix they
-   want, if any.
+0. **A new cover on the playing album skips the playing and next tracks** (session
+   19: resizing saves to a file playback holds are refused, at the user's
+   choice). If that ever annoys them, the alternative they turned down is to
+   reopen the stream at its position after such a save.
 1. A visible, editable queue view — now the most conspicuous missing player feature.
 2. **Library-wide tag stripping**, if the user wants it. They keep their tags lean and
    use the new dialog fields mainly to *clear* publisher, composer, conductor, genre

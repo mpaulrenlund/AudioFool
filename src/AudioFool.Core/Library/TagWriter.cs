@@ -28,7 +28,12 @@ public sealed record FolderArtWriteResult(bool Success, string? ErrorMessage, st
 public static class TagWriter
 {
     /// <summary>Applies a single-track edit, optionally replacing the embedded art.</summary>
-    public static TagWriteResult WriteTrackTags(Track track, TrackTagEdit edit, ArtPayload? art, string? folderArtPath)
+    /// <param name="holdsFile">
+    /// Whether playback has the file open. Such a file only takes a save that
+    /// leaves its size alone; see <see cref="SaveTags"/>.
+    /// </param>
+    public static TagWriteResult WriteTrackTags(Track track, TrackTagEdit edit, ArtPayload? art, string? folderArtPath,
+                                                Func<string, bool>? holdsFile = null)
     {
         var save = SaveTags(track.FilePath, file =>
         {
@@ -41,7 +46,7 @@ public static class TagWriter
             WriteNumbers(file, new NumberEdit(edit.TrackNumber), new NumberEdit(edit.TrackCount),
                          new NumberEdit(edit.DiscNumber), new NumberEdit(edit.DiscCount));
             ApplyDetails(tag, edit.Details);
-        }, art);
+        }, art, holdsFile);
 
         if (!save.Success)
             return TagWriteResult.Fail(save.ErrorMessage!);
@@ -55,7 +60,8 @@ public static class TagWriter
     /// part of <see cref="AlbumTagEdit"/> at all - and so does every optional
     /// field the edit leaves null.
     /// </summary>
-    public static TagWriteResult WriteAlbumTrackTags(Track track, AlbumTagEdit edit, ArtPayload? art, string? folderArtPath)
+    public static TagWriteResult WriteAlbumTrackTags(Track track, AlbumTagEdit edit, ArtPayload? art, string? folderArtPath,
+                                                     Func<string, bool>? holdsFile = null)
     {
         var save = SaveTags(track.FilePath, file =>
         {
@@ -73,7 +79,7 @@ public static class TagWriter
                 edit.DiscNumber ?? (strip ? Existing(tag.Disc) : null),
                 edit.DiscCount ?? (strip ? Existing(tag.DiscCount) : null));
             ApplyDetails(tag, edit.Details);
-        }, art);
+        }, art, holdsFile);
 
         if (!save.Success)
             return TagWriteResult.Fail(save.ErrorMessage!);
@@ -86,7 +92,7 @@ public static class TagWriter
     /// fields the edit sets are written; everything else stays as the file has it.
     /// Never touches the art.
     /// </summary>
-    public static TagWriteResult WriteSelectedTrackTags(Track track, TracksTagEdit edit)
+    public static TagWriteResult WriteSelectedTrackTags(Track track, TracksTagEdit edit, Func<string, bool>? holdsFile = null)
     {
         var save = SaveTags(track.FilePath, file =>
         {
@@ -104,7 +110,7 @@ public static class TagWriter
 
             WriteNumbers(file, edit.TrackNumber, edit.TrackCount, edit.DiscNumber, edit.DiscCount);
             ApplyDetails(tag, edit.Details);
-        }, art: null);
+        }, art: null, holdsFile);
 
         if (!save.Success)
             return TagWriteResult.Fail(save.ErrorMessage!);
@@ -236,12 +242,67 @@ public static class TagWriter
             asf.SetDescriptorString(date, "WM/Year");
     }
 
-    private static (bool Success, string? ErrorMessage) SaveTags(string path, Action<TagLib.File> applyFields, ArtPayload? art)
+    /// <summary>
+    /// Opens the file, applies the edit and saves it.
+    /// <para>
+    /// The file is opened for writing <em>shared</em>, because playback holds the
+    /// playing track and the next one open, and TagLib's own unshared open is
+    /// refused against those handles. Sharing is safe while the save stays in
+    /// place, which a small edit does: the tag fits the space it had, and a
+    /// stream decoding the file hears nothing (measured bit for bit on FLAC, MP3
+    /// and DSF). A save that grows or shrinks the tag moves the audio instead,
+    /// and a stream already decoding the file would then jump and lose its end.
+    /// So for a file playback holds (<paramref name="holdsFile"/>), the save is
+    /// tried on a scratch copy first, and refused if it would change the size.
+    /// </para>
+    /// </summary>
+    private static (bool Success, string? ErrorMessage) SaveTags(string path, Action<TagLib.File> applyFields,
+                                                                 ArtPayload? art, Func<string, bool>? holdsFile)
+    {
+        if (holdsFile?.Invoke(path) == true)
+        {
+            var (resized, error) = TrialSave(path, applyFields, art);
+            if (error is not null)
+                return (false, error);
+            if (resized)
+                return (false, "it is playing or up next, and this change would rewrite the whole file. Save it again when it isn't loaded");
+        }
+
+        return Save(path, applyFields, art);
+    }
+
+    /// <summary>
+    /// Makes the save on a scratch copy and reports whether it changed the size.
+    /// The copy keeps the extension, which is how TagLib picks the format.
+    /// </summary>
+    private static (bool Resized, string? Error) TrialSave(string path, Action<TagLib.File> applyFields, ArtPayload? art)
+    {
+        var trial = Path.Combine(Path.GetTempPath(), $"AudioFool-trial-{Guid.NewGuid():N}{Path.GetExtension(path)}");
+        try
+        {
+            File.Copy(path, trial);
+            var (success, error) = Save(trial, applyFields, art);
+            if (!success)
+                return (false, error);
+
+            return (new FileInfo(trial).Length != new FileInfo(path).Length, null);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return (false, DescribeFailure(path, ex));
+        }
+        finally
+        {
+            try { File.Delete(trial); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    private static (bool Success, string? ErrorMessage) Save(string path, Action<TagLib.File> applyFields, ArtPayload? art)
     {
         TagLib.File? file = null;
         try
         {
-            file = TagLib.File.Create(path);
+            file = TagLib.File.Create(new SharedFile(path));
             applyFields(file);
 
             if (art is not null)
@@ -276,6 +337,24 @@ public static class TagWriter
         {
             file?.Dispose();
         }
+    }
+
+    /// <summary>
+    /// TagLib's file access with sharing: its default opens for writing with
+    /// <see cref="FileShare.None"/>. Reads share too, so a save's read phase
+    /// works against a file that is open elsewhere.
+    /// </summary>
+    private sealed class SharedFile(string path) : TagLib.File.IFileAbstraction
+    {
+        public string Name => path;
+
+        public Stream ReadStream =>
+            new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+
+        public Stream WriteStream =>
+            new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+
+        public void CloseStream(Stream stream) => stream.Dispose();
     }
 
     private static string DescribeFailure(string path, Exception ex) => ex switch

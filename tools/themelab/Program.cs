@@ -1189,20 +1189,21 @@ internal static class Program
         Log($"rows: {string.Join(" | ", vm.Tracks.Select(t => $"{t.TrackNumber} {t.Title} / {t.Artist}"))}");
 
         // Start the album and pause at once, so the edits land while One holds
-        // the device and Three and Four are only queue entries. Two is left
-        // alone: the engine already has it open for the gapless handover, and
-        // that open stream refuses the write.
+        // the device, Two is open for the gapless handover, and Three and Four
+        // are only queue entries.
         vm.PlayTrackCommand.Execute(Row("01"));
         engine.Pause();
-        Log($"playing One, paused: state={engine.State} mode={engine.OutputMode}");
+        Log($"playing One, paused: state={engine.State} mode={engine.OutputMode} "
+            + $"holds One={engine.HoldsFile(Row("01").FilePath)} Two={engine.HoldsFile(Row("02").FilePath)} Three={engine.HoldsFile(Row("03").FilePath)}");
 
+        Await(vm.ApplyInlineEditAsync(Row("02"), AudioFool.Core.Library.InlineField.Title, "Two Edited"));
         Await(vm.ApplyInlineEditAsync(Row("03"), AudioFool.Core.Library.InlineField.Title, "Three Edited"));
         Await(vm.ApplyInlineEditAsync(Row("04"), AudioFool.Core.Library.InlineField.Artist, "Edited Artist"));
         Log($"edited: {string.Join(" | ", vm.Tracks.Select(t => $"{t.TrackNumber} {t.Title} / {t.Artist}"))}");
 
-        // One runs out and hands over to the unedited Two gaplessly.
+        // One runs out and hands over gaplessly to Two, saved while open.
         engine.TogglePause();
-        Report("gapless", "02", "Two", "Lab Artist");
+        Report("gapless", "02", "Two Edited", "Lab Artist");
 
         // Next goes through JumpTo, the other way a queued track comes up.
         vm.NextCommand.Execute(null);
@@ -1211,32 +1212,29 @@ internal static class Program
         // And a gapless handover into the MP3, whose artist changed.
         Report("gapless", "04", "Four", "Edited Artist");
 
-        // Edit the track that is playing: the bar and the scrobbler should both
-        // follow. Today the save itself is refused - the engine's stream holds
-        // the file open and TagLib wants it unshared - so this reports that.
+        // Edit the track that is playing: the bar and the scrobbler both follow.
         engine.Pause();
         Await(vm.ApplyInlineEditAsync(Row("04"), AudioFool.Core.Library.InlineField.Title, "Four Edited"));
-        var refused = vm.StatusText.StartsWith("Couldn't save");
         var playingOk = vm.NowPlaying?.Title == "Four Edited" && tracker.Current?.Title == "Four Edited"
-                        && tracker.Current?.Artist == "Edited Artist";
+                        && tracker.Current?.Artist == "Edited Artist" && ReferenceEquals(vm.NowPlaying, Row("04"));
         Log($"playing edit -> 04: title='{vm.NowPlaying?.Title}' scrobbler='{tracker.Current?.Artist} / {tracker.Current?.Title}' "
-            + (refused ? "SAVE REFUSED (file open for playback)" : playingOk ? "OK" : "STALE"));
+            + $"{(playingOk ? "OK" : "STALE")}");
 
-        // What the engine's open stream allows: TagLib opens for writing with no
-        // sharing, which fails against any open handle; a writer that shares
-        // tells whether BASS's own handle permits writes at all.
-        foreach (var share in new[] { FileShare.None, FileShare.ReadWrite })
-        {
-            try
-            {
-                using var fs = File.Open(Row("04").FilePath, FileMode.Open, FileAccess.ReadWrite, share);
-                Log($"  open for write, share {share}: allowed");
-            }
-            catch (IOException ex)
-            {
-                Log($"  open for write, share {share}: refused ({ex.Message.Trim()})");
-            }
-        }
+        // A save that would grow the playing file is refused, and the file is
+        // left exactly as it was.
+        var path = Row("04").FilePath;
+        string Hash() => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)));
+        var hashBefore = Hash();
+        Await(vm.ApplyInlineEditAsync(Row("04"), AudioFool.Core.Library.InlineField.Title, new string('x', 300_000)));
+        var refusedOk = vm.StatusText.Contains("playing or up next") && Hash() == hashBefore
+                        && vm.NowPlaying?.Title == "Four Edited";
+        Log($"resizing edit -> 04: file unchanged={Hash() == hashBefore} title='{vm.NowPlaying?.Title}' {(refusedOk ? "OK" : "WRONG")}");
+
+        // The stream still plays after both saves: position moves on.
+        var at = engine.Position;
+        engine.TogglePause();
+        Settle(200);
+        Log($"after saves, playback resumes: {at.TotalMilliseconds:0} ms -> {engine.Position.TotalMilliseconds:0} ms, state={engine.State}");
 
         engine.Stop();
         Settle(200);

@@ -130,6 +130,23 @@ public sealed class AudioEngine : IDisposable
         }
     }
 
+    /// <summary>
+    /// Whether a stream is decoding <paramref name="path"/> right now: the current
+    /// track (paused included) or the next one, opened ahead for the gapless
+    /// handover. A tag save that resizes such a file moves the audio under the
+    /// stream, so <see cref="Library.TagWriter"/> asks first.
+    /// </summary>
+    public bool HoldsFile(string path)
+    {
+        lock (_gate)
+        {
+            bool Is(int index) => index >= 0 && index < _queue.Count
+                && string.Equals(_queue[index].FilePath, path, StringComparison.OrdinalIgnoreCase);
+
+            return (_currentStream != 0 && Is(_index)) || (_prefetchedStream != 0 && Is(_prefetchedIndex));
+        }
+    }
+
     public double Volume
     {
         get => _volume;
