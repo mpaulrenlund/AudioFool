@@ -532,9 +532,15 @@ public partial class MainWindow : FluentWindow
 
     private void TrackGrid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        // Enter in a cell being edited saves it; that is the grid's to handle.
-        if (e.Key is not (Key.Enter or Key.Return) || e.OriginalSource is TextBoxBase)
+        if (e.Key is not (Key.Enter or Key.Return))
             return;
+
+        if (e.OriginalSource is TextBoxBase)
+        {
+            SaveAndEditNextRow();
+            e.Handled = true;
+            return;
+        }
 
         if (TrackGrid.SelectedItem is Track track)
         {
@@ -619,15 +625,20 @@ public partial class MainWindow : FluentWindow
 
     private void TrackGrid_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
     {
-        _slowClickTimer.Stop();
-
         // F2 arrives through DataGrid.BeginEditCommand, with no input event;
         // the grid's own click and typing both carry theirs.
         var allowed = _openingEdit
             || (e.EditingEventArgs is null or KeyEventArgs { Key: Key.F2 } && TrackGrid.SelectedItems.Count <= 1);
 
         if (!allowed || FieldFor(e.Column) is null)
+        {
+            // Not stopping the slow click here: the grid's own attempt comes from
+            // the very click that armed it, whenever that lands on the focused cell.
             e.Cancel = true;
+            return;
+        }
+
+        _slowClickTimer.Stop();
     }
 
     private void TrackGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
@@ -640,7 +651,127 @@ public partial class MainWindow : FluentWindow
 
         // The column is bound one way - Track is immutable - so the typed text
         // goes no further than this box unless the save below replaces the row.
-        _ = _viewModel.ApplyInlineEditAsync(track, field, box.Text);
+        _lastInlineSave = _viewModel.ApplyInlineEditAsync(track, field, box.Text);
+    }
+
+    private Task _lastInlineSave = Task.CompletedTask;
+
+    /// <summary>The cell Enter moved to, opened once the save's rebuild has settled.</summary>
+    private PendingEdit? _editNext;
+
+    /// <summary>A cell to open for editing, with the text to put back if a rebuild interrupted it.</summary>
+    private sealed record PendingEdit(string Path, DataGridColumn Column, TypedText? Typed = null);
+
+    private sealed record TypedText(string Text, int SelectionStart, int SelectionLength);
+
+    /// <summary>
+    /// Enter saves the cell and opens the same field on the row below, so a
+    /// column of track numbers can be typed straight down. Esc stops. The last
+    /// row just saves.
+    /// </summary>
+    private void SaveAndEditNextRow()
+    {
+        if (TrackGrid.CurrentCell is not { Item: Track track, Column: { } column })
+            return;
+
+        var rows = TrackGrid.Items.OfType<Track>().ToList();
+        var index = rows.IndexOf(track);
+
+        _lastInlineSave = Task.CompletedTask;
+        TrackGrid.CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true);
+
+        if (index < 0 || index + 1 >= rows.Count)
+            return;
+
+        // Taken before the save: a new track number can re-sort the edited row
+        // elsewhere, and "next" is the track that was below it.
+        var next = rows[index + 1];
+        TrackGrid.SelectedItems.Clear();
+        TrackGrid.SelectedItem = next;
+        TrackGrid.CurrentCell = new DataGridCellInfo(next, column);
+        FocusCell(next, column);
+
+        // A save rebuilds the rows, which would cancel an edit opened now, so it
+        // opens after the rebuild (RestoreGridPosition). A save that writes
+        // nothing, or fails, never rebuilds; its finishing opens it instead.
+        // Each Enter has its own target, so a slow earlier save finishing late
+        // cannot open a later one before that one's rebuild.
+        var pending = new PendingEdit(next.FilePath, column);
+        _editNext = pending;
+        var save = _lastInlineSave;
+        if (save.IsCompleted)
+            Dispatcher.BeginInvoke(() => OpenPendingEdit(pending), DispatcherPriority.Loaded);
+        else
+            save.ContinueWith(_ => Dispatcher.BeginInvoke(() => OpenPendingEdit(pending), DispatcherPriority.Loaded),
+                TaskScheduler.Default);
+    }
+
+    /// <param name="only">Open only if this is still the pending edit.</param>
+    /// <param name="hadFocus">
+    /// Whether the grid had the keyboard; a rebuild passes what it saw before
+    /// clearing the rows, since clearing them takes the focus away.
+    /// </param>
+    private void OpenPendingEdit(PendingEdit? only = null, bool? hadFocus = null)
+    {
+        if (_editNext is not { } target || _gridRestore is not null
+            || (only is not null && !ReferenceEquals(only, target)))
+            return;
+
+        _editNext = null;
+
+        var item = TrackGrid.Items.OfType<Track>().FirstOrDefault(t =>
+            string.Equals(t.FilePath, target.Path, StringComparison.OrdinalIgnoreCase));
+
+        // Gone (another album was chosen meanwhile), or the user has clicked
+        // away from the grid.
+        if (item is null || !(hadFocus ?? TrackGrid.IsKeyboardFocusWithin))
+            return;
+
+        // Selected again rather than trusted: after a commit the grid can hand
+        // focus, and with it the selection, back to the row just edited.
+        if (TrackGrid.SelectedItems.Count != 1 || !ReferenceEquals(TrackGrid.SelectedItem, item))
+        {
+            TrackGrid.SelectedItems.Clear();
+            TrackGrid.SelectedItem = item;
+        }
+
+        TrackGrid.CurrentCell = new DataGridCellInfo(item, target.Column);
+        var cell = FocusCell(item, target.Column);
+        OpenEdit(new DataGridCellInfo(item, target.Column));
+
+        // The grid settles its own focus on the rebuilt rows after this, which
+        // leaves the box open but unfocused; hand it the keyboard once that's done.
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (cell is not { IsEditing: true } || FindDescendant<System.Windows.Controls.TextBox>(cell) is not { } box)
+                return;
+
+            if (!box.IsKeyboardFocused)
+                box.Focus();
+
+            if (target.Typed is { } typed)
+            {
+                box.Text = typed.Text;
+                box.Select(typed.SelectionStart, typed.SelectionLength);
+            }
+            else
+            {
+                box.SelectAll();
+            }
+        }, DispatcherPriority.ContextIdle);
+    }
+
+    private DataGridCell? FocusCell(Track item, DataGridColumn column)
+    {
+        TrackGrid.ScrollIntoView(item, column);
+        TrackGrid.UpdateLayout();
+
+        if (TrackGrid.ItemContainerGenerator.ContainerFromItem(item) is not DataGridRow row
+            || column.GetCellContent(row)?.Parent is not DataGridCell cell)
+            return null;
+
+        cell.Focus();
+        return cell;
     }
 
     /// <summary>
@@ -669,14 +800,91 @@ public partial class MainWindow : FluentWindow
 
     /// <summary>
     /// The rows are about to be cleared, which the grid cannot do under an open
-    /// edit. Cancelling drops a half-typed value, but only in the rare case that
-    /// a scan or a save lands mid-edit; choosing another album saves it first,
-    /// because the click takes focus off the grid.
+    /// edit. So an open edit is cancelled and reopened, half-typed text and all,
+    /// once the rows are back: a scan or an earlier save landing mid-edit costs
+    /// nothing. Choosing another album saves it first, because the click takes
+    /// focus off the grid.
     /// </summary>
     private void OnTracksChanging(object? sender, EventArgs e)
     {
         _slowClickTimer.Stop();
+
+        if (TrackGrid.CurrentCell is { Item: Track editing, Column: { } editColumn }
+            && TrackGrid.ItemContainerGenerator.ContainerFromItem(editing) is DataGridRow editRow
+            && editColumn.GetCellContent(editRow)?.Parent is DataGridCell { IsEditing: true } editCell
+            && FindDescendant<System.Windows.Controls.TextBox>(editCell) is { } editBox)
+        {
+            _editNext = new PendingEdit(editing.FilePath, editColumn,
+                new TypedText(editBox.Text, editBox.SelectionStart, editBox.SelectionLength));
+        }
+
         TrackGrid.CancelEdit(DataGridEditingUnit.Row);
+
+        // A save rebuilds the rows too, which would drop the selection and the
+        // current column: Enter's move to the next row, and the row a slow click
+        // needs selected. Put them back once the rows are refilled. A rebuild can
+        // clear the list twice, so the first snapshot is the one kept.
+        if (_gridRestore is not null)
+            return;
+
+        _gridRestore = new GridPosition(
+            TrackGrid.SelectedItems.OfType<Track>().Select(t => t.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase),
+            (TrackGrid.CurrentCell.Item as Track)?.FilePath,
+            TrackGrid.CurrentCell.Column,
+            TrackGrid.IsKeyboardFocusWithin);
+
+        Dispatcher.BeginInvoke(RestoreGridPosition, DispatcherPriority.Loaded);
+    }
+
+    private sealed record GridPosition(
+        HashSet<string> Selected, string? CurrentPath, DataGridColumn? CurrentColumn, bool HadFocus);
+
+    private GridPosition? _gridRestore;
+
+    /// <summary>
+    /// Reselects the rows and current cell recorded by <see cref="OnTracksChanging"/>,
+    /// matched by file path since a save replaces the Track objects. Another
+    /// album's rows match nothing, so choosing one is unaffected.
+    /// </summary>
+    private void RestoreGridPosition()
+    {
+        var saved = _gridRestore;
+        _gridRestore = null;
+
+        if (saved is null)
+            return;
+
+        RestoreSelection(saved);
+
+        // An edit Enter moved to, or one the rebuild interrupted, reopens now.
+        OpenPendingEdit(hadFocus: saved.HadFocus);
+    }
+
+    private void RestoreSelection(GridPosition saved)
+    {
+        var rows = TrackGrid.Items.OfType<Track>().ToList();
+        var selected = rows.Where(t => saved.Selected.Contains(t.FilePath)).ToList();
+        if (selected.Count == 0)
+            return;
+
+        TrackGrid.SelectedItems.Clear();
+        foreach (var track in selected)
+            TrackGrid.SelectedItems.Add(track);
+
+        var current = rows.FirstOrDefault(t =>
+                          string.Equals(t.FilePath, saved.CurrentPath, StringComparison.OrdinalIgnoreCase))
+                      ?? selected[0];
+        var column = saved.CurrentColumn ?? SongColumn;
+
+        TrackGrid.CurrentCell = new DataGridCellInfo(current, column);
+        TrackGrid.ScrollIntoView(current, column);
+
+        if (!saved.HadFocus)
+            return;
+
+        // Focusing the cell is what lets F2 and the slow click carry on.
+        if (FocusCell(current, column) is null)
+            TrackGrid.Focus();
     }
 
     // The seek bar is bound two-way, so the position timer and the user's drag

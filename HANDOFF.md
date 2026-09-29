@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-29 after the nineteenth build session. Read this alongside
+Updated 2026-09-29 after the twentieth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1186,6 +1186,56 @@ device name still in its tooltip.
     `#B1ADAB`. The main window's diff is confined to the box (x 76–479, y 7–40),
     and the tag dialog is 0 px different. Installed.
 
+### Changes from session 20
+
+The user reported that in-place editing in the track grid didn't work well: the slow
+click didn't open an edit, and Enter didn't carry on to the same field on the next row.
+
+- **The slow click never worked with a real mouse.** When the second click lands on the
+  cell that already has focus, the grid tries to open an edit of its own on mouse-down.
+  `TrackGrid_BeginningEdit` refuses that attempt, which is right, but it also stopped the
+  slow-click timer that the same click had just started. Session 14 missed this because
+  it called `ArmSlowClick` directly. Now the timer is stopped only when an edit really
+  opens.
+- **Enter now opens the same field on the next row**, so a column can be typed straight
+  down (`SaveAndEditNextRow`). Esc stops. On the last row, Enter just saves. The "next"
+  row is chosen before the save, so a renumbered row that re-sorts doesn't change it.
+- **A save no longer loses the grid's place.** Every save rebuilds the track list
+  (`OnSelectedAlbumChanged` clears `Tracks`), which emptied the grid's selection and its
+  current column. `OnTracksChanging` now records the selection (by path, because the
+  save replaces the `Track` objects), the current cell and whether the grid had focus.
+  `RestoreGridPosition` puts them back at `Loaded` priority. Another album's rows match
+  nothing, so choosing a different album behaves as before.
+- **The next row's edit opens after the rebuild**, since opening it earlier would be
+  cancelled by the rebuild. `PendingEdit` is the target:
+  - `RestoreGridPosition` opens it once the rows are back.
+  - A save that writes nothing, or fails, never rebuilds, so the save's completion opens
+    it instead.
+  - Each Enter gets its own `PendingEdit`, so an earlier save that finishes late can't
+    open a later target.
+  - `OpenPendingEdit` selects the row again rather than trusting the current selection.
+    After a commit, WPF sometimes moves focus, and with it the selection, back to the row
+    just edited, and that can happen before the rebuild records the selection. It
+    focuses the edit box at `ContextIdle`, after the grid has settled its own focus.
+- **A rebuild in the middle of an edit keeps the edit.** Before, the edit was cancelled
+  and the half-typed text was lost. Now its text and cursor position are kept, and it
+  reopens once the rows are back. This covers a scan, or an earlier save, landing while
+  you type.
+- **Verified** with ThemeLab `--window edit`, which gained three checks:
+  - **Real click**: routes mouse down and up through the grid's own handlers onto the
+    focused cell. It failed on the old code and passes now.
+  - **Enter walk**: after the save's rebuild, # is open and focused on the next row. An
+    unchanged Enter also moves on, Esc stops, and the last row just saves.
+  - **Rebuild mid-edit**: the edit comes back with "Half typed" still in it.
+  - All three passed in 8 of 8 runs. Before the last two fixes, the Enter walk failed
+    about one run in four, which is how the focus race was found.
+  - `library.json` hash unchanged, 311 tests pass, `--window queue` still passes, and
+    the installed build starts.
+  - **Not yet tried by the user** with a real mouse and keyboard.
+- **Known gap**: while the save before an Enter is still running (the tag write plus
+  the rebuild, and behind the previous save's `library.json` write), no edit is open, so
+  anything typed in that moment is lost.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
@@ -2010,10 +2060,9 @@ retag of the playing track reaches the scrobbler.
    - **Watch the green.** At the darker greys it is 1.0–1.4:1, so the seek fill
      and the ▶ read by hue alone. If the user finds them faint, a thicker keyline
      or a bolder mark is the fix.
-0. **Ask the user how in-place editing feels in the running app.** Only ThemeLab
-   has driven it. The real mouse (the slow click's timing against a double-click)
-   and real key presses were off limits. Worth asking: does Enter moving down a
-   row suit them, and is the slow click too easy or too hard to hit?
+0. **Ask the user how in-place editing feels in the running app** after the
+   session 20 fixes: the slow click, and Enter opening the next row's field. Only
+   ThemeLab has driven it.
 0. **A new cover on the playing album skips the playing and next tracks** (session
    19: resizing saves to a file playback holds are refused, at the user's
    choice). If that ever annoys them, the alternative they turned down is to

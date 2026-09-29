@@ -1383,6 +1383,84 @@ internal static class Program
         Log($"focus away: status='{vm.StatusText}'");
         Log("focus away: " + FileTags(three.FilePath));
 
+        // 5b. The slow click as the mouse delivers it: down and up routed through
+        //     the grid's own handlers, on the cell that already has focus - the
+        //     grid then tries (and is refused) an edit of its own.
+        void Click(UIElement target)
+        {
+            var clickCount = typeof(System.Windows.Input.MouseButtonEventArgs).GetProperty("ClickCount")!;
+            foreach (var routed in new[]
+                     {
+                         System.Windows.Input.Mouse.PreviewMouseDownEvent, System.Windows.Input.Mouse.MouseDownEvent,
+                         System.Windows.Input.Mouse.PreviewMouseUpEvent, System.Windows.Input.Mouse.MouseUpEvent,
+                     })
+            {
+                var args = new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0,
+                    System.Windows.Input.MouseButton.Left) { RoutedEvent = routed };
+                clickCount.SetValue(args, 1);
+                target.RaiseEvent(args);
+            }
+        }
+
+        three = Row("Three");
+        Select(three, "SongColumn");
+        var songText = FindFirst<System.Windows.Controls.TextBlock>(Cell(three, "SongColumn"))!;
+        Click(songText);
+        Log($"real click: editing at once? {Cell(three, "SongColumn").IsEditing}");
+        Settle(900);
+        var slowOk = Cell(three, "SongColumn").IsEditing;
+        Log($"real click: editing after the double-click time? {slowOk} {(slowOk ? "OK" : "BROKEN")}");
+        if (Box(three, "SongColumn") is { } threeBox)
+            Press(threeBox, System.Windows.Input.Key.Escape);
+        Log($"real click: Esc cancels -> editing={Cell(three, "SongColumn").IsEditing} title='{Row("Three").Title}'");
+
+        // 5c. Enter walks down the column: after the save rebuilds the rows, the
+        //     next row is selected with # open for editing, and Enter goes on.
+        var ordered = grid.Items.OfType<Track>().ToList();
+        var first = ordered[0];
+        var nextPath = ordered[1].FilePath;
+        Select(first, "TrackNumberColumn");
+        Press(Cell(first, "TrackNumberColumn"), System.Windows.Input.Key.F2);
+        Box(first, "TrackNumberColumn")!.Text = first.TrackNumber == 1 ? "11" : "1";
+        before = vm.StatusText;
+        Press(Box(first, "TrackNumberColumn")!, System.Windows.Input.Key.Enter);
+        AwaitSave(before);
+        var sel = grid.SelectedItem as Track;
+        var cur = grid.CurrentCell;
+        var focusedCell = FindAncestorOf<System.Windows.Controls.DataGridCell>(System.Windows.Input.Keyboard.FocusedElement as DependencyObject);
+        Log($"enter walk: status='{vm.StatusText}' selected='{sel?.DisplayTitle}' ({grid.SelectedItems.Count}) "
+            + $"current={cur.Column?.Header}/{(cur.Item as Track)?.DisplayTitle} focus={focusedCell?.Column?.Header}/{(focusedCell?.DataContext as Track)?.DisplayTitle}");
+        var next = vm.Tracks.First(t => t.FilePath == nextPath);
+        var nextBox = Box(next, "TrackNumberColumn");
+        var walkOk = sel?.FilePath == nextPath && cur.Column == Column("TrackNumberColumn")
+                     && Cell(next, "TrackNumberColumn").IsEditing && nextBox?.IsKeyboardFocused == true;
+        Log($"enter walk: # open on the next row? {Cell(next, "TrackNumberColumn").IsEditing} box='{nextBox?.Text}' "
+            + $"focused={nextBox?.IsKeyboardFocused} {(walkOk ? "OK" : "BROKEN")}");
+        Log("enter walk: " + FileTags(first.FilePath));
+
+        // Unchanged text writes nothing and so never rebuilds; Enter still moves on.
+        var third = grid.Items.OfType<Track>().SkipWhile(t => t.FilePath != nextPath).Skip(1).FirstOrDefault();
+        if (nextBox is not null && third is not null)
+        {
+            Press(nextBox, System.Windows.Input.Key.Enter);
+            Settle(300);
+            var unchangedOk = (grid.SelectedItem as Track)?.FilePath == third.FilePath && Cell(third, "TrackNumberColumn").IsEditing;
+            Log($"enter walk: unchanged Enter -> '{(grid.SelectedItem as Track)?.DisplayTitle}' editing={Cell(third, "TrackNumberColumn").IsEditing} "
+                + $"{(unchangedOk ? "OK" : "BROKEN")}");
+            if (Box(third, "TrackNumberColumn") is { } thirdBox)
+                Press(thirdBox, System.Windows.Input.Key.Escape);
+            Log($"enter walk: Esc stops -> editing={Cell(third, "TrackNumberColumn").IsEditing}");
+        }
+
+        // Enter on the last row saves and stays put.
+        var last = grid.Items.OfType<Track>().Last();
+        Select(last, "SongColumn");
+        Press(Cell(last, "SongColumn"), System.Windows.Input.Key.F2);
+        Press(Box(last, "SongColumn")!, System.Windows.Input.Key.Enter);
+        Settle(300);
+        Log($"enter walk: last row Enter -> selected='{(grid.SelectedItem as Track)?.DisplayTitle}' any editing="
+            + $"{grid.Items.OfType<Track>().Any(t => Cell(t, "SongColumn").IsEditing)}");
+
         // 6. Album: emptying is refused; a rebuild mid-edit cancels cleanly;
         //    a real change moves the track to its new album.
         var four = Row("Four");
@@ -1403,7 +1481,13 @@ internal static class Program
                 .GetMethod("ReplaceTracksInLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
                 .Invoke(vm, [new Dictionary<string, Track>()]);
             Settle(200);
-            Log($"album: rebuild mid-edit ok; still editing={grid.CurrentCell.Column is not null && Cell(Row("Four"), "AlbumColumn").IsEditing}");
+            var survived = grid.CurrentCell.Column is not null && Cell(Row("Four"), "AlbumColumn").IsEditing;
+            var kept = Box(Row("Four"), "AlbumColumn");
+            var keptOk = survived && kept?.Text == "Half typed" && kept.IsKeyboardFocused;
+            Log($"album: rebuild mid-edit ok; still editing={survived} text='{kept?.Text}' focused={kept?.IsKeyboardFocused} "
+                + $"{(keptOk ? "OK" : "BROKEN")}");
+            if (kept is not null)
+                Press(kept, System.Windows.Input.Key.Escape);
         }
         catch (Exception ex)
         {
@@ -1422,6 +1506,14 @@ internal static class Program
         Log("album: " + FileTags(four.FilePath));
         Log($"albums now: {string.Join(" | ", vm.Albums.Select(a => $"{a.Album.Title} ({a.Album.Tracks.Count})"))}");
         Log($"rows: {Rows()}");
+    }
+
+    private static T? FindAncestorOf<T>(System.Windows.DependencyObject? node) where T : System.Windows.DependencyObject
+    {
+        while (node is System.Windows.Media.Visual and not T)
+            node = System.Windows.Media.VisualTreeHelper.GetParent(node);
+
+        return node as T;
     }
 
     private static T? FindFirst<T>(System.Windows.DependencyObject node) where T : System.Windows.DependencyObject
