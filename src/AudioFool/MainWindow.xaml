@@ -173,6 +173,7 @@
                 </Grid>
 
                 <ui:TextBox x:Name="SearchBox"
+                            Style="{DynamicResource AfSearchBox}"
                             Width="406"
                             Margin="8,0,0,0"
                             VerticalAlignment="Center"

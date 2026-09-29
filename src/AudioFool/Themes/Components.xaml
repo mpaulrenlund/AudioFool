@@ -445,6 +445,9 @@
         <Setter Property="Appearance" Value="Secondary" />
     </Style>
 
+    <!-- The title bar's search box: WPF-UI's text box unchanged. PS1 restyles it. -->
+    <Style x:Key="AfSearchBox" TargetType="ui:TextBox" BasedOn="{StaticResource {x:Type ui:TextBox}}" />
+
     <!-- ==================================================== themeable slots -->
 
     <!--

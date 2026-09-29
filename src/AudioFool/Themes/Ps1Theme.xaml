@@ -875,6 +875,19 @@
     <SolidColorBrush x:Key="TextControlFocusedBorderBrush" Color="#FF242424" />
     <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="#FF837F7F" />
 
+    <!-- The title bar's search box is lighter than the other text boxes, at
+         the user's request: the first grey pass's recess, #AAA6A4, kept when
+         everything else went 15% darker. Hover and focus keep the same steps
+         above it (+4, +7). The keys are restated in the style's own resources,
+         so the dialogs' text boxes keep the shared recess. -->
+    <Style x:Key="AfSearchBox" TargetType="ui:TextBox" BasedOn="{StaticResource {x:Type ui:TextBox}}">
+        <Style.Resources>
+            <SolidColorBrush x:Key="TextControlBackground" Color="#FFAAA6A4" />
+            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#FFAEAAA8" />
+            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#FFB1ADAB" />
+        </Style.Resources>
+    </Style>
+
     <!-- check boxes and switches: the dark-grey key when on -->
     <SolidColorBrush x:Key="CheckBoxCheckGlyphForeground" Color="#FFEEEBE9" />
     <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#FF4A4746" />

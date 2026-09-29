@@ -1171,6 +1171,20 @@ device name still in its tooltip.
   Verified with a ThemeLab render: the banded rows sample at `#AEABA9`, and a
   pixel diff against the previous render changes only those rows. The hover
   state can't be rendered without a mouse, so it is unseen. Installed.
+- **The search box is lighter than the other text boxes** (PS1), at the user's
+  request. They thought it had changed colour; it hadn't since `eea12aa`, and it
+  was the shared recess `#999593`. They chose to take it back to the first grey
+  pass's recess, **`#AAA6A4`**, for the search box alone. Hover `#AEAAA8` and
+  focus `#B1ADAB` keep the old +4 / +7 steps. It has a style of its own,
+  `AfSearchBox`. That is a plain `BasedOn` WPF-UI's `TextBox` in
+  `Components.xaml`; the PS1 version restates the three `TextControlBackground*`
+  keys in its `Style.Resources`. So the dialogs' text boxes, the slider tracks
+  and the art mats keep `#999593`.
+  - At this shade the box is only 3 levels off the title strip (`#A7A4A3`). It
+    reads as outlined and flat rather than recessed. The user was shown this.
+  - Verified with ThemeLab: rest `#AAA6A4`, focused (`--focus SearchBox`)
+    `#B1ADAB`. The main window's diff is confined to the box (x 76–479, y 7–40),
+    and the tag dialog is 0 px different. Installed.
 
 ### Deliberately not done
 
