@@ -200,7 +200,7 @@
                             Margin="8,0,0,0"
                             VerticalAlignment="Center"
                             Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                            PlaceholderText="Search"
+                            PlaceholderText=""
                             ClearButtonEnabled="True"
                             Icon="{ui:SymbolIcon Search24}"
                             AutomationProperties.Name="Search"
@@ -430,7 +430,7 @@
 
                         <StackPanel Grid.Column="1"
                                     Margin="{DynamicResource AfPadBesideArtLarge}"
-                                    VerticalAlignment="Center">
+                                    VerticalAlignment="Top">
                             <DockPanel>
                                 <Control DockPanel.Dock="Left" Template="{DynamicResource AfPaneMarkTracks}"
                                          VerticalAlignment="Center"

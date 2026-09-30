@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-30 after the twenty-second build session. Read this alongside
+Updated 2026-09-30 after the twenty-third build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1392,6 +1392,25 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   edit was to something the cache doesn't record: a detail field, embedded art, or a
   number's spelling. Comparing the two files needs the SSD. The user was told to copy
   it over.
+
+### Changes from session 23
+
+- **A broad PS1 "hardware" restyle was built and reverted** at the user's request
+  (lighter raised headers and deck, darker recessed lists, bevels everywhere, darker
+  text). Never committed. The user now points out specific fixes one at a time; make
+  the targeted change asked for rather than proposing another sweeping restyle.
+- **Album header art is 135 px** (`AfSizeArtHeader`, was 104). The user tried 150 in the
+  running app, after ThemeLab mockups at 104, 156 and 208, then settled on 135. The header art already decodes at 320 px
+  (`AlbumHeaderArtWidth`), so it stays sharp up to about 200% scaling. The header grows by 31 px, about
+  one fewer track row at 900 px tall.
+- **The album facts (title, artist, year, duration) sit at the top** beside the art,
+  not centred on it: `VerticalAlignment="Top"` on the header's text `StackPanel` in
+  `MainWindow.xaml`.
+- **The search box has no placeholder text** (`PlaceholderText=""`, was "Search"), the
+  user's own edit. The magnifier icon still marks it, and its automation name is still
+  "Search".
+- Verified with a ThemeLab render: the frame measures 135 px and the title starts
+  level with the art's top. 336 tests pass. Installed.
 
 ### Deliberately not done
 
