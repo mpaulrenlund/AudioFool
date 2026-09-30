@@ -200,7 +200,7 @@
                             Margin="8,0,0,0"
                             VerticalAlignment="Center"
                             Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                            PlaceholderText=""
+                            PlaceholderText="Search"
                             ClearButtonEnabled="True"
                             Icon="{ui:SymbolIcon Search24}"
                             AutomationProperties.Name="Search"
@@ -348,7 +348,15 @@
                          VirtualizingPanel.VirtualizationMode="Recycling">
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:AlbumItemViewModel}">
-                            <Grid Margin="0,4">
+                            <!--
+                                The full title, for names trimmed at the pane's width.
+                                AlbumRow_ToolTipOpening cancels it when the title fits.
+                            -->
+                            <Grid Margin="0,4"
+                                  ToolTip="{Binding Title}"
+                                  ToolTipService.InitialShowDelay="1000"
+                                  Tag="{Binding ElementName=AlbumTitleText}"
+                                  ToolTipOpening="AlbumRow_ToolTipOpening">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -372,7 +380,8 @@
                                 <StackPanel Grid.Column="1"
                                             Margin="{DynamicResource AfPadBesideArt}"
                                             VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Title}"
+                                    <TextBlock x:Name="AlbumTitleText"
+                                               Text="{Binding Title}"
                                                Style="{DynamicResource AfRowTitle}" />
                                     <TextBlock Style="{DynamicResource AfMetaText}">
                                         <Run Text="{Binding YearDisplay, Mode=OneWay}" />

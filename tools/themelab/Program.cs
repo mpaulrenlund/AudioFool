@@ -332,6 +332,12 @@ internal static class Program
             }
         }
 
+
+        // --albumtips 1: raise ToolTipOpening on every realised album row and print
+        // whether the full-title tooltip would show (only when the title is trimmed).
+        if (Arg(args, "--albumtips") is not null)
+            PrintAlbumTips(main);
+
         if (Arg(args, "--focus") is { } focusName
             && main.FindName(focusName) is System.Windows.IInputElement target)
         {
@@ -928,6 +934,9 @@ internal static class Program
                     + $"tracks={vm.Artists.Sum(a => a.TrackCount):N0} selected='{vm.SelectedArtist?.Name}'");
                 Console.WriteLine($"cleared: status='{vm.StatusText}'");
             }
+
+            if (Arg(args, "--albumtips") is not null)
+                PrintAlbumTips(main);
         }
         else if (which == "artsearch")
         {
@@ -1802,6 +1811,43 @@ internal static class Program
     /// Lets wall-clock time pass so one-shot storyboards land on their final
     /// frame before the bitmap is taken.
     /// </summary>
+    private static void PrintAlbumTips(System.Windows.FrameworkElement main)
+    {
+        if (main.FindName("AlbumList") is not System.Windows.Controls.ListBox albums)
+            return;
+        albums.UpdateLayout();
+        foreach (var item in albums.Items)
+        {
+            if (albums.ItemContainerGenerator.ContainerFromItem(item) is not System.Windows.Controls.ListBoxItem row)
+                continue;
+            var rowGrid = FindDescendant<System.Windows.Controls.Grid>(row, g => g.Tag is System.Windows.Controls.TextBlock);
+            if (rowGrid is null)
+                continue;
+            var opening = (System.Windows.Controls.ToolTipEventArgs)Activator.CreateInstance(
+                typeof(System.Windows.Controls.ToolTipEventArgs),
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance,
+                null, [true], null)!;
+            opening.RoutedEvent = System.Windows.FrameworkElement.ToolTipOpeningEvent;
+            rowGrid.RaiseEvent(opening);
+            var title = (System.Windows.Controls.TextBlock)rowGrid.Tag;
+            Console.WriteLine($"{(opening.Handled ? "hidden" : "SHOWN ")}  {title.ActualWidth,6:0.0}px  {title.Text}");
+        }
+    }
+
+    private static T? FindDescendant<T>(System.Windows.DependencyObject root, Func<T, bool> match)
+        where T : System.Windows.DependencyObject
+    {
+        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
+            if (child is T found && match(found))
+                return found;
+            if (FindDescendant(child, match) is { } deeper)
+                return deeper;
+        }
+        return null;
+    }
+
     private static void Settle(int milliseconds)
     {
         var deadline = DateTime.UtcNow.AddMilliseconds(milliseconds);

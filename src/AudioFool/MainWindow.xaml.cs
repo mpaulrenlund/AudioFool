@@ -387,6 +387,31 @@ public partial class MainWindow : FluentWindow
             _viewModel.PlayAlbumCommand.Execute(album);
     }
 
+    /// <summary>
+    /// Shows an album row's title tooltip only when the title is trimmed. The width
+    /// is measured on hover rather than tracked, so resizing the pane needs nothing.
+    /// </summary>
+    private void AlbumRow_ToolTipOpening(object sender, ToolTipEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: System.Windows.Controls.TextBlock title } && !IsTrimmed(title))
+            e.Handled = true;
+    }
+
+    private static bool IsTrimmed(System.Windows.Controls.TextBlock text)
+    {
+        var formatted = new FormattedText(
+            text.Text,
+            System.Globalization.CultureInfo.CurrentUICulture,
+            text.FlowDirection,
+            new Typeface(text.FontFamily, text.FontStyle, text.FontWeight, text.FontStretch),
+            text.FontSize,
+            Brushes.Black,
+            VisualTreeHelper.GetDpi(text).PixelsPerDip);
+
+        // Half a pixel of slack for layout rounding.
+        return formatted.WidthIncludingTrailingWhitespace > text.ActualWidth + 0.5;
+    }
+
     private void ArtistList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is not DependencyObject source)

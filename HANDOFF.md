@@ -1412,6 +1412,27 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
 - Verified with a ThemeLab render: the frame measures 135 px and the title starts
   level with the art's top. 336 tests pass. Installed.
 
+### Changes from session 24
+
+- **An album row shows its full title as a tooltip** after 1 s of hover, only when
+  the title is trimmed. The tooltip sits on the row's `Grid` in the Albums
+  `DataTemplate` (`ToolTipService.InitialShowDelay="1000"`), and
+  `AlbumRow_ToolTipOpening` cancels it when the title fits. It measures the title
+  with `FormattedText` against the `TextBlock`'s `ActualWidth` at hover time, so a
+  resized pane needs nothing. The `Grid`'s `Tag` carries the title `TextBlock`.
+- **Verified** with the new ThemeLab **`--albumtips 1`**, which raises
+  `ToolTipOpening` on each realised album row and prints shown or hidden. Run it
+  with `--window click --click FLAC --search "Metal Gear"` to get long titles: the
+  two that fit are hidden and the seven trimmed ones shown, matching the user's
+  screenshot. 336 tests pass. Installed; **confirmed by the user** in the running app.
+- **Bit-Perfect greyed out on another computer** (question only, nothing changed).
+  The v0.1.0 release zip carries all 13 BASS DLLs. The button is disabled when
+  `BassRuntime.ProbeOutputDevice` finds no exclusive-mode rate on the default device
+  at startup: Windows' "Allow applications to take exclusive control" unticked,
+  Bluetooth/virtual devices, or the device changed after launch (it probes once).
+  Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
+  when the default device changes.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
