@@ -88,6 +88,85 @@ internal static class Program
             return 0;
         }
 
+        // --window folders: the music-folder list against the real library cache and
+        // whatever drives are plugged in. Merging duplicates, a drive-letter move onto
+        // a folder that is already listed, the all-unticked status, and Remove. The
+        // view model saves settings and library.json, so both are copied aside first
+        // and put back byte for byte. No window is built.
+        if (which == "folders")
+        {
+            SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+            ThemeService.Apply();
+            var cachePath = AudioFool.Core.Library.LibraryCache.CachePath;
+            var saved = new Dictionary<string, byte[]?>
+            {
+                [AppSettings.SettingsPath] = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null,
+                [cachePath] = File.Exists(cachePath) ? File.ReadAllBytes(cachePath) : null,
+            };
+            var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            var folderRuntime = new BassRuntime();
+            var folderEngine = new AudioEngine(folderRuntime);
+
+            MainViewModel Make(List<string> folders, List<string> disabled) =>
+                new(folderEngine, folderRuntime, new AlbumArtService(),
+                    new AppSettings { MusicFolders = folders, DisabledFolders = disabled, ScanOnStartup = false, GlobalHotkeys = false });
+            string Describe(MainViewModel m) =>
+                string.Join(" | ", m.FolderFilters.Select(f => $"{f.FolderPath} [{(f.IsEnabled ? "ticked" : "unticked")}]"));
+            void Await(Task task)
+            {
+                while (!task.IsCompleted)
+                    Settle(50);
+                task.GetAwaiter().GetResult();
+            }
+            int Tracks(MainViewModel m) =>
+                ((AudioFool.Core.Library.MusicLibrary)typeof(MainViewModel).GetField("_library", flags)!.GetValue(m)!).AllTracks.Count;
+
+            try
+            {
+                var merged = Make([@"E:\Music", @"e:\music\", @"E:\Music"], [@"E:\Music"]);
+                Console.WriteLine($"merge (one copy ticked): {Describe(merged)}");
+                var allOff = Make([@"E:\Music", @"E:\Music"], [@"E:\Music"]);
+                Console.WriteLine($"merge (no copy ticked): {Describe(allOff)}");
+
+                // The user's case: D:\Music from the start, E:\Music added by hand
+                // while the SSD was away, then a start with only the card in.
+                var vmFolders = Make([@"D:\Music", @"E:\Music"], []);
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                Await((Task)typeof(MainViewModel).GetMethod("LoadLibraryAsync", flags)!.Invoke(vmFolders, null)!);
+                Console.WriteLine($"after start ({clock.Elapsed.TotalSeconds:0.0} s): folders={string.Join(", ", vmFolders.MusicFolders)} "
+                    + $"filters={Describe(vmFolders)} tracks={Tracks(vmFolders):N0}");
+                Console.WriteLine($"  status: {vmFolders.StatusText}");
+
+                foreach (var f in vmFolders.FolderFilters)
+                    f.IsEnabled = false;
+                Settle(200);
+                Console.WriteLine($"all unticked: status: {vmFolders.StatusText}");
+                foreach (var f in vmFolders.FolderFilters)
+                    f.IsEnabled = true;
+                Settle(200);
+                Console.WriteLine($"ticked again: status: {vmFolders.StatusText}");
+
+                var toRemove = vmFolders.FolderFilters.First();
+                Await(vmFolders.RemoveFolderCommand.ExecuteAsync(toRemove));
+                Console.WriteLine($"after remove: folders=[{string.Join(", ", vmFolders.MusicFolders)}] filters=[{Describe(vmFolders)}] tracks={Tracks(vmFolders):N0}");
+                Console.WriteLine($"  status: {vmFolders.StatusText}");
+                var onDisk = AudioFool.Core.Library.LibraryCache.Load();
+                Console.WriteLine($"  cache written: folders=[{string.Join(", ", onDisk?.Folders ?? [])}] tracks={onDisk?.Tracks.Count}");
+            }
+            finally
+            {
+                foreach (var (path, bytes) in saved)
+                {
+                    if (bytes is not null)
+                        File.WriteAllBytes(path, bytes);
+                    else if (File.Exists(path))
+                        File.Delete(path);
+                }
+            }
+
+            return 0;
+        }
+
         // A throwaway settings object: never Load()ed and never Save()d, so the
         // real settings.json is untouched. No music folders means InitialiseAsync
         // short-circuits before any scan.
@@ -297,6 +376,82 @@ internal static class Program
             Console.WriteLine($"menushot: {drop.GetType().Name} {drop.ActualWidth:0}x{drop.ActualHeight:0} "
                 + $"bg={Describe((drop as System.Windows.Controls.Border)?.Background)}");
             Save(drop, menuShot, Math.Max(1, drop.ActualWidth), Math.Max(1, drop.ActualHeight), scale);
+        }
+
+        // --libshot <png>: renders the Libraries submenu the same way, with the first
+        // folder ticked and the rest unticked, and prints each item's checked state.
+        // Setting a folder's tick saves settings, so the file is put back afterwards.
+        if (Arg(args, "--libshot") is { } libShot
+            && FindFirst<System.Windows.Controls.MenuItem>(main) is { } libLogo
+            && FindFirst<System.Windows.Controls.Primitives.Popup>(libLogo)?.Child is FrameworkElement libDrop)
+        {
+            var settingsBackup = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null;
+            try
+            {
+                // Items added here aren't wired to the view model's save handler,
+                // so ticking them writes nothing.
+                vm.FolderFilters.Add(new AudioFool.ViewModels.FolderFilterItem(@"C:\Users\Example\Music", enabled: true));
+                vm.FolderFilters.Add(new AudioFool.ViewModels.FolderFilterItem(@"E:\Music", enabled: false));
+
+                libDrop.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                libDrop.Arrange(new Rect(libDrop.DesiredSize));
+                libDrop.UpdateLayout();
+                Settle(200);
+
+                var libraries = libLogo.Items.OfType<object>()
+                    .Select(item => libLogo.ItemContainerGenerator.ContainerFromItem(item))
+                    .OfType<System.Windows.Controls.MenuItem>()
+                    .First(m => m.Header is string h && h.StartsWith("Libraries", StringComparison.Ordinal));
+                libraries.ApplyTemplate();
+                if (FindFirst<System.Windows.Controls.Primitives.Popup>(libraries)?.Child is FrameworkElement sub)
+                {
+                    for (var pass = 0; pass < 2; pass++)
+                    {
+                        sub.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                        sub.Arrange(new Rect(sub.DesiredSize));
+                        sub.UpdateLayout();
+                        Settle(200);
+                    }
+
+                    foreach (var item in libraries.Items)
+                    {
+                        if (libraries.ItemContainerGenerator.ContainerFromItem(item) is System.Windows.Controls.MenuItem m)
+                            Console.WriteLine($"libshot item: header='{m.Header}' checkable={m.IsCheckable} checked={m.IsChecked} "
+                                + $"style={(m.Style is null ? "none" : ReferenceEquals(m.Style, libraries.ItemContainerStyle) ? "ItemContainerStyle" : "other")}");
+                    }
+
+                    Save(sub, libShot, Math.Max(1, sub.ActualWidth), Math.Max(1, sub.ActualHeight), scale);
+
+                    // The Remove folder rows: each must carry the command and its folder.
+                    var remove = libraries.Items.OfType<System.Windows.Controls.MenuItem>()
+                        .First(m => m.Header is string h && h.StartsWith("Remove", StringComparison.Ordinal));
+                    remove.ApplyTemplate();
+                    if (FindFirst<System.Windows.Controls.Primitives.Popup>(remove)?.Child is FrameworkElement removeSub)
+                    {
+                        removeSub.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                        removeSub.Arrange(new Rect(removeSub.DesiredSize));
+                        removeSub.UpdateLayout();
+                        Settle(200);
+                        foreach (var item in remove.Items)
+                        {
+                            if (remove.ItemContainerGenerator.ContainerFromItem(item) is System.Windows.Controls.MenuItem m)
+                                Console.WriteLine($"libshot remove: header='{m.Header}' command={(ReferenceEquals(m.Command, vm.RemoveFolderCommand) ? "RemoveFolder" : m.Command?.ToString() ?? "none")} "
+                                    + $"parameter={(m.CommandParameter as FolderFilterItem)?.FolderPath ?? "none"} canExecute={m.Command?.CanExecute(m.CommandParameter)}");
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("libshot: Libraries submenu popup not found");
+                }
+            }
+            finally
+            {
+                if (settingsBackup is not null)
+                    File.WriteAllBytes(AppSettings.SettingsPath, settingsBackup);
+                else if (File.Exists(AppSettings.SettingsPath))
+                    File.Delete(AppSettings.SettingsPath);
+            }
         }
 
         if (Arg(args, "--probe") is not null)

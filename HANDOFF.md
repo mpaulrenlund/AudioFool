@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-29 after the twenty-first build session. Read this alongside
+Updated 2026-09-30 after the twenty-second build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1326,6 +1326,72 @@ ever opens without taking their typing.
   launched from the shell: that instance would save into the stale container
   settings.
 
+### Changes from session 22
+
+The user pointed AudioFool at a copy of the library on a micro SD card (`E:\Music`,
+exFAT, label "M", 26,795 tracks; the SSD `D:` was not plugged in). The app said "No
+audio files found". The files were fine: the scanner's own walk found all 26,795 in
+0.4 s. The folder list was the problem. Libraries showed `C:\Users\MarcusRenlund\Music`,
+`E:\Music` and **`E:\Music` again**, all unticked.
+
+- **How the duplicate happened.** `E:\Music` had been added by hand while the list
+  still had `D:\Music`. The next start found `D:\Music` missing, confirmed the same
+  files on `E:` and re-pointed that entry to `E:\Music`. Nothing checked whether it
+  was already listed. Each entry has its own tick, and a track is hidden if *any*
+  entry covering it is unticked. The menu closes after every click, so ticking "both"
+  easily ticks one twice. `C:\Users\...\Music` is `AppSettings.WithDefaults`, which
+  adds the Windows Music folder when the list is empty, so the list was empty at
+  some point.
+- **Fixes**, in the new `AudioFool.Core/Library/MusicFolderList.cs` (`Normalize`,
+  `SameFolder`, `Distinct`, `WithoutFolder`) and `MainViewModel`:
+  - Duplicates (ignoring case and a trailing separator) are merged at startup. The
+    merged entry is ticked if any copy was, and the settings are re-saved.
+  - A relocation onto a folder that is already listed drops the old entry, which
+    keeps the listed one's tick, and de-duplicates the rebased cache by path.
+  - Add folder uses the same comparison, and stores the normalised path.
+  - **"All N tracks are in unticked folders. Tick a folder under Libraries…"**
+    when tracks exist but every one is hidden. "No audio files found" is now shown
+    only when there really are none.
+  - **"Add folder…" is no longer a checkable item.** A `MenuItem` that is its own
+    container is given the parent's `ItemContainerStyle`, which made it checkable and
+    bound its tick to nothing. It and the new item set
+    `Style="{DynamicResource {x:Type MenuItem}}"` locally, which WPF leaves alone.
+- **Remove folder** (at the user's request): Libraries → Remove folder ▸ lists every
+  folder. Clicking one stops watching it and takes its tracks out of the library and
+  `library.json`. Tracks that another folder still covers (a parent or child) stay.
+  Nothing on disk is touched; Add folder brings it back at the cost of a tag read.
+  It refuses while a scan runs, since the scan would put the tracks back. There is
+  no confirmation. `RemoveFolderCommand` takes the `FolderFilterItem`, bound through
+  the `Proxy` from a second `CollectionViewSource` (`RemoveFoldersSource`).
+- **Verified**:
+  - 9 tests in `MusicFolderListTests` (**336** in total).
+  - ThemeLab **`--window folders`** (new) against the real card: `[E:\Music,
+    e:\music\, E:\Music]` merges to one; the user's case (`D:\Music` plus a
+    hand-added `E:\Music`, only the card in) starts with one ticked `E:\Music` and
+    26,795 tracks; the unticked message; Remove leaves 0 tracks and an empty cache.
+    Settings and `library.json` restored byte for byte.
+  - ThemeLab **`--libshot <png>`** (new) renders the Libraries submenu and prints each
+    item's check state. It confirms Add folder is no longer checkable and that each
+    Remove row carries `RemoveFolderCommand` with its folder.
+  - Installed. **Not yet confirmed by the user** in the running app.
+- **Known, not fixed: the card's files all look changed.** exFAT stores write
+  times to the second (the card's read `…:52.0000000Z` where NTFS on the SSD has
+  `…:50.5608732Z`), so `Track.MatchesFile` fails for nearly every file, and the first
+  start off the card re-reads every tag: **6 minutes** from the SD card, with the
+  cached library on screen throughout. Later starts off the card are quick, because
+  the cache then holds the card's times. Switching between the SSD and the card
+  pays it each time. A ≤ 2 s tolerance when the size matches would avoid it; not
+  built, offered to the user.
+- **The card is a near-exact copy.** Checked against the cache as saved on 29
+  September, 15:04 (the SSD itself wasn't plugged in): all 26,795 tracks are on the
+  card with matching sizes, and it has no audio the cache lacks. **One file is
+  older**: `150cc\[2016] Show Recordings\Show 1.flac`, modified on the SSD 28
+  September 13:02, on the card 24 September 08:48, the same size. Every cached tag
+  matches, and the card's copy has no genre, comment, publisher or composer. So the
+  edit was to something the cache doesn't record: a detail field, embedded art, or a
+  number's spelling. Comparing the two files needs the SSD. The user was told to copy
+  it over.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
@@ -1922,7 +1988,13 @@ ThemeLab.exe --w 1300 --h 700 --lastfm failing   # the status-bar indicator
 ThemeLab.exe --menushot menu.png --scale 2      # the logo menu's drop-down, without opening it
 ThemeLab.exe --bg "#FF00FF"                     # magenta behind the window: any unpainted gap shows
 ThemeLab.exe --output "Exclusive 192 kHz/24-bit (bit-perfect)"   # the output readout under the volume slider
+ThemeLab.exe --libshot libs.png --scale 3   # the Libraries submenu, one folder ticked, one not
+ThemeLab.exe --window folders               # folder list: merging, relocation, unticked status, Remove
 ```
+
+`--window folders` runs against the real drives and whatever `library.json` the shell
+sees, so it re-reads tags when file times differ (6 minutes off the SD card). It
+backs up and restores settings and the cache.
 
 `--menushot` renders the `Popup.Child` of the logo `MenuItem` directly. Opening
 the real popup is avoided because popups are clamped onto a monitor and could
@@ -2068,9 +2140,17 @@ off-screen window, so focus rings can be reviewed.
   The same path read from the shell (sandboxed or not) and by ThemeLab was a 260-byte
   copy from 31 August, with a different theme and folder list and no key. So anything
   that reads settings from here — ThemeLab, a headless probe, a `Get-Content` — sees
-  stale settings, and a write goes to the copy, not the app. `AppData\Local`
-  (`library.json`) read current. To check a setting, ask the user or verify in the
-  running app.
+  stale settings, and a write goes to the copy, not the app. To check a setting, ask
+  the user or verify in the running app.
+- **`library.json` is now in the container too** (found in session 22). Earlier
+  sessions read it current from the shell, but once a shell process writes it (a
+  ThemeLab mode "restoring it byte for byte" on 29 September did), the shell gets
+  its own copy at
+  `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\AudioFool\` and
+  never sees the app's again. The same goes for `settings.json` under
+  `LocalCache\Roaming`. So neither the real cache nor the real settings can be
+  read from here. The running app's state has to come from UI Automation (status
+  text, window title) or the user. Files on `D:\` / `E:\` are not virtualised.
 - **The same applies to AudioFool launched from the shell.** It inherits the
   container and runs on the stale settings: wrong theme and folders, no Last.fm
   session. A status-bar indicator that "wasn't there" in session 15 was this, not

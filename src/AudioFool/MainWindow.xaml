@@ -32,6 +32,8 @@
         <local:BindingProxy x:Key="Proxy" Data="{Binding}" />
         <CollectionViewSource x:Key="FolderFiltersSource"
                               Source="{Binding Data.FolderFilters, Source={StaticResource Proxy}}" />
+        <CollectionViewSource x:Key="RemoveFoldersSource"
+                              Source="{Binding Data.FolderFilters, Source={StaticResource Proxy}}" />
         <fmt:IsCurrentTrackConverter x:Key="IsCurrentTrack" />
 
         <!--
@@ -146,9 +148,29 @@
                                     <CompositeCollection>
                                         <CollectionContainer Collection="{Binding Source={StaticResource FolderFiltersSource}}" />
                                         <Separator />
+                                        <!--
+                                            These two set their own Style: an item that is its own
+                                            container is otherwise given the folder rows'
+                                            ItemContainerStyle above, which made Add folder a
+                                            checkable item bound to nothing.
+                                        -->
                                         <MenuItem Header="Add folder…"
+                                                  Style="{DynamicResource {x:Type MenuItem}}"
                                                   Icon="{ui:SymbolIcon FolderAdd24}"
                                                   Command="{Binding Source={StaticResource Proxy}, Path=Data.AddFolderCommand}" />
+                                        <MenuItem Header="Remove folder"
+                                                  Style="{DynamicResource {x:Type MenuItem}}"
+                                                  Icon="{ui:SymbolIcon FolderProhibited24}"
+                                                  ItemsSource="{Binding Source={StaticResource RemoveFoldersSource}}">
+                                            <MenuItem.ItemContainerStyle>
+                                                <Style TargetType="MenuItem">
+                                                    <Setter Property="Header" Value="{Binding FolderPath}" />
+                                                    <Setter Property="Command" Value="{Binding Source={StaticResource Proxy}, Path=Data.RemoveFolderCommand}" />
+                                                    <Setter Property="CommandParameter" Value="{Binding}" />
+                                                    <Setter Property="ToolTip" Value="Stop watching this folder. Nothing on disk is deleted." />
+                                                </Style>
+                                            </MenuItem.ItemContainerStyle>
+                                        </MenuItem>
                                     </CompositeCollection>
                                 </MenuItem.ItemsSource>
                             </MenuItem>

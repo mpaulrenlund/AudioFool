@@ -85,15 +85,31 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         };
         _searchDebounce.Tick += OnSearchDebounceTick;
 
-        MusicFolders = new ObservableCollection<string>(settings.MusicFolders);
+        // Two entries for one folder each get a tick, and both must be ticked for
+        // its tracks to show. Merge them; the folder stays ticked if any copy was.
+        var folders = MusicFolderList.Distinct(settings.MusicFolders);
+        MusicFolders = new ObservableCollection<string>(folders);
 
-        foreach (var folder in settings.MusicFolders)
+        foreach (var folder in folders)
         {
-            var enabled = !settings.DisabledFolders.Contains(folder, StringComparer.OrdinalIgnoreCase);
+            var enabled = settings.MusicFolders.Any(f => MusicFolderList.SameFolder(f, folder)
+                && !settings.DisabledFolders.Contains(f, StringComparer.OrdinalIgnoreCase));
             var item = new FolderFilterItem(folder, enabled);
             item.PropertyChanged += OnFolderFilterItemChanged;
             FolderFilters.Add(item);
         }
+
+        if (!folders.SequenceEqual(settings.MusicFolders, StringComparer.Ordinal))
+            SaveFolderSettings();
+    }
+
+    private void SaveFolderSettings()
+    {
+        _settings.MusicFolders = [.. MusicFolders];
+        _settings.DisabledFolders = [.. FolderFilters
+            .Where(f => !f.IsEnabled)
+            .Select(f => f.FolderPath)];
+        _settings.Save();
     }
 
     private void OnFolderFilterItemChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -101,10 +117,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (e.PropertyName != nameof(FolderFilterItem.IsEnabled))
             return;
 
-        _settings.DisabledFolders = [.. FolderFilters
-            .Where(f => !f.IsEnabled)
-            .Select(f => f.FolderPath)];
-        _settings.Save();
+        SaveFolderSettings();
 
         ApplyToView(keepSelection: true);
         StatusText = DescribeStatus(default);
@@ -542,20 +555,40 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var tracks = _cache.Tracks;
         foreach (var move in moves)
         {
-            var index = MusicFolders.IndexOf(move.OldFolder);
-            if (index >= 0)
-                MusicFolders[index] = move.NewFolder;
+            var filterItem = FolderFilters.FirstOrDefault(f => MusicFolderList.SameFolder(f.FolderPath, move.OldFolder));
 
-            var filterItem = FolderFilters.FirstOrDefault(f =>
-                string.Equals(f.FolderPath, move.OldFolder, StringComparison.OrdinalIgnoreCase));
-            if (filterItem is not null)
-                filterItem.FolderPath = move.NewFolder;
+            // The new place may be listed already - added by hand while the drive
+            // had its old letter. Re-pointing the old entry would list it twice, so
+            // the old entry goes, and the listed one keeps its own tick.
+            if (MusicFolders.Any(f => MusicFolderList.SameFolder(f, move.NewFolder)))
+            {
+                var index = MusicFolders.IndexOf(move.OldFolder);
+                if (index >= 0)
+                    MusicFolders.RemoveAt(index);
+
+                if (filterItem is not null)
+                {
+                    filterItem.PropertyChanged -= OnFolderFilterItemChanged;
+                    FolderFilters.Remove(filterItem);
+                }
+            }
+            else
+            {
+                var index = MusicFolders.IndexOf(move.OldFolder);
+                if (index >= 0)
+                    MusicFolders[index] = move.NewFolder;
+
+                if (filterItem is not null)
+                    filterItem.FolderPath = move.NewFolder;
+            }
 
             tracks = LibraryRelocator.Rebase(tracks, move.OldFolder, move.NewFolder);
         }
 
-        _settings.MusicFolders = [.. MusicFolders];
-        _settings.Save();
+        // Two cached copies of a track can now share a path; keep one.
+        tracks = [.. tracks.DistinctBy(t => t.FilePath, StringComparer.OrdinalIgnoreCase)];
+
+        SaveFolderSettings();
 
         // Keeps the loaded version: relocating is not a re-read, and stamping an
         // older cache current here would stop the scan that follows from filling it.
@@ -828,6 +861,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private string DescribeLibrary()
     {
+        // Found but hidden is not the same as not found: say which, or the user goes
+        // looking for a problem with their files rather than a tick in the menu.
+        if (_folderFilteredLibrary.AllTracks.Count == 0 && _library.AllTracks.Count > 0)
+            return $"All {_library.AllTracks.Count:N0} tracks are in unticked folders. " +
+                   "Tick a folder under Libraries in the logo menu to show it.";
+
         if (_folderFilteredLibrary.AllTracks.Count == 0)
             return "No audio files found. Use Add folder to point at your music.";
 
@@ -911,9 +950,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
 
         var added = false;
-        foreach (var folder in dialog.FolderNames)
+        foreach (var picked in dialog.FolderNames)
         {
-            if (MusicFolders.Contains(folder, StringComparer.OrdinalIgnoreCase))
+            var folder = MusicFolderList.Normalize(picked);
+            if (MusicFolders.Any(f => MusicFolderList.SameFolder(f, folder)))
                 continue;
 
             MusicFolders.Add(folder);
@@ -928,9 +968,46 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (!added)
             return;
 
-        _settings.MusicFolders = [.. MusicFolders];
-        _settings.Save();
+        SaveFolderSettings();
         await ScanAsync();
+    }
+
+    /// <summary>
+    /// Stops watching a folder and takes its tracks out of the library. Nothing on
+    /// disk is touched; Add folder brings it back, at the cost of reading its tags
+    /// again.
+    /// </summary>
+    [RelayCommand]
+    private async Task RemoveFolderAsync(FolderFilterItem? item)
+    {
+        if (item is null)
+            return;
+
+        // A scan in flight would put the folder's tracks straight back.
+        if (IsScanning)
+        {
+            StatusText = $"Wait for the scan to finish before removing {item.FolderPath}.";
+            return;
+        }
+
+        item.PropertyChanged -= OnFolderFilterItemChanged;
+        FolderFilters.Remove(item);
+
+        var index = MusicFolders.ToList().FindIndex(f => MusicFolderList.SameFolder(f, item.FolderPath));
+        if (index >= 0)
+            MusicFolders.RemoveAt(index);
+
+        SaveFolderSettings();
+
+        var remaining = MusicFolderList.WithoutFolder(_library.AllTracks, item.FolderPath, MusicFolders);
+        var removedCount = _library.AllTracks.Count - remaining.Count;
+        UnavailableFolders = [.. UnavailableFolders.Where(f => !MusicFolderList.SameFolder(f, item.FolderPath))];
+
+        ApplyLibrary(await Task.Run(() => LibraryScanner.Build(remaining)), keepSelection: true);
+        await PersistLibraryAsync();
+
+        StatusText = $"Removed {item.FolderPath} and its {removedCount:N0} tracks from the library. "
+                   + "Nothing on disk was touched.";
     }
 
     // --------------------------------------------------------------- last.fm
