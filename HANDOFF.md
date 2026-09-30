@@ -1373,15 +1373,16 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   - ThemeLab **`--libshot <png>`** (new) renders the Libraries submenu and prints each
     item's check state. It confirms Add folder is no longer checkable and that each
     Remove row carries `RemoveFolderCommand` with its folder.
-  - Installed. **Not yet confirmed by the user** in the running app.
+  - Installed. **Confirmed by the user** in the running app: one ticked `E:\Music`,
+    the `C:\Users\...\Music` entry removed with Remove folder, library showing.
 - **Known, not fixed: the card's files all look changed.** exFAT stores write
   times to the second (the card's read `…:52.0000000Z` where NTFS on the SSD has
   `…:50.5608732Z`), so `Track.MatchesFile` fails for nearly every file, and the first
   start off the card re-reads every tag: **6 minutes** from the SD card, with the
   cached library on screen throughout. Later starts off the card are quick, because
   the cache then holds the card's times. Switching between the SSD and the card
-  pays it each time. A ≤ 2 s tolerance when the size matches would avoid it; not
-  built, offered to the user.
+  pays it each time. A ≤ 2 s tolerance when the size matches would avoid it. **The
+  user declined it for now** (2026-09-30); don't build it unasked.
 - **The card is a near-exact copy.** Checked against the cache as saved on 29
   September, 15:04 (the SSD itself wasn't plugged in): all 26,795 tracks are on the
   card with matching sizes, and it has no audio the cache lacks. **One file is
