@@ -1433,6 +1433,25 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
 
+### Changes from session 28 (2026-10-01): new PS1 theme, playback bar and status bar
+
+Step 4 of `design/progress.md`, which has the details, measurements and decisions.
+
+- The playback and status bars are on the central theme (`theme.transportButton`,
+  `theme.slider`, `theme.chip` and friends in `Theming/Chrome.xaml`; the molded
+  button face is `Theming/MoldedFace.cs`). The Shuffle button lines up with the start
+  of the song list, measured live by `MainWindow.AlignPlaybackBar`, so it follows
+  the splitters.
+- **New behaviour:** the speaker mutes and unmutes (restoring the level;
+  `Core/Playback/VolumeState`), and the status bar shows the library size in whole GB
+  (`Core/Library/LibrarySummary`). The output readout reads "Shared · 96 kHz / 32-bit
+  (resampled)" / "Exclusive · 44.1 kHz · bit-perfect" (`Core/Playback/OutputReadout`).
+- **Minimum window width is now 1,422 px**, so the seek track keeps at least 120 px.
+- ThemeLab: `--playprobe 1` measures both bars; `--shuffle 1`, `--repeat all|one`,
+  `--muted 1`, `--exclusive 1` (settings file restored afterwards) and
+  `--albumswidth N` set up states for it.
+- 384 tests. Installed.
+
 ### Changes from session 27 (2026-10-01): new PS1 theme, album header and song table
 
 Step 3 of `design/progress.md`, which has the details, measurements and decisions.
@@ -2111,7 +2130,7 @@ ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connec
 ThemeLab.exe --w 1300 --h 700 --lastfm failing   # the status-bar indicator
 ThemeLab.exe --menushot menu.png --scale 2      # the logo menu's drop-down, without opening it
 ThemeLab.exe --bg "#FF00FF"                     # magenta behind the window: any unpainted gap shows
-ThemeLab.exe --output "Exclusive 192 kHz/24-bit (bit-perfect)"   # the output readout under the volume slider
+ThemeLab.exe --output "Exclusive · 176.4 kHz · bit-perfect · DSD over PCM"   # the output readout under the volume slider
 ThemeLab.exe --libshot libs.png --scale 3   # the Libraries submenu, one folder ticked, one not
 ThemeLab.exe --window folders               # folder list: merging, relocation, unticked status, Remove
 ThemeLab.exe --window tokens --out tokens.png   # the central theme: lookups from MainWindow, XAML usage, fonts, specimen

@@ -89,8 +89,12 @@ public partial class MainWindow : FluentWindow
         ArtistsHeaderLabel.SizeChanged += (_, _) => AlignTitleBar();
         ArtistsPanel.SizeChanged += (_, _) => AlignTitleBar();
         AlbumsPanel.SizeChanged += (_, _) => AlignTitleBar();
+        ArtistsPanel.SizeChanged += (_, _) => AlignPlaybackBar();
+        AlbumsPanel.SizeChanged += (_, _) => AlignPlaybackBar();
+        PlaybackBar.SizeChanged += (_, _) => AlignPlaybackBar();
         UpdateLayout();
         AlignTitleBar();
+        AlignPlaybackBar();
 
         await _viewModel.InitialiseAsync();
     }
@@ -189,6 +193,19 @@ public partial class MainWindow : FluentWindow
             + columns
             + (columnIds.Count - 1) * n["songTable.columnGap"];
 
+        // The playback bar from Shuffle rightwards sits under the Songs panel
+        // (spec 2, rule 3), so the panel must also hold the transport buttons,
+        // a seek zone whose track keeps playbackBar.seekMinTrackWidth, the
+        // volume zone and the gaps between them (the user's call).
+        var transport = 4 * n["playbackBar.buttonSize"] + n["playbackBar.playButtonSize"]
+            + 4 * n["playbackBar.buttonGap"];
+        var seek = 2 * n["playbackBar.timeLabelWidth"] + 2 * n["playbackBar.seekGap"]
+            + n["playbackBar.seekMinTrackWidth"];
+        var underSongs = SongListInset(n)
+            + transport + n["playbackBar.zoneGap"] + seek + n["playbackBar.zoneGap"] + n["playbackBar.volumeZoneWidth"]
+            + n["playbackBar.paddingX"] + n["layout.panelBorder"];
+        songs = Math.Max(songs, underSongs);
+
         SongsColumn.MinWidth = songs;
         MinWidth = 2 * n["layout.windowMarginX"]
             + n["layout.artistsPanelOuterWidth"] + n["layout.panelGap"]
@@ -221,6 +238,35 @@ public partial class MainWindow : FluentWindow
 
         TitleBarHeader.Margin = new Thickness(Math.Max(0, logoLeft - headerOrigin), 0, 0, 0);
         SearchBox.Width = Math.Max(0, albumsRight - searchLeft);
+    }
+
+    /// <summary>
+    /// How far the song list's first column starts inside the Songs panel's
+    /// outer edge: the border, the list padding and the row padding (spec 6.6).
+    /// </summary>
+    private static double SongListInset(IReadOnlyDictionary<string, double> n) =>
+        n["layout.panelBorder"] + n["songTable.listPaddingX"] + n["songTable.rowPaddingX"];
+
+    /// <summary>
+    /// Spec 2, rule 3: the Shuffle button's left edge lines up with the start of
+    /// the song list (the # column, unless a column has been dragged in front of
+    /// it), so the now-playing zone takes whatever is left of that point after
+    /// the zone gap. Measured from the real layout, so it follows the splitters.
+    /// </summary>
+    private void AlignPlaybackBar()
+    {
+        if (!IsLoaded || PlaybackZones.ActualWidth == 0)
+            return;
+
+        var n = Theming.TokenResources.Current!.Numbers;
+
+        var listStart = TrackGrid.TranslatePoint(new Point(0, 0), this).X
+            + n["songTable.listPaddingX"] + n["songTable.rowPaddingX"];
+        var zonesLeft = PlaybackZones.TranslatePoint(new Point(0, 0), this).X;
+
+        // Whole pixels (spec 8).
+        var width = Math.Round(listStart) - Math.Round(zonesLeft) - n["playbackBar.zoneGap"];
+        NowPlayingZone.Width = new GridLength(Math.Max(0, width));
     }
 
     /// <summary>

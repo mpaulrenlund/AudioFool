@@ -228,6 +228,38 @@ internal static class Program
         if (Arg(args, "--paused") is not null)
             vm.IsPlaying = false;
 
+        // --shuffle 1, --repeat all|one, --exclusive 1, --muted 1: the playback
+        // and status bar states (spec 6.7, 6.8). The first three save settings,
+        // so the real settings file is put back afterwards.
+        if (Arg(args, "--shuffle") is not null || Arg(args, "--repeat") is not null || Arg(args, "--exclusive") is not null)
+        {
+            var settingsKept = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null;
+            try
+            {
+                if (Arg(args, "--shuffle") is not null)
+                    vm.IsShuffle = true;
+                if (Arg(args, "--repeat") is { } repeat)
+                    for (var i = 0; i < (repeat == "one" ? 2 : 1); i++) vm.CycleRepeatCommand.Execute(null);
+                if (Arg(args, "--exclusive") is not null)
+                {
+                    vm.IsExclusiveOutput = true;
+                    vm.OutputDescription = "Exclusive · 44.1 kHz · bit-perfect";
+                    vm.IsOutputActive = true;
+                }
+            }
+            finally
+            {
+                if (settingsKept is not null)
+                    File.WriteAllBytes(AppSettings.SettingsPath, settingsKept);
+                else if (File.Exists(AppSettings.SettingsPath))
+                    File.Delete(AppSettings.SettingsPath);
+            }
+        }
+
+        // Mute leaves the level alone, so nothing new reaches the settings file.
+        if (Arg(args, "--muted") is not null)
+            vm.ToggleMuteCommand.Execute(null);
+
         // --scanning 0.4: the status bar mid-scan, with its progress bar.
         if (Arg(args, "--scanning") is { } fraction)
         {
@@ -353,6 +385,21 @@ internal static class Program
         {
             Settle(200);
             PrintSongProbe(main);
+        }
+
+        // --playprobe 1: measure the playback and status bars (spec 6.7, 6.8).
+        // --albumswidth 400 first widens the Albums panel, as a splitter drag would.
+        if (Arg(args, "--playprobe") is not null)
+        {
+            if (Arg(args, "--albumswidth") is { } albumsWidth)
+            {
+                var songsColumn = (System.Windows.Controls.ColumnDefinition)main.FindName("SongsColumn");
+                var columns = ((System.Windows.Controls.Grid)songsColumn.Parent).ColumnDefinitions;
+                columns[2].Width = new GridLength(double.Parse(albumsWidth, CultureInfo.InvariantCulture));
+                Settle(200);
+            }
+            Settle(200);
+            PrintPlaybackProbe(main);
         }
 
         // --albumprobe 1: each realised album title's clamp, as laid out in the list.
@@ -1394,6 +1441,88 @@ internal static class Program
         Console.WriteLine($"after pause: {State()}");
     }
 
+    /// <summary>
+    /// The playback and status bars (spec 6.7, 6.8): every zone, button, slider
+    /// part and label, in window coordinates, with sizes and colours read back.
+    /// </summary>
+    private static void PrintPlaybackProbe(Window main)
+    {
+        string Box(FrameworkElement e)
+        {
+            var p = e.TranslatePoint(new Point(0, 0), main);
+            return $"x {p.X:0.##}-{p.X + e.ActualWidth:0.##} y {p.Y:0.##}-{p.Y + e.ActualHeight:0.##} ({e.ActualWidth:0.##} x {e.ActualHeight:0.##})";
+        }
+        static string Ink(object? brush) => brush is SolidColorBrush b ? b.Color.ToString() : brush?.ToString() ?? "null";
+        T Named<T>(string name) where T : class => (T)main.FindName(name);
+        string Text(System.Windows.Controls.TextBlock t) =>
+            $"'{t.Text}' size={t.FontSize} weight={t.FontWeight.ToOpenTypeWeight()} ink={Ink(t.Foreground)} {Box(t)}";
+
+        Console.WriteLine($"window: {main.ActualWidth} x {main.ActualHeight} minWidth={main.MinWidth}");
+        var bar = Named<FrameworkElement>("PlaybackBar");
+        Console.WriteLine($"playback bar: {Box(bar)}");
+        var shell = Descendants(bar).OfType<System.Windows.Controls.Border>().First();
+        Console.WriteLine($"  shell bg={Ink(shell.Background)} border={Ink(shell.BorderBrush)} {shell.BorderThickness} radius={shell.CornerRadius}");
+        Console.WriteLine($"  zones: {Box(Named<FrameworkElement>("PlaybackZones"))} nowPlayingZone={Named<System.Windows.Controls.ColumnDefinition>("NowPlayingZone").ActualWidth}");
+
+        var grid = Named<System.Windows.Controls.DataGrid>("TrackGrid");
+        var firstCell = Descendants(grid).OfType<System.Windows.Controls.DataGridCell>()
+            .OrderBy(c => c.TranslatePoint(new Point(0, 0), main).X).FirstOrDefault();
+        if (firstCell is not null)
+        {
+            var content = Descendants(firstCell).OfType<FrameworkElement>().First(e => e is System.Windows.Controls.ContentPresenter);
+            Console.WriteLine($"  song list first cell {Box(firstCell)}; content {Box(content)}");
+        }
+
+        foreach (var art in Descendants(bar).OfType<System.Windows.Controls.Border>().Where(b => b.Effect is not null))
+            Console.WriteLine($"  art: {Box(art)} border={Ink(art.BorderBrush)} effect={((System.Windows.Media.Effects.DropShadowEffect)art.Effect).BlurRadius}/{((System.Windows.Media.Effects.DropShadowEffect)art.Effect).ShadowDepth}");
+        foreach (var name in new[] { "NowPlayingTitle", "NowPlayingArtist", "NowPlayingFormat" })
+            Console.WriteLine($"  {name}: {Text(Named<System.Windows.Controls.TextBlock>(name))}");
+
+        foreach (var name in new[] { "ShuffleButton", "PreviousButton", "PlayPauseButton", "NextButton", "RepeatButton", "MuteButton" })
+        {
+            var b = Named<System.Windows.Controls.Primitives.ButtonBase>(name);
+            var face = Descendants(b).OfType<AudioFool.Theming.MoldedFace>().FirstOrDefault();
+            var icon = Descendants(b).OfType<System.Windows.Controls.Viewbox>().First();
+            var pressed = b is System.Windows.Controls.Primitives.ToggleButton tb ? $" checked={tb.IsChecked}" : "";
+            Console.WriteLine($"  {name}: {Box(b)} name='{System.Windows.Automation.AutomationProperties.GetName(b)}'{pressed} fg={Ink(b.Foreground)} "
+                + $"face={Ink(face?.Face)} stroke={Ink(face?.Stroke)} shadow={face?.Shadow} icon {Box(icon)}");
+        }
+        var badge = Named<System.Windows.Controls.TextBlock>("RepeatOneBadge");
+        Console.WriteLine($"  repeat-one badge visible={badge.IsVisible}: {Text(badge)}");
+
+        foreach (var name in new[] { "PositionText", "DurationText", "OutputReadout" })
+            Console.WriteLine($"  {name}: {Text(Named<System.Windows.Controls.TextBlock>(name))}");
+        foreach (var name in new[] { "SeekBar", "VolumeSlider" })
+        {
+            var s = Named<System.Windows.Controls.Slider>(name);
+            var track = Descendants(s).OfType<System.Windows.Controls.Border>().First();
+            var thumb = Descendants(s).OfType<System.Windows.Controls.Primitives.Thumb>().First();
+            var decrease = Descendants(s).OfType<System.Windows.Controls.Primitives.RepeatButton>().First();
+            var fill = Descendants(decrease).OfType<System.Windows.Controls.Border>().First();
+            Console.WriteLine($"  {name}: {Box(s)} value={s.Value:0.##}/{s.Maximum:0.##} enabled={s.IsEnabled}");
+            Console.WriteLine($"    track {Box(track)} bg={Ink(track.Background)} radius={track.CornerRadius}");
+            Console.WriteLine($"    fill {Box(fill)} bg={Ink(fill.Background)}");
+            Console.WriteLine($"    thumb {Box(thumb)} centre x={thumb.TranslatePoint(new Point(thumb.ActualWidth / 2, 0), main).X:0.##}");
+        }
+        Console.WriteLine($"  volume group opacity={Named<FrameworkElement>("VolumeGroup").Opacity}");
+
+        var status = Named<FrameworkElement>("StatusBar");
+        Console.WriteLine($"status bar: {Box(status)}");
+        Console.WriteLine($"  refresh: {Box(Named<FrameworkElement>("RefreshButton"))} name='{System.Windows.Automation.AutomationProperties.GetName(Named<FrameworkElement>("RefreshButton"))}'");
+        Console.WriteLine($"  library dot: {Box(Named<FrameworkElement>("LibraryDot"))} fill={Ink(Named<System.Windows.Shapes.Ellipse>("LibraryDot").Fill)}");
+        Console.WriteLine($"  line: {Text(Named<System.Windows.Controls.TextBlock>("StatusLine"))}");
+        var describe = typeof(MainViewModel).GetMethod("DescribeLibrary", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        Console.WriteLine($"  library totals: '{describe.Invoke(main.DataContext, null)}'");
+        foreach (var name in new[] { "LastFmIndicator", "BitPerfectToggle" })
+        {
+            var chip = Named<System.Windows.Controls.Control>(name);
+            var dot = Descendants(chip).OfType<System.Windows.Shapes.Ellipse>().FirstOrDefault();
+            if (dot is null) { Console.WriteLine($"  {name}: visible={chip.IsVisible} (not laid out)"); continue; }
+            var pressed = chip is System.Windows.Controls.Primitives.ToggleButton tb ? $" checked={tb.IsChecked}" : "";
+            Console.WriteLine($"  {name}: visible={chip.IsVisible}{pressed} {Box(chip)} bg={Ink(chip.Background)} dot {Box(dot)} fill={Ink(dot.Fill)} ring={Ink(dot.Stroke)}");
+        }
+    }
+
     private static void PrintSongProbe(Window main)
     {
         string Box(FrameworkElement e)
@@ -1404,7 +1533,7 @@ internal static class Program
         static string Ink(object? brush) => brush is SolidColorBrush b ? b.Color.ToString() : brush?.ToString() ?? "null";
 
         var grid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
-        var panel = Descendants(main).OfType<System.Windows.Controls.HeaderedContentControl>().Last();
+        var panel = Descendants(main).OfType<System.Windows.Controls.HeaderedContentControl>().Last(p => p.Name != "PlaybackBar");
         Console.WriteLine($"songs panel: {Box(panel)}");
         Console.WriteLine($"grid: {Box(grid)} rowHeaderWidth={grid.RowHeaderWidth} rowHeaderActual={grid.RowHeaderActualWidth} cellsOffset={grid.CellsPanelHorizontalOffset} nonFrozen={grid.NonFrozenColumnsViewportHorizontalOffset}");
 
@@ -1491,10 +1620,10 @@ internal static class Program
         vm.DurationSeconds = 332;
         vm.PositionSeconds = 138;
         vm.DurationDisplay = "5:32";
-        vm.StatusText = "26,418 tracks in 1,204 albums by 312 artists";
-        // The format OutputChain.Describe produces. --output overrides it, e.g.
-        // --output "Exclusive 192 kHz/24-bit (bit-perfect)" for the longest.
-        vm.OutputDescription = Arg(Environment.GetCommandLineArgs(), "--output") ?? "Shared 96 kHz/32-bit";
+        vm.StatusText = "499 artists · 2,376 albums · 26,795 tracks · 692 GB";
+        // The format OutputReadout.Describe produces. --output overrides it, e.g.
+        // --output "Exclusive · 176.4 kHz · bit-perfect · DSD over PCM" for the longest.
+        vm.OutputDescription = Arg(Environment.GetCommandLineArgs(), "--output") ?? "Shared · 96 kHz / 32-bit (resampled)";
         vm.IsOutputActive = true;
     }
 

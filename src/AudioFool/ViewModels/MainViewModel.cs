@@ -44,8 +44,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _artService = artService;
         _settings = settings;
 
-        _volume = 1.0;
-        _engine.Volume = 1.0;
+        _engine.Volume = _volumeState.Effective;
 
         // Bit-perfect starts off every launch, like the volume above, rather than
         // being restored. Exclusive mode silences every other application on the
@@ -140,7 +139,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(WindowTitle))]
+    [NotifyPropertyChangedFor(nameof(NowPlayingFormat))]
     private Track? _nowPlaying;
+
+    /// <summary>
+    /// The now-playing format line (spec 6.7): "MP3 · 320 kbps · 44.1 kHz",
+    /// leaving out whatever the file doesn't report.
+    /// </summary>
+    public string NowPlayingFormat => NowPlaying is { } track
+        ? string.Join(" · ", new[] { track.Kind, Display.Bitrate(track.Bitrate), Display.SampleRate(track.SampleRate) }
+            .Where(part => part.Length > 0))
+        : "";
 
     /// <summary>
     /// The window's own title, which the in-app title bar does not show. It is
@@ -196,17 +205,45 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
-    private double _volume;
+    private readonly VolumeState _volumeState = new(1.0);
+
+    /// <summary>
+    /// What the slider shows: zero while muted. Moving it unmutes at the new
+    /// level (spec 6.7).
+    /// </summary>
     public double Volume
     {
-        get => _volume;
+        get => _volumeState.Effective;
         set
         {
-            if (!SetProperty(ref _volume, value))
-                return;
+            var wasMuted = _volumeState.IsMuted;
+            _volumeState.SetLevel(value);
+            ApplyVolume(wasMuted);
+        }
+    }
 
-            _engine.Volume = value;
-            _settings.Volume = value;
+    /// <summary>Muted from the speaker button. Not saved: every launch starts unmuted.</summary>
+    public bool IsMuted => _volumeState.IsMuted;
+
+    public string MuteLabel => IsMuted ? "Unmute" : "Mute";
+
+    [RelayCommand]
+    private void ToggleMute()
+    {
+        _volumeState.ToggleMute();
+        ApplyVolume(!_volumeState.IsMuted);
+    }
+
+    private void ApplyVolume(bool wasMuted)
+    {
+        _engine.Volume = _volumeState.Effective;
+        _settings.Volume = _volumeState.Level;
+        OnPropertyChanged(nameof(Volume));
+
+        if (wasMuted != _volumeState.IsMuted)
+        {
+            OnPropertyChanged(nameof(IsMuted));
+            OnPropertyChanged(nameof(MuteLabel));
         }
     }
 
@@ -519,7 +556,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (_cache is not null && _cache.CoversSameFolders(MusicFolders))
         {
             ApplyLibrary(await Task.Run(() => LibraryScanner.Build(_cache.Tracks)), keepSelection: false);
-            StatusText = $"{DescribeLibrary()}  ·  checking for changes...";
+            StatusText = $"{DescribeLibrary()} · checking for changes...";
         }
 
         await ScanAsync();
@@ -872,9 +909,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (_folderFilteredLibrary.AllTracks.Count == 0)
             return "No audio files found. Use Add folder to point at your music.";
 
-        return $"{_folderFilteredLibrary.Artists.Count:N0} artists  ·  " +
-               $"{_folderFilteredLibrary.AlbumCount:N0} albums  ·  " +
-               $"{_folderFilteredLibrary.AllTracks.Count:N0} tracks";
+        // Spec 6.8: the size is of the same tracks the counts describe, so it is
+        // rebuilt with them, after every scan included.
+        return LibrarySummary.Totals(
+            _folderFilteredLibrary.Artists.Count,
+            _folderFilteredLibrary.AlbumCount,
+            _folderFilteredLibrary.AllTracks);
     }
 
     private string DescribeStatus(ScanSummary summary)
@@ -899,13 +939,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             if (IsSearching)
             {
                 return $"{MatchedTrackCount:N0} of {_filteredTrackCount:N0} tracks match \"{SearchQuery}\"" +
-                       $"  ·  {filter.Description}";
+                       $" · {filter.Description}";
             }
 
             // Reaching zero is the point of a "Missing ..." filter, so say so plainly.
             return _filteredTrackCount == 0
                 ? $"{filter.Description}: no tracks left"
-                : $"{_filteredTrackCount:N0} of {_folderFilteredLibrary.AllTracks.Count:N0} tracks  ·  {filter.Description}";
+                : $"{_filteredTrackCount:N0} of {_folderFilteredLibrary.AllTracks.Count:N0} tracks · {filter.Description}";
         }
 
         // While searching, the counts that matter are the matches, not the library.
@@ -924,7 +964,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         return changes.Count == 0
             ? DescribeLibrary()
-            : $"{DescribeLibrary()}  ·  {string.Join(", ", changes)}";
+            : $"{DescribeLibrary()} · {string.Join(", ", changes)}";
     }
 
     /// <summary>
@@ -1087,13 +1127,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// "Saved tags for 12 track(s).  ·  58 left: Missing Year" - while a filter is
+    /// "Saved tags for 12 track(s). · 58 left: Missing Year" - while a filter is
     /// on, a save reports how much of it remains, since fixing it is usually why
     /// the filter is on.
     /// </summary>
     private string WithFilterProgress(string message) =>
         LibraryFilter is { } filter
-            ? $"{message}  ·  {_filteredTrackCount:N0} left: {filter.Description}"
+            ? $"{message} · {_filteredTrackCount:N0} left: {filter.Description}"
             : message;
 
     // ----------------------------------------------------------- tag editing

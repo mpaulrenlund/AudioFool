@@ -37,7 +37,6 @@
             <fmt:NullToVisibleConverter x:Key="NullToVisible" />
             <fmt:BoolToVisibilityConverter x:Key="BoolToVisibility" />
             <fmt:InverseBoolConverter x:Key="InverseBool" />
-            <fmt:EnabledOpacityConverter x:Key="EnabledOpacity" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

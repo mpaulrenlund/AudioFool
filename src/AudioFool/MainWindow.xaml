@@ -134,11 +134,10 @@
                  Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
 
         <!--
-            The new theme's window grey behind the title bar and the panels row:
-            it shows in the panel gaps and margins. The playback and status bars
-            keep the old shell under them until they are restyled (session 4).
+            The new theme's window grey (spec 3): behind the title bar, in the
+            panel gaps and margins, around the playback bar and under the status bar.
         -->
-        <Border Grid.Row="0" Grid.RowSpan="2"
+        <Border Grid.Row="0" Grid.RowSpan="4"
                 Background="{DynamicResource color.window.bg}"
                 IsHitTestVisible="False" />
 
@@ -715,154 +714,199 @@
             </HeaderedContentControl>
         </Grid>
 
-        <!-- ============================================ now playing -->
-        <ContentControl Grid.Row="2"
-                        Style="{DynamicResource AfDeck}"
-                        Margin="{DynamicResource AfPadWindowDeck}">
-            <Grid>
+        <!--
+            ============================================ playback bar (6.7)
+            The panel shell, without a header. Four zones 40 px apart. The first
+            is sized by MainWindow.AlignPlaybackBar so the Shuffle button starts
+            where the song list does (spec 2, rule 3).
+        -->
+        <HeaderedContentControl x:Name="PlaybackBar"
+                                Grid.Row="2"
+                                Template="{StaticResource theme.panelTemplate}"
+                                Focusable="False"
+                                Height="{theme:Token layout.playbackBarHeight}"
+                                Margin="{theme:Thickness X=layout.windowMarginX, Bottom=layout.playbackBarBottomMargin}">
+            <Grid x:Name="PlaybackZones" Margin="{theme:Thickness X=playbackBar.paddingX}">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="NowPlayingZone" Width="{theme:Token playbackBar.nowPlayingZoneWidth}" />
+                    <ColumnDefinition Width="{theme:Token playbackBar.zoneGap}" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="220" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="{theme:Token playbackBar.zoneGap}" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="{theme:Token playbackBar.zoneGap}" />
+                    <ColumnDefinition Width="{theme:Token playbackBar.volumeZoneWidth}" />
                 </Grid.ColumnDefinitions>
 
-                <!-- cover -->
-                <Border Grid.Column="0"
-                        Width="{DynamicResource AfSizeArtDeck}"
-                        Height="{DynamicResource AfSizeArtDeck}"
-                        Style="{DynamicResource AfArtFrame}"
-                        Cursor="Hand"
-                        MouseLeftButtonDown="NowPlayingArt_MouseLeftButtonDown">
-                    <Grid>
-                        <ui:SymbolIcon Symbol="MusicNote224"
-                                       FontSize="{DynamicResource AfIconSizeLarge}"
-                                       Foreground="{DynamicResource AfTextPlaceholder}"
-                                       Visibility="{Binding NowPlayingArt, Converter={StaticResource NullToVisible}}" />
-                        <Image Source="{Binding NowPlayingArt}" Stretch="UniformToFill"
-                               Visibility="{Binding NowPlayingArt, Converter={StaticResource NullToCollapsed}}" />
-                    </Grid>
-                </Border>
+                <!-- Zone 1: now playing. 88 px art, then three lines 3 px apart. -->
+                <Grid Grid.Column="0" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="{theme:Token playbackBar.artGap}" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                <!-- what's playing -->
-                <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center"
+                    <Border Grid.Column="0"
+                            Width="{theme:Token playbackBar.artSize}"
+                            Height="{theme:Token playbackBar.artSize}"
+                            Background="{DynamicResource color.panel.bg}"
+                            BorderBrush="{DynamicResource color.art.border}"
+                            BorderThickness="{theme:Token layout.panelBorder}"
+                            Effect="{DynamicResource shadow.nowPlayingArt}"
                             Cursor="Hand"
-                            MouseLeftButtonDown="NowPlayingInfo_MouseLeftButtonDown">
-                    <TextBlock x:Name="NowPlayingTitle"
-                               Text="{Binding NowPlaying.DisplayTitle, FallbackValue='', TargetNullValue=''}"
-                               Style="{DynamicResource AfRowTitle}"
-                               FontWeight="{DynamicResource AfFontWeightSemiBold}" />
-                    <TextBlock Text="{Binding NowPlaying.Artist, TargetNullValue=''}"
-                               Style="{DynamicResource AfMetaText}" />
-                    <TextBlock Style="{DynamicResource AfMetaTextQuiet}"
-                               Visibility="{Binding NowPlaying, Converter={StaticResource NullToCollapsed}}">
-                        <Run Text="{Binding NowPlaying.Kind, Mode=OneWay}" />
-                        <Run Text="·" />
-                        <Run Text="{Binding NowPlaying.SampleRate, Mode=OneWay, Converter={StaticResource SampleRate}}" />
-                    </TextBlock>
+                            MouseLeftButtonDown="NowPlayingArt_MouseLeftButtonDown">
+                        <Grid>
+                            <!-- No-art placeholder: not in the spec, so the old icon
+                                 size stays, as for the album list's. -->
+                            <ui:SymbolIcon Symbol="MusicNote224"
+                                           FontSize="{DynamicResource AfIconSizeLarge}"
+                                           Foreground="{DynamicResource color.text.placeholder}"
+                                           Visibility="{Binding NowPlayingArt, Converter={StaticResource NullToVisible}}" />
+                            <Image Source="{Binding NowPlayingArt}" Stretch="UniformToFill"
+                                   Visibility="{Binding NowPlayingArt, Converter={StaticResource NullToCollapsed}}" />
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center"
+                                Cursor="Hand"
+                                MouseLeftButtonDown="NowPlayingInfo_MouseLeftButtonDown">
+                        <TextBlock x:Name="NowPlayingTitle"
+                                   Text="{Binding NowPlaying.DisplayTitle, FallbackValue='', TargetNullValue=''}"
+                                   Style="{DynamicResource type.nowPlayingTitle}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="NowPlayingArtist"
+                                   Text="{Binding NowPlaying.Artist, FallbackValue='', TargetNullValue=''}"
+                                   Style="{DynamicResource type.nowPlayingArtist}"
+                                   Margin="{theme:Thickness Top=playbackBar.textLineGap}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="NowPlayingFormat"
+                                   Text="{Binding NowPlayingFormat}"
+                                   Style="{DynamicResource type.nowPlayingFormat}"
+                                   Margin="{theme:Thickness Top=playbackBar.textLineGap}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Visibility="{Binding NowPlaying, Converter={StaticResource NullToCollapsed}}" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Zone 2: Shuffle, Previous, Play/Pause, Next, Repeat, 16 px apart. -->
+                <StackPanel x:Name="TransportButtons" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ToggleButton x:Name="ShuffleButton"
+                                  Command="{Binding ToggleShuffleCommand}"
+                                  IsChecked="{Binding IsShuffle, Mode=OneWay}"
+                                  AutomationProperties.Name="Shuffle"
+                                  ToolTip="{Binding ShuffleTooltip}">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton" BasedOn="{StaticResource theme.transportButton}">
+                                <Setter Property="Foreground" Value="{DynamicResource color.control.iconOff}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsShuffle}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource color.control.shuffleOn}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                        <Viewbox Width="{theme:Token playbackBar.icons.shuffle}" Height="{theme:Token playbackBar.icons.shuffle}">
+                            <Canvas Width="24" Height="24">
+                                <Path Style="{StaticResource theme.iconStroke}"
+                                      Data="M 16,3 H 21 V 8 M 4,20 L 21,3 M 21,16 V 21 H 16 M 15,15 L 21,21 M 4,4 L 9,9" />
+                            </Canvas>
+                        </Viewbox>
+                    </ToggleButton>
+
+                    <Button x:Name="PreviousButton"
+                            Style="{StaticResource theme.transportButton}"
+                            Margin="{theme:Thickness Left=playbackBar.buttonGap}"
+                            Command="{Binding PreviousCommand}"
+                            AutomationProperties.Name="Previous track"
+                            ToolTip="Previous (or restart)">
+                        <Viewbox Width="{theme:Token playbackBar.icons.previous}" Height="{theme:Token playbackBar.icons.previous}">
+                            <Canvas Width="24" Height="24">
+                                <Path Style="{StaticResource theme.iconStroke}" Data="M 6,5 V 19" />
+                                <Path Style="{StaticResource theme.iconFill}" Data="M 18,5.5 L 8.5,12 L 18,18.5 Z" />
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+
+                    <!-- Always teal (6.7): a triangle while paused, two bars while playing. -->
+                    <Button x:Name="PlayPauseButton"
+                            Style="{StaticResource theme.playButton}"
+                            Margin="{theme:Thickness Left=playbackBar.buttonGap}"
+                            Command="{Binding TogglePlayCommand}"
+                            AutomationProperties.Name="Play/Pause"
+                            ToolTip="Play / pause">
+                        <Viewbox Width="{theme:Token playbackBar.icons.playPause}" Height="{theme:Token playbackBar.icons.playPause}">
+                            <Grid>
+                                <Canvas Width="24" Height="24"
+                                        Visibility="{Binding IsPlaying, Converter={StaticResource BoolToVisibility}}">
+                                    <Rectangle Style="{StaticResource theme.iconSolid}" Canvas.Left="6.5" Canvas.Top="5" Width="4" Height="14" RadiusX="1.2" RadiusY="1.2" />
+                                    <Rectangle Style="{StaticResource theme.iconSolid}" Canvas.Left="13.5" Canvas.Top="5" Width="4" Height="14" RadiusX="1.2" RadiusY="1.2" />
+                                </Canvas>
+                                <Canvas Width="24" Height="24"
+                                        Visibility="{Binding IsPlaying, Converter={StaticResource BoolToVisibility}, ConverterParameter=Inverse}">
+                                    <Path Style="{StaticResource theme.iconSolid}"
+                                          Data="M 8.5,5.2 V 18.8 A 0.8,0.8 0 0 0 9.7,19.5 L 19.9,12.7 A 0.8,0.8 0 0 0 19.9,11.3 L 9.7,4.5 A 0.8,0.8 0 0 0 8.5,5.2 Z" />
+                                </Canvas>
+                            </Grid>
+                        </Viewbox>
+                    </Button>
+
+                    <Button x:Name="NextButton"
+                            Style="{StaticResource theme.transportButton}"
+                            Margin="{theme:Thickness Left=playbackBar.buttonGap}"
+                            Command="{Binding NextCommand}"
+                            AutomationProperties.Name="Next track"
+                            ToolTip="Next">
+                        <Viewbox Width="{theme:Token playbackBar.icons.next}" Height="{theme:Token playbackBar.icons.next}">
+                            <Canvas Width="24" Height="24">
+                                <Path Style="{StaticResource theme.iconStroke}" Data="M 18,5 V 19" />
+                                <Path Style="{StaticResource theme.iconFill}" Data="M 6,5.5 L 15.5,12 L 6,18.5 Z" />
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+
+                    <!-- Off, all, one. Repeat-one adds a "1" in the middle of the icon. -->
+                    <Button x:Name="RepeatButton"
+                            Margin="{theme:Thickness Left=playbackBar.buttonGap}"
+                            Command="{Binding CycleRepeatCommand}"
+                            ToolTip="{Binding RepeatTooltip}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource theme.transportButton}">
+                                <Setter Property="Foreground" Value="{DynamicResource color.control.iconOff}" />
+                                <Setter Property="AutomationProperties.Name" Value="Repeat: off" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRepeatAll}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource color.control.repeatOn}" />
+                                        <Setter Property="AutomationProperties.Name" Value="Repeat: all" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsRepeatOne}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource color.control.repeatOn}" />
+                                        <Setter Property="AutomationProperties.Name" Value="Repeat: one" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Grid>
+                            <Viewbox Width="{theme:Token playbackBar.icons.repeat}" Height="{theme:Token playbackBar.icons.repeat}">
+                                <Canvas Width="24" Height="24">
+                                    <Path Style="{StaticResource theme.iconStroke}"
+                                          Data="M 4.5,12 A 7.5,7.5 0 0 1 17.3,6.7 L 19.5,9 M 19.5,4.5 V 9 H 15 M 19.5,12 A 7.5,7.5 0 0 1 6.7,17.3 L 4.5,15 M 4.5,19.5 V 15 H 9" />
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock x:Name="RepeatOneBadge"
+                                       Text="1"
+                                       FontFamily="{DynamicResource font.family}"
+                                       FontSize="{theme:Token playbackBar.repeatOneBadge.size}"
+                                       FontWeight="{DynamicResource playbackBar.repeatOneBadge.weight.fontWeight}"
+                                       Foreground="{DynamicResource color.control.repeatOn}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       IsHitTestVisible="False"
+                                       Visibility="{Binding IsRepeatOne, Converter={StaticResource BoolToVisibility}}" />
+                        </Grid>
+                    </Button>
                 </StackPanel>
 
-                <!-- transport -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <!--
-                        Shuffle and repeat flank the three transport buttons, where
-                        every other player has trained people to look for them. Both
-                        swap glyph as well as tint: an accent colour on its own is a
-                        weak "on" signal next to a Primary-appearance play button.
-                    -->
-                    <ui:Button Command="{Binding ToggleShuffleCommand}"
-                               Appearance="Secondary"
-                               Margin="0,0,8,0"
-                               AutomationProperties.Name="Shuffle"
-                               ToolTip="{Binding ShuffleTooltip}">
-                        <ui:Button.Icon>
-                            <ui:SymbolIcon>
-                                <ui:SymbolIcon.Style>
-                                    <Style TargetType="ui:SymbolIcon">
-                                        <Setter Property="Symbol" Value="ArrowShuffleOff24" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsShuffle}" Value="True">
-                                                <Setter Property="Symbol" Value="ArrowShuffle24" />
-                                                <Setter Property="Foreground"
-                                                        Value="{DynamicResource AfStateQueue}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </ui:SymbolIcon.Style>
-                            </ui:SymbolIcon>
-                        </ui:Button.Icon>
-                    </ui:Button>
-
-                    <ui:Button Command="{Binding PreviousCommand}"
-                               Style="{DynamicResource AfSkipKey}"
-                               Icon="{ui:SymbolIcon Previous24}"
-                               AutomationProperties.Name="Previous track"
-                               ToolTip="Previous (or restart)" />
-
-                    <!-- Appearance comes from the style, not from here: a theme that
-                         colours this key needs it off Primary, whose colours WPF-UI
-                         sets in template triggers that no style can override. -->
-                    <ui:Button Command="{Binding TogglePlayCommand}"
-                               Style="{DynamicResource AfPlayKey}"
-                               Width="46" Height="38"
-                               Margin="8,0"
-                               AutomationProperties.Name="Play or pause"
-                               ToolTip="Play / pause">
-                        <ui:Button.Icon>
-                            <ui:SymbolIcon>
-                                <ui:SymbolIcon.Style>
-                                    <Style TargetType="ui:SymbolIcon">
-                                        <Setter Property="Symbol" Value="Play24" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsPlaying}" Value="True">
-                                                <Setter Property="Symbol" Value="Pause24" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </ui:SymbolIcon.Style>
-                            </ui:SymbolIcon>
-                        </ui:Button.Icon>
-                    </ui:Button>
-
-                    <ui:Button Command="{Binding NextCommand}"
-                               Style="{DynamicResource AfSkipKey}"
-                               Icon="{ui:SymbolIcon Next24}"
-                               AutomationProperties.Name="Next track"
-                               ToolTip="Next" />
-
-                    <!-- Three-way cycle: off, whole queue, this track. -->
-                    <ui:Button Command="{Binding CycleRepeatCommand}"
-                               Appearance="Secondary"
-                               Margin="8,0,0,0"
-                               AutomationProperties.Name="Repeat"
-                               ToolTip="{Binding RepeatTooltip}">
-                        <ui:Button.Icon>
-                            <ui:SymbolIcon>
-                                <ui:SymbolIcon.Style>
-                                    <Style TargetType="ui:SymbolIcon">
-                                        <Setter Property="Symbol" Value="ArrowRepeatAllOff24" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsRepeatAll}" Value="True">
-                                                <Setter Property="Symbol" Value="ArrowRepeatAll24" />
-                                                <Setter Property="Foreground"
-                                                        Value="{DynamicResource AfStateQueue}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsRepeatOne}" Value="True">
-                                                <Setter Property="Symbol" Value="ArrowRepeat124" />
-                                                <Setter Property="Foreground"
-                                                        Value="{DynamicResource AfStateQueue}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </ui:SymbolIcon.Style>
-                            </ui:SymbolIcon>
-                        </ui:Button.Icon>
-                    </ui:Button>
-                </StackPanel>
-
-                <!-- seek -->
-                <Grid Grid.Column="3" Margin="16,0" VerticalAlignment="Center">
+                <!-- Zone 3: elapsed, track, total. The labels are at least 36 px,
+                     and grow rather than clip for a track over an hour. -->
+                <Grid Grid.Column="4" VerticalAlignment="Center">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -870,17 +914,17 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock x:Name="PositionText" Grid.Column="0" Text="{Binding PositionDisplay}"
-                               Style="{DynamicResource AfReadout}"
-                               MinWidth="42" TextAlignment="Right" />
+                               Style="{DynamicResource type.timeLabel}"
+                               MinWidth="{theme:Token playbackBar.timeLabelWidth}"
+                               TextAlignment="Right"
+                               VerticalAlignment="Center" />
 
                     <Slider x:Name="SeekBar" Grid.Column="1"
-                            Margin="10,0"
-                            Style="{DynamicResource AfSlider}"
-                            Foreground="{DynamicResource AfSliderSeekFill}"
+                            Style="{StaticResource theme.slider}"
+                            Margin="{theme:Thickness X=playbackBar.seekGap}"
                             Minimum="0"
                             Maximum="{Binding DurationSeconds}"
                             Value="{Binding PositionSeconds, Mode=TwoWay}"
-                            IsMoveToPointEnabled="True"
                             VerticalAlignment="Center"
                             AutomationProperties.Name="Playback position"
                             Thumb.DragStarted="SeekBar_DragStarted"
@@ -888,56 +932,93 @@
                             PreviewMouseLeftButtonUp="SeekBar_PreviewMouseLeftButtonUp" />
 
                     <TextBlock x:Name="DurationText" Grid.Column="2" Text="{Binding DurationDisplay}"
-                               Style="{DynamicResource AfReadout}"
-                               MinWidth="42" />
+                               Style="{DynamicResource type.timeLabel}"
+                               MinWidth="{theme:Token playbackBar.timeLabelWidth}"
+                               VerticalAlignment="Center" />
                 </Grid>
 
-                <Grid Grid.Column="4" VerticalAlignment="Center">
+                <!-- Zone 4: speaker, 8 px, volume track on the seekbar's line. -->
+                <Grid Grid.Column="6" VerticalAlignment="Center">
                     <!--
                         Volume goes dead in exclusive mode, where the gain has to stay at
-                        unity. The whole group dims: WPF-UI's disabled Slider still draws
-                        an accent-coloured thumb, which reads as active.
+                        unity, and the whole group dims, mute included.
                     -->
-                    <StackPanel Orientation="Horizontal"
-                                ToolTip="{Binding VolumeTooltip}"
-                                Opacity="{Binding IsVolumeEnabled, Converter={StaticResource EnabledOpacity}}">
-                        <ui:SymbolIcon Symbol="Speaker224"
-                                       FontSize="{DynamicResource AfIconSizeSmall}"
-                                       VerticalAlignment="Center" />
-                        <Slider Width="96" Margin="8,0,0,0"
-                                Style="{DynamicResource AfSlider}"
+                    <Grid x:Name="VolumeGroup" ToolTip="{Binding VolumeTooltip}">
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsVolumeEnabled}" Value="False">
+                                        <Setter Property="Opacity" Value="{theme:Token layout.disabledOpacity}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="{theme:Token playbackBar.volumeGap}" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Mute: an "x" for the waves while muted; the slider shows
+                             zero, and unmuting restores the level. -->
+                        <ToggleButton x:Name="MuteButton" Grid.Column="0"
+                                      Style="{StaticResource theme.bareIconButton}"
+                                      Command="{Binding ToggleMuteCommand}"
+                                      IsChecked="{Binding IsMuted, Mode=OneWay}"
+                                      IsEnabled="{Binding IsVolumeEnabled}"
+                                      AutomationProperties.Name="{Binding MuteLabel}">
+                            <Viewbox Width="{theme:Token playbackBar.icons.volume}" Height="{theme:Token playbackBar.icons.volume}">
+                                <Canvas Width="24" Height="24">
+                                    <Path Style="{StaticResource theme.iconFill}"
+                                          StrokeThickness="{theme:Token playbackBar.volumeIconStrokeOn24Grid}"
+                                          Data="M 11,5 L 6.5,9 H 3.5 V 15 H 6.5 L 11,19 Z" />
+                                    <Path Style="{StaticResource theme.iconStroke}"
+                                          StrokeThickness="{theme:Token playbackBar.volumeIconStrokeOn24Grid}"
+                                          Visibility="{Binding IsMuted, Converter={StaticResource BoolToVisibility}, ConverterParameter=Inverse}"
+                                          Data="M 15.5,8.5 A 5,5 0 0 1 15.5,15.5 M 18.5,5.5 A 9,9 0 0 1 18.5,18.5" />
+                                    <Path Style="{StaticResource theme.iconStroke}"
+                                          StrokeThickness="{theme:Token playbackBar.volumeIconStrokeOn24Grid}"
+                                          Visibility="{Binding IsMuted, Converter={StaticResource BoolToVisibility}}"
+                                          Data="M 16,9.5 L 21,14.5 M 21,9.5 L 16,14.5" />
+                                </Canvas>
+                            </Viewbox>
+                        </ToggleButton>
+
+                        <Slider x:Name="VolumeSlider" Grid.Column="2"
+                                Style="{StaticResource theme.slider}"
+                                Tag="{theme:Token playbackBar.volumeThumb}"
+                                Foreground="{DynamicResource color.slider.volumeFill}"
                                 Minimum="0" Maximum="1"
                                 SmallChange="0.05" LargeChange="0.1"
-                                IsMoveToPointEnabled="True"
                                 Value="{Binding Volume, Mode=TwoWay}"
                                 IsEnabled="{Binding IsVolumeEnabled}"
                                 VerticalAlignment="Center"
                                 AutomationProperties.Name="Volume" />
-                    </StackPanel>
+                    </Grid>
 
                     <!--
-                        The output readout, right-aligned under the slider. It sits in
-                        a zero-height Canvas so it takes no layout space: the slider
-                        stays level with the seek bar, and a long exclusive readout
-                        runs left rather than widening the column and squeezing the
-                        seek bar each time the mode changes. Outside the dimmed
-                        group, because exclusive mode is exactly when it matters.
+                        The output readout, right-aligned just under the volume row. It
+                        sits in a zero-height Canvas so it takes no layout space: the
+                        slider stays level with the seek bar, and a long readout runs
+                        left rather than widening the zone. Outside the dimmed group,
+                        because exclusive mode is exactly when it matters.
                     -->
                     <Canvas Height="0" VerticalAlignment="Bottom"
                             Visibility="{Binding IsOutputActive, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock x:Name="OutputReadout"
-                                   Canvas.Right="0" Canvas.Top="6"
+                                   Canvas.Right="0" Canvas.Top="0"
                                    Text="{Binding OutputDescription}"
-                                   Style="{DynamicResource AfReadout}"
-                                   FontSize="{DynamicResource AfFontSizeSmall}"
+                                   Style="{DynamicResource type.outputReadout}"
                                    ToolTip="{Binding OutputDeviceName}" />
                     </Canvas>
                 </Grid>
             </Grid>
-        </ContentControl>
+        </HeaderedContentControl>
 
-        <!-- ============================================ status -->
-        <Grid Grid.Row="3" Margin="{DynamicResource AfPadWindowStatus}">
+        <!-- ============================================ status bar (6.8) -->
+        <Grid x:Name="StatusBar" Grid.Row="3"
+              Height="{theme:Token layout.statusBarHeight}"
+              Margin="{theme:Thickness X=layout.statusBarPaddingX}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -945,31 +1026,50 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" Orientation="Horizontal">
-                <ui:Button Command="{Binding ScanCommand}"
-                           Icon="{ui:SymbolIcon ArrowClockwise16}"
-                           Appearance="Transparent"
-                           Padding="2"
-                           Margin="0,0,6,0"
-                           VerticalAlignment="Center"
-                           IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBool}}"
-                           AutomationProperties.Name="Rescan library"
-                           ToolTip="Rescan library" />
+            <!-- Refresh, then the library dot and totals. -->
+            <Grid Grid.Column="0" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-                <!-- Library state as a shape and a colour, beside the words that
-                     say the same thing. Empty in Dark, and zero-width with it. -->
-                <Control Template="{DynamicResource AfStatusLamp}"
-                         VerticalAlignment="Center"
-                         Focusable="False" IsTabStop="False"
-                         AutomationProperties.Name="Library status" />
+                <Button x:Name="RefreshButton" Grid.Column="0"
+                        Style="{StaticResource theme.chip}"
+                        Width="{theme:Token statusBar.refreshButton}"
+                        Height="{theme:Token statusBar.refreshButton}"
+                        Padding="0"
+                        Margin="{theme:Thickness Right=statusBar.refreshAfterGap}"
+                        Command="{Binding ScanCommand}"
+                        IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBool}}"
+                        AutomationProperties.Name="Refresh library"
+                        ToolTip="Refresh library">
+                    <Viewbox Width="{theme:Token statusBar.refreshIcon}" Height="{theme:Token statusBar.refreshIcon}">
+                        <Canvas Width="24" Height="24">
+                            <Path Style="{StaticResource theme.iconStroke}"
+                                  StrokeThickness="{theme:Token statusBar.refreshIconStrokeOn24Grid}"
+                                  Data="M 20,12 A 8,8 0 1 1 17.66,6.34 M 20,4 V 9 H 15" />
+                        </Canvas>
+                    </Viewbox>
+                </Button>
 
-                <TextBlock Text="{Binding StatusText}"
-                           Style="{DynamicResource AfMetaText}"
+                <Ellipse x:Name="LibraryDot" Grid.Column="1"
+                         Style="{StaticResource theme.statusDot}"
+                         Fill="{DynamicResource color.status.libraryDot}"
+                         Margin="{theme:Thickness Left=statusBar.dotTextGap}" />
+
+                <TextBlock x:Name="StatusLine" Grid.Column="2"
+                           Text="{Binding StatusText}"
+                           Style="{DynamicResource type.status}"
+                           Margin="{theme:Thickness Left=statusBar.dotTextGap}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding StatusText}"
                            VerticalAlignment="Center" />
-            </StackPanel>
+            </Grid>
 
             <ProgressBar Grid.Column="1"
-                         Width="180" Height="4"
+                         Style="{StaticResource theme.scanProgress}"
+                         Margin="{theme:Thickness Left=statusBar.chipGap}"
                          Minimum="0" Maximum="1"
                          Value="{Binding ScanFraction}"
                          VerticalAlignment="Center"
@@ -977,56 +1077,46 @@
                          Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" />
 
             <!--
-                Last.fm, when connected: a dot and a word, and the word changes with
-                the state, so the colour is never the only signal. Hidden until
+                Last.fm, when connected: a teal dot while scrobbling, yellow (the
+                "off" colour) when off, failing or needing reconnect. The label
+                says which, so colour is never the only signal. Hidden until
                 connected. Clicking opens the Last.fm window.
             -->
-            <ui:Button x:Name="LastFmIndicator" Grid.Column="2"
-                       Command="{Binding ShowLastFmCommand}"
-                       Appearance="Transparent"
-                       Padding="6,2"
-                       Margin="8,0,0,0"
-                       VerticalAlignment="Center"
-                       ToolTip="{Binding LastFmToolTip}"
-                       AutomationProperties.Name="{Binding LastFmLabel}"
-                       AutomationProperties.HelpText="{Binding LastFmToolTip}"
-                       Visibility="{Binding IsLastFmShown, Converter={StaticResource BoolToVisibility}}">
+            <Button x:Name="LastFmIndicator" Grid.Column="2"
+                    Style="{StaticResource theme.chip}"
+                    Margin="{theme:Thickness Left=statusBar.chipGap}"
+                    Command="{Binding ShowLastFmCommand}"
+                    ToolTip="{Binding LastFmToolTip}"
+                    AutomationProperties.Name="{Binding LastFmLabel}"
+                    AutomationProperties.HelpText="{Binding LastFmToolTip}"
+                    Visibility="{Binding IsLastFmShown, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Orientation="Horizontal">
-                    <Ellipse Width="7" Height="7" Margin="0,0,6,0" VerticalAlignment="Center"
-                             Stroke="{DynamicResource AfStatusKeyline}"
-                             StrokeThickness="{DynamicResource AfStatusKeylineThickness}">
+                    <Ellipse Margin="{theme:Thickness Right=statusBar.chipDotGap}">
                         <Ellipse.Style>
-                            <Style TargetType="Ellipse">
-                                <Setter Property="Fill" Value="{DynamicResource AfStatusOk}" />
+                            <Style TargetType="Ellipse" BasedOn="{StaticResource theme.statusDot}">
+                                <Setter Property="Fill" Value="{DynamicResource color.status.lastFmOff}" />
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding LastFmState}" Value="{x:Static scrob:ScrobblerState.Off}">
-                                        <Setter Property="Fill" Value="{DynamicResource AfStatusIdle}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding LastFmState}" Value="{x:Static scrob:ScrobblerState.Failing}">
-                                        <Setter Property="Fill" Value="{DynamicResource AfStatusCaution}" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding LastFmState}" Value="{x:Static scrob:ScrobblerState.NeedsReconnect}">
-                                        <Setter Property="Fill" Value="{DynamicResource AfStatusDanger}" />
+                                    <DataTrigger Binding="{Binding LastFmState}" Value="{x:Static scrob:ScrobblerState.Scrobbling}">
+                                        <Setter Property="Fill" Value="{DynamicResource color.status.lastFmDot}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Ellipse.Style>
                     </Ellipse>
                     <TextBlock Text="{Binding LastFmLabel}"
-                               Style="{DynamicResource AfMetaText}"
-                               FontSize="{DynamicResource AfFontSizeSmall}"
+                               Style="{DynamicResource type.status}"
                                VerticalAlignment="Center" />
                 </StackPanel>
-            </ui:Button>
+            </Button>
 
-            <ToggleButton Grid.Column="3"
-                          Content="Bit-Perfect"
+            <!-- Bit-Perfect: the dot alone shows the state (no On/Off text);
+                 as a toggle button, screen readers still announce it. -->
+            <ToggleButton x:Name="BitPerfectToggle" Grid.Column="3"
+                          Style="{StaticResource theme.chip}"
+                          Margin="{theme:Thickness Left=statusBar.chipGap}"
                           IsChecked="{Binding IsExclusiveOutput, Mode=TwoWay}"
                           IsEnabled="{Binding CanUseExclusiveOutput}"
-                          FontSize="{DynamicResource AfFontSizeSmall}"
-                          VerticalAlignment="Center"
-                          Margin="8,0,0,0"
-                          Padding="{DynamicResource AfPadUtilityKey}">
+                          AutomationProperties.Name="Bit-Perfect">
                 <ToggleButton.ToolTip>
                     <TextBlock>
                         Exclusive WASAPI: opens the sound device at each track's own<LineBreak />
@@ -1035,6 +1125,26 @@
                         volume slider is fixed at 100%.
                     </TextBlock>
                 </ToggleButton.ToolTip>
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse x:Name="BitPerfectDot"
+                             Margin="{theme:Thickness Right=statusBar.chipDotGap}"
+                             Stroke="{DynamicResource color.status.dotRing}"
+                             StrokeThickness="{theme:Token layout.panelBorder}">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse" BasedOn="{StaticResource theme.statusDot}">
+                                <Setter Property="Fill" Value="{DynamicResource color.status.bitPerfectOff}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsExclusiveOutput}" Value="True">
+                                        <Setter Property="Fill" Value="{DynamicResource color.status.bitPerfectOn}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Text="Bit-Perfect"
+                               Style="{DynamicResource type.status}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
             </ToggleButton>
         </Grid>
     </Grid>

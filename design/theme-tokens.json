@@ -44,6 +44,7 @@
     "control": {
       "face": "#E4E1DD",
       "faceBorder": "#A9A6A1",
+      "faceHover": "#ECE9E5",
       "iconNeutral": "#3F3D3B",
       "iconOff": "#75726E",
       "shuffleOn": "#2F5DB8",
@@ -62,6 +63,9 @@
       "chipBorder": "#9C9995",
       "libraryDot": "#15786C",
       "lastFmDot": "#15786C",
+      "lastFmOff": "#FFDA00",
+      "scanTrack": "#ADAAA5",
+      "scanFill": "#4E4B48",
       "bitPerfectOff": "#FFDA00",
       "bitPerfectOn": "#15786C",
       "dotRing": "rgba(0,0,0,0.25)"
@@ -127,7 +131,8 @@
     "panelBorder": 1,
     "panelHeaderHeight": 28,
     "panelHeaderPaddingX": 14,
-    "listPadding": 6
+    "listPadding": 6,
+    "disabledOpacity": 0.32
   },
   "titleBar": {
     "logoSlot": { "width": 40, "height": 36, "align": "centered over ARTISTS label" },
@@ -181,15 +186,25 @@
     "volumeZoneWidth": 240,
     "volumeButton": 44,
     "volumeGap": 8,
-    "volumeThumb": 12
+    "volumeThumb": 12,
+    "seekMinTrackWidth": 120,
+    "sliderHitHeight": 22,
+    "pressedOffset": 1,
+    "iconStrokeOn24Grid": 2.2,
+    "volumeIconStrokeOn24Grid": 2
   },
   "statusBar": {
     "refreshButton": 26,
     "refreshIcon": 14,
+    "refreshIconStrokeOn24Grid": 2.2,
     "refreshAfterGap": 6,
+    "dotTextGap": 8,
     "chipHeight": 26,
     "chipPaddingX": 12,
     "chipGap": 10,
-    "dotSize": 7
+    "chipDotGap": 7,
+    "dotSize": 7,
+    "scanProgressWidth": 180,
+    "scanProgressHeight": 4
   }
 }

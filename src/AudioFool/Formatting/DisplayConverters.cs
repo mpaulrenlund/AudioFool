@@ -74,10 +74,3 @@ public sealed class InverseBoolConverter : ReadOnlyConverter
     public override object Convert(object? value, Type t, object? p, CultureInfo c) =>
         value is not true;
 }
-
-/// <summary>Dims a whole control group when it has been disabled.</summary>
-public sealed class EnabledOpacityConverter : ReadOnlyConverter
-{
-    public override object Convert(object? value, Type t, object? p, CultureInfo c) =>
-        value is true ? 1.0 : 0.32;
-}

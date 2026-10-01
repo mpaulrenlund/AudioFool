@@ -139,20 +139,6 @@ internal sealed class OutputChain : IDisposable
         Bass.ChannelSetAttribute(_mixer, ChannelAttribute.Volume, Math.Clamp(volume, 0, 1));
     }
 
-    /// <summary>Human-readable summary for the status bar.</summary>
-    public string Describe()
-    {
-        var rate = SampleRate % 1000 == 0
-            ? $"{SampleRate / 1000} kHz"
-            : $"{SampleRate / 1000.0:0.#} kHz";
-
-        var depth = DeviceBitDepth > 0 ? $"/{DeviceBitDepth}-bit" : "";
-
-        return Mode == OutputMode.Exclusive
-            ? $"Exclusive {rate}{depth} (bit-perfect)"
-            : $"Shared {rate}{depth}";
-    }
-
     public void Dispose()
     {
         if (_disposed)

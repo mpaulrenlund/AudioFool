@@ -220,11 +220,9 @@ public sealed class AudioEngine : IDisposable
                 if (_output is null)
                     return "not started";
 
-                // DoP looks like ordinary high-rate PCM from the device's side, so
-                // say which it is rather than leaving it ambiguous.
-                return _isDopHandle.ContainsKey(_currentStream)
-                    ? $"{_output.Describe()} · DSD over PCM"
-                    : _output.Describe();
+                return OutputReadout.Describe(
+                    _output.Mode, _output.SampleRate, _output.DeviceBitDepth,
+                    RateOf(_currentStream), _isDopHandle.ContainsKey(_currentStream));
             }
         }
     }

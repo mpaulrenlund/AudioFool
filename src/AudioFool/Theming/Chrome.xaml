@@ -634,4 +634,251 @@
         </Style.Triggers>
     </Style>
 
+    <!-- ===================================================== playback bar -->
+
+    <theme:ThumbOverhangConverter x:Key="theme.thumbOverhang" />
+
+    <!-- Icon strokes on the 24-unit grid, as the mockup draws them, in the
+         Foreground of the button they sit in. theme.iconFill also fills. -->
+    <Style x:Key="theme.iconStroke" TargetType="Shape">
+        <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Control}}" />
+        <Setter Property="StrokeThickness" Value="{theme:Token playbackBar.iconStrokeOn24Grid}" />
+        <Setter Property="StrokeStartLineCap" Value="Round" />
+        <Setter Property="StrokeEndLineCap" Value="Round" />
+        <Setter Property="StrokeLineJoin" Value="Round" />
+    </Style>
+
+    <Style x:Key="theme.iconFill" TargetType="Shape" BasedOn="{StaticResource theme.iconStroke}">
+        <Setter Property="Fill" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Control}}" />
+    </Style>
+
+    <Style x:Key="theme.iconSolid" TargetType="Shape">
+        <Setter Property="Fill" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Control}}" />
+    </Style>
+
+    <!--
+        6.7: a round transport button with the molded look. Tag names the shadow
+        token: shadow.controlButton for the 44 px buttons, shadow.playButton for
+        Play/Pause. The icon is the content and draws in the button's
+        Foreground. Hover brightens the face; pressed nudges the whole button
+        down by playbackBar.pressedOffset.
+    -->
+    <Style x:Key="theme.transportButton" TargetType="ButtonBase">
+        <Setter Property="Width" Value="{theme:Token playbackBar.buttonSize}" />
+        <Setter Property="Height" Value="{theme:Token playbackBar.buttonSize}" />
+        <Setter Property="Tag" Value="shadow.controlButton" />
+        <Setter Property="Foreground" Value="{DynamicResource color.control.iconNeutral}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ButtonBase">
+                    <Grid x:Name="Root" Background="Transparent">
+                        <theme:MoldedFace x:Name="Face"
+                                          Face="{DynamicResource color.control.face}"
+                                          Stroke="{DynamicResource color.control.faceBorder}"
+                                          StrokeThickness="{theme:Token layout.panelBorder}"
+                                          Shadow="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Effect="{DynamicResource shadow.controlButton}" />
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Tag" Value="shadow.playButton">
+                            <Setter TargetName="Face" Property="Effect" Value="{DynamicResource shadow.playButton}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Face" Property="Face" Value="{DynamicResource color.control.faceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Root" Property="RenderTransform">
+                                <Setter.Value>
+                                    <TranslateTransform Y="{theme:Token playbackBar.pressedOffset}" />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="theme.playButton" TargetType="ButtonBase" BasedOn="{StaticResource theme.transportButton}">
+        <Setter Property="Width" Value="{theme:Token playbackBar.playButtonSize}" />
+        <Setter Property="Height" Value="{theme:Token playbackBar.playButtonSize}" />
+        <Setter Property="Tag" Value="shadow.playButton" />
+        <Setter Property="Foreground" Value="{DynamicResource color.control.playPause}" />
+    </Style>
+
+    <!-- The speaker: the same hit area as a transport button, with no face. -->
+    <Style x:Key="theme.bareIconButton" TargetType="ButtonBase">
+        <Setter Property="Width" Value="{theme:Token playbackBar.volumeButton}" />
+        <Setter Property="Height" Value="{theme:Token playbackBar.volumeButton}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.text.muted}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ButtonBase">
+                    <Grid Background="Transparent">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The played portion: a rounded bar in the slider's Foreground, from the
+         visible track's start to the handle's centre. -->
+    <Style x:Key="theme.sliderFill" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Grid Background="Transparent">
+                        <Border Height="{theme:Token playbackBar.trackHeight}"
+                                VerticalAlignment="Center"
+                                Margin="{Binding Tag, RelativeSource={RelativeSource AncestorType=Slider}, Converter={StaticResource theme.thumbOverhang}, ConverterParameter=fill}"
+                                CornerRadius="{DynamicResource radius.sliderTrack}"
+                                Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Slider}}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="theme.sliderSpace" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Grid Background="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        6.7: the seekbar and volume slider share this. A 6 px fully rounded
+        track with a faint inset along the top, the played portion in the
+        slider's Foreground, and a round handle whose size is the slider's Tag.
+        The whole sliderHitHeight strip takes clicks. No BasedOn: WPF-UI's
+        Slider style would bring its own template triggers.
+    -->
+    <Style x:Key="theme.slider" TargetType="Slider">
+        <Setter Property="Height" Value="{theme:Token playbackBar.sliderHitHeight}" />
+        <Setter Property="Tag" Value="{theme:Token playbackBar.seekThumb}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.slider.seekFill}" />
+        <Setter Property="IsMoveToPointEnabled" Value="True" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid Background="Transparent">
+                        <Border Height="{theme:Token playbackBar.trackHeight}"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource color.slider.track}"
+                                CornerRadius="{DynamicResource radius.sliderTrack}"
+                                SnapsToDevicePixels="True">
+                            <Border Height="{theme:Token shadow.sliderTrackInset.inset1.depth}"
+                                    VerticalAlignment="Top"
+                                    Background="{DynamicResource shadow.sliderTrackInset.inset1.fade}"
+                                    CornerRadius="{DynamicResource radius.sliderTrack}" />
+                        </Border>
+                        <Track x:Name="PART_Track"
+                               Margin="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource theme.thumbOverhang}}">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource theme.sliderFill}" Command="Slider.DecreaseLarge" />
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Style="{StaticResource theme.sliderSpace}" Command="Slider.IncreaseLarge" />
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Width="{TemplateBinding Tag}" Height="{TemplateBinding Tag}">
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Ellipse Fill="{DynamicResource color.slider.thumb}"
+                                                     Stroke="{DynamicResource color.slider.thumbBorder}"
+                                                     StrokeThickness="{theme:Token layout.panelBorder}"
+                                                     Effect="{DynamicResource shadow.sliderThumb}" />
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================================================= status bar -->
+
+    <!--
+        6.8: Refresh, Last.fm and Bit-Perfect. Chip grey, a 1 px border, 4 px
+        corners, 26 px tall. Hover brightens the face like a transport button's.
+    -->
+    <Style x:Key="theme.chip" TargetType="ButtonBase">
+        <Setter Property="Height" Value="{theme:Token statusBar.chipHeight}" />
+        <Setter Property="Padding" Value="{theme:Thickness X=statusBar.chipPaddingX}" />
+        <Setter Property="FontFamily" Value="{DynamicResource font.family}" />
+        <Setter Property="FontSize" Value="{theme:Token type.status.size}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.text.status}" />
+        <Setter Property="Background" Value="{DynamicResource color.status.chipBg}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource color.status.chipBorder}" />
+        <Setter Property="BorderThickness" Value="{theme:Thickness All=layout.panelBorder}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ButtonBase">
+                    <Border x:Name="Chip"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{DynamicResource radius.chip}"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chip" Property="Background" Value="{DynamicResource color.control.faceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="{theme:Token layout.disabledOpacity}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The 7 px status dot. -->
+    <Style x:Key="theme.statusDot" TargetType="Ellipse">
+        <Setter Property="Width" Value="{theme:Token statusBar.dotSize}" />
+        <Setter Property="Height" Value="{theme:Token statusBar.dotSize}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Scan progress: not in the spec. A thin neutral bar, not teal, which
+         means playback (the user's call). -->
+    <Style x:Key="theme.scanProgress" TargetType="ProgressBar">
+        <Setter Property="Width" Value="{theme:Token statusBar.scanProgressWidth}" />
+        <Setter Property="Height" Value="{theme:Token statusBar.scanProgressHeight}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Border x:Name="PART_Track"
+                            Background="{DynamicResource color.status.scanTrack}"
+                            CornerRadius="{DynamicResource radius.sliderTrack}">
+                        <Border x:Name="PART_Indicator"
+                                HorizontalAlignment="Left"
+                                Background="{DynamicResource color.status.scanFill}"
+                                CornerRadius="{DynamicResource radius.sliderTrack}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

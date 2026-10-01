@@ -137,7 +137,8 @@ public class ThemeTokensTests
     {
         var t = Real();
 
-        Assert.Equal(48, t.Colors.Count);
+        // 48, plus control.faceHover and status.lastFmOff, scanTrack and scanFill (session 4).
+        Assert.Equal(52, t.Colors.Count);
         Assert.Equal(19, t.TextStyles.Count);
         Assert.Equal(8, t.Shadows.Count);
         Assert.Equal(["Segoe UI Variable Text", "Segoe UI"], t.FontFamily);
