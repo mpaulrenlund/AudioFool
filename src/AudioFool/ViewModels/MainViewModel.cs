@@ -440,23 +440,22 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// <summary>Header text over the track list.</summary>
     public string AlbumHeaderTitle => SelectedAlbum?.Album.Title ?? "";
 
-    /// <summary>Artist, year, (discs), duration - one per row rather than joined onto a line.</summary>
-    public IReadOnlyList<string> AlbumHeaderSubtitleLines
-    {
-        get
-        {
-            var album = SelectedAlbum?.Album;
-            if (album is null)
-                return [];
+    /// <summary>
+    /// The four stacked lines under the header title (spec 6.5): artist, year,
+    /// "N tracks" and the duration. No disc count (the user's call).
+    /// </summary>
+    public string AlbumHeaderArtist => SelectedAlbum?.Album.ArtistName ?? "";
 
-            List<string> lines = [album.ArtistName, album.YearDisplay];
-            if (album.DiscCount > 1)
-                lines.Add($"{album.DiscCount} discs");
+    public string AlbumHeaderYear => SelectedAlbum?.Album.YearDisplay ?? "";
 
-            lines.Add(Display.Time(album.TotalDuration));
-            return lines;
-        }
-    }
+    public string AlbumHeaderTrackCount => SelectedAlbum?.Album.TrackCountDisplay ?? "";
+
+    /// <summary>
+    /// "1:06:27", or "41:40" under an hour: the Time column's clock format, not
+    /// the spec's "1 hr 6 min" (the user's call).
+    /// </summary>
+    public string AlbumHeaderDuration =>
+        SelectedAlbum is { } album ? Display.Time(album.Album.TotalDuration) : "";
 
     // ---------------------------------------------------------------- startup
 
@@ -638,7 +637,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
 
         OnPropertyChanged(nameof(AlbumHeaderTitle));
-        OnPropertyChanged(nameof(AlbumHeaderSubtitleLines));
+        OnPropertyChanged(nameof(AlbumHeaderArtist));
+        OnPropertyChanged(nameof(AlbumHeaderYear));
+        OnPropertyChanged(nameof(AlbumHeaderTrackCount));
+        OnPropertyChanged(nameof(AlbumHeaderDuration));
 
         _ = LoadAlbumHeaderArtAsync(value);
     }

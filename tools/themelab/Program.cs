@@ -178,7 +178,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which == "queue")
+        if (which is "queue" or "clicks")
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
         var runtime = new BassRuntime();
@@ -209,7 +209,7 @@ internal static class Program
         {
             LoadRealLibrary(vm);
         }
-        else if (which is "edit" or "queue")
+        else if (which is "edit" or "queue" or "clicks")
         {
             LoadTempLibrary(vm);
         }
@@ -346,6 +346,49 @@ internal static class Program
             }
         }
 
+
+        // --songprobe 1: measure the album header and song table (spec 6.5, 6.6)
+        // and print each realised row's state, colours and cell positions.
+        if (Arg(args, "--songprobe") is not null)
+        {
+            Settle(200);
+            PrintSongProbe(main);
+        }
+
+        // --albumprobe 1: each realised album title's clamp, as laid out in the list.
+        if (Arg(args, "--albumprobe") is not null)
+        {
+            Settle(200);
+            var albums = (System.Windows.Controls.ListBox)main.FindName("AlbumList");
+            foreach (var t in Descendants(albums).OfType<System.Windows.Controls.TextBlock>().Where(t => t.Name == "AlbumTitleText"))
+            {
+                var p = t.TranslatePoint(new Point(0, 0), main);
+                Console.WriteLine($"album title '{t.Text}': x {p.X:0.##} y {p.Y:0.##} actual {t.ActualWidth:0.###} x {t.ActualHeight:0.###} "
+                    + $"maxHeight={t.MaxHeight:0.###} lineHeight={t.LineHeight:0.###} stacking={t.LineStackingStrategy} wrap={t.TextWrapping} "
+                    + $"trim={t.TextTrimming} rounding={t.UseLayoutRounding} dpi={VisualTreeHelper.GetDpi(t).PixelsPerDip}");
+            }
+
+            // --clampprobe "35.1,36,44": render the longest title at each MaxHeight.
+            if (Arg(args, "--clampprobe") is { } heights)
+            {
+                var longest = Descendants(albums).OfType<System.Windows.Controls.TextBlock>()
+                    .Where(t => t.Name == "AlbumTitleText").OrderByDescending(t => t.Text.Length).First();
+                // --clampstack MaxHeight: try the other line-stacking strategy.
+                if (Arg(args, "--clampstack") is { } stack)
+                    longest.LineStackingStrategy = Enum.Parse<LineStackingStrategy>(stack);
+                // --clampround 0: layout rounding off on the title block.
+                if (Arg(args, "--clampround") == "0")
+                    longest.UseLayoutRounding = false;
+                foreach (var mh in heights.Split(',').Select(v => double.Parse(v, CultureInfo.InvariantCulture)))
+                {
+                    longest.MaxHeight = mh;
+                    main.UpdateLayout();
+                    Settle(50);
+                    Console.WriteLine($"clamp {mh}: actual {longest.ActualHeight:0.###}");
+                    Save(main, Path.ChangeExtension(outPath, null) + $"_clamp{mh}.png", w, h, scale);
+                }
+            }
+        }
 
         // --albumtips 1: raise ToolTipOpening on every realised album row and print
         // whether the full-title tooltip would show (only when the title is trimmed).
@@ -656,7 +699,7 @@ internal static class Program
             }
         }
 
-        if (which is "edit" or "queue")
+        if (which is "edit" or "queue" or "clicks")
         {
             // Each save persists the library, and LibraryCache.CachePath is the
             // real library.json - so it is put back byte for byte afterwards.
@@ -667,7 +710,9 @@ internal static class Program
                 File.Copy(cachePath, backup, overwrite: true);
             try
             {
-                if (which == "queue")
+                if (which == "clicks")
+                    RunClicks(main, vm);
+                else if (which == "queue")
                     RunQueueEdit(vm, engine);
                 else
                     RunInlineEdit(main, vm, outPath, w, h, scale);
@@ -1276,14 +1321,155 @@ internal static class Program
     private static Album Alb(string title, string artist, int year, IReadOnlyList<Track> tracks) =>
         new() { Title = title, ArtistName = artist, Year = year, Tracks = tracks };
 
+    private static IEnumerable<DependencyObject> Descendants(DependencyObject node)
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+        {
+            var child = VisualTreeHelper.GetChild(node, i);
+            yield return child;
+            foreach (var deeper in Descendants(child))
+                yield return deeper;
+        }
+    }
+
+    /// <summary>
+    /// --window clicks: on the scratch album, silently (volume 0), a single click
+    /// on a song row selects it without playing, and a double-click plays it
+    /// (spec 6.6). The mouse events are raised on the row's own cell text, as
+    /// WPF raises them, so the grid's real handlers run.
+    /// </summary>
+    private static void RunClicks(MainWindow main, MainViewModel vm)
+    {
+        vm.Volume = 0;
+        var grid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
+        main.UpdateLayout();
+        Settle(200);
+
+        System.Windows.Controls.TextBlock SongText(int index)
+        {
+            var row = (System.Windows.Controls.DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(index);
+            var cell = Descendants(row).OfType<System.Windows.Controls.DataGridCell>().First(c => c.Column.DisplayIndex == 1);
+            return Descendants(cell).OfType<System.Windows.Controls.TextBlock>().First();
+        }
+
+        void Raise(UIElement target, RoutedEvent e, UIElement source)
+        {
+            var args = new System.Windows.Input.MouseButtonEventArgs(
+                System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left)
+            { RoutedEvent = e, Source = source };
+            target.RaiseEvent(args);
+            Console.WriteLine($"  raised {e.Name} on {target.GetType().Name} source={(source as System.Windows.Controls.TextBlock)?.Text} handled={args.Handled} original={args.OriginalSource?.GetType().Name}");
+            Settle(50);
+        }
+
+        string State() => $"selected={grid.SelectedIndex} ({(grid.SelectedItem as Track)?.Title}) count={grid.SelectedItems.Count} "
+            + $"playing={vm.NowPlaying?.Title ?? "nothing"} isPlaying={vm.IsPlaying}";
+
+        Console.WriteLine($"before: {State()}");
+
+        // One click on row 2: down and up on the song text.
+        var two = SongText(2);
+        Raise(two, UIElement.MouseLeftButtonDownEvent, two);
+        Raise(two, UIElement.MouseLeftButtonUpEvent, two);
+        Settle(900); // past the double-click time, so a slow-click edit would have opened
+        Console.WriteLine($"single click row 2: {State()} editing={grid.CurrentCell.Column is not null && Descendants(grid).OfType<System.Windows.Controls.DataGridCell>().Any(c => c.IsEditing)}");
+
+        // Double-click on row 1: Control raises MouseDoubleClick on the grid with
+        // the clicked element as its source.
+        var one = SongText(1);
+        Raise(one, UIElement.MouseLeftButtonDownEvent, one);
+        Raise(one, UIElement.MouseLeftButtonUpEvent, one);
+        Raise(grid, System.Windows.Controls.Control.MouseDoubleClickEvent, one);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (vm.NowPlaying is null && clock.ElapsedMilliseconds < 5000)
+            Settle(5);
+        Console.WriteLine($"  first to start: {vm.NowPlaying?.Title ?? "nothing"} after {clock.ElapsedMilliseconds} ms");
+        Settle(300);
+        Console.WriteLine($"double-click row 1: {State()}");
+        var playingRow = (System.Windows.Controls.DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(1);
+        for (var i = 0; i < grid.Items.Count; i++)
+            Console.WriteLine($"  row {i} {((Track)grid.Items[i]).Title} nowPlaying={AudioFool.TrackRow.GetIsNowPlaying((System.Windows.Controls.DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(i))}");
+        vm.TogglePlayCommand.Execute(null);
+        Settle(300);
+        Console.WriteLine($"after pause: {State()}");
+    }
+
+    private static void PrintSongProbe(Window main)
+    {
+        string Box(FrameworkElement e)
+        {
+            var p = e.TranslatePoint(new Point(0, 0), main);
+            return $"x {p.X:0.##}-{p.X + e.ActualWidth:0.##} y {p.Y:0.##}-{p.Y + e.ActualHeight:0.##} ({e.ActualWidth:0.##} x {e.ActualHeight:0.##})";
+        }
+        static string Ink(object? brush) => brush is SolidColorBrush b ? b.Color.ToString() : brush?.ToString() ?? "null";
+
+        var grid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
+        var panel = Descendants(main).OfType<System.Windows.Controls.HeaderedContentControl>().Last();
+        Console.WriteLine($"songs panel: {Box(panel)}");
+        Console.WriteLine($"grid: {Box(grid)} rowHeaderWidth={grid.RowHeaderWidth} rowHeaderActual={grid.RowHeaderActualWidth} cellsOffset={grid.CellsPanelHorizontalOffset} nonFrozen={grid.NonFrozenColumnsViewportHorizontalOffset}");
+
+        // Album header: the art and each line of text beside it.
+        var header = (FrameworkElement)panel.Header;
+        foreach (var e in Descendants(header).OfType<FrameworkElement>()
+                     .Where(e => e is System.Windows.Controls.Border { Effect: not null } or System.Windows.Controls.TextBlock { Text.Length: > 0 }))
+        {
+            var label = e is System.Windows.Controls.TextBlock t
+                ? $"text '{t.Text}' size={t.FontSize} weight={t.FontWeight.ToOpenTypeWeight()} ink={Ink(t.Foreground)} trim={t.TextTrimming} wrap={t.TextWrapping}"
+                : $"art border={Ink(((System.Windows.Controls.Border)e).BorderBrush)}";
+            Console.WriteLine($"  header {label}: {Box(e)}");
+        }
+        var strip = Descendants(panel).OfType<System.Windows.Controls.Border>().First(b => b.Name == "HeaderStrip");
+        Console.WriteLine($"  header strip: {Box(strip)} divider={Ink(strip.BorderBrush)} {strip.BorderThickness}");
+
+        var sv = Descendants(grid).OfType<System.Windows.Controls.ScrollViewer>().First();
+        Console.WriteLine($"scroll: vbar={sv.VerticalScrollBarVisibility} hbar={sv.HorizontalScrollBarVisibility} computedV={sv.ComputedVerticalScrollBarVisibility} scrollable={sv.ScrollableHeight:0.##} viewport={sv.ViewportWidth:0.##}");
+
+        foreach (var column in grid.Columns.OrderBy(c => c.DisplayIndex))
+            Console.WriteLine($"  column {column.Header,-12} width={column.ActualWidth:0.##} ({column.Width})");
+
+        var headersPresenter = Descendants(grid).OfType<System.Windows.Controls.Primitives.DataGridColumnHeadersPresenter>().First();
+        Console.WriteLine($"headers presenter: {Box(headersPresenter)}");
+        foreach (var h in Descendants(headersPresenter).OfType<System.Windows.Controls.Primitives.DataGridColumnHeader>().Where(h => h.Column is not null))
+        {
+            var text = Descendants(h).OfType<System.Windows.Controls.TextBlock>().FirstOrDefault();
+            Console.WriteLine($"  header '{h.Column.Header}': cell {Box(h)} label {(text is null ? "-" : Box(text))} size={text?.FontSize} weight={text?.FontWeight.ToOpenTypeWeight()} ink={Ink(text?.Foreground)}");
+        }
+
+        foreach (var row in Descendants(grid).OfType<System.Windows.Controls.DataGridRow>().OrderBy(r => r.GetIndex()).Take(6))
+        {
+            var fill = Descendants(row).OfType<System.Windows.Controls.Border>().First(b => b.Name == "Fill");
+            Console.WriteLine($"row {row.GetIndex()}: selected={row.IsSelected} nowPlaying={AudioFool.TrackRow.GetIsNowPlaying(row)} fill={Ink(fill.Background)} {Box(fill)} radius={fill.CornerRadius}");
+            foreach (var cell in Descendants(row).OfType<System.Windows.Controls.DataGridCell>().OrderBy(c => c.Column.DisplayIndex))
+            {
+                var text = Descendants(cell).OfType<System.Windows.Controls.TextBlock>().First();
+                var tri = Descendants(cell).OfType<System.Windows.Controls.Viewbox>().FirstOrDefault(v => v.Name == "Triangle");
+                var triText = tri is { Visibility: Visibility.Visible }
+                    ? $" triangle {Box(tri)} fill={Ink(Descendants(tri).OfType<System.Windows.Shapes.Path>().First().Fill)}"
+                    : "";
+                Console.WriteLine($"    {cell.Column.Header,-12} '{text.Text}' text {Box(text)} align={text.TextAlignment} size={text.FontSize} weight={text.FontWeight.ToOpenTypeWeight()} ink={Ink(text.Foreground)}{triText}");
+            }
+        }
+    }
+
     private static void Populate(MainViewModel vm)
     {
         var tracks = SampleTracks();
 
+        // --longalbum 120: Second Sight with that many tracks, numbered 1..N, for
+        // the song table's three-digit track numbers (spec 6.6).
+        if (Arg(Environment.GetCommandLineArgs(), "--longalbum") is { } longCount)
+        {
+            var count = int.Parse(longCount, CultureInfo.InvariantCulture);
+            tracks = Enumerable.Range(1, count)
+                .Select(i => Make($"Long Track {i}", "Aphelion Drive", "Second Sight", i, 1, 1997, "FLAC", 1000, 24, 96000, 200, count, 1))
+                .ToList();
+        }
+
         var aphelion = Artist(
             "Aphelion Drive",
             Alb("First Light", "Aphelion Drive", 1995, tracks.Take(6).ToList()),
-            Alb("Second Sight", "Aphelion Drive", 1997, tracks),
+            // --longtitle "<title>": the album header's two-line clamp (spec 6.5).
+            Alb(Arg(Environment.GetCommandLineArgs(), "--longtitle") ?? "Second Sight", "Aphelion Drive", 1997, tracks),
             Alb("Third Person", "Aphelion Drive", 2001, tracks.Take(8).ToList()));
 
         vm.Artists.Add(Artist("Aeon Static", Alb("Cold Boot", "Aeon Static", 1994, tracks.Take(4).ToList())));
@@ -1473,7 +1659,7 @@ internal static class Program
             var p = vm.NowPlaying;
             var row = Row(file);
             var ok = arrived && p is not null && p.Title == expectTitle && p.Artist == expectArtist
-                     && vm.WindowTitle == $"{expectArtist} – {expectTitle}"
+                     && vm.WindowTitle == $"{expectArtist} â€“ {expectTitle}"
                      && tracker.Current?.Title == expectTitle && tracker.Current?.Artist == expectArtist;
             Log($"{how} -> {file}: arrived={arrived} title='{p?.Title}' artist='{p?.Artist}' window='{vm.WindowTitle}' "
                 + $"scrobbler='{tracker.Current?.Artist} / {tracker.Current?.Title}' note={ReferenceEquals(p, row)} "

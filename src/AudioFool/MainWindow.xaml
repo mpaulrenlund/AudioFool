@@ -520,14 +520,14 @@
                           Background="Transparent" ResizeBehavior="PreviousAndNext" />
 
             <!--
-                Album header + tracks. The shell is the shared panel (6.2); what
-                is inside it - the album header and the song table - is still the
-                old theme's until session 3.
+                Album header + tracks. The shell is the shared panel (6.2), whose
+                header strip draws the divider under the album header (6.5). The
+                song table's parts are theme.song* in Theming/Chrome.xaml (6.6).
             -->
             <HeaderedContentControl Grid.Column="4" Style="{DynamicResource theme.panel.songs}">
-                <!-- big album art + album facts -->
+                <!-- 6.5: big album art, then the title and four stacked facts -->
                 <HeaderedContentControl.Header>
-                    <Grid Margin="{DynamicResource AfPadAlbumHeader}"
+                    <Grid Margin="{theme:Thickness X=albumHeader.paddingX, Y=albumHeader.paddingY}"
                           Visibility="{Binding SelectedAlbum, Converter={StaticResource NullToCollapsed}}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -535,9 +535,14 @@
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0"
-                                Width="{DynamicResource AfSizeArtHeader}"
-                                Height="{DynamicResource AfSizeArtHeader}"
-                                Style="{DynamicResource AfArtFrameLarge}"
+                                Width="{theme:Token albumHeader.artSize}"
+                                Height="{theme:Token albumHeader.artSize}"
+                                VerticalAlignment="Top"
+                                BorderBrush="{DynamicResource color.art.border}"
+                                BorderThickness="{theme:Thickness All=layout.panelBorder}"
+                                CornerRadius="{DynamicResource radius.art}"
+                                Effect="{DynamicResource shadow.headerArt}"
+                                SnapsToDevicePixels="True"
                                 Cursor="Hand"
                                 MouseLeftButtonDown="AlbumArt_MouseLeftButtonDown">
                             <Border.ContextMenu>
@@ -547,10 +552,12 @@
                                               CommandParameter="{Binding Source={StaticResource Proxy}, Path=Data.SelectedAlbum}" />
                                 </ContextMenu>
                             </Border.ContextMenu>
-                            <Grid>
+                            <!-- Panel grey under the art, so an album with no cover
+                                 shows the placeholder note on the panel colour. -->
+                            <Grid Background="{DynamicResource color.panel.bg}">
                                 <ui:SymbolIcon Symbol="MusicNote224"
                                                FontSize="{DynamicResource AfIconSizeHero}"
-                                               Foreground="{DynamicResource AfTextPlaceholder}"
+                                               Foreground="{DynamicResource color.text.muted}"
                                                Visibility="{Binding SelectedAlbumArt, Converter={StaticResource NullToVisible}}" />
                                 <Image Source="{Binding SelectedAlbumArt}" Stretch="UniformToFill"
                                        Visibility="{Binding SelectedAlbumArt, Converter={StaticResource NullToCollapsed}}" />
@@ -558,32 +565,43 @@
                         </Border>
 
                         <StackPanel Grid.Column="1"
-                                    Margin="{DynamicResource AfPadBesideArtLarge}"
+                                    Margin="{theme:Thickness Left=albumHeader.artGap}"
                                     VerticalAlignment="Top">
-                            <DockPanel>
-                                <Control DockPanel.Dock="Left" Template="{DynamicResource AfPaneMarkTracks}"
-                                         VerticalAlignment="Center"
-                                         Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
-                                <TextBlock Text="{Binding AlbumHeaderTitle}"
-                                           Style="{DynamicResource AfAlbumTitle}" />
-                            </DockPanel>
-                            <ItemsControl ItemsSource="{Binding AlbumHeaderSubtitleLines}"
-                                          Margin="0,6,0,0" Focusable="False">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding}"
-                                                   Style="{DynamicResource AfMetaText}"
-                                                   FontSize="{DynamicResource AfFontSizeBody}" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <!-- Two lines at most, then an ellipsis (the user's call). -->
+                            <TextBlock Text="{Binding AlbumHeaderTitle}"
+                                       Style="{DynamicResource type.headerTitle}" />
+                            <StackPanel Margin="{theme:Thickness Top=albumHeader.titleToDetailsGap}">
+                                <TextBlock Text="{Binding AlbumHeaderArtist}"
+                                           Style="{DynamicResource type.headerArtist}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding AlbumHeaderYear}"
+                                           Style="{DynamicResource type.headerDetails}"
+                                           Margin="{theme:Thickness Top=albumHeader.detailsLineGap}" />
+                                <TextBlock Text="{Binding AlbumHeaderTrackCount}"
+                                           Style="{DynamicResource type.headerDetails}"
+                                           Margin="{theme:Thickness Top=albumHeader.detailsLineGap}" />
+                                <TextBlock Text="{Binding AlbumHeaderDuration}"
+                                           Style="{DynamicResource type.headerDetails}"
+                                           Margin="{theme:Thickness Top=albumHeader.detailsLineGap}" />
+                            </StackPanel>
                         </StackPanel>
                     </Grid>
                 </HeaderedContentControl.Header>
 
                 <Grid>
-                    <!-- the ten columns, in track order -->
+                    <!--
+                        The ten columns, in track order. Widths, alignments and the
+                        text style of each come from songTable.columns, set by
+                        ApplySongTableLayout. Columns can still be resized and
+                        dragged into another order; they start from the spec.
+
+                        DisplayIndex is pinned on every column on purpose. Left
+                        to itself, DataGrid's width-distribution pass shuffles a
+                        star-width column ("Song") to the end of the row, which
+                        put Song fourth instead of second.
+                    -->
                     <DataGrid x:Name="TrackGrid"
+                              Style="{DynamicResource theme.songTable}"
                               ItemsSource="{Binding Tracks}"
                               AutoGenerateColumns="False"
                               IsReadOnly="False"
@@ -593,15 +611,8 @@
                               CanUserAddRows="False"
                               CanUserDeleteRows="False"
                               CanUserReorderColumns="True"
+                              CanUserResizeColumns="True"
                               CanUserSortColumns="True"
-                              HeadersVisibility="Column"
-                              GridLinesVisibility="None"
-                              HorizontalScrollBarVisibility="Disabled"
-                              VerticalScrollBarVisibility="Hidden"
-                              Background="Transparent"
-                              BorderThickness="0"
-                              RowHeight="{DynamicResource AfSizeTrackRowHeight}"
-                              AlternationCount="2"
                               AutomationProperties.Name="Tracks"
                               EnableRowVirtualization="True"
                               EnableColumnVirtualization="False"
@@ -611,33 +622,27 @@
                               PreviewKeyDown="TrackGrid_PreviewKeyDown"
                               BeginningEdit="TrackGrid_BeginningEdit"
                               CellEditEnding="TrackGrid_CellEditEnding">
-                        <!--
-                            DisplayIndex is pinned on every column on purpose. Left
-                            to itself, DataGrid's width-distribution pass shuffles a
-                            star-width column ("Song") to the end of the row, which
-                            put Song fourth instead of second.
-                        -->
                         <DataGrid.RowStyle>
                             <!--
-                                Deliberately not BasedOn="{StaticResource {x:Type DataGridRow}}" -
+                                Deliberately not BasedOn="{StaticResource {x:Type DataGridRow}}":
                                 that base style's own unconditional Background setter paints
-                                every row solid white, regardless of selection. Transparent by
-                                default (matching the DataGrid's own Background) and an explicit
-                                highlight on selection replicate the original look without
-                                inheriting whatever that base style actually does.
-
-                                Property setters rather than a template, because this style
-                                also carries a context menu and an event handler that can only
-                                live here.
-
-                                The left marker on a selected row is drawn by IndicatorColumn's
-                                cell, not by a row border. A border that appears on selection
-                                takes layout space, so every cell of the selected row slid right
-                                by its width.
+                                every row solid white. The look is theme.songRowTemplate; this
+                                style adds what can only live here: the now-playing flag the
+                                row and its cells style from, a context menu and an event handler.
                             -->
                             <Style TargetType="DataGridRow">
                                 <Setter Property="Background" Value="Transparent" />
                                 <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                <Setter Property="Template" Value="{DynamicResource theme.songRowTemplate}" />
+                                <Setter Property="local:TrackRow.IsNowPlaying">
+                                    <Setter.Value>
+                                        <MultiBinding Converter="{StaticResource IsCurrentTrack}">
+                                            <Binding />
+                                            <Binding Source="{StaticResource Proxy}" Path="Data.NowPlaying" />
+                                        </MultiBinding>
+                                    </Setter.Value>
+                                </Setter>
                                 <!--
                                     A DataGridRow doesn't select itself on right-click the
                                     way a ListBoxItem does, so without this the context menu
@@ -654,134 +659,50 @@
                                         </ContextMenu>
                                     </Setter.Value>
                                 </Setter>
-                                <Style.Triggers>
-                                    <!-- Banding, then hover, then selection: later triggers
-                                         win, so a selected odd row still reads as selected. -->
-                                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
-                                        <Setter Property="Background"
-                                                Value="{DynamicResource AfSurfaceRowAlternate}" />
-                                    </Trigger>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background"
-                                                Value="{DynamicResource AfSurfaceTrackHover}" />
-                                    </Trigger>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background"
-                                                Value="{DynamicResource AfSurfaceTrackSelected}" />
-                                    </Trigger>
-                                </Style.Triggers>
                             </Style>
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
-                            <!-- Now-playing indicator: shows a music note on the active row -->
-                            <DataGridTemplateColumn x:Name="IndicatorColumn" Width="22" DisplayIndex="0" CanUserSort="False" CanUserResize="False" IsReadOnly="True">
-                                <!--
-                                    This cell also draws the selected row's left marker (PS1's
-                                    blue bar; zero width in the other themes). It lives here,
-                                    overlaid on the cell, so it takes no layout space: as a row
-                                    border it pushed the selected row's cells right by its width.
-                                    A full cell style, not BasedOn, so no theme's cell padding
-                                    can inset the bar from the row edge.
-
-                                    Keyboard focus brightens the marker instead of outlining a
-                                    cell. A dotted focus rectangle is the traditional answer and
-                                    was tried; inside a cell it boxes the song title and reads
-                                    as an edit field.
-                                -->
-                                <DataGridTemplateColumn.CellStyle>
-                                    <Style TargetType="DataGridCell">
-                                        <Setter Property="Background" Value="Transparent" />
-                                        <Setter Property="BorderThickness" Value="0" />
-                                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="DataGridCell">
-                                                    <Grid Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
-                                                        <Border x:Name="SelectionBar"
-                                                                BorderBrush="Transparent"
-                                                                BorderThickness="{DynamicResource AfStrokeSelectionBarThickness}" />
-                                                        <ContentPresenter VerticalAlignment="Center" />
-                                                    </Grid>
-                                                    <ControlTemplate.Triggers>
-                                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
-                                                            <Setter TargetName="SelectionBar" Property="BorderBrush"
-                                                                    Value="{DynamicResource AfStrokeTrackSelectionBar}" />
-                                                        </DataTrigger>
-                                                        <DataTrigger Binding="{Binding IsKeyboardFocusWithin, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
-                                                            <Setter TargetName="SelectionBar" Property="BorderBrush"
-                                                                    Value="{DynamicResource AfFocusRing}" />
-                                                        </DataTrigger>
-                                                    </ControlTemplate.Triggers>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Style>
-                                </DataGridTemplateColumn.CellStyle>
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Control Template="{DynamicResource AfNowPlayingGlyph}"
-                                                 Focusable="False" IsTabStop="False"
-                                                 HorizontalAlignment="Center"
-                                                 VerticalAlignment="Center"
-                                                 ToolTip="Now playing">
-                                            <Control.Visibility>
-                                                <MultiBinding Converter="{StaticResource IsCurrentTrack}">
-                                                    <Binding />
-                                                    <Binding Source="{StaticResource Proxy}" Path="Data.NowPlaying" />
-                                                </MultiBinding>
-                                            </Control.Visibility>
-                                        </Control>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-
-                            <local:InlineEditColumn x:Name="TrackNumberColumn" Header="#" Width="44" DisplayIndex="1"
+                            <!-- The # cell also carries the now-playing triangle. -->
+                            <local:InlineEditColumn x:Name="TrackNumberColumn" Header="#" DisplayIndex="0"
                                                 Binding="{Binding TrackNumber, Converter={StaticResource Number}, Mode=OneWay}"
                                                 SortMemberPath="TrackNumber"
-                                                ElementStyle="{DynamicResource AfNumericCell}"
+                                                CellStyle="{DynamicResource theme.songNumberCell}"
                                                 EditingElementStyle="{DynamicResource AfNumericCellEditBox}" />
 
-                            <local:InlineEditColumn x:Name="SongColumn" Header="Song" Width="*" MinWidth="180" DisplayIndex="2"
+                            <local:InlineEditColumn x:Name="SongColumn" Header="SONG" DisplayIndex="1"
                                                 Binding="{Binding DisplayTitle, Mode=OneWay}"
-                                                ElementStyle="{DynamicResource AfTrackTitleCell}"
                                                 EditingElementStyle="{DynamicResource AfCellEditBox}" />
 
-                            <local:InlineEditColumn x:Name="ArtistColumn" Header="Artist" Width="140" DisplayIndex="3"
+                            <local:InlineEditColumn x:Name="ArtistColumn" Header="ARTIST" DisplayIndex="2"
                                                 Binding="{Binding Artist, Mode=OneWay}"
                                                 EditingElementStyle="{DynamicResource AfCellEditBox}" />
 
-                            <local:InlineEditColumn x:Name="AlbumColumn" Header="Album" Width="150" DisplayIndex="4"
+                            <local:InlineEditColumn x:Name="AlbumColumn" Header="ALBUM" DisplayIndex="3"
                                                 Binding="{Binding Album, Mode=OneWay}"
                                                 EditingElementStyle="{DynamicResource AfCellEditBox}" />
 
-                            <DataGridTextColumn x:Name="TimeColumn" IsReadOnly="True" Header="Time" Width="60" DisplayIndex="5"
+                            <DataGridTextColumn x:Name="TimeColumn" IsReadOnly="True" Header="TIME" DisplayIndex="4"
                                                 Binding="{Binding Duration, Converter={StaticResource Duration}}"
-                                                SortMemberPath="Duration"
-                                                ElementStyle="{DynamicResource AfNumericCell}" />
+                                                SortMemberPath="Duration" />
 
-                            <DataGridTextColumn x:Name="DiscColumn" IsReadOnly="True" Header="Disc" Width="46" DisplayIndex="6"
+                            <DataGridTextColumn x:Name="DiscColumn" IsReadOnly="True" Header="DISC" DisplayIndex="5"
                                                 Binding="{Binding DiscNumber, Converter={StaticResource Number}}"
-                                                SortMemberPath="DiscNumber"
-                                                ElementStyle="{DynamicResource AfNumericCell}" />
+                                                SortMemberPath="DiscNumber" />
 
-
-                            <DataGridTextColumn x:Name="KindColumn" IsReadOnly="True" Header="Kind" Width="74" DisplayIndex="7"
+                            <DataGridTextColumn x:Name="KindColumn" IsReadOnly="True" Header="KIND" DisplayIndex="6"
                                                 Binding="{Binding Kind}" />
 
-                            <DataGridTextColumn x:Name="BitrateColumn" IsReadOnly="True" Header="Bitrate" Width="82" DisplayIndex="8"
+                            <DataGridTextColumn x:Name="BitrateColumn" IsReadOnly="True" Header="BITRATE" DisplayIndex="7"
                                                 Binding="{Binding Bitrate, Converter={StaticResource Bitrate}}"
-                                                SortMemberPath="Bitrate"
-                                                ElementStyle="{DynamicResource AfNumericCell}" />
+                                                SortMemberPath="Bitrate" />
 
-                            <DataGridTextColumn x:Name="BitDepthColumn" IsReadOnly="True" Header="Bit Depth" Width="72" DisplayIndex="9"
+                            <DataGridTextColumn x:Name="BitDepthColumn" IsReadOnly="True" Header="BIT DEPTH" DisplayIndex="8"
                                                 Binding="{Binding BitDepth, Converter={StaticResource BitDepth}}"
-                                                SortMemberPath="BitDepth"
-                                                ElementStyle="{DynamicResource AfNumericCell}" />
+                                                SortMemberPath="BitDepth" />
 
-                            <DataGridTextColumn x:Name="SampleRateColumn" IsReadOnly="True" Header="Sample Rate" Width="94" DisplayIndex="10"
+                            <DataGridTextColumn x:Name="SampleRateColumn" IsReadOnly="True" Header="SAMPLE RATE" DisplayIndex="9"
                                                 Binding="{Binding SampleRate, Converter={StaticResource SampleRate}}"
-                                                SortMemberPath="SampleRate"
-                                                ElementStyle="{DynamicResource AfNumericCell}" />
+                                                SortMemberPath="SampleRate" />
                         </DataGrid.Columns>
                     </DataGrid>
 

@@ -96,7 +96,7 @@
     "artistCount": { "size": 11.5, "weight": 400, "color": "text.muted" },
     "albumTitle": { "size": 13.5, "weight": 400, "lineHeight": 1.3, "maxLines": 2, "color": "text.primary" },
     "albumMeta": { "size": 12, "weight": 400, "color": "text.muted" },
-    "headerTitle": { "size": 30, "weight": 600, "lineHeight": 1.15, "color": "text.heading" },
+    "headerTitle": { "size": 30, "weight": 600, "lineHeight": 1.15, "maxLines": 2, "color": "text.heading" },
     "headerDetails": { "size": 14, "weight": 400, "lineHeight": 1.4, "color": "text.secondary" },
     "headerArtist": { "size": 14, "weight": 600, "color": "accent.blue" },
     "songTitle": { "size": 13.5, "weight": 400, "color": "text.primary" },
@@ -146,6 +146,7 @@
     "listPaddingY": 6,
     "listPaddingX": 8,
     "columnGap": 12,
+    "nowPlayingWeight": 600,
     "columns": [
       { "id": "number", "width": 27, "align": "right" },
       { "id": "song", "flex": 1.05, "align": "left" },

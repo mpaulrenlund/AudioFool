@@ -85,6 +85,11 @@ public static class TokenResources
             {
                 Add(key, n);
             }
+
+            // A weight is also published as a FontWeight, for the same reason:
+            // a FontWeight setter in a style cannot be handed a number.
+            if (key.EndsWith("weight", StringComparison.OrdinalIgnoreCase))
+                Add(key + ".fontWeight", FontWeight.FromOpenTypeWeight((int)n));
         }
         foreach (var (key, f) in tokens.Flags)
             Add(key, f);
@@ -148,10 +153,18 @@ public static class TokenResources
         {
             // WPF has no line clamp. Wrapping inside a height of N lines, with
             // trimming on, ends the last visible line with "…".
+            //
+            // Layout rounding is off on the block. With it on, as it is in the
+            // windows, WPF's trimming went wrong whenever the line height rounds
+            // up: a 17.55 px album title clamped to two lines showed one line and
+            // "…" over an empty second line, at any clamp from 2 to 3 lines tall
+            // (measured in the Albums list; ThemeLab --clampprobe). The 34.5 px
+            // header title, which rounds down, was unaffected.
             var lineHeightForClamp = t.LineHeightPixels ?? t.Size * family.LineSpacing;
             style.Setters.Add(new Setter(TextBlock.TextWrappingProperty, TextWrapping.Wrap));
             style.Setters.Add(new Setter(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis));
             style.Setters.Add(new Setter(FrameworkElement.MaxHeightProperty, lines * lineHeightForClamp));
+            style.Setters.Add(new Setter(FrameworkElement.UseLayoutRoundingProperty, false));
         }
 
         if (t.TabularFigures)

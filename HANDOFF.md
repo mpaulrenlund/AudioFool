@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-01 after the twenty-sixth build session. Read this alongside
+Updated 2026-10-01 after the twenty-seventh build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1433,6 +1433,29 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
 
+### Changes from session 27 (2026-10-01): new PS1 theme, album header and song table
+
+Step 3 of `design/progress.md`, which has the details, measurements and decisions.
+
+- The album header and song table are on the central theme (`theme.song*` in
+  `Theming/Chrome.xaml`). Column widths, alignments and text styles come from
+  `songTable.columns` through `MainWindow.ApplySongTableLayout`. The 22 px music-note
+  column is gone; the now-playing triangle sits in the # cell, flagged by the inherited
+  `TrackRow.IsNowPlaying`.
+- **Column auto-fit is removed** (the user's call). Columns can still be resized and
+  reordered by dragging, and headers still sort, with no arrow. The header lost its
+  disc-count line. Duration reads "1:06:27" (the clock format; the user overrode the spec).
+- ThemeLab: `--songprobe 1` prints the header and table geometry and each row's colours.
+  `--longalbum N` gives a 100+ track album, `--longtitle "<t>"` a long header title,
+  and `--window clicks` checks that a double-click plays the clicked row (silent,
+  scratch tracks).
+- **Two-line title clamp fixed**: layout rounding broke WPF's trimming, so long album
+  titles showed one line and "…". Clamped type styles now turn layout rounding off
+  (`TokenResources`). ThemeLab `--albumprobe 1` prints each album title's clamp;
+  `--clampprobe "36,44,53"` renders the longest at each MaxHeight (`--clampstack`,
+  `--clampround 0` to experiment).
+- 366 tests. Installed.
+
 ### Changes from session 26 (2026-10-01): new PS1 theme, title bar and panels
 
 Step 2 of `design/progress.md`, which has the details, measurements and decisions.
@@ -1803,7 +1826,12 @@ They swap glyph *and* tint rather than tint alone — WPF-UI's `ArrowShuffleOff2
 weak signal next to the Primary-appearance play button. `Repeat` cycles through three
 states, so it is a `ui:Button` driving `CycleRepeatCommand`, not a `ToggleButton`.
 
-### Column auto-fit (session 5)
+### Column auto-fit (session 5; removed in session 27)
+
+**Removed at the user's request in session 27.** Columns now start at the spec widths from
+`songTable.columns` and are never refitted; see `design/progress.md`. The notes below are
+history.
+
 Double-clicking the divider between **#** and **Song** fits every column at once.
 Every other divider keeps WPF's stock behaviour of fitting the single column it
 belongs to. Implemented in `MainWindow.xaml.cs` as `TrackGrid_PreviewMouseLeftButtonDown`
@@ -2184,8 +2212,20 @@ off-screen window, so focus rings can be reviewed.
   the circular thumb. With `BasedOn="{StaticResource {x:Type Slider}}"` the inherited
   WPF-UI style reset that `Margin` to `0` at runtime. Fix: drop `BasedOn` entirely.
 - **Star-width DataGrid columns get reordered** by the width-distribution pass. Pin
-  `DisplayIndex` on every column. The now-playing indicator column is DisplayIndex 0;
-  all others shifted up by one in session 2.
+  `DisplayIndex` on every column. Since session 27 there is no separate now-playing
+  column (the triangle is in the # cell), so # is DisplayIndex 0.
+- **A DataGrid's `CellStyle` set from its style loses to an implicit `DataGridCell` style**
+  (`Ps1Theme.xaml` has one, with 8 px padding). Found in session 27 by measuring: text
+  sat 2 px off the header. Set `CellStyle` on each column instead.
+- **DataGrid fits star columns to the viewport minus `CellsPanelHorizontalOffset`**, and
+  that offset is where the cells sit relative to the *grid*, including any margin on the
+  `ScrollContentPresenter`. A symmetric list padding is therefore subtracted twice, and
+  the columns come up that much short of the right edge. `theme.songTable` insets the
+  list area asymmetrically to compensate (see the comment there).
+- **Synthetic mouse events don't select DataGrid rows.** A raised `MouseLeftButtonDown`
+  on a cell's text reaches the grid's own handlers but leaves the selection unchanged,
+  on HEAD as much as now. A raised `MouseDoubleClick` (source = the cell text) does run
+  the play handler.
 - **XML comments cannot contain `--`.** Dashed separator comments break XAML compilation.
 - **PowerShell `Test-Path` treats `[...]` as a wildcard.** Album folders like
   `[2014] Album` need `-LiteralPath`.

@@ -37,5 +37,9 @@ public sealed class Album
     /// <summary>"1975" or "Year unknown", for the album list subtitle.</summary>
     public string YearDisplay => Year?.ToString() ?? "Year unknown";
 
+    /// <summary>"1 track" / "21 tracks", for the album header.</summary>
+    public string TrackCountDisplay => Tracks.Count == 1 ? "1 track" : $"{Tracks.Count} tracks";
+
+
     public override string ToString() => $"{ArtistName} - {Title}";
 }

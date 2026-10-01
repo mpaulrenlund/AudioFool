@@ -2,6 +2,8 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                     xmlns:theme="clr-namespace:AudioFool.Theming"
+                    xmlns:local="clr-namespace:AudioFool"
+                    xmlns:fmt="clr-namespace:AudioFool.Formatting"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
 
     <!--
@@ -115,6 +117,286 @@
             </Trigger>
         </ControlTemplate.Triggers>
     </ControlTemplate>
+
+    <!-- ===================================================== song table -->
+
+    <!--
+        6.6: ten columns 12 px apart, under a 32 px header strip with a divider,
+        in a list area padded 6 / 8, with 28 px rows padded 8 either side.
+
+        The 12 px gap is split as half a gap of padding either side of every
+        cell (and header), so it moves with a column that is dragged elsewhere.
+        That puts half a gap inside each row's padding and the header's, so
+        those are set to the token minus half a gap. MainWindow works the three
+        out from the tokens (ApplySongTableLayout) and puts them in the grid's
+        resources as songTable.derived.*, beside each column's width and
+        alignment, which are read from songTable.columns.
+
+        DataGrid sizes its columns to the viewport less the cells' offset from
+        its own left edge (measured: list padding plus row padding), which
+        counts the left list padding twice when the viewport has already lost
+        it. So the list area is inset by the full list padding on the left but
+        only the row padding on the right, and the row's fill and hover stop
+        the difference short of its right edge. The fill still spans the list
+        area, and the columns fill exactly the space inside the row padding.
+    -->
+
+    <Style x:Key="theme.songHeaderGripper" TargetType="Thumb">
+        <!-- The drag handle on a column's edge: 8 px, the stock DataGrid width,
+             a framework constant rather than a design value. Invisible. -->
+        <Setter Property="Width" Value="8" />
+        <Setter Property="Cursor" Value="SizeWE" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border Background="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- SONG, ARTIST: small grey capitals tracked 0.06 em. Written in capitals
+         in MainWindow, since a style cannot change case. -->
+    <Style x:Key="theme.songHeaderLabel" TargetType="TextBlock" BasedOn="{StaticResource type.tableHeader}">
+        <Setter Property="fmt:LetterSpacing.Em" Value="{DynamicResource type.tableHeader.letterSpacingEm}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- A column header: the label, and the grips that resize the column.
+         Click to sort and drag to reorder are DataGridColumnHeader's own. No
+         sort arrow (the user's call). The column's alignment is set per column
+         from code, on a style based on this one. -->
+    <Style x:Key="theme.songHeader" TargetType="DataGridColumnHeader">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="{DynamicResource songTable.derived.cellPadding}" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="ContentTemplate">
+            <Setter.Value>
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" Style="{StaticResource theme.songHeaderLabel}" />
+                </DataTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridColumnHeader">
+                    <Grid Background="{TemplateBinding Background}">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          RecognizesAccessKey="False" />
+                        <Thumb x:Name="PART_LeftHeaderGripper" HorizontalAlignment="Left"
+                               Style="{StaticResource theme.songHeaderGripper}" />
+                        <Thumb x:Name="PART_RightHeaderGripper" HorizontalAlignment="Right"
+                               Style="{StaticResource theme.songHeaderGripper}" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        A song row: transparent, a faint wash on hover, the selection grey when
+        selected, and the now-playing tint when it is the playing track, which
+        wins over selection. 3 px corners. Applied by the row style in
+        MainWindow, which also sets local:TrackRow.IsNowPlaying.
+    -->
+    <ControlTemplate x:Key="theme.songRowTemplate" TargetType="DataGridRow">
+        <Grid SnapsToDevicePixels="True">
+            <Border x:Name="Fill"
+                    Margin="{DynamicResource songTable.derived.rowFillMargin}"
+                    Background="Transparent"
+                    CornerRadius="{DynamicResource radius.row}" />
+            <Border x:Name="Hover"
+                    Margin="{DynamicResource songTable.derived.rowFillMargin}"
+                    Visibility="Collapsed"
+                    Background="{DynamicResource color.state.hoverOverlay}"
+                    CornerRadius="{DynamicResource radius.row}"
+                    IsHitTestVisible="False" />
+            <DataGridCellsPresenter Margin="{DynamicResource songTable.derived.rowCellsMargin}"
+                                    ItemsPanel="{TemplateBinding ItemsPanel}"
+                                    SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="Fill" Property="Background" Value="{DynamicResource color.state.selectionBg}" />
+            </Trigger>
+            <Trigger Property="local:TrackRow.IsNowPlaying" Value="True">
+                <Setter TargetName="Fill" Property="Background" Value="{DynamicResource color.state.nowPlayingBg}" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Hover" Property="Visibility" Value="Visible" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <!-- A cell paints nothing: the row owns the fill. Half a gap either side. -->
+    <Style x:Key="theme.songCell" TargetType="DataGridCell">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="{DynamicResource songTable.derived.cellPadding}" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridCell">
+                    <Border Background="Transparent" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        The # cell: an 8 px slot for the now-playing triangle, a 3 px gap, then
+        the number right-aligned in what is left (16 px, or 23 px on an album
+        of 100+ tracks, when MainWindow widens the column). The number always
+        shows. The triangle is solid while playing and outlined while paused.
+        Its path is the mockup's, on its own 7.4 x 10 grid inside an 8 x 10 box.
+    -->
+    <Style x:Key="theme.songNumberCell" TargetType="DataGridCell" BasedOn="{StaticResource theme.songCell}">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridCell">
+                    <Border Background="Transparent" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{theme:Token songTable.numberCell.triangleSlot}" />
+                                <ColumnDefinition Width="{theme:Token songTable.numberCell.gap}" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Viewbox x:Name="Triangle"
+                                     Grid.Column="0"
+                                     Width="{theme:Token songTable.numberCell.triangleSlot}"
+                                     Height="10"
+                                     VerticalAlignment="Center"
+                                     Visibility="Collapsed">
+                                <Canvas Width="7.4" Height="10">
+                                    <Path x:Name="TrianglePath"
+                                          Canvas.Left="-1.6"
+                                          Data="M 2.2,1.3 V 8.7 L 8.5,5 Z"
+                                          Fill="{DynamicResource color.accent.teal}"
+                                          Stroke="{DynamicResource color.accent.teal}"
+                                          StrokeThickness="1.2"
+                                          StrokeLineJoin="Round" />
+                                </Canvas>
+                            </Viewbox>
+                            <ContentPresenter Grid.Column="2" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="local:TrackRow.IsNowPlaying" Value="True">
+                            <Setter TargetName="Triangle" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding DataContext.IsPlaying, RelativeSource={RelativeSource AncestorType=DataGrid}}" Value="False">
+                            <Setter TargetName="TrianglePath" Property="Fill" Value="Transparent" />
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        Cell text. Song in type.songTitle, # in type.trackNumber, the rest in
+        type.tableCell; "…" when too long, and no tooltip. On the now-playing
+        row every one turns teal and semibold; on a selected row the number
+        turns text.secondary. Alignment is added per column from code.
+    -->
+    <Style x:Key="theme.songText" TargetType="TextBlock" BasedOn="{StaticResource type.tableCell}">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Style.Triggers>
+            <Trigger Property="local:TrackRow.IsNowPlaying" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource color.accent.tealText}" />
+                <Setter Property="FontWeight" Value="{DynamicResource songTable.nowPlayingWeight.fontWeight}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="theme.songTitleText" TargetType="TextBlock" BasedOn="{StaticResource type.songTitle}">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Style.Triggers>
+            <Trigger Property="local:TrackRow.IsNowPlaying" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource color.accent.tealText}" />
+                <Setter Property="FontWeight" Value="{DynamicResource songTable.nowPlayingWeight.fontWeight}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="theme.songNumberText" TargetType="TextBlock" BasedOn="{StaticResource type.trackNumber}">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource color.text.secondary}" />
+            </DataTrigger>
+            <Trigger Property="local:TrackRow.IsNowPlaying" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource color.accent.tealText}" />
+                <Setter Property="FontWeight" Value="{DynamicResource songTable.nowPlayingWeight.fontWeight}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- The table itself. No scrollbars; the wheel, trackpad and keyboard
+         still scroll it. -->
+    <Style x:Key="theme.songTable" TargetType="DataGrid">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="HeadersVisibility" Value="Column" />
+        <Setter Property="GridLinesVisibility" Value="None" />
+        <Setter Property="RowHeight" Value="{DynamicResource songTable.rowHeight}" />
+        <Setter Property="ColumnHeaderStyle" Value="{StaticResource theme.songHeader}" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="VerticalScrollBarVisibility" Value="Hidden" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGrid">
+                    <Border Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="DG_ScrollViewer"
+                                      Focusable="False"
+                                      Style="{x:Null}"
+                                      CanContentScroll="{TemplateBinding ScrollViewer.CanContentScroll}"
+                                      HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
+                                      VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}">
+                            <ScrollViewer.Template>
+                                <ControlTemplate TargetType="ScrollViewer">
+                                    <DockPanel>
+                                        <Border DockPanel.Dock="Top"
+                                                Height="{theme:Token songTable.headerHeight}"
+                                                BorderBrush="{DynamicResource color.panel.divider}"
+                                                BorderThickness="{theme:Thickness Bottom=layout.panelBorder}"
+                                                SnapsToDevicePixels="True">
+                                            <DataGridColumnHeadersPresenter x:Name="PART_ColumnHeadersPresenter"
+                                                                            Margin="{DynamicResource songTable.derived.headerPadding}">
+                                                <DataGridColumnHeadersPresenter.Template>
+                                                    <ControlTemplate TargetType="DataGridColumnHeadersPresenter">
+                                                        <ItemsPresenter />
+                                                    </ControlTemplate>
+                                                </DataGridColumnHeadersPresenter.Template>
+                                            </DataGridColumnHeadersPresenter>
+                                        </Border>
+                                        <ScrollContentPresenter x:Name="PART_ScrollContentPresenter"
+                                                                Margin="{DynamicResource songTable.derived.listMargin}"
+                                                                CanContentScroll="{TemplateBinding CanContentScroll}" />
+                                    </DockPanel>
+                                </ControlTemplate>
+                            </ScrollViewer.Template>
+                            <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                        </ScrollViewer>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
     <!-- ===================================================== search box -->
 
