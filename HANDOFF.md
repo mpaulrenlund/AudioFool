@@ -2155,7 +2155,27 @@ ThemeLab.exe --focus ShuffleButton --focusvisual 1   # draw the keyboard focus o
 ThemeLab.exe --peers 1                      # the automation tree: what a screen reader reads for each control
 ThemeLab.exe --tabwalk 18                   # 18 real Tab presses from the search box; prints where focus lands
 ThemeLab.exe --tabwalk 0 --keys "Tab,Tab,Tab,Tab,Down" --tabfrom SearchBox   # any key sequence
+ThemeLab.exe --logohover 1                  # logo item highlighted; prints its tooltip and its template's background triggers
+ThemeLab.exe --window seek --file "D:\Music\...\long.flac"   # click the seek bar's track mid-play (silent); prints the position trace, "no bounce" or "BOUNCED"
 ```
+
+**Seek-bar clicks seek on mouse-down** (2026-10-01). The bar is two-way bound to the
+250 ms position timer, and a click on the track (click-to-point) jumps the value without
+a drag, so `IsSeeking` never parks the timer. The seek used to wait for mouse-up, and a
+tick landing while the button was down put the old position back: the handle went
+there, back, and there again. `SeekBar_PreviewMouseLeftButtonDown` (attached with
+`handledEventsToo`, since the slider handles the press) now commits at once. A drag
+still seeks on `DragCompleted`. A headless probe showed the engine itself reports the
+new position within 1 ms of `Seek`. `--window seek` parks the window to the right of
+every monitor so the real pointer maps to 0:00.
+
+**Keyboard seeking works too** (same day). The arrow, Page and Home/End keys moved the
+value with nothing to commit it, so the next tick undid them. `SeekBar_KeyDown` (also
+`handledEventsToo`) commits each press. The steps were WPF's defaults, 0.1 s and 1 s;
+they are now **5 s for the arrows and 30 s for Page Up/Down** (the user's choice),
+as `SmallChange` / `LargeChange` on `SeekBar`. `--window seek` also presses Right,
+Page Up and Left through `InputManager` and checks each step lands and holds; with
+the handler switched off, all three bounce.
 
 `--tabwalk` feeds keys through `InputManager`, as the keyboard does. Raising `KeyDown`
 on an element (as `--window edit` does) skips WPF's Tab handling entirely, and

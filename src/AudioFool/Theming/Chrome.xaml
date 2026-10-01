@@ -1131,15 +1131,16 @@
     </Style>
 
     <!--
-        The logo itself: a title-bar button, so it hovers like Minimize and
-        Maximize. Its drop-down and items use the menu item style above.
+        The logo itself: no background on hover, press or while its menu is
+        open (the user's call); keyboard focus shows the teal ring only. Its
+        drop-down and items use the menu item style above.
     -->
     <Style x:Key="theme.logoMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
         <Style.Resources>
             <SolidColorBrush x:Key="FlyoutBackground" Color="{StaticResource color.panel.bg.value}" />
             <SolidColorBrush x:Key="FlyoutBorderBrush" Color="{StaticResource color.panel.border.value}" />
-            <SolidColorBrush x:Key="MenuBarItemBackgroundSelected" Color="{StaticResource color.window.buttonHover.value}" />
-            <SolidColorBrush x:Key="MenuBarItemBackgroundPressed" Color="{StaticResource color.window.buttonHover.value}" />
+            <SolidColorBrush x:Key="MenuBarItemBackgroundSelected" Color="Transparent" />
+            <SolidColorBrush x:Key="MenuBarItemBackgroundPressed" Color="Transparent" />
             <SolidColorBrush x:Key="MenuBarItemBorderBrush" Color="{StaticResource color.panel.divider.value}" />
         </Style.Resources>
         <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />

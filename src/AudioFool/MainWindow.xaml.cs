@@ -39,6 +39,12 @@ public partial class MainWindow : FluentWindow
         ApplyMinimumWidth();
         FitToWorkArea();
 
+        // The slider marks a click on its track handled, after jumping the value.
+        SeekBar.AddHandler(PreviewMouseLeftButtonDownEvent,
+            new MouseButtonEventHandler(SeekBar_PreviewMouseLeftButtonDown), handledEventsToo: true);
+        // Likewise its arrow, Page and Home/End keys, which are commands.
+        SeekBar.AddHandler(KeyDownEvent, new KeyEventHandler(SeekBar_KeyDown), handledEventsToo: true);
+
         _taskbarControls = new TaskbarControls(this, viewModel);
 
         Loaded += OnLoaded;
@@ -1127,6 +1133,30 @@ public partial class MainWindow : FluentWindow
     // would otherwise fight over it. IsSeeking parks the timer mid-drag, and the
     // seek is only sent to the engine once the user lets go.
 
+    /// <summary>
+    /// A click on the track (IsMoveToPointEnabled) has already jumped the value
+    /// by the time this runs, and starts no drag, so the seek goes now. Waiting
+    /// for the button to come up let a position tick put the old spot back in
+    /// between: the handle went there, back, and there again. A press on the
+    /// handle itself changes nothing, so nothing is pending and the drag decides.
+    /// </summary>
+    private void SeekBar_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!_viewModel.IsSeeking)
+            _viewModel.CommitSeek();
+    }
+
+    /// <summary>
+    /// The keys move the value (arrows 5 s, Page Up/Down 30 s, Home/End to the
+    /// ends) with no button to let go of, so each press seeks straight away.
+    /// Otherwise the next position tick put the old spot back.
+    /// </summary>
+    private void SeekBar_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (!_viewModel.IsSeeking)
+            _viewModel.CommitSeek();
+    }
+
     private void SeekBar_DragStarted(object sender, DragStartedEventArgs e) =>
         _viewModel.IsSeeking = true;
 
@@ -1137,8 +1167,8 @@ public partial class MainWindow : FluentWindow
     }
 
     /// <summary>
-    /// Catches a click on the slider track (IsMoveToPointEnabled), which jumps the
-    /// value without ever raising a drag.
+    /// A backstop: a click on the track has already seeked on the way down, and a
+    /// drag on DragCompleted, so normally nothing is pending here.
     /// </summary>
     private void SeekBar_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {

@@ -178,7 +178,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks")
+        if (which is "queue" or "clicks" or "seek")
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
         var runtime = new BassRuntime();
@@ -488,6 +488,36 @@ internal static class Program
                 .Invoke(hoverButton, null);
             Settle(200);
             Console.WriteLine($"winhover {hoverName}: background={hoverButton.Background} icon={hoverButton.RenderButtonsForeground}");
+        }
+
+        // --logohover 1: the logo menu item highlighted, as a pointer over it
+        // leaves it (IsHighlighted has a private setter), plus its tooltip.
+        if (Arg(args, "--logohover") is "1"
+            && main.FindName("LogoMenuItem") is System.Windows.Controls.MenuItem logoHoverItem)
+        {
+            typeof(System.Windows.Controls.MenuItem).GetProperty("IsHighlighted")!
+                .SetValue(logoHoverItem, true);
+            Settle(200);
+            Console.WriteLine($"logohover: highlighted={logoHoverItem.IsHighlighted} tooltip='{logoHoverItem.ToolTip}'");
+            // The template's own triggers, and what each brush key resolves to on
+            // this item: hover itself (IsMouseOver) can't be forced off-screen.
+            foreach (var tb in logoHoverItem.Template.Triggers)
+            {
+                var cond = tb switch
+                {
+                    Trigger t => $"{t.Property.Name}={t.Value}",
+                    MultiTrigger mt => string.Join(" & ", mt.Conditions.Select(c => $"{c.Property.Name}={c.Value}")),
+                    _ => tb.GetType().Name,
+                };
+                var setters = tb switch { Trigger t => t.Setters, MultiTrigger mt => mt.Setters, _ => null };
+                foreach (var st in setters?.OfType<Setter>() ?? [])
+                {
+                    var val = st.Value is DynamicResourceExtension dr
+                        ? $"{{{dr.ResourceKey}}} = {logoHoverItem.TryFindResource(dr.ResourceKey)}"
+                        : st.Value?.ToString();
+                    Console.WriteLine($"  trigger {cond}: {st.TargetName}.{st.Property.Name} <- {val}");
+                }
+            }
         }
 
         // --type "<text>": text in the search box, as if typed, to check where it
@@ -885,6 +915,12 @@ internal static class Program
                 Settle(100);
                 Console.WriteLine($"menu: closed again IsSubmenuOpen={item.IsSubmenuOpen}");
             }
+        }
+
+        if (which == "seek")
+        {
+            RunSeek(main, vm, engine, Arg(args, "--file") ?? throw new ArgumentException("--window seek needs --file <audio file>"));
+            return 0;
         }
 
         if (which is "edit" or "queue" or "clicks")
@@ -1926,6 +1962,82 @@ internal static class Program
     /// window title and the scrobbler get as each comes up - once through a
     /// gapless handover and once through Next.
     /// </summary>
+    /// <summary>
+    /// --window seek --file <audio>: a click on the seek bar's track, with the real
+    /// engine playing silently (volume 0, shared mode). The window is parked to
+    /// the right of every monitor, so the slider's click-to-point maps the real
+    /// pointer to 0:00 without anything appearing on the desktop. Mouse down and
+    /// up are raised on the slider 400 ms apart, long enough for position ticks to
+    /// land in between, and the position is sampled throughout: it should go to
+    /// 0 and stay there, not bounce back to where it was.
+    /// </summary>
+    private static void RunSeek(MainWindow main, MainViewModel vm, AudioEngine engine, string file)
+    {
+        main.Left = 30000;
+        Pump();
+        vm.Volume = 0;
+        var bar = (System.Windows.Controls.Slider)main.FindName("SeekBar");
+
+        engine.Play([AudioFool.Core.Library.TagReader.Read(file)], 0);
+        Settle(1000);
+        engine.Seek(TimeSpan.FromSeconds(60));
+        Settle(700);
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var samples = new List<(long Ms, string Label, double Slider, double Engine)>();
+        void Sample(string label) => samples.Add((clock.ElapsedMilliseconds, label, bar.Value, engine.Position.TotalSeconds));
+        void Raise(RoutedEvent e)
+        {
+            var args = new System.Windows.Input.MouseButtonEventArgs(
+                System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left)
+            { RoutedEvent = e, Source = bar };
+            bar.RaiseEvent(args);
+        }
+        void Watch(int ms)
+        {
+            var end = clock.ElapsedMilliseconds + ms;
+            while (clock.ElapsedMilliseconds < end) { Settle(40); Sample(""); }
+        }
+
+        Sample("start");
+        Raise(UIElement.PreviewMouseLeftButtonDownEvent);
+        Sample("down");
+        Watch(400);
+        Raise(UIElement.PreviewMouseLeftButtonUpEvent);
+        Sample("up");
+        Watch(700);
+        foreach (var s in samples)
+            Console.WriteLine($"{s.Ms,5} ms {s.Label,-5} slider={s.Slider,6:0.00} engine={s.Engine,6:0.00}");
+
+        // From the press on, the slider should never read the old spot again.
+        var bounced = samples.SkipWhile(s => s.Label != "down").Any(s => s.Slider > 30);
+        Console.WriteLine(bounced ? "seek: BOUNCED back to the old position" : "seek: no bounce");
+
+        // The keyboard: real key presses through InputManager, so the slider's own
+        // commands move it. Each step should land and stay, the engine following.
+        engine.Seek(TimeSpan.FromSeconds(60));
+        Settle(600);
+        System.Windows.Input.Keyboard.Focus(bar);
+        Settle(50);
+        foreach (var (key, step) in new[] { (System.Windows.Input.Key.Right, 5.0), (System.Windows.Input.Key.PageUp, 30.0), (System.Windows.Input.Key.Left, -5.0) })
+        {
+            var from = bar.Value;
+            System.Windows.Input.InputManager.Current.ProcessInput(new System.Windows.Input.KeyEventArgs(
+                System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(main), Environment.TickCount, key)
+            { RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent });
+            var pressed = bar.Value;
+            double lowest = double.MaxValue, highest = double.MinValue;
+            for (var i = 0; i < 15; i++) { Settle(40); lowest = Math.Min(lowest, bar.Value); highest = Math.Max(highest, bar.Value); }
+            // Over the 600 ms watched, playing on moves it under a second past the target.
+            var target = from + step;
+            var held = Math.Abs(pressed - target) < 0.01 && lowest >= target - 0.01 && highest <= target + 1
+                && Math.Abs(engine.Position.TotalSeconds - bar.Value) < 0.5;
+            Console.WriteLine($"key {key}: {from:0.00} -> {pressed:0.00}, then {lowest:0.00}-{highest:0.00}, engine {engine.Position.TotalSeconds:0.00}: {(held ? "held" : "BOUNCED")}");
+        }
+        engine.Stop();
+        Settle(200);
+    }
+
     private static void RunQueueEdit(MainViewModel vm, AudioEngine engine)
     {
         var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;

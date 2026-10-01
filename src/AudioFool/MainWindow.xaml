@@ -178,8 +178,8 @@
                     off the top and bottom of the 30 px mark. So the item carries a
                     transparent spacer, the mark is drawn on top of it, and
                     IsHitTestVisible="False" lets the click fall through to the
-                    item underneath. The hover highlight and the drop-down are
-                    WPF-UI's own, untouched.
+                    item underneath. The item has no hover highlight or tooltip
+                    (theme.logoMenuItem); the drop-down is WPF-UI's own.
 
                     The spacer's width is set in code (FitLogoMenuToSlot) so the
                     whole item, WPF-UI's padding included, is exactly the width of
@@ -197,8 +197,7 @@
                                   Style="{StaticResource theme.logoMenuItem}"
                                   FontWeight="{DynamicResource AfFontWeightSemiBold}"
                                   FocusVisualStyle="{DynamicResource theme.focusRing.inside}"
-                                  AutomationProperties.Name="AudioFool"
-                                  ToolTip="AudioFool menu">
+                                  AutomationProperties.Name="AudioFool">
                             <MenuItem.Header>
                                 <Border x:Name="LogoMenuSpacer" Height="20" Background="Transparent" />
                             </MenuItem.Header>
@@ -955,6 +954,7 @@
                             Minimum="0"
                             Maximum="{Binding DurationSeconds}"
                             Value="{Binding PositionSeconds, Mode=TwoWay}"
+                            SmallChange="5" LargeChange="30"
                             VerticalAlignment="Center"
                             AutomationProperties.Name="Playback position"
                             Thumb.DragStarted="SeekBar_DragStarted"
