@@ -1433,6 +1433,22 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
 
+### Changes from session 29 (2026-10-01): new PS1 theme, polish (step 5)
+
+Step 5 of `design/progress.md` (parts 1–3), which has the details, measurements and decisions.
+
+- Focus outlines, accessible names, a working Tab order, Escape clears search (parts 1–2).
+- Part 3: header title box matches the mockup (39 px); the Last.fm chip shows **only
+  while disconnected or needing reconnect**; the empty state, the in-place edit box,
+  tooltips, context menus and the logo drop-down are on the central theme (tooltips
+  and menus app-wide, dialogs included). Empty-state wording is
+  `Core/Library/EmptyStateText` (tested).
+- ThemeLab: `--empty library|search`, `--popupshot <png>` (menus and a tooltip drawn
+  without opening a popup), `--dpi`, `--focusvisual`, `--peers`, `--tabwalk`. The
+  `--window edit` mode must run from ThemeLab's default `bin\Release\...` folder: it
+  finds the test fixtures relative to its own exe.
+- 394 tests. Installed.
+
 ### Changes from session 28 (2026-10-01): new PS1 theme, playback bar and status bar
 
 Step 4 of `design/progress.md`, which has the details, measurements and decisions.

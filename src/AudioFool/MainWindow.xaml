@@ -194,6 +194,7 @@
                             menu items inherit it from the item that owns them.
                         -->
                         <MenuItem x:Name="LogoMenuItem"
+                                  Style="{StaticResource theme.logoMenuItem}"
                                   FontWeight="{DynamicResource AfFontWeightSemiBold}"
                                   FocusVisualStyle="{DynamicResource theme.focusRing.inside}"
                                   AutomationProperties.Name="AudioFool"
@@ -497,9 +498,9 @@
                                 <Border Grid.Column="0" Style="{StaticResource AlbumThumb}">
                                     <Grid>
                                         <!-- No art: the spec has no placeholder, so the old
-                                             note stays, in the neutral-icon grey. -->
+                                             note stays, at its old size, in the neutral-icon grey. -->
                                         <ui:SymbolIcon Symbol="MusicNote224"
-                                                       FontSize="{DynamicResource AfIconSizeMedium}"
+                                                       FontSize="{theme:Token albums.placeholderIconSize}"
                                                        Foreground="{DynamicResource color.text.muted}"
                                                        Visibility="{Binding Thumbnail, Converter={StaticResource NullToVisible}}" />
                                         <Image Source="{Binding Thumbnail}"
@@ -568,7 +569,7 @@
                                  shows the placeholder note on the panel colour. -->
                             <Grid Background="{DynamicResource color.panel.bg}">
                                 <ui:SymbolIcon Symbol="MusicNote224"
-                                               FontSize="{DynamicResource AfIconSizeHero}"
+                                               FontSize="{theme:Token albumHeader.placeholderIconSize}"
                                                Foreground="{DynamicResource color.text.muted}"
                                                Visibility="{Binding SelectedAlbumArt, Converter={StaticResource NullToVisible}}" />
                                 <Image Source="{Binding SelectedAlbumArt}" Stretch="UniformToFill"
@@ -579,9 +580,12 @@
                         <StackPanel Grid.Column="1"
                                     Margin="{theme:Thickness Left=albumHeader.artGap}"
                                     VerticalAlignment="Top">
-                            <!-- Two lines at most, then an ellipsis (the user's call). -->
+                            <!-- Two lines at most, then an ellipsis (the user's call).
+                                 At least the mockup's 39 px box, which is taller than
+                                 one 34.5 px line: that is where the details sit. -->
                             <TextBlock Text="{Binding AlbumHeaderTitle}"
-                                       Style="{DynamicResource type.headerTitle}" />
+                                       Style="{DynamicResource type.headerTitle}"
+                                       MinHeight="{theme:Token albumHeader.titleMinHeight}" />
                             <StackPanel Margin="{theme:Thickness Top=albumHeader.titleToDetailsGap}">
                                 <TextBlock Text="{Binding AlbumHeaderArtist}"
                                            Style="{DynamicResource type.headerArtist}"
@@ -696,19 +700,19 @@
                                                 Binding="{Binding TrackNumber, Converter={StaticResource Number}, Mode=OneWay}"
                                                 SortMemberPath="TrackNumber"
                                                 CellStyle="{DynamicResource theme.songNumberCell}"
-                                                EditingElementStyle="{DynamicResource AfNumericCellEditBox}" />
+                                                EditingElementStyle="{StaticResource theme.cellEditBox.number}" />
 
                             <local:InlineEditColumn x:Name="SongColumn" Header="SONG" DisplayIndex="1"
                                                 Binding="{Binding DisplayTitle, Mode=OneWay}"
-                                                EditingElementStyle="{DynamicResource AfCellEditBox}" />
+                                                EditingElementStyle="{StaticResource theme.cellEditBox.title}" />
 
                             <local:InlineEditColumn x:Name="ArtistColumn" Header="ARTIST" DisplayIndex="2"
                                                 Binding="{Binding Artist, Mode=OneWay}"
-                                                EditingElementStyle="{DynamicResource AfCellEditBox}" />
+                                                EditingElementStyle="{StaticResource theme.cellEditBox}" />
 
                             <local:InlineEditColumn x:Name="AlbumColumn" Header="ALBUM" DisplayIndex="3"
                                                 Binding="{Binding Album, Mode=OneWay}"
-                                                EditingElementStyle="{DynamicResource AfCellEditBox}" />
+                                                EditingElementStyle="{StaticResource theme.cellEditBox}" />
 
                             <DataGridTextColumn x:Name="TimeColumn" IsReadOnly="True" Header="TIME" DisplayIndex="4"
                                                 Binding="{Binding Duration, Converter={StaticResource Duration}}"
@@ -735,9 +739,8 @@
                         </DataGrid.Columns>
                     </DataGrid>
 
-                    <!-- Nothing chosen yet. Draws nothing at all unless the theme
-                         fills the slot, so the pane is simply empty in Dark. -->
-                    <Control Template="{DynamicResource AfEmptyState}"
+                    <!-- Nothing chosen yet; the wording says why. -->
+                    <Control Template="{StaticResource theme.emptyState}"
                              Focusable="False" IsTabStop="False" IsHitTestVisible="False"
                              Visibility="{Binding SelectedAlbum, Converter={StaticResource NullToVisible}}" />
                 </Grid>
@@ -786,10 +789,10 @@
                             MouseLeftButtonDown="NowPlayingArt_MouseLeftButtonDown">
                         <Grid>
                             <!-- No-art placeholder: not in the spec, so the old icon
-                                 size stays, as for the album list's. -->
+                                 size stays, in the neutral-icon grey, as for the album list's. -->
                             <ui:SymbolIcon Symbol="MusicNote224"
-                                           FontSize="{DynamicResource AfIconSizeLarge}"
-                                           Foreground="{DynamicResource color.text.placeholder}"
+                                           FontSize="{theme:Token playbackBar.placeholderIconSize}"
+                                           Foreground="{DynamicResource color.text.muted}"
                                            Visibility="{Binding NowPlayingArt, Converter={StaticResource NullToVisible}}" />
                             <Image Source="{Binding NowPlayingArt}" Stretch="UniformToFill"
                                    Visibility="{Binding NowPlayingArt, Converter={StaticResource NullToCollapsed}}" />
@@ -1104,10 +1107,10 @@
                          Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" />
 
             <!--
-                Last.fm, when connected: a teal dot while scrobbling, yellow (the
-                "off" colour) when off, failing or needing reconnect. The label
-                says which, so colour is never the only signal. Hidden until
-                connected. Clicking opens the Last.fm window.
+                Last.fm, only while there is no working session (the user's call):
+                not connected, or needing reconnect. Hidden while connected. The
+                dot is the "off" yellow; the label says which state, so colour is
+                never the only signal. Clicking opens the Last.fm window.
             -->
             <Button x:Name="LastFmIndicator" Grid.Column="2"
                     Style="{StaticResource theme.chip}"
@@ -1118,18 +1121,9 @@
                     AutomationProperties.HelpText="{Binding LastFmToolTip}"
                     Visibility="{Binding IsLastFmShown, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Orientation="Horizontal">
-                    <Ellipse Margin="{theme:Thickness Right=statusBar.chipDotGap}">
-                        <Ellipse.Style>
-                            <Style TargetType="Ellipse" BasedOn="{StaticResource theme.statusDot}">
-                                <Setter Property="Fill" Value="{DynamicResource color.status.lastFmOff}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding LastFmState}" Value="{x:Static scrob:ScrobblerState.Scrobbling}">
-                                        <Setter Property="Fill" Value="{DynamicResource color.status.lastFmDot}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Ellipse.Style>
-                    </Ellipse>
+                    <Ellipse Style="{StaticResource theme.statusDot}"
+                             Fill="{DynamicResource color.status.lastFmOff}"
+                             Margin="{theme:Thickness Right=statusBar.chipDotGap}" />
                     <TextBlock Text="{Binding LastFmLabel}"
                                Style="{DynamicResource type.status}"
                                VerticalAlignment="Center" />

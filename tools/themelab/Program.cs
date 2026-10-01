@@ -227,6 +227,19 @@ internal static class Program
         {
             LoadTempLibrary(vm);
         }
+        else if (Arg(args, "--empty") is { } emptyCase)
+        {
+            // --empty library: nothing loaded at all. --empty search: the real
+            // library (read-only) with a search that matches nothing. Either way
+            // no album is selected, so the Songs panel shows the empty state.
+            if (emptyCase == "search")
+            {
+                LoadRealLibrary(vm);
+                vm.SearchQuery = "zzqxw no such thing";
+                Settle(400);
+            }
+            Console.WriteLine($"empty: '{vm.EmptyStateTitle}' / '{vm.EmptyStateDetail}' album={vm.SelectedAlbum is null}");
+        }
         else
         {
             Populate(vm);
@@ -579,6 +592,65 @@ internal static class Program
             Console.WriteLine($"menushot: {drop.GetType().Name} {drop.ActualWidth:0}x{drop.ActualHeight:0} "
                 + $"bg={Describe((drop as System.Windows.Controls.Border)?.Background)}");
             Save(drop, menuShot, Math.Max(1, drop.ActualWidth), Math.Max(1, drop.ActualHeight), scale);
+        }
+
+        // --popupshot <png>: a context menu (its second item highlighted, as on
+        // hover), a tooltip, and the logo drop-down with its first item highlighted,
+        // each built and drawn as an ordinary visual, so no popup window opens.
+        // Prints the colours each one resolved.
+        if (Arg(args, "--popupshot") is { } popupShot)
+        {
+            var highlight = typeof(System.Windows.Controls.MenuItem).GetProperty("IsHighlighted")!;
+            var context = new System.Windows.Controls.ContextMenu();
+            context.Items.Add(new System.Windows.Controls.MenuItem { Header = "Edit Tags…" });
+            var hovered = new System.Windows.Controls.MenuItem { Header = "Edit Album Tags…" };
+            context.Items.Add(hovered);
+            context.Items.Add(new System.Windows.Controls.MenuItem { Header = "Disabled item", IsEnabled = false });
+            var tip = new System.Windows.Controls.ToolTip
+            {
+                Content = "Send DSD to the DAC untouched, wrapped as DSD-over-PCM, instead of decoding it to PCM first.",
+            };
+            // Neither may have a parent, so each is laid out as a root of its own.
+            void Layout(FrameworkElement e)
+            {
+                e.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                e.Arrange(new Rect(e.DesiredSize));
+                e.UpdateLayout();
+            }
+            Layout(context);
+            Layout(tip);
+            highlight.SetValue(hovered, true);
+            Settle(200);
+            Layout(context);
+            Layout(tip);
+            System.Windows.Controls.Border? Box(DependencyObject o) => FindAll<System.Windows.Controls.Border>(o).FirstOrDefault(b => b.BorderThickness.Left > 0);
+            var hoverFill = FindAll<System.Windows.Controls.Border>(hovered).Select(b => b.Background).OfType<SolidColorBrush>().FirstOrDefault(b => b.Color.A > 0);
+            Console.WriteLine($"popupshot: context bg={Describe(context.Background)} border={Describe(context.BorderBrush)} "
+                + $"radius={Box(context)?.CornerRadius.TopLeft} fg={Describe(context.Foreground)} hover={Describe(hoverFill)} item fg={Describe(hovered.Foreground)} font={hovered.FontSize}");
+            Console.WriteLine($"popupshot: tooltip bg={Describe(tip.Background)} border={Describe(tip.BorderBrush)} "
+                + $"radius={Box(tip)?.CornerRadius.TopLeft} fg={Describe(tip.Foreground)} font={tip.FontSize} {tip.FontFamily} pad={tip.Padding} {tip.ActualWidth:0}x{tip.ActualHeight:0}");
+            Save(context, popupShot, Math.Max(1, context.ActualWidth), Math.Max(1, context.ActualHeight), scale);
+            Save(tip, Path.ChangeExtension(popupShot, null) + "-tip.png", Math.Max(1, tip.ActualWidth), Math.Max(1, tip.ActualHeight), scale);
+
+            if (FindFirst<System.Windows.Controls.MenuItem>(main) is { } logo
+                && FindFirst<System.Windows.Controls.Primitives.Popup>(logo)?.Child is FrameworkElement dropDown)
+            {
+                Console.WriteLine($"popupshot: logo hover key={Describe(logo.TryFindResource("MenuBarItemBackgroundSelected") as Brush)} "
+                    + $"flyout={Describe(logo.TryFindResource("FlyoutBackground") as Brush)}");
+                dropDown.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                dropDown.Arrange(new Rect(dropDown.DesiredSize));
+                dropDown.UpdateLayout();
+                if (logo.Items.OfType<System.Windows.Controls.MenuItem>().FirstOrDefault() is { } first)
+                {
+                    highlight.SetValue(first, true);
+                    Console.WriteLine($"popupshot: drop-down item hover key={Describe(first.TryFindResource("MenuBarItemBackgroundSelected") as Brush)} fg={Describe(first.Foreground)}");
+                }
+                Settle(200);
+                dropDown.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                dropDown.Arrange(new Rect(dropDown.DesiredSize));
+                Console.WriteLine($"popupshot: drop-down bg={Describe((dropDown as System.Windows.Controls.Border)?.Background)}");
+                Save(dropDown, Path.ChangeExtension(popupShot, null) + "-logo.png", Math.Max(1, dropDown.ActualWidth), Math.Max(1, dropDown.ActualHeight), scale);
+            }
         }
 
         // --libshot <png>: renders the Libraries submenu the same way, with the first
@@ -1421,7 +1493,7 @@ internal static class Program
         Make("Sunlight Through Static", "Aphelion Drive", "Second Sight", 1, 1, 1997, "FLAC", 1084, 24, 96000, 271),
         Make("Memory Card", "Aphelion Drive", "Second Sight", 2, 1, 1997, "FLAC", 998, 24, 96000, 214),
         Make("Polygon Weather", "Aphelion Drive", "Second Sight", 3, 1, 1997, "FLAC", 1140, 24, 96000, 332),
-        Make("Low Poly Sunrise", "Aphelion Drive", "Second Sight", 4, 1, 1997, "DSD", null, null, 2822400, 289),
+        Make("Low Poly Sunrise", "Aphelion Drive", "Second Sight", 4, 1, 1997, "DSD", 5645, 1, 2822400, 289),
         Make("Analogue Stick", "Aphelion Drive", "Second Sight", 5, 1, 1997, "FLAC", 1012, 24, 96000, 198),
         Make("Wireframe Hymn", "Aphelion Drive", "Second Sight", 6, 2, 1997, "FLAC", 1067, 24, 96000, 401),
         // One untagged-for-totals row, so the render shows the bare-number fallback.
@@ -2056,7 +2128,8 @@ internal static class Program
         Press(Cell(two, "SongColumn"), System.Windows.Input.Key.F2);
         var box = Box(two, "SongColumn");
         Log($"song: F2 opens={Cell(two, "SongColumn").IsEditing} box='{box?.Text}' selected={box?.SelectionLength} focused={box?.IsKeyboardFocused} "
-            + $"box {box?.ActualWidth:0}x{box?.ActualHeight:0} in row {grid.RowHeight:0} style={(box?.Style == main.TryFindResource("AfCellEditBox") ? "AfCellEditBox" : "other")}");
+            + $"box {box?.ActualWidth:0}x{box?.ActualHeight:0} in row {grid.RowHeight:0} style={(box?.Style == main.TryFindResource("theme.cellEditBox.title") ? "theme.cellEditBox.title" : "other")} "
+            + $"font {box?.FontSize} bg {(box?.Background as System.Windows.Media.SolidColorBrush)?.Color} border {(box?.BorderBrush as System.Windows.Media.SolidColorBrush)?.Color}");
         main.UpdateLayout();
         Save(main, outPath, w, h, scale);
 

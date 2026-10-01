@@ -103,7 +103,7 @@
     "albumMeta": { "size": 12, "weight": 400, "color": "text.muted" },
     "headerTitle": { "size": 30, "weight": 600, "lineHeight": 1.15, "maxLines": 2, "color": "text.heading" },
     "headerDetails": { "size": 14, "weight": 400, "lineHeight": 1.4, "color": "text.secondary" },
-    "headerArtist": { "size": 14, "weight": 600, "color": "accent.blue" },
+    "headerArtist": { "size": 14, "weight": 600, "lineHeight": 1.4, "color": "accent.blue" },
     "songTitle": { "size": 13.5, "weight": 400, "color": "text.primary" },
     "tableCell": { "size": 13, "weight": 400, "color": "text.secondary" },
     "trackNumber": { "size": 12.5, "weight": 400, "color": "text.muted" },
@@ -142,8 +142,10 @@
     "windowButton": { "width": 46, "iconSize": 18, "strokeOn24Grid": 2.6 }
   },
   "artists": { "rowHeight": 42, "rowPaddingX": 10, "lineGap": 1 },
-  "albums": { "rowHeight": 64, "rowPaddingY": 4, "rowPaddingX": 8, "thumbSize": 56, "thumbGap": 12, "lineGap": 3, "rowGap": 0 },
-  "albumHeader": { "paddingY": 22, "paddingX": 24, "artSize": 144, "artGap": 24, "titleToDetailsGap": 8, "detailsLineGap": 3 },
+  "albums": { "rowHeight": 64, "rowPaddingY": 4, "rowPaddingX": 8, "thumbSize": 56, "thumbGap": 12, "lineGap": 3, "rowGap": 0, "placeholderIconSize": 20 },
+  "albumHeader": { "paddingY": 22, "paddingX": 24, "artSize": 144, "artGap": 24, "titleMinHeight": 39, "titleToDetailsGap": 8, "detailsLineGap": 3, "placeholderIconSize": 36 },
+  "popup": { "toolTipPaddingX": 8, "toolTipPaddingY": 5, "toolTipMaxWidth": 260, "menuPaddingY": 3 },
+  "emptyState": { "squareSize": 31, "squareStroke": 1, "squareToTitleGap": 22, "titleToSublineGap": 4 },
   "songTable": {
     "headerHeight": 32,
     "headerPaddingX": 16,
@@ -165,7 +167,8 @@
       { "id": "bitDepth", "width": 70, "align": "center" },
       { "id": "sampleRate", "width": 82, "align": "right" }
     ],
-    "numberCell": { "triangleSlot": 8, "gap": 3, "numberWidth": 16, "numberWidth3Digits": 23 }
+    "numberCell": { "triangleSlot": 8, "gap": 3, "numberWidth": 16, "numberWidth3Digits": 23 },
+    "editBox": { "borderWidth": 1, "paddingX": 1 }
   },
   "playbackBar": {
     "paddingX": 24,
@@ -173,6 +176,7 @@
     "nowPlayingZoneWidth": 468,
     "nowPlayingZoneRule": "Shuffle button's left edge aligns with the song table # column's left edge",
     "artSize": 88,
+    "placeholderIconSize": 22,
     "artGap": 16,
     "textLineGap": 3,
     "buttonGap": 16,

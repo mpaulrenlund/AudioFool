@@ -71,8 +71,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                           LastFmSessionKey: { Length: > 0 } session })
             _scrobbler.Connect(key, secret, new LastFmSession(settings.LastFmUserName ?? "", session));
         RefreshLastFmIndicator();
+        RefreshEmptyState();
 
-        _positionTimer = new DispatcherTimer(DispatcherPriority.Normal)
+        _positionTimer =new DispatcherTimer(DispatcherPriority.Normal)
         {
             Interval = TimeSpan.FromMilliseconds(250),
         };
@@ -879,7 +880,25 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         MatchedTrackCount = matched.Count;
         OnPropertyChanged(nameof(HasNoSearchResults));
+        RefreshEmptyState();
     }
+
+    /// <summary>The Songs panel's text while no album is selected.</summary>
+    [ObservableProperty]
+    private string _emptyStateTitle = "";
+
+    [ObservableProperty]
+    private string _emptyStateDetail = "";
+
+    partial void OnIsScanningChanged(bool value) => RefreshEmptyState();
+
+    private void RefreshEmptyState() =>
+        (EmptyStateTitle, EmptyStateDetail) = EmptyStateText.Describe(
+            hasAnyTracks: _library.AllTracks.Count > 0,
+            hasTickedTracks: _folderFilteredLibrary.AllTracks.Count > 0,
+            isNarrowed: IsSearching || LibraryFilter is not null,
+            hasArtists: Artists.Count > 0,
+            isScanning: IsScanning);
 
 
     public void NavigateToNowPlaying()
@@ -1065,12 +1084,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnScrobblerAuthFailed(object? sender, string message) => StatusText = message;
 
-    /// <summary>The status-bar indicator's state; <see cref="ScrobblerState.Disconnected"/> hides it.</summary>
+    /// <summary>The status-bar indicator's state.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsLastFmShown))]
     private ScrobblerState _lastFmState;
 
-    public bool IsLastFmShown => LastFmState != ScrobblerState.Disconnected;
+    /// <summary>
+    /// Only when there is no working session (the user's call): not connected yet,
+    /// or Last.fm rejected the session. Hidden while connected, including when
+    /// scrobbling is off or a send failed, which sort themselves out or were chosen.
+    /// </summary>
+    public bool IsLastFmShown => LastFmState is ScrobblerState.Disconnected or ScrobblerState.NeedsReconnect;
 
     [ObservableProperty]
     private string _lastFmLabel = "Last.fm";
@@ -1093,6 +1117,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 ($"Last.fm: {_scrobbler.Pending:N0} waiting",
                  $"The last send to Last.fm failed: {_scrobbler.LastError.TrimEnd('.')}. "
                  + "The plays are kept and will be sent once it answers."),
+            ScrobblerState.Disconnected =>
+                ("Last.fm: not connected", "Not scrobbling. Click to connect to Last.fm."),
             _ => ("Last.fm", $"Scrobbling to Last.fm as {_scrobbler.UserName}."),
         };
     }

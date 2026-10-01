@@ -964,4 +964,185 @@
         </Setter>
     </Style>
 
+    <!--
+        ============================================================================
+        Session 5 polish: not in the spec, so each follows the nearest thing that is
+        ============================================================================
+    -->
+
+    <!--
+        The Songs panel with no album selected: the old theme's square outline and
+        two lines, in the header's details style and the album meta style. The
+        wording comes from EmptyStateText, so it doesn't say "pick an artist" when
+        there is none to pick.
+    -->
+    <ControlTemplate x:Key="theme.emptyState" TargetType="Control">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Border Width="{theme:Token emptyState.squareSize}"
+                    Height="{theme:Token emptyState.squareSize}"
+                    HorizontalAlignment="Center"
+                    BorderBrush="{DynamicResource color.text.muted}"
+                    BorderThickness="{theme:Thickness All=emptyState.squareStroke}"
+                    SnapsToDevicePixels="True" />
+            <TextBlock Text="{Binding EmptyStateTitle}"
+                       Style="{DynamicResource type.headerDetails}"
+                       Margin="{theme:Thickness Top=emptyState.squareToTitleGap}"
+                       HorizontalAlignment="Center" />
+            <TextBlock Text="{Binding EmptyStateDetail}"
+                       Style="{DynamicResource type.albumMeta}"
+                       Margin="{theme:Thickness Top=emptyState.titleToSublineGap}"
+                       HorizontalAlignment="Center" />
+        </StackPanel>
+    </ControlTemplate>
+
+    <!--
+        The box a song cell turns into while edited in place: the focused search
+        box at row size (searchFocusBg, a teal line), in the column's own text
+        style. A template of its own: WPF-UI's text box has padding and a minimum
+        height that don't fit a 28 px row, and a bare style falls back to Aero's
+        white box.
+    -->
+    <Style x:Key="theme.cellEditBox" TargetType="TextBox">
+        <Setter Property="FontFamily" Value="{DynamicResource font.family}" />
+        <Setter Property="FontSize" Value="{DynamicResource type.tableCell.size}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource color.text.primary}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource color.text.muted}" />
+        <Setter Property="Background" Value="{DynamicResource color.state.searchFocusBg}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource color.state.searchFocusRing}" />
+        <Setter Property="BorderThickness" Value="{theme:Thickness All=songTable.editBox.borderWidth}" />
+        <Setter Property="Padding" Value="{theme:Thickness X=songTable.editBox.paddingX}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{DynamicResource radius.row}"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Padding="{TemplateBinding Padding}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Style="{x:Null}"
+                                      Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="theme.cellEditBox.title" TargetType="TextBox" BasedOn="{StaticResource theme.cellEditBox}">
+        <Setter Property="FontSize" Value="{DynamicResource type.songTitle.size}" />
+    </Style>
+
+    <Style x:Key="theme.cellEditBox.number" TargetType="TextBox" BasedOn="{StaticResource theme.cellEditBox}">
+        <Setter Property="FontSize" Value="{DynamicResource type.trackNumber.size}" />
+        <Setter Property="TextAlignment" Value="Right" />
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+    </Style>
+
+    <!--
+        Tooltips, everywhere (dialogs included): a panel-styled box, 4 px
+        corners, status-size text. Flat, like the panels, without WPF-UI's
+        drop shadow.
+    -->
+    <Style TargetType="ToolTip">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="MaxWidth" Value="{DynamicResource popup.toolTipMaxWidth}" />
+        <Setter Property="FontFamily" Value="{DynamicResource font.family}" />
+        <Setter Property="FontSize" Value="{DynamicResource type.status.size}" />
+        <Setter Property="FontWeight" Value="{DynamicResource type.status.weight.fontWeight}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+        <Setter Property="Background" Value="{DynamicResource color.panel.bg}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource color.panel.border}" />
+        <Setter Property="BorderThickness" Value="{theme:Thickness All=layout.panelBorder}" />
+        <Setter Property="Padding" Value="{theme:Thickness X=popup.toolTipPaddingX, Y=popup.toolTipPaddingY}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToolTip">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{DynamicResource radius.surface}"
+                            Padding="{TemplateBinding Padding}"
+                            MaxWidth="{TemplateBinding MaxWidth}">
+                        <ContentPresenter>
+                            <ContentPresenter.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="TextWrapping" Value="Wrap" />
+                                </Style>
+                            </ContentPresenter.Resources>
+                        </ContentPresenter>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        Context menus: the same box. The items are WPF-UI's, recoloured by the
+        MenuItem style below.
+    -->
+    <Style TargetType="ContextMenu" BasedOn="{StaticResource {x:Type ContextMenu}}">
+        <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource color.text.primary}" />
+        <Setter Property="Background" Value="{DynamicResource color.panel.bg}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource color.panel.border}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{theme:Thickness All=layout.panelBorder}"
+                            CornerRadius="{DynamicResource radius.surface}"
+                            Padding="{theme:Thickness Y=popup.menuPaddingY}"
+                            SnapsToDevicePixels="True">
+                        <StackPanel ClipToBounds="True"
+                                    IsItemsHost="True"
+                                    KeyboardNavigation.DirectionalNavigation="Cycle"
+                                    Orientation="Vertical" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        Menu items, in context menus and the logo menu's drop-downs. WPF-UI's
+        templates stay (check marks, icons, submenus); the colours they read are
+        restated here, in the style's own resources, so nothing outside menus
+        changes. A highlighted item gets the selection grey, as list rows do. The
+        drop-downs' corners are WPF-UI's (8 px): its templates fix them.
+    -->
+    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+        <Style.Resources>
+            <SolidColorBrush x:Key="FlyoutBackground" Color="{StaticResource color.panel.bg.value}" />
+            <SolidColorBrush x:Key="FlyoutBorderBrush" Color="{StaticResource color.panel.border.value}" />
+            <SolidColorBrush x:Key="MenuBarItemBackgroundSelected" Color="{StaticResource color.state.selectionBg.value}" />
+            <SolidColorBrush x:Key="MenuBarItemBackgroundPressed" Color="{StaticResource color.state.selectionBg.value}" />
+            <SolidColorBrush x:Key="MenuBarItemTextForegroundPressed" Color="{StaticResource color.text.primary.value}" />
+            <SolidColorBrush x:Key="MenuBarItemBorderBrush" Color="{StaticResource color.panel.divider.value}" />
+        </Style.Resources>
+        <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+    </Style>
+
+    <!--
+        The logo itself: a title-bar button, so it hovers like Minimize and
+        Maximize. Its drop-down and items use the menu item style above.
+    -->
+    <Style x:Key="theme.logoMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+        <Style.Resources>
+            <SolidColorBrush x:Key="FlyoutBackground" Color="{StaticResource color.panel.bg.value}" />
+            <SolidColorBrush x:Key="FlyoutBorderBrush" Color="{StaticResource color.panel.border.value}" />
+            <SolidColorBrush x:Key="MenuBarItemBackgroundSelected" Color="{StaticResource color.window.buttonHover.value}" />
+            <SolidColorBrush x:Key="MenuBarItemBackgroundPressed" Color="{StaticResource color.window.buttonHover.value}" />
+            <SolidColorBrush x:Key="MenuBarItemBorderBrush" Color="{StaticResource color.panel.divider.value}" />
+        </Style.Resources>
+        <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+    </Style>
+
 </ResourceDictionary>
