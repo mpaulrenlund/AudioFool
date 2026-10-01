@@ -7,6 +7,7 @@
                  xmlns:vm="clr-namespace:AudioFool.ViewModels"
                  xmlns:core="clr-namespace:AudioFool.Core.Models;assembly=AudioFool.Core"
                  xmlns:scrob="clr-namespace:AudioFool.Core.Scrobbling;assembly=AudioFool.Core"
+                 xmlns:theme="clr-namespace:AudioFool.Theming"
                  Title="{Binding WindowTitle}"
                  Icon="/Resources/AudioFool.ico"
                  Width="1560" Height="900"
@@ -37,21 +38,30 @@
         <fmt:IsCurrentTrackConverter x:Key="IsCurrentTrack" />
 
         <!--
-            Artist and album rows. The look is entirely in AfBrowserRowTemplate,
-            which a theme owns; these two styles stay here because the album row
+            Artist and album rows. The look is theme.browserRowTemplate
+            (Theming/Chrome.xaml); the sizes are here per list, and the album row
             also carries a context menu whose command is bound through the proxy
-            above, and a dictionary in Themes/ cannot reach a window resource.
+            above, which a dictionary cannot reach.
         -->
         <Style x:Key="BrowserRow" TargetType="ListBoxItem">
-            <Setter Property="Template" Value="{DynamicResource AfBrowserRowTemplate}" />
+            <Setter Property="Template" Value="{DynamicResource theme.browserRowTemplate}" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="{DynamicResource AfPadRow}" />
-            <Setter Property="Margin" Value="{DynamicResource AfPadRowMargin}" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        </Style>
+
+        <Style x:Key="ArtistRow" TargetType="ListBoxItem" BasedOn="{StaticResource BrowserRow}">
+            <Setter Property="Height" Value="{theme:Token artists.rowHeight}" />
+            <Setter Property="Padding" Value="{theme:Thickness X=artists.rowPaddingX}" />
         </Style>
 
         <Style x:Key="AlbumRow" TargetType="ListBoxItem" BasedOn="{StaticResource BrowserRow}">
+            <Setter Property="Height" Value="{theme:Token albums.rowHeight}" />
+            <Setter Property="Padding" Value="{theme:Thickness X=albums.rowPaddingX, Y=albums.rowPaddingY}" />
+            <Setter Property="Margin" Value="{theme:Thickness Bottom=albums.rowGap}" />
             <Setter Property="ContextMenu">
                 <Setter.Value>
                     <ContextMenu>
@@ -61,6 +71,47 @@
                     </ContextMenu>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- The sublines go from muted to secondary on a selected row (6.3, 6.4). -->
+        <Style x:Key="ArtistCountText" TargetType="TextBlock" BasedOn="{StaticResource type.artistCount}">
+            <Setter Property="Margin" Value="{theme:Thickness Top=artists.lineGap}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource color.text.secondary}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="AlbumMetaText" TargetType="TextBlock" BasedOn="{StaticResource type.albumMeta}">
+            <Setter Property="Margin" Value="{theme:Thickness Top=albums.lineGap}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource color.text.secondary}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="AlbumThumb" TargetType="Border">
+            <Setter Property="Width" Value="{theme:Token albums.thumbSize}" />
+            <Setter Property="Height" Value="{theme:Token albums.thumbSize}" />
+            <Setter Property="BorderThickness" Value="{theme:Thickness All=layout.panelBorder}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource color.art.thumbBorder}" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource color.art.thumbBorderSelected}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ARTISTS and ALBUMS (6.2): small grey capitals, tracked 0.12 em. -->
+        <Style x:Key="PanelHeaderLabel" TargetType="TextBlock" BasedOn="{StaticResource type.panelHeader}">
+            <Setter Property="fmt:LetterSpacing.Em" Value="{DynamicResource type.panelHeader.letterSpacingEm}" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
     </ui:FluentWindow.Resources>
 
@@ -82,42 +133,70 @@
                  Template="{DynamicResource AfWindowDecor}"
                  Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
 
-        <ui:TitleBar Grid.Row="0">
+        <!--
+            The new theme's window grey behind the title bar and the panels row:
+            it shows in the panel gaps and margins. The playback and status bars
+            keep the old shell under them until they are restyled (session 4).
+        -->
+        <Border Grid.Row="0" Grid.RowSpan="2"
+                Background="{DynamicResource color.window.bg}"
+                IsHitTestVisible="False" />
+
+        <!--
+            6.1. The window buttons are WPF-UI's own, restyled by
+            theme.windowButton; see Theming/Chrome.xaml for why they are not
+            replaced. ButtonsBackground is the minimize/maximize hover, and
+            PaletteRedBrush close's: WPF-UI's template sets that one directly.
+        -->
+        <ui:TitleBar x:Name="AppTitleBar"
+                     Grid.Row="0"
+                     Height="{theme:Token layout.titleBarHeight}"
+                     Padding="0"
+                     ButtonsBackground="{DynamicResource color.window.buttonHover}">
+            <ui:TitleBar.Resources>
+                <StaticResource x:Key="PaletteRedBrush" ResourceKey="color.window.closeHover" />
+                <Style TargetType="ui:TitleBarButton" BasedOn="{StaticResource theme.windowButton}" />
+            </ui:TitleBar.Resources>
             <!--
                 The logo is the File-style menu: clicking the mark drops the output
                 and library controls that used to sit in the toolbar. No text label -
-                the mark carries the identity, and the width that frees goes to the
-                search box, whose right edge still lines up with the Albums panel.
+                the mark carries the identity.
+
+                Positions are calculations, not numbers (spec 2, rules 1 and 2):
+                AlignTitleBar centres the logo slot over the ARTISTS label and ends
+                the search box at the Albums panel's right edge, and runs again
+                whenever either panel changes size.
             -->
             <ui:TitleBar.Header>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel x:Name="TitleBarHeader" Orientation="Horizontal" VerticalAlignment="Center">
                 <!--
                     The logo is drawn *over* the menu item, not inside it as its
                     Header. WPF-UI's top-level menu template caps header content at
                     20 px tall and layout-clips anything taller, which cropped 5 px
                     off the top and bottom of the 30 px mark. So the item carries a
-                    transparent spacer the width of the mark, the mark is drawn on
-                    top of it, and IsHitTestVisible="False" lets the click fall
-                    through to the item underneath. The hover highlight and the
-                    drop-down are WPF-UI's own, untouched.
+                    transparent spacer, the mark is drawn on top of it, and
+                    IsHitTestVisible="False" lets the click fall through to the
+                    item underneath. The hover highlight and the drop-down are
+                    WPF-UI's own, untouched.
 
-                    The spacer takes its width from the mark rather than repeating a
-                    number that depends on the image's aspect; 20 px is the cap, and
-                    keeping the spacer at it leaves the item the size it has always
-                    been.
+                    The spacer's width is set in code (FitLogoMenuToSlot) so the
+                    whole item, WPF-UI's padding included, is exactly the width of
+                    the logo slot. 20 px is WPF-UI's header cap, not a theme value.
                 -->
-                <Grid>
-                    <Menu Background="Transparent" VerticalAlignment="Center">
+                <Grid x:Name="LogoSlot"
+                      Width="{theme:Token titleBar.logoSlot.width}"
+                      Height="{theme:Token titleBar.logoSlot.height}">
+                    <Menu Background="Transparent" VerticalAlignment="Center" HorizontalAlignment="Center">
                         <!--
                             FontWeight is set here for the submenu, not the header:
                             menu items inherit it from the item that owns them.
                         -->
-                        <MenuItem FontWeight="{DynamicResource AfFontWeightSemiBold}"
+                        <MenuItem x:Name="LogoMenuItem"
+                                  FontWeight="{DynamicResource AfFontWeightSemiBold}"
                                   AutomationProperties.Name="AudioFool"
                                   ToolTip="AudioFool menu">
                             <MenuItem.Header>
-                                <Border Height="20" Background="Transparent"
-                                        Width="{Binding ActualWidth, ElementName=BrandMark, Mode=OneWay}" />
+                                <Border x:Name="LogoMenuSpacer" Height="20" Background="Transparent" />
                             </MenuItem.Header>
                             <MenuItem Header="DSD passthrough"
                                       IsCheckable="True"
@@ -187,22 +266,23 @@
                         </MenuItem>
                     </Menu>
 
-                    <Control x:Name="BrandMark"
-                             Template="{DynamicResource AfBrandMark}"
-                             Height="{DynamicResource AfSizeBrandMark}"
-                             HorizontalAlignment="Center" VerticalAlignment="Center"
-                             Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
+                    <!-- The existing logo asset (spec 10), fitted to the slot. -->
+                    <Image x:Name="BrandMark"
+                           Source="/Resources/logo.png"
+                           Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Focusable="False" IsHitTestVisible="False" />
                 </Grid>
 
+                <!-- Width is set by AlignTitleBar (rule 2). -->
                 <ui:TextBox x:Name="SearchBox"
-                            Style="{DynamicResource AfSearchBox}"
-                            Width="402"
-                            Margin="8,0,0,0"
+                            Style="{DynamicResource theme.searchBox}"
+                            Margin="{theme:Thickness Left=titleBar.logoToSearchGap}"
                             VerticalAlignment="Center"
                             Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="Search"
                             ClearButtonEnabled="True"
-                            Icon="{ui:SymbolIcon Search24}"
                             AutomationProperties.Name="Search"
                             ToolTip="Search artists, albums and songs" />
 
@@ -210,11 +290,20 @@
                     The Statistics filter, while one is on. Beside the search box
                     because the two combine - search runs inside the filter - and
                     after it, so the box keeps its right edge level with Albums.
-                    Clicking anywhere on the chip clears it.
+                    Clicking anywhere on the chip clears it. The spec has no filter
+                    chip; it borrows the status-bar chip's colours and corners.
                 -->
                 <ui:Button x:Name="LibraryFilterChip"
-                           Margin="8,0,0,0"
+                           Margin="{theme:Thickness Left=statusBar.chipGap}"
+                           Height="{theme:Token titleBar.search.height}"
                            VerticalAlignment="Center"
+                           Background="{DynamicResource color.status.chipBg}"
+                           BorderBrush="{DynamicResource color.status.chipBorder}"
+                           BorderThickness="{theme:Thickness All=layout.panelBorder}"
+                           CornerRadius="{DynamicResource radius.chip}"
+                           Foreground="{DynamicResource color.text.primary}"
+                           FontFamily="{DynamicResource font.family}"
+                           FontSize="{theme:Token type.search.size}"
                            Icon="{ui:SymbolIcon Filter16}"
                            Command="{Binding ClearLibraryFilterCommand}"
                            Visibility="{Binding IsFiltered, Converter={StaticResource BoolToVisibility}}"
@@ -222,8 +311,10 @@
                            ToolTip="Showing only these tracks. Click to show the whole library again.">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding LibraryFilter.Description}" VerticalAlignment="Center" />
-                        <ui:SymbolIcon Symbol="Dismiss12" Margin="8,0,0,0" VerticalAlignment="Center"
-                                       FontSize="{DynamicResource AfIconSizeMicro}" />
+                        <ui:SymbolIcon Symbol="Dismiss12"
+                                       Margin="{theme:Thickness Left=titleBar.search.iconGap}"
+                                       VerticalAlignment="Center"
+                                       FontSize="{theme:Token type.search.size}" />
                     </StackPanel>
                 </ui:Button>
                 </StackPanel>
@@ -231,18 +322,25 @@
         </ui:TitleBar>
 
         <!-- ============================================ artist | album | tracks -->
-        <Grid Grid.Row="1" Margin="{DynamicResource AfPadWindowBrowser}">
-            <!-- Panes are deliberately narrow: the ten track columns need ~940px. -->
+        <!--
+            6.2: three panels with 6 px between them, 12 px in from the window
+            sides and 6 px above the playback bar. Artists and Albums start at
+            their spec widths and can still be dragged wider or narrower in the
+            gaps. Songs takes the rest, down to a minimum that fits the song
+            table's columns (ApplyMinimumWidth), so nothing scrolls sideways.
+        -->
+        <Grid Grid.Row="1"
+              Margin="{theme:Thickness X=layout.windowMarginX, Top=0, Bottom=layout.panelsBottomMargin}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="200" MinWidth="140" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="260" MinWidth="180" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" MinWidth="380" />
+                <ColumnDefinition Width="{theme:Token layout.artistsPanelOuterWidth}" MinWidth="{theme:Token layout.artistsPanelMinWidth}" />
+                <ColumnDefinition Width="{theme:Token layout.panelGap}" />
+                <ColumnDefinition Width="{theme:Token layout.albumsPanelOuterWidth}" MinWidth="{theme:Token layout.albumsPanelMinWidth}" />
+                <ColumnDefinition Width="{theme:Token layout.panelGap}" />
+                <ColumnDefinition x:Name="SongsColumn" Width="*" />
             </Grid.ColumnDefinitions>
 
             <!-- artists -->
-            <HeaderedContentControl Grid.Column="0" Style="{DynamicResource AfPane}">
+            <HeaderedContentControl x:Name="ArtistsPanel" Grid.Column="0" Style="{DynamicResource theme.panel}">
                 <HeaderedContentControl.Header>
                     <!--
                         The header is the sort toggle: A-Z, or most recently added
@@ -251,6 +349,11 @@
                         A bare template (Style x:Null) so it reads as the plain label
                         it always was, in the same place; hover and keyboard focus
                         underline it rather than adding a ring that would move it.
+
+                        The plain ARTISTS label is hidden rather than collapsed while
+                        the other one shows: it is what the logo centres over, so it
+                        keeps its place either way. The underline is a rule under the
+                        labels, since a text decoration would skip the letter gaps.
                     -->
                     <Button x:Name="ArtistSortHeader"
                             Style="{x:Null}"
@@ -259,7 +362,8 @@
                             AutomationProperties.Name="Sort artists"
                             Cursor="Hand"
                             FocusVisualStyle="{x:Null}"
-                            HorizontalAlignment="Left">
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="Transparent">
@@ -267,31 +371,46 @@
                                 </Border>
                             </ControlTemplate>
                         </Button.Template>
-                        <StackPanel Orientation="Horizontal">
-                            <Control Template="{DynamicResource AfPaneMarkArtists}" VerticalAlignment="Center"
-                                     Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
-                            <Grid>
-                                <Grid.Resources>
-                                    <Style x:Key="ArtistSortLabel" TargetType="TextBlock"
-                                           BasedOn="{StaticResource AfPaneHeaderText}">
+                        <Grid>
+                            <TextBlock x:Name="ArtistsHeaderLabel" Text="ARTISTS">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource PanelHeaderLabel}">
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=ArtistSortHeader}" Value="True">
-                                                <Setter Property="TextDecorations" Value="Underline" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsKeyboardFocused, ElementName=ArtistSortHeader}" Value="True">
-                                                <Setter Property="TextDecorations" Value="Underline" />
+                                            <DataTrigger Binding="{Binding ArtistsByRecent}" Value="True">
+                                                <Setter Property="Visibility" Value="Hidden" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
-                                </Grid.Resources>
-                                <TextBlock Text="ARTISTS" Style="{StaticResource ArtistSortLabel}"
-                                           Visibility="{Binding ArtistsByRecent, Converter={StaticResource BoolToVisibility}, ConverterParameter=Inverse}" />
-                                <TextBlock Text="ARTISTS · RECENT" Style="{StaticResource ArtistSortLabel}"
-                                           Visibility="{Binding ArtistsByRecent, Converter={StaticResource BoolToVisibility}}" />
-                            </Grid>
-                        </StackPanel>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="ARTISTS · RECENT" Style="{StaticResource PanelHeaderLabel}"
+                                       Visibility="{Binding ArtistsByRecent, Converter={StaticResource BoolToVisibility}}" />
+                            <Border VerticalAlignment="Bottom"
+                                    Height="{theme:Token layout.panelBorder}"
+                                    Background="{DynamicResource color.text.muted}">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Hidden" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=ArtistSortHeader}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsKeyboardFocused, ElementName=ArtistSortHeader}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                        </Grid>
                     </Button>
                 </HeaderedContentControl.Header>
+                <!-- 6.3: 42 px rows, name over album count. Scrollbars hidden;
+                     the wheel, trackpad and keyboard still scroll. The 6 px list
+                     padding is a margin: WPF-UI's ListBox template ignores Padding.
+                     No focus outline on the list itself: inset by that margin, it
+                     drew a dark box inside the panel after any key press. -->
+
                 <ListBox x:Name="ArtistList"
                          ItemsSource="{Binding Artists}"
                          SelectedItem="{Binding SelectedArtist, Mode=TwoWay}"
@@ -300,37 +419,36 @@
                          BorderThickness="0"
                          Background="Transparent"
                          HorizontalContentAlignment="Stretch"
-                         Padding="{DynamicResource AfPadListInner}"
-                         ItemContainerStyle="{StaticResource BrowserRow}"
+                         Margin="{theme:Token layout.listPadding}"
+                         FocusVisualStyle="{x:Null}"
+                         ItemContainerStyle="{StaticResource ArtistRow}"
                          AutomationProperties.Name="Artists"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Hidden"
                          VirtualizingPanel.IsVirtualizing="True"
                          VirtualizingPanel.VirtualizationMode="Recycling">
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type core:ArtistGroup}">
-                            <StackPanel Margin="0,3">
+                            <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{Binding Name}"
-                                           Style="{DynamicResource AfRowTitle}" />
+                                           Style="{DynamicResource type.artistName}"
+                                           TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{Binding AlbumSummary}"
-                                           Style="{DynamicResource AfMetaText}" />
+                                           Style="{StaticResource ArtistCountText}" />
                             </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
             </HeaderedContentControl>
 
-            <GridSplitter Grid.Column="1" Width="{DynamicResource AfSizeSplitter}"
-                          HorizontalAlignment="Center"
+            <GridSplitter Grid.Column="1"
+                          HorizontalAlignment="Stretch"
                           Background="Transparent" ResizeBehavior="PreviousAndNext" />
 
             <!-- albums, oldest first -->
-            <HeaderedContentControl Grid.Column="2" Style="{DynamicResource AfPane}">
+            <HeaderedContentControl x:Name="AlbumsPanel" Grid.Column="2" Style="{DynamicResource theme.panel}">
                 <HeaderedContentControl.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <Control Template="{DynamicResource AfPaneMarkAlbums}" VerticalAlignment="Center"
-                                 Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
-                        <TextBlock Text="ALBUMS" Style="{DynamicResource AfPaneHeaderText}" />
-                    </StackPanel>
+                    <TextBlock Text="ALBUMS" Style="{StaticResource PanelHeaderLabel}" />
                 </HeaderedContentControl.Header>
                 <ListBox x:Name="AlbumList"
                          ItemsSource="{Binding Albums}"
@@ -340,20 +458,23 @@
                          BorderThickness="0"
                          Background="Transparent"
                          HorizontalContentAlignment="Stretch"
-                         Padding="{DynamicResource AfPadListInner}"
+                         Margin="{theme:Token layout.listPadding}"
+                         FocusVisualStyle="{x:Null}"
                          ItemContainerStyle="{StaticResource AlbumRow}"
                          AutomationProperties.Name="Albums"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Hidden"
                          VirtualizingPanel.IsVirtualizing="True"
                          VirtualizingPanel.VirtualizationMode="Recycling">
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:AlbumItemViewModel}">
                             <!--
-                                The full title, for names trimmed at the pane's width.
-                                AlbumRow_ToolTipOpening cancels it when the title fits.
+                                6.4: a 56 px thumbnail, then the title wrapped to two
+                                lines at most and the year and track count. The full
+                                title shows on hover only when the clamp cut it off:
+                                AlbumRow_ToolTipOpening cancels the tooltip otherwise.
                             -->
-                            <Grid Margin="0,4"
-                                  ToolTip="{Binding Title}"
+                            <Grid ToolTip="{Binding Title}"
                                   ToolTipService.InitialShowDelay="1000"
                                   Tag="{Binding ElementName=AlbumTitleText}"
                                   ToolTipOpening="AlbumRow_ToolTipOpening">
@@ -362,14 +483,13 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
 
-                                <Border Grid.Column="0"
-                                        Width="{DynamicResource AfSizeArtRow}"
-                                        Height="{DynamicResource AfSizeArtRow}"
-                                        Style="{DynamicResource AfArtFrame}">
+                                <Border Grid.Column="0" Style="{StaticResource AlbumThumb}">
                                     <Grid>
+                                        <!-- No art: the spec has no placeholder, so the old
+                                             note stays, in the neutral-icon grey. -->
                                         <ui:SymbolIcon Symbol="MusicNote224"
                                                        FontSize="{DynamicResource AfIconSizeMedium}"
-                                                       Foreground="{DynamicResource AfTextPlaceholder}"
+                                                       Foreground="{DynamicResource color.text.muted}"
                                                        Visibility="{Binding Thumbnail, Converter={StaticResource NullToVisible}}" />
                                         <Image Source="{Binding Thumbnail}"
                                                Stretch="UniformToFill"
@@ -378,12 +498,12 @@
                                 </Border>
 
                                 <StackPanel Grid.Column="1"
-                                            Margin="{DynamicResource AfPadBesideArt}"
+                                            Margin="{theme:Thickness Left=albums.thumbGap}"
                                             VerticalAlignment="Center">
                                     <TextBlock x:Name="AlbumTitleText"
                                                Text="{Binding Title}"
-                                               Style="{DynamicResource AfRowTitle}" />
-                                    <TextBlock Style="{DynamicResource AfMetaText}">
+                                               Style="{DynamicResource type.albumTitle}" />
+                                    <TextBlock Style="{StaticResource AlbumMetaText}">
                                         <Run Text="{Binding YearDisplay, Mode=OneWay}" />
                                         <Run Text="·" />
                                         <Run Text="{Binding TrackSummary, Mode=OneWay}" />
@@ -395,16 +515,16 @@
                 </ListBox>
             </HeaderedContentControl>
 
-            <GridSplitter Grid.Column="3" Width="{DynamicResource AfSizeSplitter}"
-                          HorizontalAlignment="Center"
+            <GridSplitter Grid.Column="3"
+                          HorizontalAlignment="Stretch"
                           Background="Transparent" ResizeBehavior="PreviousAndNext" />
 
             <!--
-                Album header + tracks, styled as the display rather than a plain
-                pane: it is the one surface a theme may put texture behind, and
-                the album facts ride on its header strip.
+                Album header + tracks. The shell is the shared panel (6.2); what
+                is inside it - the album header and the song table - is still the
+                old theme's until session 3.
             -->
-            <HeaderedContentControl Grid.Column="4" Style="{DynamicResource AfPaneDisplay}">
+            <HeaderedContentControl Grid.Column="4" Style="{DynamicResource theme.panel.songs}">
                 <!-- big album art + album facts -->
                 <HeaderedContentControl.Header>
                     <Grid Margin="{DynamicResource AfPadAlbumHeader}"
@@ -476,6 +596,8 @@
                               CanUserSortColumns="True"
                               HeadersVisibility="Column"
                               GridLinesVisibility="None"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Hidden"
                               Background="Transparent"
                               BorderThickness="0"
                               RowHeight="{DynamicResource AfSizeTrackRowHeight}"

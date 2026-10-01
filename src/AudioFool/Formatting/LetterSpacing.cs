@@ -98,4 +98,80 @@ public static class LetterSpacing
         if (AutomationProperties.GetName(label).Length == 0)
             AutomationProperties.SetName(label, unspaced);
     }
+
+    // ------------------------------------------------------------ em spacing
+
+    /// <summary>
+    /// Tracking in em, as CSS <c>letter-spacing</c> gives it: <c>Em × FontSize</c>
+    /// pixels between letters. The PS1 theme's <c>type.*.letterSpacingEm</c> tokens
+    /// go here. A spacer character cannot do this, since its width is the font's
+    /// rather than a fraction of the size, so each gap is an empty inline element
+    /// of exactly that width.
+    /// <para>
+    /// Unlike CSS there is no gap after the last letter, so the label's box ends
+    /// where its ink does and centring something over it centres on the word.
+    /// The same static-label limits as <c>Spacer</c> apply, and text decorations
+    /// skip the gaps, so underline such a label some other way.
+    /// </para>
+    /// </summary>
+    public static readonly DependencyProperty EmProperty =
+        DependencyProperty.RegisterAttached(
+            "Em",
+            typeof(double),
+            typeof(LetterSpacing),
+            new PropertyMetadata(0.0, OnEmChanged));
+
+    public static void SetEm(DependencyObject target, double value) =>
+        target.SetValue(EmProperty, value);
+
+    public static double GetEm(DependencyObject target) =>
+        (double)target.GetValue(EmProperty);
+
+    private static void OnEmChanged(DependencyObject target, DependencyPropertyChangedEventArgs e)
+    {
+        if (target is not TextBlock label)
+            return;
+
+        if (label.IsLoaded)
+        {
+            ApplyEm(label);
+            return;
+        }
+
+        label.Loaded -= OnLoadedEm;
+        label.Loaded += OnLoadedEm;
+    }
+
+    private static void OnLoadedEm(object sender, RoutedEventArgs e)
+    {
+        var label = (TextBlock)sender;
+        label.Loaded -= OnLoadedEm;
+        ApplyEm(label);
+    }
+
+    private static void ApplyEm(TextBlock label)
+    {
+        if (label.GetValue(UnspacedProperty) is not string unspaced)
+        {
+            // Plain text only, as for Spacer; after the first rewrite the
+            // inlines are ours, and the original comes from UnspacedProperty.
+            if (label.Inlines.Count > 1)
+                return;
+            unspaced = label.Text;
+            label.SetValue(UnspacedProperty, unspaced);
+        }
+
+        var gap = GetEm(label) * label.FontSize;
+
+        label.Inlines.Clear();
+        for (var i = 0; i < unspaced.Length; i++)
+        {
+            label.Inlines.Add(new System.Windows.Documents.Run(unspaced[i].ToString()));
+            if (gap > 0 && i < unspaced.Length - 1)
+                label.Inlines.Add(new System.Windows.Documents.InlineUIContainer(new FrameworkElement { Width = gap }));
+        }
+
+        if (AutomationProperties.GetName(label).Length == 0)
+            AutomationProperties.SetName(label, unspaced);
+    }
 }

@@ -35,6 +35,7 @@ public partial class MainWindow : FluentWindow
 
         InitializeComponent();
 
+        ApplyMinimumWidth();
         FitToWorkArea();
 
         _taskbarControls = new TaskbarControls(this, viewModel);
@@ -81,7 +82,15 @@ public partial class MainWindow : FluentWindow
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         Loaded -= OnLoaded;
-        HookTrackGridScrollBar();
+
+        ThemeCloseButton();
+        FitLogoMenuToSlot();
+        ArtistsHeaderLabel.SizeChanged += (_, _) => AlignTitleBar();
+        ArtistsPanel.SizeChanged += (_, _) => AlignTitleBar();
+        AlbumsPanel.SizeChanged += (_, _) => AlignTitleBar();
+        UpdateLayout();
+        AlignTitleBar();
+
         await _viewModel.InitialiseAsync();
     }
 
@@ -145,42 +154,89 @@ public partial class MainWindow : FluentWindow
         _taskbarControls.Dispose();
         _slowClickTimer.Stop();
         _viewModel.TracksChanging -= OnTracksChanging;
-
-        if (_trackGridScroller is not null)
-            _trackGridScroller.ScrollChanged -= TrackGridScroller_ScrollChanged;
     }
 
-    // ------------------------------------------------------- horizontal scrollbar
+    // ------------------------------------------------------ layout calculations
 
     /// <summary>
-    /// Star-column layout leaves a few pixels of rounding overflow even when every
-    /// column already fits the viewport - WPF reports the DataGrid as fractionally
-    /// scrollable regardless of how wide the window is. That keeps the Auto
-    /// horizontal scrollbar visible with nowhere real to scroll.
-    /// <para>
-    /// Anything within this tolerance counts as "fully displayed" and the bar is
-    /// hidden. Genuine overflow - the floors in <see cref="AutoFitColumns"/> are
-    /// allowed to exceed the viewport by tens of pixels on purpose - stays well
-    /// above it and still shows the bar.
-    /// </para>
+    /// Nothing scrolls sideways (the user's call, 2026-10-01), so the window may
+    /// not get narrower than the panels plus a song table whose columns all fit:
+    /// the fixed columns at their spec widths, the two flexible ones at
+    /// <see cref="FlexFloor"/>, the gaps between columns, and the table's and
+    /// panel's padding and borders. All from the theme tokens, so a column
+    /// width changed there moves the minimum with it.
     /// </summary>
-    private const double HorizontalOverflowTolerance = 4;
-
-    private ScrollViewer? _trackGridScroller;
-
-    private void HookTrackGridScrollBar()
+    private void ApplyMinimumWidth()
     {
-        _trackGridScroller = FindDescendant<ScrollViewer>(TrackGrid);
-        if (_trackGridScroller is not null)
-            _trackGridScroller.ScrollChanged += TrackGridScroller_ScrollChanged;
+        var n = Theming.TokenResources.Current!.Numbers;
+
+        const string prefix = "songTable.columns.";
+        var columnIds = n.Keys
+            .Where(k => k.StartsWith(prefix, StringComparison.Ordinal))
+            .Select(k => k[prefix.Length..k.LastIndexOf('.')])
+            .Distinct()
+            .ToList();
+        var columns = columnIds.Sum(id => n.TryGetValue($"{prefix}{id}.width", out var width) ? width : FlexFloor);
+
+        var songs = 2 * n["layout.panelBorder"]
+            + 2 * n["songTable.listPaddingX"]
+            + 2 * n["songTable.rowPaddingX"]
+            + columns
+            + (columnIds.Count - 1) * n["songTable.columnGap"];
+
+        SongsColumn.MinWidth = songs;
+        MinWidth = 2 * n["layout.windowMarginX"]
+            + n["layout.artistsPanelOuterWidth"] + n["layout.panelGap"]
+            + n["layout.albumsPanelOuterWidth"] + n["layout.panelGap"]
+            + songs;
     }
 
-    private void TrackGridScroller_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    /// <summary>
+    /// Spec 2, rules 1 and 2: the logo slot is centred over the ARTISTS label,
+    /// and the search box starts the token gap after it and ends exactly at the
+    /// Albums panel's right outer edge. Measured from the real layout, so it
+    /// follows the panels when a splitter moves.
+    /// </summary>
+    private void AlignTitleBar()
     {
-        var scroller = (ScrollViewer)sender;
-        scroller.HorizontalScrollBarVisibility = scroller.ScrollableWidth > HorizontalOverflowTolerance
-            ? ScrollBarVisibility.Auto
-            : ScrollBarVisibility.Hidden;
+        if (!IsLoaded || ArtistsHeaderLabel.ActualWidth == 0)
+            return;
+
+        var n = Theming.TokenResources.Current!.Numbers;
+
+        var labelCentre = ArtistsHeaderLabel.TranslatePoint(new Point(ArtistsHeaderLabel.ActualWidth / 2, 0), this).X;
+        var albumsRight = AlbumsPanel.TranslatePoint(new Point(AlbumsPanel.ActualWidth, 0), this).X;
+        var headerOrigin = TitleBarHeader.TranslatePoint(new Point(0, 0), this).X - TitleBarHeader.Margin.Left;
+
+        // Whole pixels (spec 8), so the search box's right edge lands exactly on
+        // the panel's rather than a rounding step short of it.
+        var logoLeft = Math.Round(labelCentre - (LogoSlot.Width / 2));
+        albumsRight = Math.Round(albumsRight);
+        var searchLeft = logoLeft + LogoSlot.Width + n["titleBar.logoToSearchGap"];
+
+        TitleBarHeader.Margin = new Thickness(Math.Max(0, logoLeft - headerOrigin), 0, 0, 0);
+        SearchBox.Width = Math.Max(0, albumsRight - searchLeft);
+    }
+
+    /// <summary>
+    /// Sizes the logo menu's spacer so the whole item - WPF-UI's own padding
+    /// either side of it included - is exactly the logo slot's width, and its
+    /// hover highlight sits on the slot rather than spilling toward the search box.
+    /// </summary>
+    private void FitLogoMenuToSlot()
+    {
+        var chrome = LogoMenuItem.ActualWidth - LogoMenuSpacer.ActualWidth;
+        LogoMenuSpacer.Width = Math.Max(0, LogoSlot.Width - chrome);
+    }
+
+    /// <summary>
+    /// WPF-UI's title-bar template gives the close button a literal white icon on
+    /// hover; point it at the token instead.
+    /// </summary>
+    private void ThemeCloseButton()
+    {
+        if (AppTitleBar.Template?.FindName("PART_CloseButton", AppTitleBar) is TitleBarButton close)
+            close.SetResourceReference(TitleBarButton.MouseOverButtonsForegroundProperty, "color.window.closeHoverIcon");
     }
 
     /// <summary>
@@ -397,7 +453,13 @@ public partial class MainWindow : FluentWindow
             e.Handled = true;
     }
 
-    private static bool IsTrimmed(System.Windows.Controls.TextBlock text)
+    /// <summary>
+    /// Whether a title was cut short. Album titles wrap and are clamped to two
+    /// lines (type.albumTitle), so the test is whether the whole title, wrapped
+    /// at the block's width, would need more height than the block was given;
+    /// an unwrapped title is cut short when it is wider than the block.
+    /// </summary>
+    internal static bool IsTrimmed(System.Windows.Controls.TextBlock text)
     {
         var formatted = new FormattedText(
             text.Text,
@@ -409,7 +471,13 @@ public partial class MainWindow : FluentWindow
             VisualTreeHelper.GetDpi(text).PixelsPerDip);
 
         // Half a pixel of slack for layout rounding.
-        return formatted.WidthIncludingTrailingWhitespace > text.ActualWidth + 0.5;
+        if (text.TextWrapping == TextWrapping.NoWrap)
+            return formatted.WidthIncludingTrailingWhitespace > text.ActualWidth + 0.5;
+
+        formatted.MaxTextWidth = Math.Max(1, text.ActualWidth);
+        if (!double.IsNaN(text.LineHeight))
+            formatted.LineHeight = text.LineHeight;
+        return formatted.Height > text.ActualHeight + 0.5;
     }
 
     private void ArtistList_MouseDoubleClick(object sender, MouseButtonEventArgs e)

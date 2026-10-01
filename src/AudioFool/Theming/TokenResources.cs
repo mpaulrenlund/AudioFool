@@ -33,7 +33,8 @@ namespace AudioFool.Theming;
 /// <item><term><c>shadow.*</c></term><description>the outer layer as a frozen <see cref="DropShadowEffect"/>
 /// under the path. WPF has no inset shadow, so each inset layer is published as
 /// <c>&lt;path&gt;.inset1</c> (a brush) with <c>.inset1.x</c>, <c>.y</c> and <c>.blur</c>, for a
-/// template to draw as an overlay.</description></item>
+/// template to draw as an overlay; <c>.inset1.fade</c> is the same colour fading to clear top to
+/// bottom, to draw <c>.inset1.depth</c> (offset plus blur) pixels tall along a top edge.</description></item>
 /// <item><term>other strings, flags</term><description>a <see cref="string"/> or <see cref="bool"/>.</description></item>
 /// </list>
 /// </summary>
@@ -110,10 +111,17 @@ public static class TokenResources
             foreach (var inset in layers.Where(l => l.Inset))
             {
                 var name = $"{key}.inset{++n}";
-                Add(name, Frozen(new SolidColorBrush(Color.FromArgb(inset.Color.A, inset.Color.R, inset.Color.G, inset.Color.B))));
+                var color = Color.FromArgb(inset.Color.A, inset.Color.R, inset.Color.G, inset.Color.B);
+                Add(name, Frozen(new SolidColorBrush(color)));
                 Add(name + ".x", inset.OffsetX);
                 Add(name + ".y", inset.OffsetY);
                 Add(name + ".blur", inset.Blur);
+
+                // The usual stand-in for a blurred inset along the top edge: the
+                // shadow colour fading to clear, top to bottom, over .depth pixels
+                // (the offset plus the blur, where the CSS shadow ends).
+                Add(name + ".fade", Frozen(new LinearGradientBrush(color, Color.FromArgb(0, color.R, color.G, color.B), 90)));
+                Add(name + ".depth", inset.OffsetY + inset.Blur);
             }
         }
 

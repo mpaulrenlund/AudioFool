@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-01 after the twenty-fifth build session. Read this alongside
+Updated 2026-10-01 after the twenty-sixth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1433,6 +1433,20 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
 
+### Changes from session 26 (2026-10-01): new PS1 theme, title bar and panels
+
+Step 2 of `design/progress.md`, which has the details, measurements and decisions.
+
+- Title bar, the three panel shells, and the Artists and Albums rows are on the central
+  theme. The new components are in `src/AudioFool/Theming/Chrome.xaml` (keys `theme.*`).
+- **No horizontal scrolling anywhere**, and vertical scrollbars are hidden (the user's
+  call). The window's minimum width is calculated from the tokens so the song table fits:
+  1,277 px today (was 900).
+- `LetterSpacing.Em` spaces labels by em. `MainWindow.IsTrimmed` handles the album
+  title's two-line clamp.
+- ThemeLab: `--winhover Minimize|Maximize|Close` (WPF-UI's own hover on one window
+  button) and `--type "<text>"` (text in the search box).
+
 ### Changes from session 25 (2026-10-01): new PS1 theme, foundation
 
 The user has a full design for a new, lighter PS1 theme in `design/`: `theme-spec.md`
@@ -1894,7 +1908,15 @@ constructor. Each handler calls `GetTypeAheadTarget()` which returns `ArtistList
 for artists, `Title` for albums — and sets the `ListBox.SelectedItem`, which triggers
 the existing `BrowserList_SelectionChanged` scroll-into-view logic.
 
-### Title bar layout (session 4, reworked in session 8)
+### Title bar layout (session 4, reworked in sessions 8 and 26)
+**Since session 26** the positions are calculated, not fixed (spec §2): `MainWindow.AlignTitleBar`
+centres the 40 × 36 logo slot over the ARTISTS label and sizes the search box to end at
+the Albums panel's right edge, rerunning when either panel resizes. `FitLogoMenuToSlot`
+sizes the menu item's spacer so the whole item is the slot's width. The window buttons are
+WPF-UI's `TitleBarButton`s with a new template (`theme.windowButton` in
+`Theming/Chrome.xaml`), *not* replacements, so the maximize button's non-client hit test,
+which opens Windows 11 snap layouts, is untouched. The 406 px figure below is history.
+
 `TitleBar.Icon` was removed. The header `StackPanel` holds two things: a `Grid` with the
 menu and the logo, and a 406 px-wide search box. Clicking the logo opens the File-style
 menu. The Bit-Perfect toggle moved to the status bar (Grid row 3, column 2).
@@ -2251,6 +2273,17 @@ off-screen window, so focus rings can be reviewed.
   so `$B` (a blue byte) overwrites `$b` (the bitmap). And `diff` is a built-in alias
   for `Compare-Object`, which wins over a function named `Diff`. Both fail quietly,
   with plausible but wrong output.
+- **WPF-UI's `ListBox` template ignores `Padding`.** The list padding (spec §6.2) is a
+  `Margin` on the ListBox for that reason. Found in session 26 by measuring: rows sat
+  6 px too far left.
+- **A TextBox applies its `Padding` inside the text host as well.** A custom template
+  that also insets its content by `{TemplateBinding Padding}` indents the text twice.
+  `theme.searchBox` sets `Padding` to 0 and puts the token in the template. WPF also
+  adds a 2 px caret gutter before the text, which the template cancels with a −2 margin
+  so typed text and placeholder line up (measured: both at x 131).
+- **Replacing a `TitleBarButton`'s template drops its `CommandParameter`.** WPF-UI sets
+  it in the template's own triggers, and it is the only thing telling the shared command
+  which button was pressed. `theme.windowButton` restates it per `ButtonType`.
 - **`library.json` can list files that no longer exist.** It still held 2 m4a and
   10 wav files deleted since the last full scan. Before picking a sample file from
   the cache, check that it exists (`Test-Path -LiteralPath`).

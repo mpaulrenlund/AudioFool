@@ -359,6 +359,30 @@ internal static class Program
             Console.WriteLine($"focus {focusName}: keyboard={(target as UIElement)?.IsKeyboardFocused}");
         }
 
+        // --winhover Minimize|Maximize|Close: WPF-UI's own hover on one window
+        // button (the method its non-client hit test calls), to see the hover
+        // colours without a mouse.
+        if (Arg(args, "--winhover") is { } hoverName
+            && main.FindName("AppTitleBar") is Wpf.Ui.Controls.TitleBar titleBar
+            && titleBar.Template.FindName($"PART_{hoverName}Button", titleBar) is Wpf.Ui.Controls.TitleBarButton hoverButton)
+        {
+            typeof(Wpf.Ui.Controls.TitleBarButton)
+                .GetMethod("Hover", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(hoverButton, null);
+            Settle(200);
+            Console.WriteLine($"winhover {hoverName}: background={hoverButton.Background} icon={hoverButton.RenderButtonsForeground}");
+        }
+
+        // --type "<text>": text in the search box, as if typed, to check where it
+        // sits against the placeholder and that the clear button appears.
+        if (Arg(args, "--type") is { } typed
+            && main.FindName("SearchBox") is System.Windows.Controls.TextBox searchBox)
+        {
+            searchBox.Text = typed;
+            Settle(400);
+            Console.WriteLine($"type '{typed}': artists={vm.Artists.Count:N0}");
+        }
+
         // --focus on a list focuses the ListBox, which draws no row ring; this
         // focuses its selected row, the state a click leaves behind.
         if (Arg(args, "--focusrow") is { } rowListName

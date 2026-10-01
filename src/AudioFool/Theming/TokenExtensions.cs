@@ -48,7 +48,7 @@ public sealed class TokenExtension : MarkupExtension
 /// Thickness put together from number tokens, for the paddings and margins the
 /// token file gives per axis or per side. <c>All</c>, then <c>X</c> / <c>Y</c>,
 /// then the four sides, each overriding the one before. A side can also be a
-/// literal number, for the zeros.
+/// literal number, for the zeros, or a token with a leading "-" for its negative.
 /// </summary>
 [MarkupExtensionReturnType(typeof(Thickness))]
 public sealed class ThicknessExtension : MarkupExtension
@@ -83,10 +83,13 @@ internal static class Tokens
             $"Theme token \"{key}\" was not found. Check the name against design/theme-tokens.json, "
             + "and that ThemeService.Apply() ran before this XAML was loaded.");
 
+    /// <summary>A number token, a literal number, or a token with a leading "-" for its negative (an outset margin).</summary>
     public static double Number(string keyOrNumber)
     {
         if (double.TryParse(keyOrNumber, NumberStyles.Float, CultureInfo.InvariantCulture, out var literal))
             return literal;
+        if (keyOrNumber.StartsWith('-'))
+            return -Number(keyOrNumber[1..]);
         return Find(keyOrNumber) is double d
             ? d
             : throw new InvalidOperationException($"Theme token \"{keyOrNumber}\" is not a number.");

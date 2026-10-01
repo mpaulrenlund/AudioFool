@@ -122,6 +122,8 @@
     "statusBarPaddingX": 12,
     "artistsPanelOuterWidth": 212,
     "albumsPanelOuterWidth": 292,
+    "artistsPanelMinWidth": 140,
+    "albumsPanelMinWidth": 180,
     "panelBorder": 1,
     "panelHeaderHeight": 28,
     "panelHeaderPaddingX": 14,
@@ -130,7 +132,7 @@
   "titleBar": {
     "logoSlot": { "width": 40, "height": 36, "align": "centered over ARTISTS label" },
     "logoToSearchGap": 20,
-    "search": { "height": 30, "paddingX": 12, "iconSize": 16, "iconGap": 10, "rightEdge": "Albums panel right outer edge" },
+    "search": { "height": 30, "paddingX": 12, "iconSize": 16, "iconGap": 10, "iconStrokeOn24Grid": 2, "focusRingWidth": 2, "rightEdge": "Albums panel right outer edge" },
     "windowButton": { "width": 46, "iconSize": 18, "strokeOn24Grid": 2.6 }
   },
   "artists": { "rowHeight": 42, "rowPaddingX": 10, "lineGap": 1 },

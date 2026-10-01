@@ -72,6 +72,14 @@ public static class ThemeService
         var theme = Load("Ps1Theme");
         app.Resources.MergedDictionaries.Add(theme);
 
+        // The new theme's components, built from the tokens above. Its keys all
+        // start with "theme.", so it overrides nothing in the old dictionaries;
+        // screens opt in to it one region at a time.
+        app.Resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri("pack://application:,,,/AudioFool;component/Theming/Chrome.xaml"),
+        });
+
         // Motion lives in its own dictionary, so honouring Windows' "show
         // animations" setting is a matter of not merging it. The alternative -
         // zeroing the duration tokens at runtime - is not available: a storyboard

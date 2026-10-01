@@ -1,0 +1,355 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:theme="clr-namespace:AudioFool.Theming"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+
+    <!--
+        ============================================================================
+        PS1 theme: title bar and panels (design/theme-spec.md 6.1 to 6.4)
+        ============================================================================
+
+        The new theme's components, built only from the central theme
+        (design/theme-tokens.json, loaded by TokenResources). Every colour, size,
+        radius and gap below is a token; the only literal numbers are icon
+        geometry on its 24-unit grid, as drawn in the mockup.
+
+        Screens move here one region at a time. Until the last one has, the old
+        Af* dictionaries stay loaded beside this one for everything not yet
+        restyled. Keys here start with "theme." so they cannot collide with
+        either the Af* keys or the token names.
+    -->
+
+    <!-- ========================================================== panels -->
+
+    <!--
+        6.2: panel grey, a 1 px border, 4 px corners, and a 1 px highlight just
+        inside the top edge (shadow.panelHighlight, which WPF cannot draw as an
+        inset). The header is a 28 px strip over a divider.
+    -->
+    <ControlTemplate x:Key="theme.panelTemplate" TargetType="HeaderedContentControl">
+        <Border Background="{DynamicResource color.panel.bg}"
+                BorderBrush="{DynamicResource color.panel.border}"
+                BorderThickness="{theme:Token layout.panelBorder}"
+                CornerRadius="{DynamicResource radius.surface}"
+                SnapsToDevicePixels="True">
+            <Grid>
+                <DockPanel>
+                    <Border x:Name="HeaderStrip"
+                            DockPanel.Dock="Top"
+                            Height="{TemplateBinding Tag}"
+                            Padding="{TemplateBinding Padding}"
+                            BorderBrush="{DynamicResource color.panel.divider}"
+                            BorderThickness="{theme:Thickness Bottom=layout.panelBorder}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter ContentSource="Header" VerticalAlignment="Center" />
+                    </Border>
+                    <ContentPresenter />
+                </DockPanel>
+                <Border Height="{theme:Token shadow.panelHighlight.inset1.y}"
+                        VerticalAlignment="Top"
+                        Background="{DynamicResource shadow.panelHighlight.inset1}"
+                        CornerRadius="{DynamicResource radius.surface}"
+                        IsHitTestVisible="False" />
+            </Grid>
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="Header" Value="{x:Null}">
+                <Setter TargetName="HeaderStrip" Property="Visibility" Value="Collapsed" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <!-- Artists and Albums: a label header. Tag carries the strip's height,
+         so the Songs panel below can share the template with a header that
+         sizes to its content. -->
+    <Style x:Key="theme.panel" TargetType="HeaderedContentControl">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Tag" Value="{theme:Token layout.panelHeaderHeight}" />
+        <Setter Property="Padding" Value="{theme:Thickness X=layout.panelHeaderPaddingX}" />
+        <Setter Property="Template" Value="{StaticResource theme.panelTemplate}" />
+    </Style>
+
+    <!-- Songs: the same shell. Its header is the album header, which sets its
+         own size and padding (6.5). -->
+    <Style x:Key="theme.panel.songs" TargetType="HeaderedContentControl">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Tag">
+            <Setter.Value>
+                <sys:Double>NaN</sys:Double>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Template" Value="{StaticResource theme.panelTemplate}" />
+    </Style>
+
+    <!-- ===================================================== list rows -->
+
+    <!--
+        6.3 and 6.4: an artist or album row. Selection is a mid grey fill, hover
+        a faint wash laid over whatever is there, both with 3 px corners. No
+        focus ring on these rows, at the user's request (spec 8 is session 5).
+        The sublines' colour change on selection is in the item templates,
+        which watch IsSelected on this row.
+    -->
+    <ControlTemplate x:Key="theme.browserRowTemplate" TargetType="ListBoxItem">
+        <Grid SnapsToDevicePixels="True">
+            <Border x:Name="Fill"
+                    Background="{TemplateBinding Background}"
+                    CornerRadius="{DynamicResource radius.row}" />
+            <Border x:Name="Hover"
+                    Visibility="Collapsed"
+                    Background="{DynamicResource color.state.hoverOverlay}"
+                    CornerRadius="{DynamicResource radius.row}"
+                    IsHitTestVisible="False" />
+            <ContentPresenter Margin="{TemplateBinding Padding}"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="Fill" Property="Background" Value="{DynamicResource color.state.selectionBg}" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Hover" Property="Visibility" Value="Visible" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <!-- ===================================================== search box -->
+
+    <!--
+        6.1: 30 px tall, 4 px corners, a 1 px border, 12 px either side, a 16 px
+        magnifier 10 px before the text. At rest it is panel grey with a soft
+        shadow along the top (shadow.searchInset, drawn as a fade). Focused, it
+        lightens and gains a 2 px teal ring outside the border, as the CSS
+        box-shadow ring does, so the box itself does not move.
+
+        A template of its own on WPF-UI's TextBox, which keeps the placeholder
+        and clear-button logic: CurrentPlaceholderEnabled and ShowClearButton say
+        when each shows, and TemplateButtonCommand clears the text.
+    -->
+    <Style x:Key="theme.searchBox" TargetType="ui:TextBox">
+        <Setter Property="Height" Value="{theme:Token titleBar.search.height}" />
+        <Setter Property="FontFamily" Value="{DynamicResource font.family}" />
+        <Setter Property="FontSize" Value="{theme:Token type.search.size}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource color.text.primary}" />
+        <Setter Property="Background" Value="{DynamicResource color.panel.bg}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource color.panel.border}" />
+        <Setter Property="BorderThickness" Value="{theme:Thickness All=layout.panelBorder}" />
+        <!-- Zero: a TextBox applies its Padding inside the text host as well,
+             which would inset the text twice. The 12 px is the template's. -->
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ui:TextBox">
+                    <Grid>
+                        <Border x:Name="FocusRing"
+                                Visibility="Collapsed"
+                                Margin="{theme:Thickness All=-titleBar.search.focusRingWidth}"
+                                BorderBrush="{DynamicResource color.state.searchFocusRing}"
+                                BorderThickness="{theme:Thickness All=titleBar.search.focusRingWidth}"
+                                CornerRadius="{DynamicResource radius.surface}"
+                                IsHitTestVisible="False" />
+                        <Border x:Name="Box"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{DynamicResource radius.surface}"
+                                SnapsToDevicePixels="True">
+                            <Grid>
+                                <Border Height="{theme:Token shadow.searchInset.inset1.depth}"
+                                        VerticalAlignment="Top"
+                                        Background="{DynamicResource shadow.searchInset.inset1.fade}"
+                                        CornerRadius="{DynamicResource radius.surface}"
+                                        IsHitTestVisible="False" />
+                                <Grid Margin="{theme:Thickness X=titleBar.search.paddingX}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Viewbox Grid.Column="0"
+                                             Width="{theme:Token titleBar.search.iconSize}"
+                                             Height="{theme:Token titleBar.search.iconSize}"
+                                             VerticalAlignment="Center">
+                                        <Canvas Width="24" Height="24">
+                                            <Path Data="M 17.5,11 A 6.5,6.5 0 1 1 4.5,11 A 6.5,6.5 0 1 1 17.5,11 Z M 16,16 L 20,20"
+                                                  Stroke="{DynamicResource color.text.muted}"
+                                                  StrokeThickness="{theme:Token titleBar.search.iconStrokeOn24Grid}"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                        </Canvas>
+                                    </Viewbox>
+
+                                    <Grid Grid.Column="1" Margin="{theme:Thickness Left=titleBar.search.iconGap}">
+                                        <!-- The -2 cancels the caret gutter WPF puts
+                                             before a TextBox's text (measured, 2 px), so
+                                             typed text starts where the placeholder does:
+                                             iconGap after the icon. A framework constant,
+                                             not a design value. -->
+                                        <ScrollViewer x:Name="PART_ContentHost"
+                                                      Margin="-2,0,0,0"
+                                                      Style="{x:Null}"
+                                                      Focusable="False"
+                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      HorizontalScrollBarVisibility="Hidden"
+                                                      VerticalScrollBarVisibility="Hidden" />
+                                        <TextBlock x:Name="Placeholder"
+                                                   Text="{TemplateBinding PlaceholderText}"
+                                                   FontFamily="{TemplateBinding FontFamily}"
+                                                   FontSize="{TemplateBinding FontSize}"
+                                                   Foreground="{DynamicResource color.text.placeholder}"
+                                                   VerticalAlignment="Center"
+                                                   IsHitTestVisible="False" />
+                                    </Grid>
+
+                                    <Button x:Name="ClearButton"
+                                            Grid.Column="2"
+                                            Visibility="Collapsed"
+                                            Margin="{theme:Thickness Left=titleBar.search.iconGap}"
+                                            VerticalAlignment="Center"
+                                            Focusable="False"
+                                            Cursor="Arrow"
+                                            Command="{Binding TemplateButtonCommand, RelativeSource={RelativeSource TemplatedParent}}"
+                                            AutomationProperties.Name="Clear search"
+                                            ToolTip="Clear search">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="Transparent">
+                                                    <Viewbox Width="{theme:Token titleBar.search.iconSize}"
+                                                             Height="{theme:Token titleBar.search.iconSize}">
+                                                        <Canvas Width="24" Height="24">
+                                                            <Path Data="M 7,7 L 17,17 M 17,7 L 7,17"
+                                                                  Stroke="{DynamicResource color.text.muted}"
+                                                                  StrokeThickness="{theme:Token titleBar.search.iconStrokeOn24Grid}"
+                                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                                        </Canvas>
+                                                    </Viewbox>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="CurrentPlaceholderEnabled" Value="False">
+                            <Setter TargetName="Placeholder" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="ShowClearButton" Value="True" />
+                                <Condition Property="ClearButtonEnabled" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="ClearButton" Property="Visibility" Value="Visible" />
+                        </MultiTrigger>
+                        <!-- WPF-UI reveals the clear button on focus even with
+                             nothing to clear. -->
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="ClearButton" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource color.state.searchFocusBg}" />
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ================================================= window buttons -->
+
+    <!--
+        6.1: minimize, maximize and close, always in the controller colours,
+        46 px wide and the full height of the title bar, with 18 px icons
+        stroked at 2.6 on a 24-unit grid (about 1.95 px) with round ends.
+
+        This restyles WPF-UI's own TitleBarButton rather than replacing it, so
+        the title bar keeps its window-message handling - above all the
+        maximize button's hit test, which is what opens Windows 11's snap
+        layouts. The button colours its icon through RenderButtonsForeground
+        and its hover through Background; both are driven from code inside
+        WPF-UI, including the hover it fakes for the maximize button from
+        non-client mouse messages, so the template binds to those.
+
+        The CommandParameter setters are restated from WPF-UI's template, whose
+        triggers are the only thing telling the shared command which button
+        was pressed.
+
+        Applied as an implicit style inside the title bar's resources; close's
+        red hover comes from PaletteRedBrush, re-pointed there too, because
+        WPF-UI's title-bar template sets it on that one button directly.
+    -->
+    <Style x:Key="theme.windowButton" TargetType="ui:TitleBarButton"
+           BasedOn="{StaticResource {x:Type ui:TitleBarButton}}">
+        <Setter Property="Width" Value="{theme:Token titleBar.windowButton.width}" />
+        <Setter Property="Height" Value="{theme:Token layout.titleBarHeight}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ui:TitleBarButton">
+                    <Grid Background="{TemplateBinding Background}">
+                        <Viewbox Width="{theme:Token titleBar.windowButton.iconSize}"
+                                 Height="{theme:Token titleBar.windowButton.iconSize}"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Canvas Width="24" Height="24">
+                                <Path x:Name="Glyph"
+                                      Stroke="{TemplateBinding RenderButtonsForeground}"
+                                      StrokeThickness="{theme:Token titleBar.windowButton.strokeOn24Grid}"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round" />
+                            </Canvas>
+                        </Viewbox>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="ButtonType" Value="Minimize">
+                            <Setter Property="CommandParameter" Value="{x:Static ui:TitleBarButtonType.Minimize}" />
+                            <Setter TargetName="Glyph" Property="Data" Value="M 5,12 H 19" />
+                        </Trigger>
+                        <Trigger Property="ButtonType" Value="Maximize">
+                            <Setter Property="CommandParameter" Value="{x:Static ui:TitleBarButtonType.Maximize}" />
+                            <Setter TargetName="Glyph" Property="Data"
+                                    Value="M 7.5,5.5 H 16.5 A 2,2 0 0 1 18.5,7.5 V 16.5 A 2,2 0 0 1 16.5,18.5 H 7.5 A 2,2 0 0 1 5.5,16.5 V 7.5 A 2,2 0 0 1 7.5,5.5 Z" />
+                        </Trigger>
+                        <!-- Not in the mockup: the maximize square, smaller and moved
+                             down-left, with a corner of a second one behind it. -->
+                        <Trigger Property="ButtonType" Value="Restore">
+                            <Setter Property="CommandParameter" Value="{x:Static ui:TitleBarButtonType.Restore}" />
+                            <Setter TargetName="Glyph" Property="Data"
+                                    Value="M 7.5,8.5 H 13.5 A 2,2 0 0 1 15.5,10.5 V 16.5 A 2,2 0 0 1 13.5,18.5 H 7.5 A 2,2 0 0 1 5.5,16.5 V 10.5 A 2,2 0 0 1 7.5,8.5 Z M 8.5,5.5 H 16.5 A 2,2 0 0 1 18.5,7.5 V 15.5" />
+                        </Trigger>
+                        <Trigger Property="ButtonType" Value="Close">
+                            <Setter Property="CommandParameter" Value="{x:Static ui:TitleBarButtonType.Close}" />
+                            <Setter TargetName="Glyph" Property="Data" Value="M 6,6 L 18,18 M 18,6 L 6,18" />
+                        </Trigger>
+                        <Trigger Property="ButtonType" Value="Help">
+                            <Setter Property="CommandParameter" Value="{x:Static ui:TitleBarButtonType.Help}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="ButtonType" Value="Minimize">
+                <Setter Property="ButtonsForeground" Value="{DynamicResource color.window.minimize}" />
+                <Setter Property="MouseOverButtonsForeground" Value="{DynamicResource color.window.minimize}" />
+            </Trigger>
+            <Trigger Property="ButtonType" Value="Maximize">
+                <Setter Property="ButtonsForeground" Value="{DynamicResource color.window.maximize}" />
+                <Setter Property="MouseOverButtonsForeground" Value="{DynamicResource color.window.maximize}" />
+            </Trigger>
+            <Trigger Property="ButtonType" Value="Restore">
+                <Setter Property="ButtonsForeground" Value="{DynamicResource color.window.maximize}" />
+                <Setter Property="MouseOverButtonsForeground" Value="{DynamicResource color.window.maximize}" />
+            </Trigger>
+            <Trigger Property="ButtonType" Value="Close">
+                <Setter Property="ButtonsForeground" Value="{DynamicResource color.window.close}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+</ResourceDictionary>
