@@ -90,7 +90,8 @@
     <!--
         6.3 and 6.4: an artist or album row. Selection is a mid grey fill, hover
         a faint wash laid over whatever is there, both with 3 px corners. No
-        focus ring on these rows, at the user's request (spec 8 is session 5).
+        focus ring on these rows, at the user's request (confirmed in session 5,
+        overriding spec 8): the selection already moves with the arrow keys.
         The sublines' colour change on selection is in the item templates,
         which watch IsSelected on this row.
     -->
@@ -615,23 +616,100 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <!-- The names a screen reader speaks (spec 8); the template is a bare
+             Path, so there is no content to take one from. -->
         <Style.Triggers>
             <Trigger Property="ButtonType" Value="Minimize">
                 <Setter Property="ButtonsForeground" Value="{DynamicResource color.window.minimize}" />
                 <Setter Property="MouseOverButtonsForeground" Value="{DynamicResource color.window.minimize}" />
+                <Setter Property="AutomationProperties.Name" Value="Minimize" />
             </Trigger>
             <Trigger Property="ButtonType" Value="Maximize">
                 <Setter Property="ButtonsForeground" Value="{DynamicResource color.window.maximize}" />
                 <Setter Property="MouseOverButtonsForeground" Value="{DynamicResource color.window.maximize}" />
+                <Setter Property="AutomationProperties.Name" Value="Maximize" />
             </Trigger>
             <Trigger Property="ButtonType" Value="Restore">
                 <Setter Property="ButtonsForeground" Value="{DynamicResource color.window.maximize}" />
                 <Setter Property="MouseOverButtonsForeground" Value="{DynamicResource color.window.maximize}" />
+                <Setter Property="AutomationProperties.Name" Value="Restore" />
             </Trigger>
             <Trigger Property="ButtonType" Value="Close">
                 <Setter Property="ButtonsForeground" Value="{DynamicResource color.window.close}" />
+                <Setter Property="AutomationProperties.Name" Value="Close" />
             </Trigger>
         </Style.Triggers>
+    </Style>
+
+    <!-- ====================================================== focus rings -->
+
+    <!--
+        8: keyboard focus is a 2 px accent.tealText outline (color.state.focusRing)
+        2 px outside the control, as the mockup's outline-offset draws it. These
+        are FocusVisualStyles, so WPF shows them only after keyboard input, never
+        after a click, and draws them in the adorner layer, above the control.
+        TokenResources builds the outset and the grown corners from focus.*.
+        The list rows have none, at the user's request (session 5); the search
+        box has its own teal ring (6.1), and the ARTISTS header its underline.
+    -->
+    <Style x:Key="theme.focusRing.circle">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Ellipse Margin="{DynamicResource focus.ring.outset}"
+                             Stroke="{DynamicResource color.state.focusRing}"
+                             StrokeThickness="{theme:Token focus.ringWidth}"
+                             SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="theme.focusRing.chip">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border Margin="{DynamicResource focus.ring.outset}"
+                            BorderBrush="{DynamicResource color.state.focusRing}"
+                            BorderThickness="{theme:Token focus.ringWidth}"
+                            CornerRadius="{DynamicResource focus.ring.radius.chip}"
+                            SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The logo menu's ring sits just inside its 40 x 36 slot instead: WPF clips a
+         focus outline to its control's ancestors, and the menu around the logo
+         clips to the slot, so a ring outside it is cut away entirely. The slot
+         is larger than the logo, so the ring still clears it. -->
+    <Style x:Key="theme.focusRing.inside">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border BorderBrush="{DynamicResource color.state.focusRing}"
+                            BorderThickness="{theme:Token focus.ringWidth}"
+                            CornerRadius="{DynamicResource radius.chip}"
+                            SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A slider's ring goes round its whole sliderHitHeight strip, further
+         out (focus.sliderRingOffset), as the mockup's .scrub outline does. -->
+    <Style x:Key="theme.focusRing.slider">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border Margin="{DynamicResource focus.sliderRing.outset}"
+                            BorderBrush="{DynamicResource color.state.focusRing}"
+                            BorderThickness="{theme:Token focus.ringWidth}"
+                            CornerRadius="{DynamicResource focus.sliderRing.radius}"
+                            SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- ===================================================== playback bar -->
@@ -669,6 +747,7 @@
         <Setter Property="Tag" Value="shadow.controlButton" />
         <Setter Property="Foreground" Value="{DynamicResource color.control.iconNeutral}" />
         <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource theme.focusRing.circle}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ButtonBase">
@@ -708,12 +787,14 @@
         <Setter Property="Foreground" Value="{DynamicResource color.control.playPause}" />
     </Style>
 
-    <!-- The speaker: the same hit area as a transport button, with no face. -->
+    <!-- The speaker: the same hit area as a transport button, with no face.
+         Round in the mockup, so its focus ring is a circle too. -->
     <Style x:Key="theme.bareIconButton" TargetType="ButtonBase">
         <Setter Property="Width" Value="{theme:Token playbackBar.volumeButton}" />
         <Setter Property="Height" Value="{theme:Token playbackBar.volumeButton}" />
         <Setter Property="Foreground" Value="{DynamicResource color.text.muted}" />
         <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource theme.focusRing.circle}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ButtonBase">
@@ -770,6 +851,7 @@
         <Setter Property="Foreground" Value="{DynamicResource color.slider.seekFill}" />
         <Setter Property="IsMoveToPointEnabled" Value="True" />
         <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource theme.focusRing.slider}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Slider">
@@ -828,6 +910,7 @@
         <Setter Property="BorderThickness" Value="{theme:Thickness All=layout.panelBorder}" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource theme.focusRing.chip}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ButtonBase">

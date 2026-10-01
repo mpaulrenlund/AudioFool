@@ -93,6 +93,7 @@
     "sliderTrack": 3,
     "art": 0
   },
+  "focus": { "ringWidth": 2, "ringOffset": 2, "sliderRingOffset": 6, "sliderStripRadius": 4 },
   "type": {
     "panelHeader": { "size": 11, "weight": 600, "letterSpacingEm": 0.12, "uppercase": true, "color": "text.muted" },
     "tableHeader": { "size": 11, "weight": 600, "letterSpacingEm": 0.06, "uppercase": true, "color": "text.muted" },

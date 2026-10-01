@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace AudioFool.Formatting;
 
@@ -162,6 +163,13 @@ public static class LetterSpacing
         }
 
         var gap = GetEm(label) * label.FontSize;
+
+        // Keep Tab out of the label. WPF's Tab search walks into the spacers, and
+        // in a collapsed label they have no visual parent, so the search takes the
+        // first one it meets for the top of the window and wraps to the start:
+        // the hidden "ARTISTS · RECENT" label sent every Tab after the ARTISTS
+        // header back to the logo (session 5). A label holds nothing to Tab to.
+        KeyboardNavigation.SetTabNavigation(label, KeyboardNavigationMode.None);
 
         label.Inlines.Clear();
         for (var i = 0; i < unspaced.Length; i++)

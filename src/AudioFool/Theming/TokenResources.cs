@@ -36,6 +36,10 @@ namespace AudioFool.Theming;
 /// template to draw as an overlay; <c>.inset1.fade</c> is the same colour fading to clear top to
 /// bottom, to draw <c>.inset1.depth</c> (offset plus blur) pixels tall along a top edge.</description></item>
 /// <item><term>other strings, flags</term><description>a <see cref="string"/> or <see cref="bool"/>.</description></item>
+/// <item><term><c>focus.ring.*</c></term><description>built from <c>focus.*</c> for the keyboard focus rings:
+/// <c>focus.ring.outset</c> (a negative <see cref="Thickness"/>, the gap plus the line),
+/// <c>focus.ring.radius.&lt;name&gt;</c> (each radius grown by the same amount), and
+/// <c>focus.sliderRing.outset</c> / <c>.radius</c> for the sliders' wider ring.</description></item>
 /// </list>
 /// </summary>
 public static class TokenResources
@@ -91,6 +95,21 @@ public static class TokenResources
             if (key.EndsWith("weight", StringComparison.OrdinalIgnoreCase))
                 Add(key + ".fontWeight", FontWeight.FromOpenTypeWeight((int)n));
         }
+        // Keyboard focus rings (spec 8), drawn by the focus visual styles in
+        // Chrome.xaml as an outline pulled out past the control's edge. The
+        // outline's outer corner is the control's radius plus the gap plus the
+        // line, as a CSS outline-offset would draw it.
+        double Focus(string name) => tokens.Numbers.TryGetValue($"focus.{name}", out var v)
+            ? v : throw new ThemeTokenException($"focus.{name}", "missing; the focus rings are built from it");
+        var ringWidth = Focus("ringWidth");
+        var ringOutset = Focus("ringOffset") + ringWidth;
+        var sliderOutset = Focus("sliderRingOffset") + ringWidth;
+        Add("focus.ring.outset", new Thickness(-ringOutset));
+        foreach (var (key, n) in tokens.Numbers.Where(kv => kv.Key.StartsWith("radius.", StringComparison.Ordinal)))
+            Add($"focus.ring.{key}", new CornerRadius(n + ringOutset));
+        Add("focus.sliderRing.outset", new Thickness(-sliderOutset));
+        Add("focus.sliderRing.radius", new CornerRadius(Focus("sliderStripRadius") + sliderOutset));
+
         foreach (var (key, f) in tokens.Flags)
             Add(key, f);
         foreach (var (key, s) in tokens.Texts)

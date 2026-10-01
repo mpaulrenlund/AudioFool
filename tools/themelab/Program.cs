@@ -205,6 +205,20 @@ internal static class Program
         main.Show();
 
         Pump();
+
+        // --dpi 1.25: lay the window out at that DPI (layout rounding and pixel
+        // snapping as on a 125% monitor) and render at it (spec 8). It replaces
+        // --scale, which only enlarges the bitmap.
+        if (Arg(args, "--dpi") is { } dpiArg)
+        {
+            var d = double.Parse(dpiArg, CultureInfo.InvariantCulture);
+            VisualTreeHelper.SetRootDpi(main, new DpiScale(d, d));
+            scale = d;
+            _direct = true;
+            main.UpdateLayout();
+            Console.WriteLine($"dpi {VisualTreeHelper.GetDpi(main).PixelsPerDip}");
+        }
+
         if (which == "click")
         {
             LoadRealLibrary(vm);
@@ -488,6 +502,61 @@ internal static class Program
             {
                 Console.WriteLine($"focusrow {rowListName}: no selected row realised");
             }
+        }
+
+        // --focusvisual 1, after --focus or --focusrow: draw the focused element's
+        // FocusVisualStyle. WPF draws it only after keyboard input, so Keyboard.Focus
+        // alone shows nothing; this sets WPF's internal "always show" flag first.
+        if (Arg(args, "--focusvisual") is not null)
+        {
+            Settle(100);
+            const System.Reflection.BindingFlags hidden = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static;
+            var nav = typeof(System.Windows.Input.KeyboardNavigation);
+            nav.GetProperty("AlwaysShowFocusVisual", hidden)!.SetValue(null, true);
+            nav.GetMethod("ShowFocusVisual", hidden, Type.EmptyTypes)!.Invoke(null, null);
+            var fe = System.Windows.Input.Keyboard.FocusedElement as FrameworkElement;
+            Console.WriteLine($"focusvisual: {fe?.GetType().Name} '{fe?.Name}' style={(fe?.FocusVisualStyle is null ? "none" : "set")}");
+        }
+
+        // --tabwalk 20 [--tabfrom SearchBox] [--keys "Tab,Tab,Down"]: real key presses
+        // through InputManager, as the keyboard delivers them, so WPF's own Tab
+        // handling runs (raising KeyDown on an element skips it). Prints where focus
+        // goes after each. Shift can't be faked: WPF reads the real keyboard's state.
+        if (Arg(args, "--tabwalk") is { } walkCount)
+        {
+            main.UpdateLayout();
+            System.Windows.Input.Keyboard.Focus((IInputElement)main.FindName(Arg(args, "--tabfrom") ?? "SearchBox"));
+            Settle(50);
+            var keys = Arg(args, "--keys") is { } list
+                ? list.Split(',').Select(Enum.Parse<System.Windows.Input.Key>).ToList()
+                : Enumerable.Repeat(System.Windows.Input.Key.Tab, int.Parse(walkCount, CultureInfo.InvariantCulture)).ToList();
+            var steps = new List<string>();
+            foreach (var key in keys)
+            {
+                System.Windows.Input.InputManager.Current.ProcessInput(new System.Windows.Input.KeyEventArgs(
+                    System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(main), Environment.TickCount, key)
+                { RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent });
+                Settle(30);
+                var focused = System.Windows.Input.Keyboard.FocusedElement as FrameworkElement;
+                var label = focused switch
+                {
+                    System.Windows.Controls.DataGridCell c => $"song {(c.DataContext as Track)?.TrackNumber}, column {c.Column?.DisplayIndex}",
+                    System.Windows.Controls.ListBoxItem { DataContext: ArtistGroup a } => a.Name,
+                    System.Windows.Controls.ListBoxItem { DataContext: AudioFool.ViewModels.AlbumItemViewModel al } => al.Title,
+                    _ => focused?.Name,
+                };
+                steps.Add($"{(key == System.Windows.Input.Key.Tab ? "" : key + ": ")}{focused?.GetType().Name} {label}");
+            }
+            Console.WriteLine("tab walk: " + string.Join(" > ", steps));
+            Console.WriteLine($"search box: '{vm.SearchQuery}'");
+        }
+
+        // --peers 1: the automation tree as a screen reader sees it (spec 8):
+        // each control's type, name, id and toggle state. Lists show three items.
+        if (Arg(args, "--peers") is not null)
+        {
+            Settle(200);
+            PrintPeers(System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(main), 0);
         }
 
         Settle(1200);
@@ -1636,6 +1705,14 @@ internal static class Program
     /// </summary>
     private static Color _backdrop = Color.FromRgb(0x20, 0x20, 0x20);
 
+    /// <summary>
+    /// Set by --dpi: draw the window straight into the bitmap after the backdrop,
+    /// rather than through a VisualBrush. At an emulated DPI the brush softens every
+    /// vertical edge across two pixels (session 5: borders read #B2AFAA / #B5B2AD
+    /// where the app draws one #A5A29D pixel), which looks like a scaling bug and isn't.
+    /// </summary>
+    private static bool _direct;
+
     private static void Save(Visual window, string path, double w, double h, double scale)
     {
         var dpi = 96 * scale;
@@ -1648,23 +1725,58 @@ internal static class Program
         {
             var area = new Rect(0, 0, w, h);
             dc.DrawRectangle(new SolidColorBrush(_backdrop), null, area);
-            dc.DrawRectangle(
-                new VisualBrush(window)
-                {
-                    Stretch = Stretch.None,
-                    AlignmentX = AlignmentX.Left,
-                    AlignmentY = AlignmentY.Top,
-                },
-                null,
-                area);
+            if (!_direct)
+                dc.DrawRectangle(
+                    new VisualBrush(window)
+                    {
+                        Stretch = Stretch.None,
+                        AlignmentX = AlignmentX.Left,
+                        AlignmentY = AlignmentY.Top,
+                    },
+                    null,
+                    area);
         }
 
         rtb.Render(visual);
+        if (_direct)
+            rtb.Render(window);
 
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(rtb));
         using var stream = File.Create(path);
         encoder.Save(stream);
+    }
+
+    private static void PrintPeers(System.Windows.Automation.Peers.AutomationPeer peer, int depth)
+    {
+        var type = peer.GetAutomationControlType();
+        var quiet = type is System.Windows.Automation.Peers.AutomationControlType.Text
+            or System.Windows.Automation.Peers.AutomationControlType.Image
+            or System.Windows.Automation.Peers.AutomationControlType.Pane
+            or System.Windows.Automation.Peers.AutomationControlType.Custom
+            or System.Windows.Automation.Peers.AutomationControlType.Group
+            or System.Windows.Automation.Peers.AutomationControlType.Separator
+            or System.Windows.Automation.Peers.AutomationControlType.Thumb;
+        if (!quiet || peer.IsKeyboardFocusable())
+        {
+            var toggle = peer.GetPattern(System.Windows.Automation.Peers.PatternInterface.Toggle)
+                is System.Windows.Automation.Provider.IToggleProvider t ? $" toggle={t.ToggleState}" : "";
+            Console.WriteLine($"{new string(' ', depth * 2)}{type} '{peer.GetName()}' id={peer.GetAutomationId()} "
+                + $"class={peer.GetClassName()} tab={peer.IsKeyboardFocusable()}{toggle}");
+        }
+
+        var shown = 0;
+        var isList = type is System.Windows.Automation.Peers.AutomationControlType.List
+            or System.Windows.Automation.Peers.AutomationControlType.DataGrid;
+        foreach (var child in peer.GetChildren() ?? [])
+        {
+            if (isList && ++shown > 3)
+            {
+                Console.WriteLine($"{new string(' ', depth * 2 + 2)}...");
+                break;
+            }
+            PrintPeers(child, depth + 1);
+        }
     }
 
     private static IEnumerable<T> FindAll<T>(DependencyObject node) where T : DependencyObject

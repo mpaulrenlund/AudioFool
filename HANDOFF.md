@@ -2134,7 +2134,23 @@ ThemeLab.exe --output "Exclusive · 176.4 kHz · bit-perfect · DSD over PCM"   
 ThemeLab.exe --libshot libs.png --scale 3   # the Libraries submenu, one folder ticked, one not
 ThemeLab.exe --window folders               # folder list: merging, relocation, unticked status, Remove
 ThemeLab.exe --window tokens --out tokens.png   # the central theme: lookups from MainWindow, XAML usage, fonts, specimen
+ThemeLab.exe --dpi 1.25 --w 1720 --h 1080   # laid out and drawn as on a 125% monitor (all monitors here are 100%)
+ThemeLab.exe --focus ShuffleButton --focusvisual 1   # draw the keyboard focus outline, which focus alone doesn't
+ThemeLab.exe --peers 1                      # the automation tree: what a screen reader reads for each control
+ThemeLab.exe --tabwalk 18                   # 18 real Tab presses from the search box; prints where focus lands
+ThemeLab.exe --tabwalk 0 --keys "Tab,Tab,Tab,Tab,Down" --tabfrom SearchBox   # any key sequence
 ```
+
+`--tabwalk` feeds keys through `InputManager`, as the keyboard does. Raising `KeyDown`
+on an element (as `--window edit` does) skips WPF's Tab handling entirely, and
+`MoveFocus` skips the controls' own key handlers, so neither shows the real order.
+
+`--dpi` is the real scaling test; `--scale` only enlarges the bitmap. It draws the
+window straight into the bitmap, because through the usual VisualBrush every vertical
+edge softens at an emulated DPI, which looks exactly like a scaling bug in the app
+(session 5 reported one, wrongly). `--focusvisual` sets WPF's internal "always show
+focus visual" flag by reflection: WPF otherwise draws a FocusVisualStyle only after
+real keyboard input, so `--focus` alone renders no outline at all.
 
 `--window folders` runs against the real drives and whatever `library.json` the shell
 sees, so it re-reads tags when file times differ (6 minutes off the SD card). It

@@ -62,6 +62,9 @@
             <Setter Property="Height" Value="{theme:Token albums.rowHeight}" />
             <Setter Property="Padding" Value="{theme:Thickness X=albums.rowPaddingX, Y=albums.rowPaddingY}" />
             <Setter Property="Margin" Value="{theme:Thickness Bottom=albums.rowGap}" />
+            <!-- What a screen reader speaks for the row; it would otherwise read
+                 the view model's type name. -->
+            <Setter Property="AutomationProperties.Name" Value="{Binding Title}" />
             <Setter Property="ContextMenu">
                 <Setter.Value>
                     <ContextMenu>
@@ -192,6 +195,7 @@
                         -->
                         <MenuItem x:Name="LogoMenuItem"
                                   FontWeight="{DynamicResource AfFontWeightSemiBold}"
+                                  FocusVisualStyle="{DynamicResource theme.focusRing.inside}"
                                   AutomationProperties.Name="AudioFool"
                                   ToolTip="AudioFool menu">
                             <MenuItem.Header>
@@ -283,7 +287,13 @@
                             PlaceholderText="Search"
                             ClearButtonEnabled="True"
                             AutomationProperties.Name="Search"
-                            ToolTip="Search artists, albums and songs" />
+                            ToolTip="Search artists, albums and songs">
+                    <!-- Escape clears the search: the keyboard's way to the clear ×,
+                         which is not a Tab stop. -->
+                    <ui:TextBox.InputBindings>
+                        <KeyBinding Key="Escape" Command="{Binding ClearSearchCommand}" />
+                    </ui:TextBox.InputBindings>
+                </ui:TextBox>
 
                 <!--
                     The Statistics filter, while one is on. Beside the search box
@@ -300,6 +310,7 @@
                            BorderBrush="{DynamicResource color.status.chipBorder}"
                            BorderThickness="{theme:Thickness All=layout.panelBorder}"
                            CornerRadius="{DynamicResource radius.chip}"
+                           FocusVisualStyle="{DynamicResource theme.focusRing.chip}"
                            Foreground="{DynamicResource color.text.primary}"
                            FontFamily="{DynamicResource font.family}"
                            FontSize="{theme:Token type.search.size}"
@@ -442,7 +453,8 @@
 
             <GridSplitter Grid.Column="1"
                           HorizontalAlignment="Stretch"
-                          Background="Transparent" ResizeBehavior="PreviousAndNext" />
+                          Background="Transparent" ResizeBehavior="PreviousAndNext"
+                          IsTabStop="False" />
 
             <!-- albums, oldest first -->
             <HeaderedContentControl x:Name="AlbumsPanel" Grid.Column="2" Style="{DynamicResource theme.panel}">
@@ -516,7 +528,8 @@
 
             <GridSplitter Grid.Column="3"
                           HorizontalAlignment="Stretch"
-                          Background="Transparent" ResizeBehavior="PreviousAndNext" />
+                          Background="Transparent" ResizeBehavior="PreviousAndNext"
+                          IsTabStop="False" />
 
             <!--
                 Album header + tracks. The shell is the shared panel (6.2), whose
@@ -619,8 +632,10 @@
                               PreviewMouseLeftButtonDown="TrackGrid_PreviewMouseLeftButtonDown"
                               MouseDoubleClick="TrackGrid_MouseDoubleClick"
                               PreviewKeyDown="TrackGrid_PreviewKeyDown"
+                              PreviewGotKeyboardFocus="TrackGrid_PreviewGotKeyboardFocus"
                               BeginningEdit="TrackGrid_BeginningEdit"
-                              CellEditEnding="TrackGrid_CellEditEnding">
+                              CellEditEnding="TrackGrid_CellEditEnding"
+                              KeyboardNavigation.TabNavigation="Once">
                         <DataGrid.RowStyle>
                             <!--
                                 Deliberately not BasedOn="{StaticResource {x:Type DataGridRow}}":
@@ -634,6 +649,21 @@
                                 <Setter Property="BorderThickness" Value="0" />
                                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                                 <Setter Property="Template" Value="{DynamicResource theme.songRowTemplate}" />
+                                <!--
+                                    One Tab stop for the whole table, as for the lists: Tab
+                                    enters it and the next Tab leaves (the grid is Once).
+                                    WPF makes each row's cells a Tab group of their own,
+                                    which walked every cell of every row; Continue folds
+                                    them into the grid's group. Set on the row's own panel
+                                    because an implicit style can't reach into a template.
+                                -->
+                                <Setter Property="ItemsPanel">
+                                    <Setter.Value>
+                                        <ItemsPanelTemplate>
+                                            <DataGridCellsPanel KeyboardNavigation.TabNavigation="Continue" />
+                                        </ItemsPanelTemplate>
+                                    </Setter.Value>
+                                </Setter>
                                 <Setter Property="local:TrackRow.IsNowPlaying">
                                     <Setter.Value>
                                         <MultiBinding Converter="{StaticResource IsCurrentTrack}">
@@ -816,8 +846,7 @@
                             Style="{StaticResource theme.transportButton}"
                             Margin="{theme:Thickness Left=playbackBar.buttonGap}"
                             Command="{Binding PreviousCommand}"
-                            AutomationProperties.Name="Previous track"
-                            ToolTip="Previous (or restart)">
+                            AutomationProperties.Name="Previous track">
                         <Viewbox Width="{theme:Token playbackBar.icons.previous}" Height="{theme:Token playbackBar.icons.previous}">
                             <Canvas Width="24" Height="24">
                                 <Path Style="{StaticResource theme.iconStroke}" Data="M 6,5 V 19" />
@@ -831,8 +860,7 @@
                             Style="{StaticResource theme.playButton}"
                             Margin="{theme:Thickness Left=playbackBar.buttonGap}"
                             Command="{Binding TogglePlayCommand}"
-                            AutomationProperties.Name="Play/Pause"
-                            ToolTip="Play / pause">
+                            AutomationProperties.Name="Play/Pause">
                         <Viewbox Width="{theme:Token playbackBar.icons.playPause}" Height="{theme:Token playbackBar.icons.playPause}">
                             <Grid>
                                 <Canvas Width="24" Height="24"
@@ -853,8 +881,7 @@
                             Style="{StaticResource theme.transportButton}"
                             Margin="{theme:Thickness Left=playbackBar.buttonGap}"
                             Command="{Binding NextCommand}"
-                            AutomationProperties.Name="Next track"
-                            ToolTip="Next">
+                            AutomationProperties.Name="Next track">
                         <Viewbox Width="{theme:Token playbackBar.icons.next}" Height="{theme:Token playbackBar.icons.next}">
                             <Canvas Width="24" Height="24">
                                 <Path Style="{StaticResource theme.iconStroke}" Data="M 18,5 V 19" />

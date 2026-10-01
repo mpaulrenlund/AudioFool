@@ -736,6 +736,36 @@ public partial class MainWindow : FluentWindow
         }
     }
 
+    /// <summary>
+    /// Tab into the table lands on the selected song, as Tab into the Artists and
+    /// Albums lists lands on their selected row, rather than where WPF last left
+    /// focus in the table (the first row, the first time). Not for a click, which
+    /// focuses the cell under the pointer while the button is down.
+    /// </summary>
+    private void TrackGrid_PreviewGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (Mouse.LeftButton == MouseButtonState.Pressed
+            || Mouse.RightButton == MouseButtonState.Pressed
+            || e.OldFocus is Visual old && TrackGrid.IsAncestorOf(old)
+            || e.NewFocus is not DataGridCell { Column: { } column } cell
+            || TrackGrid.SelectedItem is not { } selected
+            || cell.DataContext == selected)
+            return;
+
+        if (TrackGrid.ItemContainerGenerator.ContainerFromItem(selected) is not DataGridRow)
+        {
+            TrackGrid.ScrollIntoView(selected);
+            TrackGrid.UpdateLayout();
+        }
+
+        if (TrackGrid.ItemContainerGenerator.ContainerFromItem(selected) is DataGridRow row
+            && column.GetCellContent(row)?.Parent is DataGridCell target)
+        {
+            e.Handled = true;
+            target.Focus();
+        }
+    }
+
     // ------------------------------------------------------ in-place tag edits
 
     /// <summary>
