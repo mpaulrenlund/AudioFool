@@ -269,7 +269,9 @@ public sealed class AudioEngine : IDisposable
             if (stream == 0)
                 return TimeSpan.Zero;
 
-            var bytes = BassMix.ChannelGetPosition(stream);
+            // A seek waiting for the device's next pull already counts: reading
+            // the old spot here would put it back on the seek bar for a moment.
+            var bytes = Volatile.Read(ref _output)?.PendingSeekBytes(stream) ?? BassMix.ChannelGetPosition(stream);
             if (bytes < 0)
                 return TimeSpan.Zero;
 
@@ -497,15 +499,28 @@ public sealed class AudioEngine : IDisposable
             PrefetchAfter(index);
     }
 
+    /// <summary>
+    /// The jump is made by the output between two device pulls, faded out and back
+    /// in, so it doesn't click. DoP is never faded: scaling its samples would
+    /// break the markers the DAC reads them by.
+    /// </summary>
     public void Seek(TimeSpan position)
     {
-        var stream = Volatile.Read(ref _currentStream);
-        if (stream == 0)
-            return;
+        lock (_gate)
+        {
+            var stream = _currentStream;
+            if (stream == 0)
+                return;
 
-        var bytes = Bass.ChannelSeconds2Bytes(stream, Math.Max(0, position.TotalSeconds));
-        if (bytes >= 0)
-            BassMix.ChannelSetPosition(stream, bytes);
+            var bytes = Bass.ChannelSeconds2Bytes(stream, Math.Max(0, position.TotalSeconds));
+            if (bytes < 0)
+                return;
+
+            if (_output is not null)
+                _output.SeekBetweenBlocks(stream, bytes, fade: !_isDopHandle.ContainsKey(stream));
+            else
+                BassMix.ChannelSetPosition(stream, bytes);
+        }
     }
 
     /// <summary>

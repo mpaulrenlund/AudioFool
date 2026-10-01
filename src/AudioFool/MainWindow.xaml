@@ -865,7 +865,9 @@
                             AutomationProperties.Name="Play/Pause">
                         <Viewbox Width="{theme:Token playbackBar.icons.playPause}" Height="{theme:Token playbackBar.icons.playPause}">
                             <Grid>
-                                <Canvas Width="24" Height="24"
+                                <!-- No layout rounding: at 26 px it rounded the two bars
+                                     to 4 and 5 px wide. Unrounded, they're mirror images. -->
+                                <Canvas Width="24" Height="24" UseLayoutRounding="False"
                                         Visibility="{Binding IsPlaying, Converter={StaticResource BoolToVisibility}}">
                                     <Rectangle Style="{StaticResource theme.iconSolid}" Canvas.Left="6.5" Canvas.Top="5" Width="4" Height="14" RadiusX="1.2" RadiusY="1.2" />
                                     <Rectangle Style="{StaticResource theme.iconSolid}" Canvas.Left="13.5" Canvas.Top="5" Width="4" Height="14" RadiusX="1.2" RadiusY="1.2" />

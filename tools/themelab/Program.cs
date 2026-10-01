@@ -520,6 +520,59 @@ internal static class Program
             }
         }
 
+        // --hitthumb SeekBar,VolumeSlider: hit-test the centre of each slider's
+        // handle and print what a press there would land on, innermost first.
+        if (Arg(args, "--hitthumb") is { } hitNames)
+        {
+            main.UpdateLayout();
+            foreach (var name in hitNames.Split(','))
+            {
+                if (main.FindName(name) is not System.Windows.Controls.Slider slider
+                    || Descendants(slider).OfType<System.Windows.Controls.Primitives.Thumb>().FirstOrDefault() is not { } thumb)
+                {
+                    Console.WriteLine($"hitthumb {name}: no slider or thumb");
+                    continue;
+                }
+                var centre = thumb.TranslatePoint(new Point(thumb.ActualWidth / 2, thumb.ActualHeight / 2), main);
+                var hit = main.InputHitTest(centre) as DependencyObject;
+                var chain = new List<string>();
+                for (var node = hit; node is not null && chain.Count < 8; node = VisualTreeHelper.GetParent(node))
+                    chain.Add(node is FrameworkElement { Name.Length: > 0 } fe ? $"{node.GetType().Name}#{fe.Name}" : node.GetType().Name);
+                var onThumb = hit is not null && (ReferenceEquals(hit, thumb) || ((Visual)hit).IsDescendantOf(thumb));
+                Console.WriteLine($"hitthumb {name}: thumb {thumb.ActualWidth}x{thumb.ActualHeight} at {centre.X:0.0},{centre.Y:0.0} enabled={slider.IsEnabled} hitVisible={thumb.IsHitTestVisible} -> {(onThumb ? "THUMB" : "NOT the thumb")}: {string.Join(" < ", chain)}");
+
+                // A drag as the Thumb reports one: started, 40 px left in steps, completed.
+                var before = slider.Value;
+                thumb.RaiseEvent(new System.Windows.Controls.Primitives.DragStartedEventArgs(0, 0));
+                for (var step = 0; step < 4; step++)
+                {
+                    thumb.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(-10, 0));
+                    Settle(30);
+                    Console.WriteLine($"  drag step {step + 1}: value={slider.Value:0.000} vm.Volume={vm.Volume:0.000}");
+                }
+                thumb.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(-40, 0, false));
+                Settle(300);
+                Console.WriteLine($"  drag {name}: {before:0.000} -> {slider.Value:0.000} after completing (vm.Volume={vm.Volume:0.000})");
+
+                // A press on the track, not the handle: the value jumps (the real
+                // pointer is right of this off-screen window, so to the maximum) and,
+                // with SliderDrag, the handle should now be dragging from there.
+                var pressBefore = slider.Value;
+                var track = Descendants(slider).OfType<System.Windows.Controls.Primitives.Track>().First();
+                Console.WriteLine($"  before press: thumb.IsMouseOver={thumb.IsMouseOver} IsDragging={thumb.IsDragging} moveToPoint={slider.IsMoveToPointEnabled} FromTrack={AudioFool.Theming.SliderDrag.GetFromTrack(slider)}");
+                slider.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(
+                    System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left)
+                { RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent, Source = slider });
+                var draggingAfterPress = thumb.IsDragging;
+                var jumped = slider.Value;
+                thumb.RaiseEvent(new System.Windows.Controls.Primitives.DragDeltaEventArgs(-20, 0));
+                var afterMove = slider.Value;
+                thumb.CancelDrag();
+                Settle(100);
+                Console.WriteLine($"  track press {name}: {pressBefore:0.000} -> jumped {jumped:0.000}, dragging={draggingAfterPress}, then 20 px left -> {afterMove:0.000}, now dragging={thumb.IsDragging}");
+            }
+        }
+
         // --type "<text>": text in the search box, as if typed, to check where it
         // sits against the placeholder and that the clear button appears.
         if (Arg(args, "--type") is { } typed
@@ -2004,6 +2057,11 @@ internal static class Program
         Sample("down");
         Watch(400);
         Raise(UIElement.PreviewMouseLeftButtonUpEvent);
+        // The press started a drag (SliderDrag); a real button-up ends it through
+        // the handle's capture, which a raised event doesn't reach.
+        var handle = Descendants(bar).OfType<System.Windows.Controls.Primitives.Thumb>().First();
+        Console.WriteLine($"press started a drag: {handle.IsDragging}");
+        handle.CancelDrag();
         Sample("up");
         Watch(700);
         foreach (var s in samples)

@@ -1135,10 +1135,11 @@ public partial class MainWindow : FluentWindow
 
     /// <summary>
     /// A click on the track (IsMoveToPointEnabled) has already jumped the value
-    /// by the time this runs, and starts no drag, so the seek goes now. Waiting
-    /// for the button to come up let a position tick put the old spot back in
-    /// between: the handle went there, back, and there again. A press on the
-    /// handle itself changes nothing, so nothing is pending and the drag decides.
+    /// by the time this runs. SliderDrag normally turns that press into a drag
+    /// first, which parks the timer (IsSeeking) until the button comes up, so
+    /// this does nothing. If no drag started, the seek goes now: waiting for the
+    /// button let a position tick put the old spot back in between, and the
+    /// handle went there, back, and there again.
     /// </summary>
     private void SeekBar_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

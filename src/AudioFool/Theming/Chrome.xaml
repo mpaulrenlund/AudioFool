@@ -850,6 +850,7 @@
         <Setter Property="Tag" Value="{theme:Token playbackBar.seekThumb}" />
         <Setter Property="Foreground" Value="{DynamicResource color.slider.seekFill}" />
         <Setter Property="IsMoveToPointEnabled" Value="True" />
+        <Setter Property="theme:SliderDrag.FromTrack" Value="True" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource theme.focusRing.slider}" />
         <Setter Property="Template">

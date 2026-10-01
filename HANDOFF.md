@@ -2177,6 +2177,52 @@ as `SmallChange` / `LargeChange` on `SeekBar`. `--window seek` also presses Righ
 Page Up and Left through `InputManager` and checks each step lands and holds; with
 the handler switched off, all three bounce.
 
+**Seeks no longer click** (same day; the user heard it with the arrow keys). A seek joins
+two unrelated points of the waveform, and with `MixerChanNoRampin` (kept for gapless)
+nothing smooths the step. `AudioEngine.Seek` now hands the seek to
+`OutputChain.SeekBetweenBlocks`; the WASAPI callback (`OutputChain.Fill`, an instance
+method now) fades the tail of the block it just pulled out over 5 ms, applies the seek,
+and fades the next block's head in. DoP streams are never faded (it would break the
+markers), so DSD passthrough seeks still click. Until the next pull applies it,
+`Position` reports the pending target, so the seek bar can't bounce in between. A paused
+device applies it on Resume. In exclusive mode the fade alters those 10 ms, which is not
+bit-perfect for that moment.
+- **Measured** with a scratch probe that decodes real FLACs through a mixer built like
+  `OutputChain`'s and pulls 10 ms blocks, as the device does. Click size is the largest
+  second difference within 1 ms of the seek, against the track's 99.9th percentile:
+  quiet orchestral tracks (*2001* soundtrack) showed **7–51x** before, **0.0–0.1x** with
+  the real `Fill` (called by reflection, no device). BASSmix's own ramp-in only got it
+  to 2–22x. A noisy live recording hid the click (under 1x either way), so test on
+  quiet material.
+- Also checked: positions read the target at 0 ms and count on; a paused seek holds at
+  the target and resumes from it; `--window seek` and `--window queue` (gapless) pass.
+
+**Volume and Mute work now** (same day; the user found the slider and Mute did nothing).
+They never had: `OutputChain.SetVolume` set BASS's `ChannelAttribute.Volume` on the
+mixer, and BASS ignores that attribute when a decode channel is read directly, which is
+all this mixer is. Measured: identical output at 1, 0.5, 0.1 and 0. Code unchanged since
+the initial commit. `Fill` now applies the gain itself, gliding from the last block's
+gain to the new one across a block so a drag or Mute doesn't click; exclusive mode stays
+at unity. Checked against a second chain at full volume on the same audio: output is
+exactly 0.500 / 0.100 / 0.000 / 0.250 / 0.800 of full, and no sample step exceeds the
+full copy's by more than 0.0002. Volume changes take effect after the 0.2 s device
+buffer, since that audio is already pulled.
+- **So any earlier probe or ThemeLab mode that relied on volume 0 for silence** (for
+  example `--window queue` and `--window clicks`) actually played at full level. From
+  now on, engine volume 0 really is silent. Session 13's muted-session technique
+  (`BassWasapi.SetMute`) was silent either way.
+
+**Press on a slider's track and drag** (same day; the user couldn't drag the volume
+slider). WPF's `IsMoveToPointEnabled` jumps the value to a press on the track but starts
+no drag, so only a press on the handle itself (12 px on the volume slider) could drag.
+`Theming/SliderDrag.cs` (`theme:SliderDrag.FromTrack`, set in `theme.slider`, so both
+sliders) hands such a press to the handle after the jump, and its drag carries on from
+there. On the seek bar that press is now a drag too, so `IsSeeking` parks the timer until
+the button comes up and the seek lands on release; the mouse-down commit is a fallback.
+ThemeLab **`--hitthumb SeekBar,VolumeSlider`** hit-tests each handle, drags it through
+`DragDelta` events, and presses the track to check a drag starts. Raise that press on the
+**Slider**: raised on its `Track`, the slider's own class handler never ran.
+
 `--tabwalk` feeds keys through `InputManager`, as the keyboard does. Raising `KeyDown`
 on an element (as `--window edit` does) skips WPF's Tab handling entirely, and
 `MoveFocus` skips the controls' own key handlers, so neither shows the real order.
