@@ -1,7 +1,8 @@
 # AudioFool
 
-A personal Windows 11 music player. **C# / .NET 10 / WPF**, with WPF-UI for Fluent dark
-theming, ManagedBass for audio and TagLibSharp for metadata.
+A personal Windows 11 music player. **C# / .NET 10 / WPF**, with WPF-UI for Fluent
+controls (light PS1 theme; see `design/`), ManagedBass for audio and TagLibSharp for metadata.
+
 
 ## Read these first
 
@@ -40,7 +41,38 @@ absolute path, and never let a missing folder be interpreted as a deleted librar
 
 Playback, DSD correctness and drive behaviour have all been verified by driving the real
 app or a headless probe against `AudioFool.Core` — not by reasoning about the code. Keep
-that standard. `dotnet test` covers the 336 unit tests over sorting, caching, search, path
+that standard. `dotnet test` covers the 363 unit tests over sorting, caching, search, path
 handling, the music-folder list, play order, tag writing (including in-place grid edits), release dates,
 library statistics, online cover-art parsing, Last.fm scrobbling, track-number spelling
-and saving files that playback holds open.
+and saving files that playback holds open, and reading the theme tokens.
+
+
+## Current work: PS1 theme
+
+We're implementing a PlayStation 1–inspired theme. The design is fully specified:
+
+- **`design/theme-spec.md`**: source of truth for every color, size, layout rule, and behavior. Read it before any UI work.
+- **`design/theme-tokens.json`**: the same values in machine-readable form.
+- **`design/progress.md`**: what's done and what's next. Read it at the start of each theme session; update it at the end.
+- `design/mockup/` and `design/screenshots/`: visual references. The mockup file is design-tool output; read it for icon shapes, but don't try to run it.
+
+If the spec and the mockup disagree, the spec wins. If the spec is silent on something, ask rather than guess.
+
+### Rules that must not slip
+
+- **Use the central theme.** All colors, font sizes, spacing, and corner radii come from the theme resources built from `theme-tokens.json`. No hard-coded values in individual screens.
+  - The JSON is embedded and loaded at startup (`src/AudioFool/Theming/TokenResources.cs`); each resource is named by its JSON path. Colours, text styles, radii and shadows: `{DynamicResource color.panel.bg}`, `{DynamicResource type.albumTitle}`. Numbers, converted to the property's type: `{theme:Token albums.rowHeight}`. Paddings and margins: `{theme:Thickness X=songTable.listPaddingX, Y=songTable.listPaddingY}`. `xmlns:theme="clr-namespace:AudioFool.Theming"`. The full mapping is in `design/progress.md`.
+  - Changing a value means editing `theme-tokens.json` and rebuilding; never copy a value into XAML.
+- **No visible scrollbars.** Hide them; lists must still scroll with the mouse wheel, trackpad, and keyboard.
+- **Song rows: single-click selects, double-click plays.**
+- **Keep the existing PlayStation logo asset** (`PlayStation-Logo-1994.png`). Don't replace or redraw it.
+- **Teal means playback** (play/pause, seekbar, now-playing row). **Blue is only for artist names.** Don't add colors outside the roles in the spec.
+- **Album titles** wrap to two lines max, then "…"; tooltip only when truncated. Remove the old always-on album title tooltip.
+
+### How we work on the theme
+
+- Each theme session covers one step from `design/progress.md`. Stay within that scope; don't change other parts of the UI.
+- Before editing, describe the plan and wait for approval.
+- For visual checks against `design/screenshots/`, publish and install as described in HANDOFF.md, then capture the app with `PrintWindow`. Never drive the mouse or keyboard.
+- When done, list what changed and anything that differs from the spec or mockup, then update `design/progress.md`.
+- Work on `main`, no branch (the user's call, 2026-10-01: all sessions are planned for one day). Screens move to the new theme as each session restyles them; the old PS1 files (`Themes/DesignTokens.xaml`, `Components.xaml`, `Ps1Theme.xaml`, `Ps1Motion.xaml`) go once the last screen has moved.

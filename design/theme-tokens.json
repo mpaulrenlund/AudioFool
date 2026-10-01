@@ -1,0 +1,192 @@
+{
+  "$description": "AudioFool PS1 theme tokens. Values match design/theme-spec.md. Sizes are in device-independent pixels.",
+  "font": {
+    "family": ["Segoe UI Variable Text", "Segoe UI"],
+    "tabularFiguresFor": ["trackNumber", "timeLabel", "tableCell"]
+  },
+  "color": {
+    "window": {
+      "bg": "#BAB7B3",
+      "minimize": "#FFDA00",
+      "maximize": "#006FCD",
+      "close": "#E60012",
+      "buttonHover": "rgba(0,0,0,0.06)",
+      "closeHover": "#C42B1C",
+      "closeHoverIcon": "#FFFFFF"
+    },
+    "panel": {
+      "bg": "#CAC7C3",
+      "border": "#A5A29D",
+      "divider": "#B3B0AB",
+      "highlight": "rgba(255,255,255,0.45)"
+    },
+    "text": {
+      "heading": "#1C1B19",
+      "primary": "#22211F",
+      "secondary": "#3E3B38",
+      "muted": "#4E4B48",
+      "placeholder": "#5A5754",
+      "status": "#33312F"
+    },
+    "accent": {
+      "teal": "#15786C",
+      "tealText": "#0C5A51",
+      "blue": "#00519A"
+    },
+    "state": {
+      "selectionBg": "#BAB7B2",
+      "hoverOverlay": "rgba(0,0,0,0.035)",
+      "nowPlayingBg": "#C3CDC9",
+      "searchFocusBg": "#D9D6D2",
+      "focusRing": "#0C5A51",
+      "searchFocusRing": "#15786C"
+    },
+    "control": {
+      "face": "#E4E1DD",
+      "faceBorder": "#A9A6A1",
+      "iconNeutral": "#3F3D3B",
+      "iconOff": "#75726E",
+      "shuffleOn": "#2F5DB8",
+      "repeatOn": "#C62F37",
+      "playPause": "#15786C"
+    },
+    "slider": {
+      "track": "#ADAAA5",
+      "seekFill": "#15786C",
+      "volumeFill": "#3F3D3B",
+      "thumb": "#F7F6F4",
+      "thumbBorder": "#8F8C88"
+    },
+    "status": {
+      "chipBg": "#C6C3BF",
+      "chipBorder": "#9C9995",
+      "libraryDot": "#15786C",
+      "lastFmDot": "#15786C",
+      "bitPerfectOff": "#FFDA00",
+      "bitPerfectOn": "#15786C",
+      "dotRing": "rgba(0,0,0,0.25)"
+    },
+    "art": {
+      "border": "#8F8C88",
+      "thumbBorder": "#9C9995",
+      "thumbBorderSelected": "#6E6B67"
+    }
+  },
+  "shadow": {
+    "panelHighlight": "inset 0 1px 0 rgba(255,255,255,0.45)",
+    "searchInset": "inset 0 1px 2px rgba(0,0,0,0.15)",
+    "sliderTrackInset": "inset 0 1px 2px rgba(0,0,0,0.25)",
+    "sliderThumb": "0 1px 3px rgba(0,0,0,0.3)",
+    "headerArt": "0 4px 10px rgba(0,0,0,0.25)",
+    "nowPlayingArt": "0 0 6px rgba(0,0,0,0.25)",
+    "controlButton": "inset 0 -3px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8), 0 1px 3px rgba(0,0,0,0.25)",
+    "playButton": "inset 0 -4px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 5px rgba(0,0,0,0.28)"
+  },
+  "radius": {
+    "surface": 4,
+    "chip": 4,
+    "row": 3,
+    "sliderTrack": 3,
+    "art": 0
+  },
+  "type": {
+    "panelHeader": { "size": 11, "weight": 600, "letterSpacingEm": 0.12, "uppercase": true, "color": "text.muted" },
+    "tableHeader": { "size": 11, "weight": 600, "letterSpacingEm": 0.06, "uppercase": true, "color": "text.muted" },
+    "artistName": { "size": 13.5, "weight": 400, "color": "text.primary" },
+    "artistCount": { "size": 11.5, "weight": 400, "color": "text.muted" },
+    "albumTitle": { "size": 13.5, "weight": 400, "lineHeight": 1.3, "maxLines": 2, "color": "text.primary" },
+    "albumMeta": { "size": 12, "weight": 400, "color": "text.muted" },
+    "headerTitle": { "size": 30, "weight": 600, "lineHeight": 1.15, "color": "text.heading" },
+    "headerDetails": { "size": 14, "weight": 400, "lineHeight": 1.4, "color": "text.secondary" },
+    "headerArtist": { "size": 14, "weight": 600, "color": "accent.blue" },
+    "songTitle": { "size": 13.5, "weight": 400, "color": "text.primary" },
+    "tableCell": { "size": 13, "weight": 400, "color": "text.secondary" },
+    "trackNumber": { "size": 12.5, "weight": 400, "color": "text.muted" },
+    "nowPlayingTitle": { "size": 17, "weight": 600, "color": "text.primary" },
+    "nowPlayingArtist": { "size": 14, "weight": 600, "color": "accent.blue" },
+    "nowPlayingFormat": { "size": 13, "weight": 400, "color": "text.muted" },
+    "timeLabel": { "size": 12, "weight": 400, "color": "text.muted" },
+    "outputReadout": { "size": 11.5, "weight": 400, "color": "text.muted" },
+    "search": { "size": 13, "weight": 400, "color": "text.primary" },
+    "status": { "size": 12, "weight": 400, "color": "text.status" }
+  },
+  "layout": {
+    "designSize": { "width": 1720, "height": 1080 },
+    "titleBarHeight": 48,
+    "playbackBarHeight": 104,
+    "statusBarHeight": 36,
+    "windowMarginX": 12,
+    "panelGap": 6,
+    "panelsBottomMargin": 6,
+    "playbackBarBottomMargin": 8,
+    "statusBarPaddingX": 12,
+    "artistsPanelOuterWidth": 212,
+    "albumsPanelOuterWidth": 292,
+    "panelBorder": 1,
+    "panelHeaderHeight": 28,
+    "panelHeaderPaddingX": 14,
+    "listPadding": 6
+  },
+  "titleBar": {
+    "logoSlot": { "width": 40, "height": 36, "align": "centered over ARTISTS label" },
+    "logoToSearchGap": 20,
+    "search": { "height": 30, "paddingX": 12, "iconSize": 16, "iconGap": 10, "rightEdge": "Albums panel right outer edge" },
+    "windowButton": { "width": 46, "iconSize": 18, "strokeOn24Grid": 2.6 }
+  },
+  "artists": { "rowHeight": 42, "rowPaddingX": 10, "lineGap": 1 },
+  "albums": { "rowHeight": 64, "rowPaddingY": 4, "rowPaddingX": 8, "thumbSize": 56, "thumbGap": 12, "lineGap": 3, "rowGap": 0 },
+  "albumHeader": { "paddingY": 22, "paddingX": 24, "artSize": 144, "artGap": 24, "titleToDetailsGap": 8, "detailsLineGap": 3 },
+  "songTable": {
+    "headerHeight": 32,
+    "headerPaddingX": 16,
+    "rowHeight": 28,
+    "rowPaddingX": 8,
+    "listPaddingY": 6,
+    "listPaddingX": 8,
+    "columnGap": 12,
+    "columns": [
+      { "id": "number", "width": 27, "align": "right" },
+      { "id": "song", "flex": 1.05, "align": "left" },
+      { "id": "artist", "width": 88, "align": "left" },
+      { "id": "album", "flex": 1.0, "align": "left" },
+      { "id": "time", "width": 44, "align": "right" },
+      { "id": "disc", "width": 36, "align": "center" },
+      { "id": "kind", "width": 40, "align": "left" },
+      { "id": "bitrate", "width": 68, "align": "right" },
+      { "id": "bitDepth", "width": 70, "align": "center" },
+      { "id": "sampleRate", "width": 82, "align": "right" }
+    ],
+    "numberCell": { "triangleSlot": 8, "gap": 3, "numberWidth": 16, "numberWidth3Digits": 23 }
+  },
+  "playbackBar": {
+    "paddingX": 24,
+    "zoneGap": 40,
+    "nowPlayingZoneWidth": 468,
+    "nowPlayingZoneRule": "Shuffle button's left edge aligns with the song table # column's left edge",
+    "artSize": 88,
+    "artGap": 16,
+    "textLineGap": 3,
+    "buttonGap": 16,
+    "buttonSize": 44,
+    "playButtonSize": 60,
+    "icons": { "shuffle": 20, "previous": 20, "next": 20, "playPause": 26, "repeat": 22, "volume": 17 },
+    "repeatOneBadge": { "size": 9, "weight": 700 },
+    "timeLabelWidth": 36,
+    "seekGap": 14,
+    "trackHeight": 6,
+    "seekThumb": 14,
+    "volumeZoneWidth": 240,
+    "volumeButton": 44,
+    "volumeGap": 8,
+    "volumeThumb": 12
+  },
+  "statusBar": {
+    "refreshButton": 26,
+    "refreshIcon": 14,
+    "refreshAfterGap": 6,
+    "chipHeight": 26,
+    "chipPaddingX": 12,
+    "chipGap": 10,
+    "dotSize": 7
+  }
+}

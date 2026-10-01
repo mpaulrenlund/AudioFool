@@ -16,3 +16,6 @@ src/AudioFool/Resources/icon_preview.png
 # NOTE: the native BASS DLLs in lib/bass/x64/ are deliberately vendored, NOT ignored.
 # They cannot be restored by "dotnet restore" - the ManagedBass NuGet packages ship
 # only the C# bindings. See README.md -> One-time setup if they ever need re-fetching.
+
+# Word's lock file while a design doc is open in it (e.g. design/~$ssion-prompts.md).
+~$*

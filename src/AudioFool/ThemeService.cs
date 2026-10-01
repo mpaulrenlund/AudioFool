@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using AudioFool.Theming;
 using Wpf.Ui.Appearance;
 
 namespace AudioFool;
@@ -61,6 +62,13 @@ public static class ThemeService
     public static void Apply()
     {
         var app = Application.Current;
+
+        // The central theme from design/theme-tokens.json. Its resource names are
+        // the JSON paths (color.panel.bg, albums.rowHeight), which no Af* or WPF-UI
+        // key shares, so where it sits among the merged dictionaries changes
+        // nothing. First, so {theme:Token} can read it from anything loaded after.
+        app.Resources.MergedDictionaries.Add(TokenResources.Build(TokenResources.LoadEmbedded()));
+
         var theme = Load("Ps1Theme");
         app.Resources.MergedDictionaries.Add(theme);
 

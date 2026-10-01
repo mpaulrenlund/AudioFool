@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-09-30 after the twenty-third build session. Read this alongside
+Updated 2026-10-01 after the twenty-fifth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1433,6 +1433,29 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
 
+### Changes from session 25 (2026-10-01): new PS1 theme, foundation
+
+The user has a full design for a new, lighter PS1 theme in `design/`: `theme-spec.md`
+(source of truth), `theme-tokens.json`, `progress.md` (the five-session plan, with
+notes and decisions) and `screenshots/`. **Read `design/progress.md` before any theme
+work**; it supersedes the design-system notes below for anything the new theme
+covers. Work is on `main`, no branch, at the user's request.
+
+- **One central theme from `theme-tokens.json`**, embedded in the exe and loaded first
+  in `ThemeService.Apply()`. Resources are named by JSON path (`color.panel.bg`,
+  `type.albumTitle`, `albums.rowHeight`). XAML reaches them with `{DynamicResource}`,
+  `{theme:Token}` (converts a number to the property's type) and `{theme:Thickness}`.
+  The full mapping and its one limit (style setters) are in `design/progress.md`.
+- **No screen changed yet.** The old `Af*` / `Ps1Theme.xaml` resources still drive
+  every window. Seven ThemeLab renders are 0 px different from before.
+- **ThemeLab `--window tokens`** checks all 332 resources from the real MainWindow,
+  the XAML usages, and the font files, and draws a specimen sheet. It exits 1 on a
+  problem.
+- **Fonts**: WPF resolves "Segoe UI Variable Text" to the real variable font, with
+  real 400 and 600 faces.
+- `CLAUDE.md` was UTF-16, which git treats as binary; it is UTF-8 now.
+- 27 tests in `ThemeTokensTests`, **363** in total.
+
 ### Deliberately not done
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
@@ -1534,6 +1557,16 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
 | `src/AudioFool/ViewModels/LastFmViewModel.cs` | Connect (token, browser, poll), disconnect, the scrobbling switch, the queue status line. |
 | `src/AudioFool/LastFmWindow.xaml[.cs]` | The modal dialog: setup panel or connected panel. |
 | `tests/AudioFool.Core.Tests/ScrobblingTests.cs` | 34 tests: signing, entries, the rules (seek, pause, loop, same-file restart, short tracks), response parsing, queue, and the scrobbler against a fake HTTP handler. |
+
+## New source files added in session 25
+
+| File | Purpose |
+|---|---|
+| `src/AudioFool.Core/Theme/ThemeTokens.cs` | Parses `design/theme-tokens.json` into colours, numbers, texts, flags, shadows and type styles keyed by JSON path. `ThemeColor` (hex / `rgb()` / `rgba()`), `ShadowLayer` (CSS box-shadow lists), `ThemeTokenException` names the bad path. |
+| `src/AudioFool/Theming/TokenResources.cs` | Loads the embedded JSON and builds the resource dictionary: brushes, text styles, radii, drop-shadow effects, inset-shadow parts. |
+| `src/AudioFool/Theming/TokenExtensions.cs` | `{theme:Token key}` and `{theme:Thickness ...}` markup extensions. |
+| `tests/AudioFool.Core.Tests/ThemeTokensTests.cs` | 27 tests: colour and shadow parsing, the path walk, reference checks, the shipped file. |
+| `tools/themelab/TokenSheet.cs` | `--window tokens`. |
 
 ## Logo and icon resource files
 
@@ -2031,6 +2064,7 @@ ThemeLab.exe --bg "#FF00FF"                     # magenta behind the window: any
 ThemeLab.exe --output "Exclusive 192 kHz/24-bit (bit-perfect)"   # the output readout under the volume slider
 ThemeLab.exe --libshot libs.png --scale 3   # the Libraries submenu, one folder ticked, one not
 ThemeLab.exe --window folders               # folder list: merging, relocation, unticked status, Remove
+ThemeLab.exe --window tokens --out tokens.png   # the central theme: lookups from MainWindow, XAML usage, fonts, specimen
 ```
 
 `--window folders` runs against the real drives and whatever `library.json` the shell

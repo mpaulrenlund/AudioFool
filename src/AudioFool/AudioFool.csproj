@@ -44,6 +44,16 @@
   </ItemGroup>
 
   <!--
+    The central theme. design/theme-tokens.json is the only copy of the values;
+    Theming/TokenResources reads it from the assembly at startup.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\design\theme-tokens.json"
+                      Link="Themes\theme-tokens.json"
+                      LogicalName="AudioFool.theme-tokens.json" />
+  </ItemGroup>
+
+  <!--
     BASS ships as native DLLs that can't be redistributed via NuGet, so they live
     in lib/bass/x64 and are copied next to the exe. The glob matches nothing until
     they're downloaded, which is why a missing add-on is a runtime warning rather

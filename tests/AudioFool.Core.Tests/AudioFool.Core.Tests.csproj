@@ -24,6 +24,8 @@
 
   <ItemGroup>
     <Content Include="TestData\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The real token file, so the tests check what the app ships. -->
+    <Content Include="..\..\design\theme-tokens.json" Link="TestData\theme-tokens.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

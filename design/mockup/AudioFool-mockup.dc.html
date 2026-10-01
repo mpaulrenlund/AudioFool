@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PS1 music player – library view</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#BAB7B3}
+a{color:#0C5A51}a:hover{color:#08433C}
+@keyframes discspin{to{transform:rotate(360deg)}}
+.disc-spin{animation:discspin 2.8s linear infinite}
+.face{cursor:pointer;transition:filter .12s ease,transform .06s ease}
+.face:hover{filter:brightness(1.04)}
+.face:active{transform:translateY(1px)}
+.item{user-select:none}
+.clamp2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.item:hover{box-shadow:inset 0 0 0 999px rgba(0,0,0,0.035)}
+.winbtn:hover{background:rgba(0,0,0,0.06)}
+.winclose:hover{background:#C42B1C;color:#FFFFFF}
+.searchbox{background:#CAC7C3;box-shadow:inset 0 1px 2px rgba(0,0,0,0.15);transition:background .12s ease}
+.searchbox:focus-within{background:#D9D6D2;box-shadow:inset 0 1px 2px rgba(0,0,0,0.15),0 0 0 2px #15786C}
+.search::placeholder{color:#5A5754}
+button:focus-visible{outline:2px solid #0C5A51;outline-offset:2px}
+.scrub:focus-within{outline:2px solid #0C5A51;outline-offset:6px;border-radius:4px}
+@media (prefers-reduced-motion: reduce){.disc-spin,.eq-bar{animation:none}}
+</style>
+</helmet>
+<div style="width: 1720px; height: 1080px; display: flex; flex-direction: column; background: #BAB7B3; font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; color: #22211F">
+
+<div style="height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 20px; padding-left: 32px; background: #BAB7B3">
+<div aria-hidden="true" style="width: 40px; height: 36px; flex-shrink: 0; box-sizing: border-box; border: 1px dashed #7A7773; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; letter-spacing: 0.06em; color: #4E4B48">LOGO</div>
+<label class="searchbox" style="display: flex; align-items: center; gap: 10px; width: 430px; height: 30px; box-sizing: border-box; padding: 0 12px; border-radius: 4px; border: 1px solid #A5A29D; color: #4E4B48">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4 4"></path></svg>
+<input class="search" type="search" placeholder="Search" aria-label="Search library" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; color: #22211F; font: inherit; font-size: 13px; outline: none">
+</label>
+<div style="flex-grow: 1"></div>
+<div style="display: flex; align-self: stretch">
+<button class="winbtn" type="button" aria-label="Minimize" style="width: 46px; border: 0; background: transparent; color: #FFDA00; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg>
+</button>
+<button class="winbtn" type="button" aria-label="Maximize" style="width: 46px; border: 0; background: transparent; color: #006FCD; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><rect x="5.5" y="5.5" width="13" height="13" rx="2"></rect></svg>
+</button>
+<button class="winclose" type="button" aria-label="Close" style="width: 46px; border: 0; background: transparent; color: #E60012; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>
+</button>
+</div>
+</div>
+
+<div style="flex-grow: 1; min-height: 0; display: flex; gap: 6px; padding: 0 12px 6px">
+
+<div style="width: 210px; flex-shrink: 0; display: flex; flex-direction: column; background: #CAC7C3; border: 1px solid #A5A29D; border-radius: 4px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.45); overflow: hidden">
+<div style="height: 28px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid #B3B0AB"><span style="font-size: 11px; font-weight: 600; letter-spacing: 0.12em; color: rgb(78, 75, 72)">ARTISTS</span><span style="font-size: 11px; color: rgb(78, 75, 72); font-variant-numeric: tabular-nums"><br></span></div>
+<div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; padding: 6px; overflow: hidden">
+<sc-for list="{{artists}}" as="a" hint-placeholder-count="14">
+<button class="item" type="button" aria-current="{{a.current}}" style="height: 42px; flex-shrink: 0; display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 1px; padding: 0 10px; border: 0; border-radius: 3px; background: {{a.bg}}; color: {{a.fg}}; font: inherit; font-size: 13.5px; text-align: left; cursor: pointer">
+<span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{a.name}}</span>
+<span style="font-size: 11.5px; color: {{a.sub}}">{{a.countLabel}}</span>
+</button>
+</sc-for>
+</div>
+</div>
+
+<div style="width: 290px; flex-shrink: 0; display: flex; flex-direction: column; background: #CAC7C3; border: 1px solid #A5A29D; border-radius: 4px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.45); overflow: hidden">
+<div style="height: 28px; flex-shrink: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid #B3B0AB">
+<span style="font-size: 11px; font-weight: 600; letter-spacing: 0.12em; color: #4E4B48">ALBUMS</span>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; padding: 6px; overflow: hidden">
+<sc-for list="{{albums}}" as="al" hint-placeholder-count="8">
+<button class="item" type="button" aria-current="{{al.current}}" style="display: flex; align-items: center; gap: 12px; padding: 4px 8px; border: 0; border-radius: 3px; background: {{al.bg}}; color: {{al.fg}}; font: inherit; text-align: left; cursor: pointer">
+<div style="width: 56px; height: 56px; flex-shrink: 0; box-sizing: border-box; border: 1px solid {{al.thumbBorder}}; background: repeating-linear-gradient(135deg, #C0BDB9 0 5px, #B6B3AF 5px 10px)"></div>
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<span class="clamp2" style="font-size: 13.5px; font-weight: 400; line-height: 1.3">{{al.title}}</span>
+<span style="font-size: 12px; color: {{al.sub}}">{{al.meta}}</span>
+</div>
+</button>
+</sc-for>
+</div>
+</div>
+
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: #CAC7C3; border: 1px solid #A5A29D; border-radius: 4px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.45); overflow: hidden">
+<div style="flex-shrink: 0; display: flex; gap: 24px; padding: 22px 24px; border-bottom: 1px solid #B3B0AB">
+<div style="width: 144px; height: 144px; flex-shrink: 0; box-sizing: border-box; border: 1px solid #8F8C88; background: repeating-linear-gradient(135deg, #C0BDB9 0 8px, #B6B3AF 8px 16px); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.25)">
+<span style="font-size: 10px; letter-spacing: 0.06em; color: #33312F; background: #D6D3CF; padding: 2px 6px">[ALBUM ART]</span>
+</div>
+<div style="display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; min-width: 0">
+<h1 style="margin: 0; font-size: 30px; line-height: 1.15; font-weight: 600; color: #1C1B19; height: 39px">Metal Gear Solid Original Soundtrack</h1>
+<div style="display: flex; flex-direction: column; gap: 3px; font-size: 14px; line-height: 1.4; color: #3E3B38">
+<span style="font-weight: 600; color: #00519A">Metal Gear</span>
+<span>1998</span>
+<span>21 tracks</span>
+<span>1 hr 6 min</span>
+</div>
+</div>
+</div>
+
+<div style="flex-shrink: 0; height: 32px; box-sizing: border-box; display: grid; grid-template-columns: 27px minmax(0, 1.05fr) 88px minmax(0, 1fr) 44px 36px 40px 68px 70px 82px; column-gap: 12px; align-items: center; padding: 0 16px; border-bottom: 1px solid #B3B0AB; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: #4E4B48; white-space: nowrap">
+<span style="text-align: right">#</span>
+<span>SONG</span>
+<span>ARTIST</span>
+<span>ALBUM</span>
+<span style="text-align: right">TIME</span>
+<span style="text-align: center">DISC</span>
+<span>KIND</span>
+<span style="text-align: right">BITRATE</span>
+<span style="text-align: center">BIT DEPTH</span>
+<span style="text-align: right">SAMPLE RATE</span>
+</div>
+<div style="flex-grow: 1; min-height: 0; display: flex; flex-direction: column; padding: 6px 8px; overflow: hidden">
+<sc-for list="{{tracks}}" as="t" hint-placeholder-count="21">
+<button class="item" type="button" onClick="{{t.select}}" onDoubleClick="{{t.play}}" aria-current="{{t.current}}" style="height: 28px; flex-shrink: 0; width: 100%; display: grid; grid-template-columns: 27px minmax(0, 1.05fr) 88px minmax(0, 1fr) 44px 36px 40px 68px 70px 82px; column-gap: 12px; align-items: center; padding: 0 8px; border: 0; border-radius: 3px; background: {{t.bg}}; color: {{t.sub}}; font: inherit; font-size: 13px; font-weight: {{t.weight}}; text-align: left; white-space: nowrap; cursor: pointer">
+<span style="display: flex; align-items: center; gap: 3px; font-size: 12.5px; color: {{t.numColor}}; font-variant-numeric: tabular-nums">
+<span style="width: 8px; height: 10px; display: flex; align-items: center; justify-content: center">
+<sc-if value="{{t.isPlaying}}" hint-placeholder-val="{{ false }}">
+<svg width="8" height="10" viewBox="1.6 0 7.4 10" aria-hidden="true"><path d="M2.2 1.3v7.4L8.5 5z" fill="{{t.triFill}}" stroke="#15786C" stroke-width="1.2" stroke-linejoin="round"></path></svg>
+</sc-if>
+</span>
+<span style="width: 16px; text-align: right">{{t.n}}</span>
+</span>
+<span style="overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; color: {{t.fg}}">{{t.title}}</span>
+<span style="overflow: hidden; text-overflow: ellipsis">{{t.artist}}</span>
+<span style="overflow: hidden; text-overflow: ellipsis">{{t.album}}</span>
+<span style="text-align: right; font-variant-numeric: tabular-nums">{{t.time}}</span>
+<span style="text-align: center; font-variant-numeric: tabular-nums">{{t.disc}}</span>
+<span>{{t.kind}}</span>
+<span style="text-align: right; font-variant-numeric: tabular-nums">{{t.bitrate}}</span>
+<span style="text-align: center">{{t.depth}}</span>
+<span style="text-align: right; font-variant-numeric: tabular-nums">{{t.rate}}</span>
+</button>
+</sc-for>
+</div>
+</div>
+
+</div>
+
+<div style="flex-shrink: 0; padding: 0 12px 8px">
+<div style="height: 104px; box-sizing: border-box; padding: 0 24px; background: #CAC7C3; border: 1px solid #A5A29D; border-radius: 4px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.45); display: grid; grid-template-columns: 468px auto minmax(0, 1fr) 240px; align-items: center; column-gap: 40px">
+
+<div style="display: flex; align-items: center; gap: 16px; min-width: 0">
+<div style="position: relative; width: 88px; height: 88px; flex-shrink: 0">
+
+<div style="position: absolute; left: 0; top: 0; width: 88px; height: 88px; box-sizing: border-box; border: 1px solid #8F8C88; background: repeating-linear-gradient(135deg, #C9C6C2 0 6px, #BFBCB8 6px 12px); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.25)">
+<span style="font-size: 10px; letter-spacing: 0.06em; color: #33312F; background: #D6D3CF; padding: 2px 5px">[ALBUM ART]</span>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 3px; min-width: 0">
+<div style="font-size: 17px; font-weight: 600; color: #22211F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{curTitle}}</div>
+<div style="font-size: 14px; font-weight: 600; color: #00519A; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Metal Gear</div>
+<div style="font-size: 13px; color: #4E4B48">MP3 · 320 kbps · 44.1 kHz</div>
+</div>
+</div>
+
+<div style="display: flex; align-items: center; gap: 16px">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 7px">
+<div style="height: 60px; display: flex; align-items: center">
+<button class="face" type="button" aria-label="Shuffle" aria-pressed="{{shufflePressed}}" onClick="{{toggleShuffle}}" style="width: 44px; height: 44px; border-radius: 50%; border: 1px solid #A9A6A1; padding: 0; display: flex; align-items: center; justify-content: center; background: #E4E1DD; color: {{shuffleColor}}; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8), 0 1px 3px rgba(0,0,0,0.25)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5"></path><path d="M4 20L21 3"></path><path d="M21 16v5h-5"></path><path d="M15 15l6 6"></path><path d="M4 4l5 5"></path></svg>
+</button>
+</div>
+
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 7px">
+<div style="height: 60px; display: flex; align-items: center">
+<button class="face" type="button" aria-label="Previous track" onClick="{{prev}}" style="width: 44px; height: 44px; border-radius: 50%; border: 1px solid #A9A6A1; padding: 0; display: flex; align-items: center; justify-content: center; background: #E4E1DD; color: #3F3D3B; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8), 0 1px 3px rgba(0,0,0,0.25)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 5v14"></path><path d="M18 5.5L8.5 12l9.5 6.5z" fill="currentColor"></path></svg>
+</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 7px">
+<div style="height: 60px; display: flex; align-items: center">
+<button class="face" type="button" aria-label="{{playLabel}}" onClick="{{togglePlay}}" style="width: 60px; height: 60px; border-radius: 50%; border: 1px solid #A9A6A1; padding: 0; display: flex; align-items: center; justify-content: center; background: #E4E1DD; color: {{playColor}}; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 5px rgba(0,0,0,0.28)">
+<sc-if value="{{playing}}" hint-placeholder-val="{{ true }}">
+<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"></rect><rect x="13.5" y="5" width="4" height="14" rx="1.2" fill="currentColor"></rect></svg>
+</sc-if>
+<sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 5.2v13.6a.8.8 0 0 0 1.2.7l10.2-6.8a.8.8 0 0 0 0-1.4L9.7 4.5a.8.8 0 0 0-1.2.7z" fill="currentColor"></path></svg>
+</sc-if>
+</button>
+</div>
+
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 7px">
+<div style="height: 60px; display: flex; align-items: center">
+<button class="face" type="button" aria-label="Next track" onClick="{{next}}" style="width: 44px; height: 44px; border-radius: 50%; border: 1px solid #A9A6A1; padding: 0; display: flex; align-items: center; justify-content: center; background: #E4E1DD; color: #3F3D3B; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8), 0 1px 3px rgba(0,0,0,0.25)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 5v14"></path><path d="M6 5.5L15.5 12L6 18.5z" fill="currentColor"></path></svg>
+</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 7px">
+<div style="height: 60px; display: flex; align-items: center">
+<button class="face" type="button" aria-label="{{repeatLabel}}" onClick="{{cycleRepeat}}" style="position: relative; width: 44px; height: 44px; border-radius: 50%; border: 1px solid #A9A6A1; padding: 0; display: flex; align-items: center; justify-content: center; background: #E4E1DD; color: {{repeatColor}}; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8), 0 1px 3px rgba(0,0,0,0.25)">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 0 1 12.8-5.3L19.5 9"></path><path d="M19.5 4.5V9H15"></path><path d="M19.5 12a7.5 7.5 0 0 1-12.8 5.3L4.5 15"></path><path d="M4.5 19.5V15H9"></path></svg>
+<sc-if value="{{repeatOne}}" hint-placeholder-val="{{ false }}">
+<span style="position: absolute; left: 0; right: 0; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #C62F37; pointer-events: none">1</span>
+</sc-if>
+</button>
+</div>
+
+</div>
+</div>
+
+<div style="display: flex; align-items: center; gap: 14px; min-width: 0">
+<span style="width: 36px; text-align: right; font-size: 12px; color: #4E4B48; font-variant-numeric: tabular-nums">{{elapsedLabel}}</span>
+<div class="scrub" style="position: relative; flex-grow: 1; height: 22px; display: flex; align-items: center">
+<div style="position: relative; width: 100%; height: 6px; border-radius: 3px; background: #ADAAA5; box-shadow: inset 0 1px 2px rgba(0,0,0,0.25)">
+<div style="position: absolute; left: 0; top: 0; bottom: 0; width: {{pct}}; border-radius: 3px; background: #15786C"></div>
+<div style="position: absolute; top: 50%; left: {{pct}}; width: 14px; height: 14px; box-sizing: border-box; margin: -7px 0 0 -7px; border-radius: 50%; background: #F7F6F4; border: 1px solid #8F8C88; box-shadow: 0 1px 3px rgba(0,0,0,0.3)"></div>
+</div>
+<input type="range" min="0" max="{{dur}}" step="1" value="{{elapsed}}" onChange="{{seek}}" aria-label="Seek" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer">
+</div>
+<span style="width: 36px; font-size: 12px; color: #4E4B48; font-variant-numeric: tabular-nums">{{durLabel}}</span>
+</div>
+
+<div style="position: relative">
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" aria-label="{{muteLabel}}" aria-pressed="{{mutedPressed}}" onClick="{{toggleMute}}" style="width: 44px; height: 44px; border: 0; border-radius: 50%; padding: 0; background: transparent; color: #4E4B48; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0">
+<sc-if value="{{unmuted}}" hint-placeholder-val="{{ true }}">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6.5 9H3.5v6h3L11 19z" fill="currentColor"></path><path d="M15.5 8.5a5 5 0 0 1 0 7"></path><path d="M18.5 5.5a9 9 0 0 1 0 13"></path></svg>
+</sc-if>
+<sc-if value="{{muted}}" hint-placeholder-val="{{ false }}">
+<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6.5 9H3.5v6h3L11 19z" fill="currentColor"></path><path d="M16 9.5l5 5"></path><path d="M21 9.5l-5 5"></path></svg>
+</sc-if>
+</button>
+<div class="scrub" style="position: relative; flex-grow: 1; height: 22px; display: flex; align-items: center">
+<div style="position: relative; width: 100%; height: 6px; border-radius: 3px; background: #ADAAA5; box-shadow: inset 0 1px 2px rgba(0,0,0,0.25)">
+<div style="position: absolute; left: 0; top: 0; bottom: 0; width: {{volPct}}; border-radius: 3px; background: #3F3D3B"></div>
+<div style="position: absolute; top: 50%; left: {{volPct}}; width: 12px; height: 12px; box-sizing: border-box; margin: -6px 0 0 -6px; border-radius: 50%; background: #F7F6F4; border: 1px solid #8F8C88; box-shadow: 0 1px 3px rgba(0,0,0,0.3)"></div>
+</div>
+<input type="range" min="0" max="100" step="1" value="{{vol}}" onChange="{{setVol}}" aria-label="Volume" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer">
+</div>
+</div>
+<div style="position: absolute; right: 0; top: 100%; text-align: right; font-size: 11.5px; color: #4E4B48; white-space: nowrap">{{outputLabel}}</div>
+</div>
+
+</div>
+</div>
+
+<div style="height: 36px; flex-shrink: 0; box-sizing: border-box; padding: 0 12px; background: #BAB7B3; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #33312F">
+<div style="display: flex; align-items: center; gap: 8px">
+<button type="button" aria-label="Refresh library" style="width: 26px; height: 26px; box-sizing: border-box; margin-right: 6px; padding: 0; border-radius: 4px; background: #C6C3BF; border: 1px solid #9C9995; color: #33312F; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"></path><path d="M20 4v5h-5"></path></svg>
+</button>
+<span style="width: 7px; height: 7px; border-radius: 50%; background: #15786C"></span>
+<span>499 artists · 2,376 albums · 26,795 tracks · [SIZE] GB</span>
+</div>
+<div style="display: flex; align-items: center; gap: 10px">
+<button type="button" style="display: flex; align-items: center; gap: 7px; height: 26px; box-sizing: border-box; padding: 0 12px; border-radius: 4px; background: #C6C3BF; border: 1px solid #9C9995; font: inherit; font-size: 12px; color: #33312F; cursor: pointer">
+<span style="width: 7px; height: 7px; border-radius: 50%; background: #15786C"></span>
+<span>Last.fm</span>
+</button>
+<button type="button" aria-pressed="{{bitPerfectPressed}}" onClick="{{toggleBitPerfect}}" style="display: flex; align-items: center; gap: 7px; height: 26px; box-sizing: border-box; padding: 0 12px; border-radius: 4px; background: #C6C3BF; border: 1px solid #9C9995; font: inherit; font-size: 12px; color: #33312F; cursor: pointer">
+<span style="width: 7px; height: 7px; border-radius: 50%; background: {{bitPerfectDot}}; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25)"></span>
+<span>Bit-Perfect</span>
+</button>
+</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1720,"height":1080}}'>
+class Component extends DCLogic {
+  st() {
+    return Object.assign({ playing: true, cur: 0, sel: 4, elapsed: 9, shuffle: false, repeat: 0, vol: 82, muted: false, bitPerfect: false }, this.state || {});
+  }
+  trackList() {
+    return [
+      ['Metal Gear Solid Main Theme', '2:43'],
+      ['Introduction', '0:57'],
+      ['Discovery', '5:05'],
+      ['Cavern', '3:11'],
+      ['Intruder 1', '2:05'],
+      ['Encounter', '2:21'],
+      ['Intruder 2', '1:57'],
+      ['Warhead Storage', '3:39'],
+      ['Intruder 3', '2:55'],
+      ['Mantis\u2019 Hymn', '2:56'],
+      ['Hind D', '2:00'],
+      ['Duel', '2:22'],
+      ['Enclosure', '2:14'],
+      ['Blast Furnace', '3:00'],
+      ['Colosseo', '1:54'],
+      ['Rex\u2019s Lair', '3:05'],
+      ['Escape', '3:11'],
+      ['End Title/The Best Is Yet to Come', '5:47'],
+      ['VR Training', '2:38'],
+      ['Metal Gear Solid Main Theme (1997 E3 Edit)', '5:23'],
+      ['Metal Gear Solid Control Mix', '6:53']
+    ];
+  }
+  secs(t) {
+    var p = t.split(':');
+    return Number(p[0]) * 60 + Number(p[1]);
+  }
+  fmt(t) {
+    var m = Math.floor(t / 60);
+    var sec = t % 60;
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+  nextIndex(s) {
+    var n = this.trackList().length;
+    if (s.shuffle) return Math.floor(Math.random() * n);
+    return (s.cur + 1) % n;
+  }
+  componentDidMount() {
+    var self = this;
+    this.timer = setInterval(function () {
+      var s = self.st();
+      if (!s.playing) return;
+      var list = self.trackList();
+      var dur = self.secs(list[s.cur][1]);
+      if (s.elapsed + 1 < dur) {
+        self.setState({ elapsed: s.elapsed + 1 });
+        return;
+      }
+      if (s.repeat === 2) { self.setState({ elapsed: 0 }); return; }
+      if (!s.shuffle && s.cur === list.length - 1 && s.repeat === 0) {
+        self.setState({ playing: false, cur: 0, elapsed: 0 });
+        return;
+      }
+      self.setState({ cur: self.nextIndex(s), elapsed: 0 });
+    }, 1000);
+  }
+  componentWillUnmount() {
+    clearInterval(this.timer);
+  }
+  renderVals() {
+    var self = this;
+    var s = this.st();
+    var list = this.trackList();
+    var GREEN = '#15786C', BLUE = '#2F5DB8', RED = '#C62F37', OFF = '#75726E';
+    var LED_GREEN = '#118A77', LED_BLUE = '#2E62D0', LED_RED = '#D0343C';
+    function led(on, c) { return on ? c : '#ADAAA5'; }
+    function glow(on, c) { return on ? '0 0 6px ' + c : 'inset 0 1px 1px rgba(0,0,0,0.35)'; }
+    var dur = this.secs(list[s.cur][1]);
+    var vol = s.muted ? 0 : s.vol;
+    var repeatOn = s.repeat > 0;
+
+    var artistData = [
+      ['Mahavishnu Orchestra', 1], ['Malcolm Robinson', 2], ['Mannheim Steamroller', 1],
+      ['Marc Cohn', 1], ['Marcus Johnson', 6], ['Marcus Miller', 4], ['Maroon 5', 3], ['Maserati', 9],
+      ['Mastodon', 7], ['Mateus Asato', 1], ['Maynard Ferguson', 1], ['MC Hammer', 1], ['Mcbaise', 1],
+      ['Medeski, Martin & Wood', 21], ['meganeko', 20], ['The Mercury Tree', 4], ['Meshuggah', 11],
+      ['Metal Gear', 8], ['Metallica', 15], ['Metamorphosis Jazz Band', 1], ['The Meters', 1],
+      ['MF Doom', 1], ['MGMT', 1], ['Michael Bubl\u00e9', 1], ['Michael Jackson', 3], ['Mick Gordon', 2]
+    ];
+    var artists = artistData.map(function (a) {
+      var sel = a[0] === 'Metal Gear';
+      return { name: a[0], count: a[1], countLabel: a[1] + (a[1] === 1 ? ' album' : ' albums'), current: sel ? 'true' : 'false', bg: sel ? '#BAB7B2' : 'transparent', fg: '#22211F', sub: sel ? '#3E3B38' : '#4E4B48' };
+    });
+
+    var albumData = [
+      ['Metal Gear Original Soundtrack', '1987 · 9 tracks'],
+      ['Metal Gear 2: Solid Snake Original Soundtrack', '1990 · 37 tracks'],
+      ['Metal Gear Solid Original Soundtrack', '1998 · 21 tracks'],
+      ['Metal Gear Solid 2: Sons of Liberty', '2001 · 35 tracks'],
+      ['Metal Gear Solid 3: Snake Eater', '2004 · 43 tracks'],
+      ['Metal Gear Solid 4: Guns of the Patriots', '2008 · 47 tracks'],
+      ['Metal Gear Rising: Revengeance', '2013 · 30 tracks'],
+      ['Metal Gear Solid 5: The Phantom Pain', '2015 · 50 tracks']
+    ];
+    var albums = albumData.map(function (al, i) {
+      var sel = i === 2;
+      return { title: al[0], meta: al[1], current: sel ? 'true' : 'false', bg: sel ? '#BAB7B2' : 'transparent', fg: '#22211F', sub: sel ? '#3E3B38' : '#4E4B48', thumbBorder: sel ? '#6E6B67' : '#9C9995' };
+    });
+
+    var tracks = list.map(function (tr, i) {
+      var on = i === s.cur;
+      var picked = i === s.sel;
+      return {
+        n: i + 1,
+        title: tr[0],
+        artist: 'Metal Gear',
+        album: 'Metal Gear Solid Original Soundtrack',
+        time: tr[1],
+        disc: 1,
+        kind: 'MP3',
+        bitrate: '320 kbps',
+        depth: '\u2014',
+        rate: '44.1 kHz',
+        isPlaying: on,
+        notPlaying: !on,
+        current: on ? 'true' : 'false',
+        bg: on ? '#C3CDC9' : (picked ? '#BAB7B2' : 'transparent'),
+        fg: on ? '#0C5A51' : '#22211F',
+        sub: on ? '#0C5A51' : '#3E3B38',
+        weight: on ? '600' : '400',
+        numColor: on ? '#0C5A51' : (picked ? '#3E3B38' : '#4E4B48'),
+        triFill: s.playing ? '#15786C' : 'none',
+        select: function () { self.setState({ sel: i }); },
+        play: function () { self.setState({ cur: i, sel: i, elapsed: 0, playing: true }); }
+      };
+    });
+
+    return {
+      artists: artists,
+      albums: albums,
+      tracks: tracks,
+      curTitle: list[s.cur][0],
+      dur: dur,
+      durLabel: list[s.cur][1],
+      playing: s.playing,
+      paused: !s.playing,
+      playLabel: s.playing ? 'Pause' : 'Play',
+      playColor: GREEN,
+      playLed: led(s.playing, LED_GREEN),
+      playGlow: glow(s.playing, LED_GREEN),
+      discClass: s.playing ? 'disc-spin' : 'disc-still',
+      shuffleColor: s.shuffle ? BLUE : OFF,
+      shuffleLed: led(s.shuffle, LED_BLUE),
+      shuffleGlow: glow(s.shuffle, LED_BLUE),
+      shufflePressed: s.shuffle ? 'true' : 'false',
+      repeatColor: repeatOn ? RED : OFF,
+      repeatLed: led(repeatOn, LED_RED),
+      repeatGlow: glow(repeatOn, LED_RED),
+      repeatOne: s.repeat === 2,
+      repeatLabel: ['Repeat: off', 'Repeat: all', 'Repeat: one'][s.repeat],
+      elapsed: s.elapsed,
+      elapsedLabel: this.fmt(s.elapsed),
+      pct: (s.elapsed / dur * 100).toFixed(2) + '%',
+      vol: vol,
+      volPct: vol + '%',
+      muted: s.muted,
+      unmuted: !s.muted,
+      muteLabel: s.muted ? 'Unmute' : 'Mute',
+      mutedPressed: s.muted ? 'true' : 'false',
+      outputLabel: s.bitPerfect ? 'Exclusive · 44.1 kHz · bit-perfect' : 'Shared · 96 kHz / 32-bit (resampled)',
+      bitPerfectPressed: s.bitPerfect ? 'true' : 'false',
+      bitPerfectDot: s.bitPerfect ? GREEN : '#FFDA00',
+      togglePlay: function () { self.setState({ playing: !self.st().playing }); },
+      toggleShuffle: function () { self.setState({ shuffle: !self.st().shuffle }); },
+      cycleRepeat: function () { self.setState({ repeat: (self.st().repeat + 1) % 3 }); },
+      prev: function () {
+        var c = self.st();
+        if (c.elapsed > 3) { self.setState({ elapsed: 0 }); return; }
+        self.setState({ cur: (c.cur - 1 + list.length) % list.length, elapsed: 0 });
+      },
+      next: function () { self.setState({ cur: self.nextIndex(self.st()), elapsed: 0 }); },
+      seek: function (e) { self.setState({ elapsed: Number(e.target.value) }); },
+      setVol: function (e) { self.setState({ vol: Number(e.target.value), muted: false }); },
+      toggleMute: function () { self.setState({ muted: !self.st().muted }); },
+      toggleBitPerfect: function () { self.setState({ bitPerfect: !self.st().bitPerfect }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

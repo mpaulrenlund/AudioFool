@@ -237,6 +237,20 @@ internal static class Program
 
         Settle(300);
 
+        // --window tokens: the central theme, checked from inside MainWindow, plus
+        // a specimen sheet. See TokenSheet.
+        if (which == "tokens")
+        {
+            var result = TokenSheet.Run(main, outPath, scale);
+            var settingsKept = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null;
+            main.Close();
+            if (settingsKept is not null)
+                File.WriteAllBytes(AppSettings.SettingsPath, settingsKept);
+            else if (File.Exists(AppSettings.SettingsPath))
+                File.Delete(AppSettings.SettingsPath);
+            return result;
+        }
+
         // --lastfm scrobbling|off|failing|reconnect: the status-bar indicator.
         // The view model's own scrobbler reads the real queue file, so it is
         // swapped for one with a scratch queue and a canned HTTP answer.
