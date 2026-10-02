@@ -32,6 +32,9 @@ public static class ThemeService
             Source = new Uri("pack://application:,,,/AudioFool;component/Theming/Chrome.xaml"),
         });
 
+        // WPF-UI's menu templates fix their corners; this sets the theme's.
+        MenuCorners.Register();
+
         // WPF-UI's accent: the theme's dark grey, so a stock control that still
         // reads it shows no colour outside the spec's roles. Left alone, WPF-UI
         // would take the Windows accent. Nothing visible reads it today (every

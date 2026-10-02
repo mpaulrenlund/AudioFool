@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="BitMiracle.LibJpeg.NET" Version="1.5.324" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="WPF-UI" Version="4.3.0" />
   </ItemGroup>
@@ -48,9 +49,7 @@
     Theming/TokenResources reads it from the assembly at startup.
   -->
   <ItemGroup>
-    <EmbeddedResource Include="..\..\design\theme-tokens.json"
-                      Link="Themes\theme-tokens.json"
-                      LogicalName="AudioFool.theme-tokens.json" />
+    <EmbeddedResource Include="..\..\design\theme-tokens.json" Link="Themes\theme-tokens.json" LogicalName="AudioFool.theme-tokens.json" />
   </ItemGroup>
 
   <!--
@@ -60,9 +59,7 @@
     than a build error.
   -->
   <ItemGroup>
-    <None Include="..\..\lib\bass\x64\*.dll"
-          Link="%(Filename)%(Extension)"
-          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\lib\bass\x64\*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

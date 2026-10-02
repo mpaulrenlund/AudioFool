@@ -254,7 +254,7 @@
         The # cell: an 8 px slot for the now-playing triangle, a 3 px gap, then
         the number right-aligned in what is left (16 px, or 23 px on an album
         of 100+ tracks, when MainWindow widens the column). The number always
-        shows. The triangle is solid while playing and outlined while paused.
+        shows. While edited in place, the edit box spans the whole cell. The triangle is solid while playing and outlined while paused.
         Its path is the mockup's, on its own 7.4 x 10 grid inside an 8 x 10 box.
     -->
     <Style x:Key="theme.songNumberCell" TargetType="DataGridCell" BasedOn="{StaticResource theme.songCell}">
@@ -284,7 +284,7 @@
                                           StrokeLineJoin="Round" />
                                 </Canvas>
                             </Viewbox>
-                            <ContentPresenter Grid.Column="2" VerticalAlignment="Center" />
+                            <ContentPresenter x:Name="Content" Grid.Column="2" VerticalAlignment="Center" />
                         </Grid>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -294,6 +294,16 @@
                         <DataTrigger Binding="{Binding DataContext.IsPlaying, RelativeSource={RelativeSource AncestorType=DataGrid}}" Value="False">
                             <Setter TargetName="TrianglePath" Property="Fill" Value="Transparent" />
                         </DataTrigger>
+                        <!--
+                            The edit box takes the whole cell: in the number's own
+                            column, its border, padding and caret gutter left room
+                            for one digit. Last, so it outranks the triangle above.
+                        -->
+                        <Trigger Property="IsEditing" Value="True">
+                            <Setter TargetName="Content" Property="Grid.Column" Value="0" />
+                            <Setter TargetName="Content" Property="Grid.ColumnSpan" Value="3" />
+                            <Setter TargetName="Triangle" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -1057,6 +1067,7 @@
         <Setter Property="Foreground" Value="{DynamicResource color.control.iconNeutral}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource theme.focusRing.circle}" />
+        <Setter Property="theme:ClickFocus.Skip" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ButtonBase">
@@ -1097,13 +1108,16 @@
     </Style>
 
     <!-- The speaker: the same hit area as a transport button, with no face.
-         Round in the mockup, so its focus ring is a circle too. -->
+         Round in the mockup, so its focus ring is a circle too. In
+         control.iconOff, the grey of Shuffle and Repeat when off (the user's
+         call; the spec has text.muted). -->
     <Style x:Key="theme.bareIconButton" TargetType="ButtonBase">
         <Setter Property="Width" Value="{theme:Token playbackBar.volumeButton}" />
         <Setter Property="Height" Value="{theme:Token playbackBar.volumeButton}" />
-        <Setter Property="Foreground" Value="{DynamicResource color.text.muted}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.control.iconOff}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource theme.focusRing.circle}" />
+        <Setter Property="theme:ClickFocus.Skip" Value="True" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ButtonBase">
@@ -1426,7 +1440,8 @@
         templates stay (check marks, icons, submenus); the colours they read are
         restated here, in the style's own resources, so nothing outside menus
         changes. A highlighted item gets the selection grey, as list rows do. The
-        drop-downs' corners are WPF-UI's (8 px): its templates fix them.
+        corners can't be set here, as WPF-UI's templates fix them (8 px drop-downs,
+        4 px highlights); MenuCorners.cs sets the theme's once an item loads.
     -->
     <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
         <Style.Resources>

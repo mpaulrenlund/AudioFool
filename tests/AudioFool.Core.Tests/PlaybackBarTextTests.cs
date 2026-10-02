@@ -69,15 +69,15 @@ public class PlaybackBarTextTests
     }
 
     [Fact]
-    public void Exclusive_readout_is_bit_perfect_without_depth()
+    public void Exclusive_readout_has_no_depth_and_does_not_repeat_bit_perfect()
     {
-        Assert.Equal("Exclusive · 44.1 kHz · bit-perfect", OutputReadout.Describe(OutputMode.Exclusive, 44100, 24, 44100, false));
+        Assert.Equal("Exclusive · 44.1 kHz", OutputReadout.Describe(OutputMode.Exclusive, 44100, 24, 44100, false));
     }
 
     [Fact]
     public void Exclusive_dop_readout_says_so()
     {
-        Assert.Equal("Exclusive · 176.4 kHz · bit-perfect · DSD over PCM",
+        Assert.Equal("Exclusive · 176.4 kHz · DSD over PCM",
             OutputReadout.Describe(OutputMode.Exclusive, 176400, 24, 176400, true));
     }
 

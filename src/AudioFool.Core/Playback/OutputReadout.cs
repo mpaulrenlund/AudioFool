@@ -2,7 +2,8 @@ namespace AudioFool.Core.Playback;
 
 /// <summary>
 /// The output readout under the volume slider (spec 6.7):
-/// "Shared · 96 kHz / 32-bit (resampled)" or "Exclusive · 44.1 kHz · bit-perfect".
+/// "Shared · 96 kHz / 32-bit (resampled)" or "Exclusive · 44.1 kHz". Exclusive
+/// mode is what the Bit-Perfect chip turns on, so the readout doesn't repeat it.
 /// </summary>
 public static class OutputReadout
 {
@@ -20,8 +21,8 @@ public static class OutputReadout
             // DoP looks like ordinary high-rate PCM from the device's side, so say
             // which it is rather than leaving it ambiguous.
             return isDop
-                ? $"Exclusive · {rate} · bit-perfect · DSD over PCM"
-                : $"Exclusive · {rate} · bit-perfect";
+                ? $"Exclusive · {rate} · DSD over PCM"
+                : $"Exclusive · {rate}";
         }
 
         var depth = deviceBitDepth > 0 ? $" / {deviceBitDepth}-bit" : "";

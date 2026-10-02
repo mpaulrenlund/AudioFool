@@ -1545,6 +1545,74 @@ Missing tags, yellow like it, with three rows:
   same as Maximize's hover, the X still 52 red pixels, none white; a dialog's brush
   dump gives close `MouseOverBackground` `#0F000000` (Maximize's) and the Path red.
   Recorded under Decisions in `design/progress.md`. Installed.
+- **Two-digit track numbers are no longer cut off while edited in place** (later in
+  session 32, the user's screenshot). The edit box filled only the # cell's 16 px
+  number column; it now spans the whole cell while editing (details in
+  `design/progress.md`). ThemeLab `--window edit` gained a step that types "12" and
+  "123" (the latter on the widened column) and reports `OK` / `CLIPPED` from the text
+  box's extent against its viewport. Installed.
+- **The speaker and volume fill are a lighter grey** (later in session 32, the user's
+  call), `#75726E`, the colour of Shuffle and Repeat when off. The Statistics bars share
+  `slider.volumeFill` and lightened with it, as the user asked. Details in
+  `design/progress.md`.
+- **The status line's tooltip is gone** (the user's call): it repeated the text.
+- **Clicking a playback control no longer leaves the teal focus ring on it** (the
+  user's call). `Theming/ClickFocus.cs` (`theme:ClickFocus.Skip`) keeps keyboard focus
+  where it was during a click; Tab still shows the ring. ThemeLab `--clickfocus 1`
+  checks it. Details in `design/progress.md`. Installed.
+- **Menu corners match the spec** (later in session 32, from the open item in
+  `design/progress.md`): the logo drop-down and submenus are 4 px (`radius.surface`), item
+  highlights 3 px (`radius.row`), context-menu items too. WPF-UI's templates hard-code
+  8 and 4, so `Theming/MenuCorners.cs` sets the named template parts (`SubmenuBorder`,
+  `Border`) when a menu opens, from `ThemeService.Apply()`. **A class handler on
+  `Loaded` never fires for a `MenuItem`** (traced, not guessed), hence `SubmenuOpened`
+  and `ContextMenu.Opened`; the items wait for `DispatcherPriority.Loaded` because
+  data-bound rows get containers only once the open menu is laid out. Verified with
+  ThemeLab `--window main --menu 1 --menucorners 1` (every submenu opened, two sample
+  folder rows added; `--menucorners <png>` renders the drop-down) and `--artmenu 1`.
+  The shadow and slide-in WPF-UI gives the drop-down are unchanged. Installed; the
+  installed build starts. Not seen in the running app with a real pointer.
+- **Save Embedded Art** (later in session 32, the user's request). A third button in
+  *Edit Album Tags…*, under Choose Image / Search Internet: it writes the art embedded
+  in the album's files to `cover.jpg` beside them, **at once** (not on Save, and the
+  files are written even if the dialog is then cancelled).
+  - **Core**: `AudioFool.Core/Art/EmbeddedArtExtractor.cs`, BASS-free, 15 tests in
+    `EmbeddedArtExtractorTests` on real FLAC and MP3 fixtures (one asserts a JPEG comes
+    out **byte for byte**). Per folder (a "Disc 1/" + "Disc 2/" set gets one each) the
+    picture with the most pixels wins, the larger file on a tie; `TagReader.ReadEmbeddedArt`
+    picks front cover else first within a file. **An existing `cover.jpg` is replaced
+    only by more pixels** (the user's choice; an unreadable one is replaced). Other
+    cover files are left alone. `Describe` writes the message; outcomes are Saved /
+    KeptExisting / NoArt / Unsupported (a GIF, say: 2 of the library's 2,398 folders) /
+    Failed.
+  - **PNG becomes JPEG** (the user's choice, over keeping `cover.png`; it is the one place
+    anything is re-encoded). `Services/CoverJpeg.cs`, passed in as a delegate because Core
+    has no codec. **Both Windows encoders halve the colour (4:2:0) even at quality 100**
+    (WPF's `JpegBitmapEncoder` and GDI+, measured from the SOF header, and they produce
+    the same file size), so it uses the new package **BitMiracle.LibJpeg.NET 1.5.324**
+    (BSD-style, managed, netstandard2.0): quality 100, 4:4:4, optimised Huffman tables.
+    GDI+ only decodes; transparency is composited onto white by hand, pixel for pixel.
+    Checked on a 1200 × 1200 PNG with semi-transparent edges: over 64,800 pixels incl. all
+    four edges, mean difference 0.95 of 765, worst 7. ImageSharp was ruled out for its
+    split (commercial) licence. About 4.5% of the library's albums (109 of 2,398) have
+    PNG art.
+  - **Wiring**: `TagEditViewModel.SaveEmbeddedArtCommand` (album dialog only); the result
+    goes to `ArtMessage`, shown on the footer line when there is no validation error
+    (`FooterMessage`). The cover paths go to `SavedCovers`; `MainViewModel`
+    `FinishAlbumDialogAsync` waits for the extraction, then `AdoptFolderCoversAsync` sets
+    the tracks' `FolderArtPath` (`Track.WithFolderArt`, tested to copy every field) and
+    drops the album's cached pictures, **before** Save runs: Save writes
+    `track.FolderArtPath` back, and a stale null would have undone it.
+  - **Layout**: the right-hand column is top-aligned and no longer pinned to the art's
+    72 px, to fit the second button row; it is about as tall as the art column, so the
+    dialog is no taller.
+  - **Verified** with ThemeLab **`--window tags --album x --scratch <folder>
+    --saveembedded 1`**, which builds the album from *copies* in a temp folder and presses
+    the button: *The Advantage* (26 MP3s): `cover.jpg` 76,161 B, 576 × 576, identical to the
+    embedded picture; *Unity*, likewise; a PNG scratch album as above. The real
+    `D:\Music` folders were not written to. **Not exercised in the running app**: the
+    real button press, `AdoptFolderCoversAsync` (it persists `library.json`) and the
+    cancelled-dialog path. Installed; the installed build starts.
 - **The shell's `library.json` is current as of 2 October, 08:03**: the installed
   build's smoke test rescanned `D:\Music` into the container copy. The figures above
   include this morning's "of 9" edits.
@@ -1637,7 +1705,7 @@ Step 4 of `design/progress.md`, which has the details, measurements and decision
 - **New behaviour:** the speaker mutes and unmutes (restoring the level;
   `Core/Playback/VolumeState`), and the status bar shows the library size in whole GB
   (`Core/Library/LibrarySummary`). The output readout reads "Shared · 96 kHz / 32-bit
-  (resampled)" / "Exclusive · 44.1 kHz · bit-perfect" (`Core/Playback/OutputReadout`).
+  (resampled)" / "Exclusive · 44.1 kHz" (`Core/Playback/OutputReadout`).
 - **Minimum window width is now 1,422 px**, so the seek track keeps at least 120 px.
 - ThemeLab: `--playprobe 1` measures both bars; `--shuffle 1`, `--repeat all|one`,
   `--muted 1`, `--exclusive 1` (settings file restored afterwards) and
@@ -2225,7 +2293,7 @@ ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connec
 ThemeLab.exe --w 1300 --h 700 --lastfm failing   # the status-bar indicator
 ThemeLab.exe --menushot menu.png --scale 2      # the logo menu's drop-down, without opening it
 ThemeLab.exe --bg "#FF00FF"                     # magenta behind the window: any unpainted gap shows
-ThemeLab.exe --output "Exclusive · 176.4 kHz · bit-perfect · DSD over PCM"   # the output readout under the volume slider
+ThemeLab.exe --output "Exclusive · 176.4 kHz · DSD over PCM"   # the output readout under the volume slider
 ThemeLab.exe --libshot libs.png --scale 3   # the Libraries submenu, one folder ticked, one not
 ThemeLab.exe --window folders               # folder list: merging, relocation, unticked status, Remove
 ThemeLab.exe --window tokens --out tokens.png   # the central theme: lookups from MainWindow, XAML usage, fonts, specimen

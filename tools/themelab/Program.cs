@@ -272,7 +272,7 @@ internal static class Program
                 if (Arg(args, "--exclusive") is not null)
                 {
                     vm.IsExclusiveOutput = true;
-                    vm.OutputDescription = "Exclusive · 44.1 kHz · bit-perfect";
+                    vm.OutputDescription = "Exclusive · 44.1 kHz";
                     vm.IsOutputActive = true;
                 }
             }
@@ -691,6 +691,89 @@ internal static class Program
             Console.WriteLine($"search box: '{vm.SearchQuery}'");
         }
 
+        // --clickfocus 1: a mouse click on a playback control must leave keyboard
+        // focus where it was (so no focus ring is drawn on the control), still
+        // click, and leave the control focusable for Tab. Down and up are raised
+        // through the buttons' own handlers. Commands are detached for the click,
+        // so nothing plays and no setting (Shuffle, Repeat) is saved.
+        if (Arg(args, "--clickfocus") is not null)
+        {
+            main.UpdateLayout();
+            var clickCount = typeof(System.Windows.Input.MouseButtonEventArgs).GetProperty("ClickCount")!;
+            void Click(UIElement target)
+            {
+                foreach (var routed in new[]
+                         {
+                             System.Windows.Input.Mouse.PreviewMouseDownEvent, System.Windows.Input.Mouse.MouseDownEvent,
+                             System.Windows.Input.Mouse.PreviewMouseUpEvent, System.Windows.Input.Mouse.MouseUpEvent,
+                         })
+                {
+                    var a = new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount,
+                        System.Windows.Input.MouseButton.Left) { RoutedEvent = routed };
+                    clickCount.SetValue(a, 1);
+                    target.RaiseEvent(a);
+                }
+                Settle(30);
+            }
+
+            string Focused() => System.Windows.Input.Keyboard.FocusedElement switch
+            {
+                System.Windows.Controls.DataGridCell c => $"song {(c.DataContext as Track)?.TrackNumber}",
+                FrameworkElement f => f.Name is { Length: > 0 } n ? n : f.GetType().Name,
+                _ => "nothing",
+            };
+
+            var songGrid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
+            var all = true;
+            foreach (var name in new[] { "ShuffleButton", "PreviousButton", "PlayPauseButton", "NextButton", "RepeatButton", "MuteButton" })
+            {
+                var button = (System.Windows.Controls.Primitives.ButtonBase)main.FindName(name);
+                // WPF presses a button only while the real mouse button is down, so a
+                // raised release never clicks. In Press mode the click comes from the
+                // press handler itself, after its Focus() call, which shows the press
+                // still goes through with focus skipped.
+                var command = button.Command;
+                var mode = button.ClickMode;
+                button.Command = null;
+                button.ClickMode = System.Windows.Controls.ClickMode.Press;
+                var clicks = 0;
+                System.Windows.RoutedEventHandler count = (_, _) => clicks++;
+                button.Click += count;
+
+                // From the song table: focus must stay there.
+                if (songGrid.Items.Count > 0)
+                {
+                    songGrid.SelectedIndex = 0;
+                    songGrid.UpdateLayout();
+                    var row = (System.Windows.Controls.DataGridRow)songGrid.ItemContainerGenerator.ContainerFromIndex(0);
+                    System.Windows.Input.Keyboard.Focus(FindFirst<System.Windows.Controls.DataGridCell>(row));
+                }
+                else
+                    System.Windows.Input.Keyboard.Focus((IInputElement)main.FindName("SearchBox"));
+                Settle(30);
+                var before = Focused();
+                Click(button);
+                var after = Focused();
+                var focusedAfter = button.IsKeyboardFocused;
+                var ok = after == before && !focusedAfter && button.Focusable && clicks == 1;
+
+                // Already focused by Tab: a click keeps it focused, as before.
+                System.Windows.Input.Keyboard.Focus(button);
+                Settle(30);
+                Click(button);
+                var keeps = button.IsKeyboardFocused && button.Focusable && clicks == 2;
+
+                Console.WriteLine($"click focus: {name}: focus {before} -> {after}, button focused={focusedAfter} focusable={button.Focusable} "
+                    + $"clicks={clicks} {(ok ? "OK" : "BROKEN")}; when Tab-focused, keeps focus={keeps} {(keeps ? "OK" : "BROKEN")}");
+                all &= ok && keeps;
+
+                button.Click -= count;
+                button.Command = command;
+                button.ClickMode = mode;
+            }
+            Console.WriteLine($"click focus: {(all ? "all OK" : "BROKEN")}");
+        }
+
         // --peers 1: the automation tree as a screen reader sees it (spec 8):
         // each control's type, name, id and toggle state. Lists show three items.
         if (Arg(args, "--peers") is not null)
@@ -878,6 +961,11 @@ internal static class Program
                         + $"canExecute={entry.Command?.CanExecute(entry.CommandParameter)} enabled={entry.IsEnabled} "
                         + $"param='{album?.Album.Title}' selected='{vm.SelectedAlbum?.Album.Title}' "
                         + $"same={ReferenceEquals(album, vm.SelectedAlbum)}");
+                    // The item's highlight radius (spec: 3).
+                    if (entry.Template?.FindName("Border", entry) is System.Windows.Controls.Border hl)
+                    {
+                        Console.WriteLine($"artmenu: '{entry.Header}' highlight corner={hl.CornerRadius.TopLeft:0.#}");
+                    }
                 }
                 menu.IsOpen = false;
             }
@@ -972,6 +1060,90 @@ internal static class Program
                     else
                     {
                         Console.WriteLine($"  - <{child?.GetType().Name}>");
+                    }
+                }
+
+                // --menucorners 1: the corner radius of each template part that WPF-UI
+                // fixes, for the drop-down, its items, and the Libraries submenu
+                // (opened too, and its folder rows). Spec: boxes 4, highlights 3.
+                if (Arg(args, "--menucorners") is not null)
+                {
+                    // Two folder rows, so the data-bound items (which carry an
+                    // ItemContainerStyle with no BasedOn) are measured too.
+                    vm.FolderFilters.Add(new AudioFool.ViewModels.FolderFilterItem(@"C:\Users\Example\Music", enabled: true));
+                    vm.FolderFilters.Add(new AudioFool.ViewModels.FolderFilterItem(@"D:\Music", enabled: false));
+
+                    void Corners(System.Windows.Controls.MenuItem mi, string indent)
+                    {
+                        var parts = new List<string>();
+                        foreach (var part in new[] { "SubmenuBorder", "Border", "CheckBoxIconBorder" })
+                        {
+                            if (mi.Template?.FindName(part, mi) is System.Windows.Controls.Border b)
+                                parts.Add($"{part}={b.CornerRadius.TopLeft:0.#}");
+                        }
+
+                        Console.WriteLine($"menu: corners {indent}{mi.Header ?? "<logo>"} ({mi.Role}): {string.Join(", ", parts)}");
+                    }
+
+                    // A PNG path as the value renders the open drop-down itself (the
+                    // popup's content, at 4x), with the Libraries submenu open too.
+                    if (Arg(args, "--menucorners") is { } png && png.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                        && item.Template?.FindName("Popup", item) is System.Windows.Controls.Primitives.Popup dropDown
+                        && dropDown.Child is FrameworkElement dropRoot)
+                    {
+                        var libs = item.Items.OfType<System.Windows.Controls.MenuItem>()
+                            .First(m => m.Role == System.Windows.Controls.MenuItemRole.SubmenuHeader);
+                        libs.IsSubmenuOpen = true;
+                        Settle(200);
+                        var (pw, ph) = ((int)Math.Ceiling(dropRoot.ActualWidth), (int)Math.Ceiling(dropRoot.ActualHeight));
+                        var bmp = new RenderTargetBitmap(pw * 4, ph * 4, 384, 384, PixelFormats.Pbgra32);
+                        bmp.Render(dropRoot);
+                        var enc = new PngBitmapEncoder();
+                        enc.Frames.Add(BitmapFrame.Create(bmp));
+                        using (var fs = File.Create(png))
+                        {
+                            enc.Save(fs);
+                        }
+
+                        Console.WriteLine($"menu: drop-down rendered {pw}x{ph} -> {png}");
+                        libs.IsSubmenuOpen = false;
+                    }
+
+                    Corners(item, "");
+                    foreach (var child in item.Items.OfType<System.Windows.Controls.MenuItem>())
+                    {
+                        Corners(child, "  ");
+                        if (child.Role == System.Windows.Controls.MenuItemRole.SubmenuHeader)
+                        {
+                            child.IsSubmenuOpen = true;
+                            Settle(200);
+                            Corners(child, "  ");
+                            // Containers, not Items: the folder rows are bound view models.
+                            for (var i = 0; i < child.Items.Count; i++)
+                            {
+                                if (child.ItemContainerGenerator.ContainerFromIndex(i) is System.Windows.Controls.MenuItem sub)
+                                {
+                                    Corners(sub, "    ");
+                                    if (sub.Role == System.Windows.Controls.MenuItemRole.SubmenuHeader)
+                                    {
+                                        sub.IsSubmenuOpen = true;
+                                        Settle(200);
+                                        Corners(sub, "    ");
+                                        for (var j = 0; j < sub.Items.Count; j++)
+                                        {
+                                            if (sub.ItemContainerGenerator.ContainerFromIndex(j) is System.Windows.Controls.MenuItem leaf)
+                                            {
+                                                Corners(leaf, "      ");
+                                            }
+                                        }
+
+                                        sub.IsSubmenuOpen = false;
+                                    }
+                                }
+                            }
+
+                            child.IsSubmenuOpen = false;
+                        }
                     }
                 }
 
@@ -1089,17 +1261,44 @@ internal static class Program
             // real track. Both read the files' tags (for the detail fields) and
             // never write them.
             TagEditViewModel editVm;
+            IReadOnlyList<AudioFool.Core.Models.Track>? scratchTracks = null;
             var albumName = Arg(args, "--album");
             var trackName = Arg(args, "--track");
             if (albumName is not null || trackName is not null)
             {
                 var cached = AudioFool.Core.Library.LibraryCache.Load();
-                var library = AudioFool.Core.Library.LibraryScanner.Build(cached?.Tracks ?? SampleTracks());
+
+                // --scratch <folder>: the album is built from COPIES of the audio files
+                // in that folder (and its sub-folders), made in a new temp folder, so
+                // a button that writes beside the files writes there and not on the
+                // real drive. --album then only needs to be present.
+                var scratch = Arg(args, "--scratch");
+                if (scratch is not null)
+                {
+                    var copyRoot = Path.Combine(Path.GetTempPath(), "AudioFool-scratch-" + Guid.NewGuid().ToString("N")[..8]);
+                    var copies = new List<AudioFool.Core.Models.Track>();
+                    foreach (var file in Directory.EnumerateFiles(scratch, "*", SearchOption.AllDirectories)
+                                 .Where(f => AudioFool.Core.Library.AudioFormats.IsSupported(f)).Take(60))
+                    {
+                        var copyTarget = Path.Combine(copyRoot, Path.GetRelativePath(scratch, file));
+                        Directory.CreateDirectory(Path.GetDirectoryName(copyTarget)!);
+                        File.Copy(file, copyTarget);
+                        copies.Add(AudioFool.Core.Library.TagReader.Read(copyTarget));
+                    }
+
+                    Console.WriteLine($"scratch: {copies.Count} files copied to {copyRoot}");
+                    cached = null;
+                    scratchTracks = copies;
+                }
+
+                var library = AudioFool.Core.Library.LibraryScanner.Build(scratchTracks ?? cached?.Tracks ?? SampleTracks());
                 var clock = System.Diagnostics.Stopwatch.StartNew();
                 if (albumName is not null)
                 {
-                    var album = library.Artists.SelectMany(a => a.Albums)
-                        .First(a => string.Equals(a.Title, albumName, StringComparison.OrdinalIgnoreCase));
+                    var album = scratch is not null
+                        ? library.Artists.SelectMany(a => a.Albums).First()
+                        : library.Artists.SelectMany(a => a.Albums)
+                            .First(a => string.Equals(a.Title, albumName, StringComparison.OrdinalIgnoreCase));
                     // --pick "1-9" opens the dialog for those tracks of the album
                     // (1-based, in grid order) as if they were selected in the grid.
                     if (Arg(args, "--pick") is { } pick)
@@ -1124,6 +1323,41 @@ internal static class Program
                         Console.WriteLine($"album: {album.Title} ({album.Tracks.Count} tracks), opened in {clock.ElapsedMilliseconds} ms");
                         Settle(1500);
                         Console.WriteLine($"  art       '{editVm.ArtSizeText}' '{editVm.ArtFormatText}' [{editVm.ArtSourceText}]  preview={editVm.ArtPreview?.PixelWidth}px");
+
+                        // --saveembedded 1: press "Save Embedded Art" and report. Meant for
+                        // --scratch (it writes cover.jpg beside the files).
+                        if (Arg(args, "--saveembedded") is not null)
+                        {
+                            Console.WriteLine($"  button    enabled={editVm.SaveEmbeddedArtCommand.CanExecute(null)}");
+                            var pressed = System.Diagnostics.Stopwatch.StartNew();
+                            editVm.SaveEmbeddedArtCommand.Execute(null);
+                            while (editVm.IsExtractingArt && pressed.Elapsed < TimeSpan.FromSeconds(60))
+                                Settle(50);
+                            Console.WriteLine($"  extracted in {pressed.ElapsedMilliseconds} ms, message: {editVm.ArtMessage}");
+                            Console.WriteLine($"  footer    '{editVm.FooterMessage}'");
+                            Console.WriteLine($"  button    enabled again={editVm.SaveEmbeddedArtCommand.CanExecute(null)}");
+
+                            var embeddedHashes = album.Tracks
+                                .Select(t => AudioFool.Core.Library.TagReader.ReadEmbeddedArt(t.FilePath))
+                                .OfType<byte[]>()
+                                .Select(b => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(b)))
+                                .ToHashSet();
+                            foreach (var dir in album.Tracks.Select(t => Path.GetDirectoryName(t.FilePath)!).Distinct(StringComparer.OrdinalIgnoreCase))
+                            {
+                                var cover = Path.Combine(dir, "cover.jpg");
+                                if (!File.Exists(cover))
+                                {
+                                    Console.WriteLine($"  folder    {Path.GetFileName(dir)}: no cover.jpg");
+                                    continue;
+                                }
+
+                                var bytes = File.ReadAllBytes(cover);
+                                var info = AudioFool.Core.Art.ImageInfo.Read(bytes);
+                                var same = embeddedHashes.Contains(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)));
+                                Console.WriteLine($"  folder    {Path.GetFileName(dir)}: cover.jpg {bytes.Length} B {info?.SizeText} {info?.FormatText}, "
+                                    + $"identical to an embedded picture={same}");
+                            }
+                        }
 
                         // --useart <file>: hand the dialog a new cover as Search Internet does.
                         if (Arg(args, "--useart") is { } artFile)
@@ -2029,7 +2263,7 @@ internal static class Program
         vm.DurationDisplay = "5:32";
         vm.StatusText = "499 artists · 2,376 albums · 26,795 tracks · 692 GB";
         // The format OutputReadout.Describe produces. --output overrides it, e.g.
-        // --output "Exclusive · 176.4 kHz · bit-perfect · DSD over PCM" for the longest.
+        // --output "Exclusive · 176.4 kHz · DSD over PCM" for the longest.
         vm.OutputDescription = Arg(Environment.GetCommandLineArgs(), "--output") ?? "Shared · 96 kHz / 32-bit (resampled)";
         vm.IsOutputActive = true;
     }
@@ -2519,6 +2753,36 @@ internal static class Program
         grid.CurrentCell = new System.Windows.Controls.DataGridCellInfo(two, Column("SongColumn"));
         Press(Cell(two, "SongColumn"), System.Windows.Input.Key.F2);
         Log($"gate: F2 with two rows selected opens an edit? {Cell(two, "SongColumn").IsEditing}");
+
+        // 1b. F2 on #: two and three digits must fit in the box, not scroll inside it.
+        //     A three-digit number only appears on a 100+ track album, which widens
+        //     the column, so that case gets the wide column. Each opens its own edit.
+        void NumberWidth(bool wide) =>
+            Column("TrackNumberColumn").Width = new System.Windows.Controls.DataGridLength((double)typeof(MainWindow)
+                .GetMethod("TrackNumberColumnWidth", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(null, [wide])!);
+        foreach (var digits in new[] { "12", "123" })
+        {
+            NumberWidth(digits.Length == 3);
+            main.UpdateLayout();
+            Select(two, "TrackNumberColumn");
+            Press(Cell(two, "TrackNumberColumn"), System.Windows.Input.Key.F2);
+            var numBox = Box(two, "TrackNumberColumn")!;
+            numBox.Text = digits;
+            numBox.CaretIndex = digits.Length;
+            main.UpdateLayout();
+            var cell = Cell(two, "TrackNumberColumn");
+            var at = numBox.TranslatePoint(new Point(0, 0), cell);
+            var fits = numBox.ExtentWidth <= numBox.ViewportWidth + 0.01 && numBox.HorizontalOffset == 0;
+            Log($"number box: '{digits}' box {numBox.ActualWidth:0.#}x{numBox.ActualHeight:0.#} at x {at.X:0.#} in cell {cell.ActualWidth:0.#} "
+                + $"text {numBox.ExtentWidth:0.#} in viewport {numBox.ViewportWidth:0.#} offset {numBox.HorizontalOffset:0.#} {(fits ? "OK" : "CLIPPED")}");
+            if (digits == "12")
+                Save(main, Path.ChangeExtension(outPath, null) + "-number.png", w, h, scale);
+            Press(numBox, System.Windows.Input.Key.Escape);
+            Log($"number box: Esc -> editing={Cell(two, "TrackNumberColumn").IsEditing} #{Row("Two").TrackNumber}");
+        }
+        NumberWidth(false);
+        main.UpdateLayout();
 
         // 2. F2 on Song, rendered open.
         Select(two, "SongColumn");

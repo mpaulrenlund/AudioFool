@@ -1088,7 +1088,6 @@
                            Style="{DynamicResource type.status}"
                            Margin="{theme:Thickness Left=statusBar.dotTextGap}"
                            TextTrimming="CharacterEllipsis"
-                           ToolTip="{Binding StatusText}"
                            VerticalAlignment="Center" />
             </Grid>
 

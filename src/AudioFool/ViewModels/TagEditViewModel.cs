@@ -219,6 +219,7 @@ public sealed partial class TagEditViewModel : ObservableObject
         Year = album.Year?.ToString() ?? "";
 
         var tracks = album.Tracks;
+        _albumTrackPaths = tracks.Select(t => t.FilePath).ToList();
         var read = tracks.Select(t => TagReader.ReadDetails(t.FilePath)).ToList();
         ShowNumbers(tracks, read);
 
@@ -484,6 +485,75 @@ public sealed partial class TagEditViewModel : ObservableObject
         ArtFormatText = info?.FormatText ?? (source is null ? "" : "Unknown format");
         ArtSourceText = source;
     }
+
+    /// <summary>The album's files, for "Save Embedded Art".</summary>
+    private readonly IReadOnlyList<string> _albumTrackPaths = [];
+
+    /// <summary>
+    /// The cover.jpg of each folder that has one after "Save Embedded Art" (written,
+    /// or already there and no smaller), keyed by folder. The window that opened
+    /// this dialog teaches the library about them, even if the dialog is cancelled:
+    /// the files were written the moment the button was pressed.
+    /// </summary>
+    public Dictionary<string, string> SavedCovers { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The running (or last) extraction, so a caller can wait for it after the dialog closes.</summary>
+    public Task ArtExtraction { get; private set; } = Task.CompletedTask;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveEmbeddedArtCommand))]
+    private bool _isExtractingArt;
+
+    /// <summary>What "Save Embedded Art" did. Shown on the dialog's message line when nothing is wrong.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FooterMessage))]
+    private string _artMessage = "";
+
+    /// <summary>The dialog's message line: a validation problem first, else the last art result.</summary>
+    public string FooterMessage => ValidationError.Length > 0 ? ValidationError : ArtMessage;
+
+    partial void OnValidationErrorChanged(string value) => OnPropertyChanged(nameof(FooterMessage));
+
+    /// <summary>
+    /// Writes the album's embedded art to cover.jpg beside the files, now rather
+    /// than on Save. See <see cref="EmbeddedArtExtractor"/> for which picture wins
+    /// and why nothing is compressed.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanSaveEmbeddedArt))]
+    private Task SaveEmbeddedArt()
+    {
+        IsExtractingArt = true;
+        ArtMessage = "Reading the embedded art...";
+        ArtExtraction = ExtractAsync();
+        return ArtExtraction;
+
+        async Task ExtractAsync()
+        {
+            try
+            {
+                var results = await Task.Run(() =>
+                    EmbeddedArtExtractor.ExtractToFolders(_albumTrackPaths, CoverJpeg.FromPng));
+
+                foreach (var r in results)
+                {
+                    if (r.Outcome is ExtractOutcome.Saved or ExtractOutcome.KeptExisting && r.CoverPath is not null)
+                        SavedCovers[r.Directory] = r.CoverPath;
+                }
+
+                ArtMessage = EmbeddedArtExtractor.Describe(results);
+            }
+            catch (Exception ex)
+            {
+                ArtMessage = $"Couldn't save the embedded art: {ex.Message}";
+            }
+            finally
+            {
+                IsExtractingArt = false;
+            }
+        }
+    }
+
+    private bool CanSaveEmbeddedArt() => ShowsArt && !IsExtractingArt;
 
     [RelayCommand]
     private void ChooseImage()

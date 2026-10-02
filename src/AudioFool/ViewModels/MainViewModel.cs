@@ -1210,10 +1210,51 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var editVm = new TagEditViewModel(album, _artService, new OnlineArtSearch(_settings.FanartTvApiKey));
         var window = new TagEditWindow(editVm, owner);
 
-        if (window.ShowDialog() != true)
+        var saved = window.ShowDialog() == true;
+
+        // "Save Embedded Art" writes its files at once, so this runs on Cancel too.
+        _ = FinishAlbumDialogAsync(album, editVm, saved);
+    }
+
+    private async Task FinishAlbumDialogAsync(Album album, TagEditViewModel editVm, bool saved)
+    {
+        await editVm.ArtExtraction;
+
+        if (editVm.SavedCovers.Count > 0)
+        {
+            await AdoptFolderCoversAsync(album, editVm.SavedCovers);
+            // The tracks just changed; Save must work from their new copies, or it
+            // would write the old (empty) folder-art path back over the new one.
+            album = _folderFilteredLibrary.WholeAlbumOf(album);
+        }
+
+        if (saved)
+            await ApplyAlbumEditAsync(album, editVm.BuildAlbumEdit(), editVm.PickedArtPayload());
+    }
+
+    /// <summary>
+    /// Records the cover.jpg files "Save Embedded Art" wrote (or found already
+    /// there) as the folder art of the tracks beside them, as a rescan would, and
+    /// drops the album's cached pictures so a track with no embedded art shows it.
+    /// The audio files are untouched, so nothing needs re-reading.
+    /// </summary>
+    private async Task AdoptFolderCoversAsync(Album album, IReadOnlyDictionary<string, string> coverByDirectory)
+    {
+        var updated = new Dictionary<string, Track>(StringComparer.OrdinalIgnoreCase);
+        foreach (var track in album.Tracks)
+        {
+            var directory = Path.GetDirectoryName(track.FilePath) ?? "";
+            if (coverByDirectory.TryGetValue(directory, out var cover)
+                && !string.Equals(track.FolderArtPath, cover, StringComparison.OrdinalIgnoreCase))
+                updated[track.FilePath] = track.WithFolderArt(cover);
+        }
+
+        _artService.InvalidateAlbum(album);
+        if (updated.Count == 0)
             return;
 
-        _ = ApplyAlbumEditAsync(album, editVm.BuildAlbumEdit(), editVm.PickedArtPayload());
+        ReplaceTracksInLibrary(updated);
+        await PersistLibraryAsync();
     }
 
     private void EditSelectedTracksTags(IReadOnlyList<Track> tracks, Window owner)

@@ -505,6 +505,17 @@ claims. Covers by the album's artist are shown, exact title matches first, then 
 first; anything by other artists is hidden. Double-click one to use it. Like a picked
 file, it is only written when you press Save.
 
+**Saving the embedded art as a file.** *Edit Album Tags…* also has **Save Embedded
+Art**, under *Choose Image…*. It takes the cover embedded in the album's files and writes
+it as `cover.jpg` in the same folder (in each folder, for an album kept as "Disc 1",
+"Disc 2"…). It acts at once; you don't need to press Save, and no tags change. If the
+tracks in a folder carry different pictures, the one with the most pixels is used. A JPEG
+is copied byte for byte, so nothing is compressed. A PNG has to become a JPEG to be
+`cover.jpg`: that is the one case where the picture is re-encoded, at quality 100 with
+full-resolution colour, with any transparency set against white. An existing `cover.jpg`
+is replaced only by a picture with more pixels. Other cover files (`folder.jpg`…) are left
+alone. The message line at the bottom of the dialog says what happened.
+
 fanart.tv needs a free personal API key from <https://fanart.tv/get-an-api-key/>. Put
 it in `%APPDATA%\AudioFool\settings.json` as `"FanartTvApiKey": "..."` and restart.
 Bandcamp is not searched: it has no public API, and it turns automated requests away

@@ -255,5 +255,31 @@ public sealed class Track
         SampleRate = SampleRate,
     };
 
+    /// <summary>A copy that knows its folder's cover file, once one has been written beside it.</summary>
+    public Track WithFolderArt(string? folderArtPath) => new()
+    {
+        FilePath = FilePath,
+        FolderArtPath = folderArtPath,
+
+        FileSize = FileSize,
+        ModifiedUtc = ModifiedUtc,
+        AddedUtc = AddedUtc,
+        TrackNumber = TrackNumber,
+        TrackCount = TrackCount,
+        Title = Title,
+        Artist = Artist,
+        AlbumArtist = AlbumArtist,
+        Album = Album,
+        Duration = Duration,
+        DiscNumber = DiscNumber,
+        DiscCount = DiscCount,
+        Year = Year,
+        ReleaseDate = ReleaseDate,
+        Kind = Kind,
+        Bitrate = Bitrate,
+        BitDepth = BitDepth,
+        SampleRate = SampleRate,
+    };
+
     public override string ToString() => $"{TrackNumber}. {DisplayTitle}";
 }
