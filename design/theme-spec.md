@@ -50,7 +50,7 @@ These keep things lined up if panel widths change later.
 
 1. **Logo** is horizontally centered over the "ARTISTS" header label. At current sizes, the logo's left edge sits 32 px from the window edge (logo center ≈ 52 px).
 2. **Search box** starts 20 px after the logo and **ends exactly at the Albums panel's right outer edge** (currently 522 px from the window edge → search width 430 px).
-3. **Playback controls** start where the song list starts: the Shuffle button's left edge lines up with the left edge of the song table's # column (currently 545 px from the window edge). Everything to the right of that point in the playback bar sits under the Songs panel; the now-playing art and text sit under Artists and Albums.
+3. **Playback controls** start where the Songs panel starts: the Previous button's left edge lines up with the Songs panel's outer left edge (currently 528 px from the window edge). Everything from Previous rightwards in the playback bar sits under the Songs panel; the now-playing art and text sit under Artists and Albums. (Until 2026-10-02 this rule lined Shuffle up with the song table's # column, 545 px; the user moved the controls left twice, and moved Shuffle to the end of the cluster.)
 
 ---
 
@@ -273,17 +273,17 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 
 A panel-styled bar: `panel.bg`, 1 px `panel.border`, 4 px radius, inset top highlight, 24 px horizontal padding. Four zones with 40 px between them, all vertically centered:
 
-**Zone 1 — Now playing** (width set by alignment rule 3; currently 468 px):
+**Zone 1 — Now playing** (width set by alignment rule 3; currently 451 px):
 - 88 px square art, `art.border`, shadow `0 0 6px rgba(0,0,0,0.25)` (even on all sides — no offset).
 - 16 px gap, then three lines, 3 px apart: song title (17 px) / artist (14 px, blue) / format line (13 px, "MP3 · 320 kbps · 44.1 kHz" with middle dots).
 
-**Zone 2 — Transport buttons**, 16 px apart, in this order: Shuffle, Previous, Play/Pause, Next, Repeat.
+**Zone 2 — Transport buttons**: Previous, Play/Pause and Next in a row, 16 px apart, then **Repeat over Shuffle** as a vertical stack (10 px apart) 16 px after Next, centred on the row's height. This is also the Tab order. (Until 2026-10-02 the row was Shuffle, Previous, Play/Pause, Next, Repeat at 44 px; the user stacked the two mode buttons and made them smaller.)
 - All round, face `control.face`, 1 px `control.faceBorder`. Molded look: `inset 0 -3px 0 rgba(0,0,0,0.12)`, `inset 0 1px 0 rgba(255,255,255,0.8)`, `0 1px 3px rgba(0,0,0,0.25)`.
-- Sizes: 44 px buttons; Play/Pause is 60 px (shadow `inset 0 -4px 0 …` and `0 2px 5px rgba(0,0,0,0.28)`).
-- Icons: Shuffle 20 px, Previous/Next 20 px (`control.iconNeutral`), Play/Pause 26 px, Repeat 22 px.
+- Sizes: Previous and Next 44 px; Play/Pause 60 px (shadow `inset 0 -4px 0 …` and `0 2px 5px rgba(0,0,0,0.28)`); **Shuffle and Repeat 32 px** (`playbackBar.modeButtonSize`), same molded look.
+- Icons: Previous/Next 20 px (`control.iconNeutral`), Play/Pause 26 px, Shuffle 15 px, Repeat 16 px.
 - **Play/Pause is always `accent.teal`** — triangle when paused, two bars when playing.
 - **Shuffle:** `control.iconOff` when off, `control.shuffleOn` when on.
-- **Repeat** cycles **off → all → one** on each click: `control.iconOff` when off, `control.repeatOn` for all and one. Repeat-one adds a small "1" (9 px, 700, `control.repeatOn`) centered inside the icon.
+- **Repeat** cycles **off → all → one** on each click: `control.iconOff` when off, `control.repeatOn` for all and one. Repeat-one adds a badge on the button's top-right corner: a 13 px `control.repeatOn` disc overhanging the button by 2 px, holding a "1" (9 px, 700, `control.face`). (A "1" inside the 16 px icon was unreadable at this size.)
 - No status lights under the buttons.
 - Hover: slightly brighter. Pressed: nudges down 1 px.
 

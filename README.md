@@ -294,10 +294,10 @@ growing and shrinking with the window afterwards.
 
 ## Play order
 
-Two buttons flank the transport controls in the now-playing bar: **shuffle** on the
-left of Previous, **repeat** on the right of Next. Both light up in the accent colour
-when active and show a struck-through icon when not, and both are remembered between
-sessions.
+Two small buttons sit at the right end of the transport controls in the now-playing
+bar, stacked: **repeat** on top, **shuffle** below. Both light up in the accent colour
+when active (repeat shows a small "1" on its corner for "this track"), and both are
+remembered between sessions.
 
 | Control | States |
 |---|---|

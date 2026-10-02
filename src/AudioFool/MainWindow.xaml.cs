@@ -199,16 +199,17 @@ public partial class MainWindow : FluentWindow
             + columns
             + (columnIds.Count - 1) * n["songTable.columnGap"];
 
-        // The playback bar from Shuffle rightwards sits under the Songs panel
-        // (spec 2, rule 3), so the panel must also hold the transport buttons,
-        // a seek zone whose track keeps playbackBar.seekMinTrackWidth, the
-        // volume zone and the gaps between them (the user's call).
-        var transport = 4 * n["playbackBar.buttonSize"] + n["playbackBar.playButtonSize"]
-            + 4 * n["playbackBar.buttonGap"];
+        // The playback bar from Previous rightwards sits under the Songs panel,
+        // starting on its left edge (spec 2, rule 3), so the panel must also hold
+        // Previous, Play/Pause, Next and the Repeat/Shuffle stack, a seek zone
+        // whose track keeps playbackBar.seekMinTrackWidth, the volume zone and
+        // the gaps between them (the user's call).
+        var transport = 2 * n["playbackBar.buttonSize"] + n["playbackBar.playButtonSize"]
+            + n["playbackBar.modeButtonSize"] + 3 * n["playbackBar.buttonGap"];
         var seek = 2 * n["playbackBar.timeLabelWidth"] + 2 * n["playbackBar.seekGap"]
             + n["playbackBar.seekMinTrackWidth"];
-        var underSongs = SongListInset(n)
-            + transport + n["playbackBar.zoneGap"] + seek + n["playbackBar.zoneGap"] + n["playbackBar.volumeZoneWidth"]
+        var underSongs = transport
+            + n["playbackBar.zoneGap"] + seek + n["playbackBar.zoneGap"] + n["playbackBar.volumeZoneWidth"]
             + n["playbackBar.paddingX"] + n["layout.panelBorder"];
         songs = Math.Max(songs, underSongs);
 
@@ -247,17 +248,12 @@ public partial class MainWindow : FluentWindow
     }
 
     /// <summary>
-    /// How far the song list's first column starts inside the Songs panel's
-    /// outer edge: the border, the list padding and the row padding (spec 6.6).
-    /// </summary>
-    private static double SongListInset(IReadOnlyDictionary<string, double> n) =>
-        n["layout.panelBorder"] + n["songTable.listPaddingX"] + n["songTable.rowPaddingX"];
-
-    /// <summary>
-    /// Spec 2, rule 3: the Shuffle button's left edge lines up with the start of
-    /// the song list (the # column, unless a column has been dragged in front of
-    /// it), so the now-playing zone takes whatever is left of that point after
-    /// the zone gap. Measured from the real layout, so it follows the splitters.
+    /// Spec 2, rule 3: the Previous button's left edge lines up with the Songs
+    /// panel's outer left edge (the user's call, 2026-10-02; before that Shuffle
+    /// lined up with the song list, then with the divider). The Songs panel starts
+    /// one panel gap after the Albums panel, so the now-playing zone takes
+    /// whatever is left of that point after the zone gap. Measured from the real
+    /// layout, so it follows the splitters.
     /// </summary>
     private void AlignPlaybackBar()
     {
@@ -266,12 +262,12 @@ public partial class MainWindow : FluentWindow
 
         var n = Theming.TokenResources.Current!.Numbers;
 
-        var listStart = TrackGrid.TranslatePoint(new Point(0, 0), this).X
-            + n["songTable.listPaddingX"] + n["songTable.rowPaddingX"];
+        var albumsRight = AlbumsPanel.TranslatePoint(new Point(AlbumsPanel.ActualWidth, 0), this).X;
+        var songsLeft = albumsRight + n["layout.panelGap"];
         var zonesLeft = PlaybackZones.TranslatePoint(new Point(0, 0), this).X;
 
         // Whole pixels (spec 8).
-        var width = Math.Round(listStart) - Math.Round(zonesLeft) - n["playbackBar.zoneGap"];
+        var width = Math.Round(songsLeft) - Math.Round(zonesLeft) - n["playbackBar.zoneGap"];
         NowPlayingZone.Width = new GridLength(Math.Max(0, width));
     }
 

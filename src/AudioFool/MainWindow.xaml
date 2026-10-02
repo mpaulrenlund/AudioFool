@@ -742,8 +742,9 @@
         <!--
             ============================================ playback bar (6.7)
             The panel shell, without a header. Four zones 40 px apart. The first
-            is sized by MainWindow.AlignPlaybackBar so the Shuffle button starts
-            where the song list does (spec 2, rule 3).
+            is sized by MainWindow.AlignPlaybackBar so the Albums/Songs divider
+            runs through the middle of the gap between Shuffle and Previous
+            (spec 2, rule 3).
         -->
         <HeaderedContentControl x:Name="PlaybackBar"
                                 Grid.Row="2"
@@ -812,34 +813,14 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- Zone 2: Shuffle, Previous, Play/Pause, Next, Repeat, 16 px apart. -->
+                <!--
+                    Zone 2: Previous, Play/Pause, Next, 16 px apart, then Repeat over
+                    Shuffle as a stack of smaller buttons. Previous's left edge is on
+                    the Songs panel's outer edge (MainWindow.AlignPlaybackBar).
+                -->
                 <StackPanel x:Name="TransportButtons" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <ToggleButton x:Name="ShuffleButton"
-                                  Command="{Binding ToggleShuffleCommand}"
-                                  IsChecked="{Binding IsShuffle, Mode=OneWay}"
-                                  AutomationProperties.Name="Shuffle"
-                                  ToolTip="{Binding ShuffleTooltip}">
-                        <ToggleButton.Style>
-                            <Style TargetType="ToggleButton" BasedOn="{StaticResource theme.transportButton}">
-                                <Setter Property="Foreground" Value="{DynamicResource color.control.iconOff}" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsShuffle}" Value="True">
-                                        <Setter Property="Foreground" Value="{DynamicResource color.control.shuffleOn}" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ToggleButton.Style>
-                        <Viewbox Width="{theme:Token playbackBar.icons.shuffle}" Height="{theme:Token playbackBar.icons.shuffle}">
-                            <Canvas Width="24" Height="24">
-                                <Path Style="{StaticResource theme.iconStroke}"
-                                      Data="M 16,3 H 21 V 8 M 4,20 L 21,3 M 21,16 V 21 H 16 M 15,15 L 21,21 M 4,4 L 9,9" />
-                            </Canvas>
-                        </Viewbox>
-                    </ToggleButton>
-
                     <Button x:Name="PreviousButton"
                             Style="{StaticResource theme.transportButton}"
-                            Margin="{theme:Thickness Left=playbackBar.buttonGap}"
                             Command="{Binding PreviousCommand}"
                             AutomationProperties.Name="Previous track">
                         <Viewbox Width="{theme:Token playbackBar.icons.previous}" Height="{theme:Token playbackBar.icons.previous}">
@@ -887,45 +868,88 @@
                         </Viewbox>
                     </Button>
 
-                    <!-- Off, all, one. Repeat-one adds a "1" in the middle of the icon. -->
-                    <Button x:Name="RepeatButton"
-                            Margin="{theme:Thickness Left=playbackBar.buttonGap}"
-                            Command="{Binding CycleRepeatCommand}"
-                            ToolTip="{Binding RepeatTooltip}">
-                        <Button.Style>
-                            <Style TargetType="Button" BasedOn="{StaticResource theme.transportButton}">
-                                <Setter Property="Foreground" Value="{DynamicResource color.control.iconOff}" />
-                                <Setter Property="AutomationProperties.Name" Value="Repeat: off" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsRepeatAll}" Value="True">
-                                        <Setter Property="Foreground" Value="{DynamicResource color.control.repeatOn}" />
-                                        <Setter Property="AutomationProperties.Name" Value="Repeat: all" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding IsRepeatOne}" Value="True">
-                                        <Setter Property="Foreground" Value="{DynamicResource color.control.repeatOn}" />
-                                        <Setter Property="AutomationProperties.Name" Value="Repeat: one" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                        <Grid>
-                            <Viewbox Width="{theme:Token playbackBar.icons.repeat}" Height="{theme:Token playbackBar.icons.repeat}">
+                    <!--
+                        Repeat over Shuffle, 32 px each. In that order, which is also the
+                        Tab order: Previous, Play/Pause, Next, Repeat, Shuffle.
+                    -->
+                    <StackPanel x:Name="ModeButtons" Orientation="Vertical" VerticalAlignment="Center"
+                                Margin="{theme:Thickness Left=playbackBar.buttonGap}">
+                        <!--
+                            Off, all, one. Repeat-one puts a small "1" in a disc on the
+                            button's top-right corner: inside the icon it was a smudge at
+                            this size. The Grid is the button's size so the disc can sit
+                            on its corner.
+                        -->
+                        <Button x:Name="RepeatButton"
+                                Command="{Binding CycleRepeatCommand}"
+                                ToolTip="{Binding RepeatTooltip}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource theme.modeButton}">
+                                    <Setter Property="Foreground" Value="{DynamicResource color.control.iconOff}" />
+                                    <Setter Property="AutomationProperties.Name" Value="Repeat: off" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRepeatAll}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource color.control.repeatOn}" />
+                                            <Setter Property="AutomationProperties.Name" Value="Repeat: all" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsRepeatOne}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource color.control.repeatOn}" />
+                                            <Setter Property="AutomationProperties.Name" Value="Repeat: one" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <Grid Width="{theme:Token playbackBar.modeButtonSize}" Height="{theme:Token playbackBar.modeButtonSize}">
+                                <Viewbox Width="{theme:Token playbackBar.icons.repeat}" Height="{theme:Token playbackBar.icons.repeat}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Canvas Width="24" Height="24">
+                                        <Path Style="{StaticResource theme.iconStroke}"
+                                              Data="M 4.5,12 A 7.5,7.5 0 0 1 17.3,6.7 L 19.5,9 M 19.5,4.5 V 9 H 15 M 19.5,12 A 7.5,7.5 0 0 1 6.7,17.3 L 4.5,15 M 4.5,19.5 V 15 H 9" />
+                                    </Canvas>
+                                </Viewbox>
+                                <Grid x:Name="RepeatOneDisc"
+                                      Width="{theme:Token playbackBar.repeatOneBadge.discSize}"
+                                      Height="{theme:Token playbackBar.repeatOneBadge.discSize}"
+                                      HorizontalAlignment="Right" VerticalAlignment="Top"
+                                      Margin="{theme:Thickness Top=-playbackBar.repeatOneBadge.outset, Right=-playbackBar.repeatOneBadge.outset}"
+                                      IsHitTestVisible="False"
+                                      Visibility="{Binding IsRepeatOne, Converter={StaticResource BoolToVisibility}}">
+                                    <Ellipse Fill="{DynamicResource color.control.repeatOn}" />
+                                    <TextBlock x:Name="RepeatOneBadge"
+                                               Text="1"
+                                               FontFamily="{DynamicResource font.family}"
+                                               FontSize="{theme:Token playbackBar.repeatOneBadge.size}"
+                                               FontWeight="{DynamicResource playbackBar.repeatOneBadge.weight.fontWeight}"
+                                               Foreground="{DynamicResource color.control.face}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Grid>
+                            </Grid>
+                        </Button>
+
+                        <ToggleButton x:Name="ShuffleButton"
+                                      Margin="{theme:Thickness Top=playbackBar.modeButtonGap}"
+                                      Command="{Binding ToggleShuffleCommand}"
+                                      IsChecked="{Binding IsShuffle, Mode=OneWay}"
+                                      AutomationProperties.Name="Shuffle"
+                                      ToolTip="{Binding ShuffleTooltip}">
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton" BasedOn="{StaticResource theme.modeButton}">
+                                    <Setter Property="Foreground" Value="{DynamicResource color.control.iconOff}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsShuffle}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource color.control.shuffleOn}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ToggleButton.Style>
+                            <Viewbox Width="{theme:Token playbackBar.icons.shuffle}" Height="{theme:Token playbackBar.icons.shuffle}">
                                 <Canvas Width="24" Height="24">
                                     <Path Style="{StaticResource theme.iconStroke}"
-                                          Data="M 4.5,12 A 7.5,7.5 0 0 1 17.3,6.7 L 19.5,9 M 19.5,4.5 V 9 H 15 M 19.5,12 A 7.5,7.5 0 0 1 6.7,17.3 L 4.5,15 M 4.5,19.5 V 15 H 9" />
+                                          Data="M 16,3 H 21 V 8 M 4,20 L 21,3 M 21,16 V 21 H 16 M 15,15 L 21,21 M 4,4 L 9,9" />
                                 </Canvas>
                             </Viewbox>
-                            <TextBlock x:Name="RepeatOneBadge"
-                                       Text="1"
-                                       FontFamily="{DynamicResource font.family}"
-                                       FontSize="{theme:Token playbackBar.repeatOneBadge.size}"
-                                       FontWeight="{DynamicResource playbackBar.repeatOneBadge.weight.fontWeight}"
-                                       Foreground="{DynamicResource color.control.repeatOn}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       IsHitTestVisible="False"
-                                       Visibility="{Binding IsRepeatOne, Converter={StaticResource BoolToVisibility}}" />
-                        </Grid>
-                    </Button>
+                        </ToggleButton>
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- Zone 3: elapsed, track, total. The labels are at least 36 px,

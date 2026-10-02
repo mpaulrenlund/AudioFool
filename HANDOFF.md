@@ -1613,6 +1613,21 @@ Missing tags, yellow like it, with three rows:
     `D:\Music` folders were not written to. **Not exercised in the running app**: the
     real button press, `AdoptFolderCoversAsync` (it persists `library.json`) and the
     cancelled-dialog path. Installed; the installed build starts.
+- **The playback controls moved left, and Repeat/Shuffle became a small stack** (later
+  in session 32, the user's call, in two steps). First the divider was centred in the
+  Shuffle–Previous gap (since replaced). Then, after a ThemeLab render comparing 28,
+  30 and 32 px: the transport is **Previous, Play/Pause, Next, then Repeat over
+  Shuffle** as 32 px buttons (`theme.modeButton`, tokens `modeButtonSize` /
+  `modeButtonGap`), and **Previous's left edge is on the Songs panel's outer edge**
+  (x 528 at the default widths; it follows the splitters; `--playprobe 1` prints
+  `off by 0 px`). The now-playing zone is 451 px, the minimum window width **1,333 px**
+  (was 1,422 this morning), and the Tab order is Previous → Play/Pause → Next → Repeat
+  → Shuffle. **Repeat-one's "1" moved out of the icon onto a 13 px red disc on the
+  button's top-right corner**: inside the 16 px icon it was a smudge at 6.5, 9 and 11 px.
+  Details, numbers and the spec rewording in `design/progress.md`. Checked: probe at
+  three Albums widths and at the minimum width, the Tab walk, `--window tokens`, focus
+  rings on the stack (`--focus X --focusvisual 1`), the badge at 4x, 425 tests.
+  **Not seen in the running app.**
 - **The shell's `library.json` is current as of 2 October, 08:03**: the installed
   build's smoke test rescanned `D:\Music` into the container copy. The figures above
   include this morning's "of 9" edits.

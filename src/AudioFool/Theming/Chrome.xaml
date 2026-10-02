@@ -1100,6 +1100,17 @@
         </Setter>
     </Style>
 
+    <!--
+        Shuffle and Repeat: the same button, smaller, stacked after Next (the
+        user's call, 2026-10-02). Their icons are scaled to match (tokens
+        playbackBar.icons.shuffle / .repeat). The molded face scales with the
+        circle, so the shading is unchanged.
+    -->
+    <Style x:Key="theme.modeButton" TargetType="ButtonBase" BasedOn="{StaticResource theme.transportButton}">
+        <Setter Property="Width" Value="{theme:Token playbackBar.modeButtonSize}" />
+        <Setter Property="Height" Value="{theme:Token playbackBar.modeButtonSize}" />
+    </Style>
+
     <Style x:Key="theme.playButton" TargetType="ButtonBase" BasedOn="{StaticResource theme.transportButton}">
         <Setter Property="Width" Value="{theme:Token playbackBar.playButtonSize}" />
         <Setter Property="Height" Value="{theme:Token playbackBar.playButtonSize}" />

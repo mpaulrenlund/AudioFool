@@ -2106,6 +2106,29 @@ internal static class Program
         Console.WriteLine($"  zones: {Box(Named<FrameworkElement>("PlaybackZones"))} nowPlayingZone={Named<System.Windows.Controls.ColumnDefinition>("NowPlayingZone").ActualWidth}");
 
         var grid = Named<System.Windows.Controls.DataGrid>("TrackGrid");
+
+        // The Songs panel's outer left edge against Previous's left edge: they should coincide.
+        var albumsPanel = Named<FrameworkElement>("AlbumsPanel");
+        FrameworkElement? songsPanel = null;
+        for (DependencyObject? up = grid; up is not null; up = VisualTreeHelper.GetParent(up))
+        {
+            if (up is System.Windows.Controls.HeaderedContentControl hcc && hcc.Name != "PlaybackBar")
+            {
+                songsPanel = hcc;
+                break;
+            }
+        }
+
+        if (songsPanel is not null)
+        {
+            var albumsRight = albumsPanel.TranslatePoint(new Point(albumsPanel.ActualWidth, 0), main).X;
+            var songsLeft = songsPanel.TranslatePoint(new Point(0, 0), main).X;
+            var previousBox = Named<FrameworkElement>("PreviousButton");
+            var previousLeft = previousBox.TranslatePoint(new Point(0, 0), main).X;
+            Console.WriteLine($"  align: Albums ends {albumsRight:0.##}, Songs panel starts {songsLeft:0.##}; "
+                + $"Previous starts {previousLeft:0.##}; off by {previousLeft - songsLeft:0.##} px");
+        }
+
         var firstCell = Descendants(grid).OfType<System.Windows.Controls.DataGridCell>()
             .OrderBy(c => c.TranslatePoint(new Point(0, 0), main).X).FirstOrDefault();
         if (firstCell is not null)
@@ -2119,7 +2142,7 @@ internal static class Program
         foreach (var name in new[] { "NowPlayingTitle", "NowPlayingArtist", "NowPlayingFormat" })
             Console.WriteLine($"  {name}: {Text(Named<System.Windows.Controls.TextBlock>(name))}");
 
-        foreach (var name in new[] { "ShuffleButton", "PreviousButton", "PlayPauseButton", "NextButton", "RepeatButton", "MuteButton" })
+        foreach (var name in new[] { "PreviousButton", "PlayPauseButton", "NextButton", "RepeatButton", "ShuffleButton", "MuteButton" })
         {
             var b = Named<System.Windows.Controls.Primitives.ButtonBase>(name);
             var face = Descendants(b).OfType<AudioFool.Theming.MoldedFace>().FirstOrDefault();
@@ -2129,7 +2152,8 @@ internal static class Program
                 + $"face={Ink(face?.Face)} stroke={Ink(face?.Stroke)} shadow={face?.Shadow} icon {Box(icon)}");
         }
         var badge = Named<System.Windows.Controls.TextBlock>("RepeatOneBadge");
-        Console.WriteLine($"  repeat-one badge visible={badge.IsVisible}: {Text(badge)}");
+        var disc = Named<FrameworkElement>("RepeatOneDisc");
+        Console.WriteLine($"  repeat-one badge visible={badge.IsVisible}: disc {Box(disc)} {Text(badge)}");
 
         foreach (var name in new[] { "PositionText", "DurationText", "OutputReadout" })
             Console.WriteLine($"  {name}: {Text(Named<System.Windows.Controls.TextBlock>(name))}");
