@@ -11,17 +11,16 @@
         harness pumps the queue the real startup path runs - loading the user's
         settings and building and showing a second MainWindow on the desktop.
 
-        The two AudioFool dictionaries below are the real files, so anything
-        themeable is shared rather than copied. Only this list and the converter
-        keys are duplicated; if App.xaml gains a dictionary, add it here too.
+        The theme itself is merged by ThemeService.Apply(), as in the app, so
+        anything themeable is shared rather than copied. Only this list and the
+        converter keys are duplicated; if App.xaml gains a dictionary, add it
+        here too.
     -->
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ui:ThemesDictionary Theme="Light" />
                 <ui:ControlsDictionary />
-                <ResourceDictionary Source="pack://application:,,,/AudioFool;component/Themes/DesignTokens.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/AudioFool;component/Themes/Components.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <fmt:DurationConverter x:Key="Duration" />

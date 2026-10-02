@@ -7,23 +7,13 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!-- Light, because PS1 is dark ink on grey plastic: a stock key
-                     the theme does not restate falls back to a light value. -->
+                <!-- Light, because the theme is dark text on light grey: a stock
+                     key the theme does not restate falls back to a light value.
+                     The theme itself is merged over these by ThemeService.Apply().
+                     Nothing themeable goes in this file's own body: a key there
+                     outranks every merged dictionary, the theme's included. -->
                 <ui:ThemesDictionary Theme="Light" />
                 <ui:ControlsDictionary />
-
-                <!--
-                    The design system, over WPF-UI's base. Order matters twice
-                    over: tokens before the components that read them, and both
-                    after WPF-UI so a token can override one of its keys.
-
-                    Everything themeable lives in these two dictionaries rather
-                    than in the entries below, because a key in this dictionary's
-                    own body outranks every merged one - including the PS1
-                    theme, which ThemeService merges last of all.
-                -->
-                <ResourceDictionary Source="pack://application:,,,/AudioFool;component/Themes/DesignTokens.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/AudioFool;component/Themes/Components.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Converters are logic, not looks: no theme has anything to say

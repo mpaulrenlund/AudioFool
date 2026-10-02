@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-01 after the twenty-seventh build session. Read this alongside
+Updated 2026-10-01 after the thirty-first build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1433,6 +1433,41 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
 
+### Changes from session 31 (2026-10-01): new PS1 theme, old theme files removed (step 6, done)
+
+The last item of `design/progress.md`, which has the decisions. **The new theme is now
+the only one**: the app's look comes from `theme-tokens.json` (via `TokenResources`)
+and `Theming/Chrome.xaml`, over WPF-UI's Light base, and nothing else.
+
+- **Deleted**: `Themes/DesignTokens.xaml`, `Components.xaml`, `Ps1Theme.xaml`,
+  `Ps1Motion.xaml` (the whole `Themes/` folder), every `Af*` resource, and
+  `ThemeService`'s accent pinning. `MainWindow` lost the `AfWindowDecor` slot (the
+  `color.window.bg` border already covered it).
+- **No WPF-UI key overrides were needed in their place.** With `Ps1Theme.xaml` gone, 154
+  of the 161 WPF-UI keys it restated fall back to WPF-UI's Light values, and none of them
+  shows: every visible piece has a template of its own or reads tokens. The one
+  exception was the filter chip's hover and press (a stock `ui:Button`), which now set
+  `control.faceHover` / `status.chipBorder` / `text.primary` like `theme.chip`.
+- **WPF-UI's accent** is now `color.control.iconNeutral` (was a hard-coded `#4A4746`).
+  Nothing visible reads it; it keeps the Windows accent out of any stock state.
+- **The logo menu's items are regular weight** (the user's call), like the context menus.
+- **Verified**, against a ThemeLab build of HEAD in a scratch worktree, on 35 renders on
+  magenta: the main window in eleven states (including 125%), the menus, tooltip and
+  context menu, and every dialog in every mode. All 0 px different, apart from the three
+  logo drop-down renders, which are 5–10 px narrower for the regular weight, and 0 px
+  different from an intermediate build that changed only the weight. New ThemeLab **`--brushdump 1`** writes every
+  brush and corner radius held by every element beside each PNG, including the hover,
+  press and disabled brushes a stock control holds ready, which a render can't show. That
+  is what found the chip. **`--dumpkeys <file>`** gives `--dump` a key list. Also: the
+  token check, `--tabwalk 18`, the in-place edit suite (with `library.json` and
+  `settings.json` byte-identical afterwards) and 394 tests. Installed; the installed
+  build starts.
+- **Found, not fixed**: ThemeLab draws the main window at 1554 × 978 inside a 1720 × 1080
+  bitmap, so the main renders have magenta outside the window, at HEAD as well. Probably
+  the saved window placement in the shell's container `settings.json` (session 21).
+  `--artmenu` had found no menu since session 27, because it looked the art up by the old
+  `AfArtFrameLarge` style; fixed.
+
 ### Changes from session 30 (2026-10-01): new PS1 theme, dialogs (step 6)
 
 Step 6 of `design/progress.md`, which has the details, measurements and decisions.
@@ -1455,10 +1490,7 @@ the existing tokens, one dialog at a time.
   raise `Loaded` on the title bar (`RaiseLoaded`) so WPF-UI colours the window buttons,
   and print title bar, fields and buttons. A dialog's last bitmap row can show magenta
   when its content height isn't whole: ThemeLab rounding, not a gap.
-- **Still to do:** delete the old theme files (`Themes/DesignTokens.xaml`,
-  `Components.xaml`, `Ps1Theme.xaml`, `Ps1Motion.xaml`). MainWindow still uses
-  `AfFontWeightSemiBold` and `AfWindowDecor`, and `Ps1Theme.xaml`'s ~120 WPF-UI
-  colour overrides still colour stock pieces (the logo drop-down among them).
+- ~~**Still to do:** delete the old theme files.~~ Done in session 31.
 - 394 tests. Installed.
 
 ### Changes from session 29 (2026-10-01): new PS1 theme, polish (step 5)
@@ -1602,10 +1634,7 @@ covers. Work is on `main`, no branch, at the user's request.
 
 | File | Purpose |
 |---|---|
-| `src/AudioFool/Themes/DesignTokens.xaml` | Every colour, surface, text ramp, accent, stroke, spacing, type, radius, icon size, texture and motion value the app's chrome uses. Its defaults are the retired Dark theme's values, now the base layer under PS1. |
-| `src/AudioFool/Themes/Components.xaml` | The reusable pieces built from those tokens: `AfPane`/`AfPaneDisplay`/`AfDeck`, the browser row template and its hover/selection states, art frames, the slider, text styles, the `AfPlayKey`/`AfSkipKey` styles, and the themeable slots (see the design-system section). |
-| `src/AudioFool/Themes/Ps1Theme.xaml` | The PS1 theme, the only one. Token overrides, WPF-UI key overrides for the stock controls, and the components it restyles: panes, the display pane, deck, grid header and cell, slider, the scan progress bar, the Bit-Perfect key, the Play/Pause key, and four slots (`AfWindowDecor`, `AfStatusLamp`, `AfEmptyState`, `AfNowPlayingGlyph`). |
-| `src/AudioFool/Themes/Ps1Motion.xaml` | PS1's animated states, merged only when Windows has control animations on. Row hover (the selection marker and logo entrance were removed later). |
+| ~~`src/AudioFool/Themes/DesignTokens.xaml`, `Components.xaml`, `Ps1Theme.xaml`, `Ps1Motion.xaml`~~ | *Deleted in session 31.* The old design system (`Af*` keys) and the old PS1 theme, replaced by `theme-tokens.json` and `Theming/Chrome.xaml` (sessions 25–31). In git history before that. |
 | `src/AudioFool/Formatting/LetterSpacing.cs` | `LetterSpacing.Spacer` attached property: interleaves a spacer character between letters and keeps the unspaced text as the automation name. WPF has no tracking property. |
 | `tools/themelab/` | Renders the real windows off-screen to a PNG for theme review. Not in the solution. |
 
@@ -1701,156 +1730,60 @@ PS1 is the only theme. The Dark and Vista themes, the Themes menu, `ThemeItem`,
 request, so that no session spends time keeping them working. A leftover `"Theme"`
 key in `settings.json` is ignored on load and dropped on the next save.
 
-`ThemeService.Apply()` runs once in `App.OnStartup`, before the window is built. It
-merges `Themes/Ps1Theme.xaml`, plus `Ps1Motion.xaml` when Windows animations are on,
-then applies and pins the accent (below). `App.xaml` starts on WPF-UI's **Light**
-base, and every window declares `WindowBackdropType="None"` in its XAML, since PS1 is
-opaque.
+Since session 31 it is the **new** PS1 theme alone, specified in `design/` and built
+from `design/theme-tokens.json`. **`design/progress.md` is the reference** for how
+screens use it (the token-usage table) and for every decision.
 
-**The accent.** PS1's is the dark-grey key `#4A4746`.
+`ThemeService.Apply()` runs once in `App.OnStartup`, before the window is built. It
+merges the token resources (`Theming/TokenResources.cs`, from the embedded JSON) and
+then `Theming/Chrome.xaml` (the `theme.*` components, plus implicit `ToolTip`,
+`ContextMenu` and `MenuItem` styles), then sets WPF-UI's accent. `App.xaml` starts on
+WPF-UI's **Light** base and holds nothing themeable, and every window declares
+`WindowBackdropType="None"` in its XAML.
+
+**The accent** is `color.control.iconNeutral`, the theme's dark grey. Nothing visible
+reads it (every button, check box and text box has a template of its own); it is set
+so a stock state can't pick up the Windows accent.
 - **`ApplicationAccentColorManager.ApplySystemAccent()` silently does nothing here.**
   It resolves the theme through `ApplicationThemeManager`, which this app never
   drives. Use the explicit `Apply(color, ApplicationTheme.Light)` overload.
-- **It writes its brushes into `Application.Resources`**, which outranks every merged
-  dictionary, so `ThemeService` copies PS1's values for those keys back over the top
-  afterwards (see *PS1* below).
+- It writes its brushes straight into `Application.Resources`, which outranks every
+  merged dictionary. The old theme copied its own values back over them; nothing needs
+  to now.
 
----
+**WPF-UI's own keys are not overridden.** The old `Ps1Theme.xaml` restated about 160 of
+them; since session 31 they are WPF-UI's Light values, and a ThemeLab brush dump
+(`--brushdump 1`) showed none reaching anything visible. Where a stock control still
+shows (the filter chip is a `ui:Button`; menu items use WPF-UI's templates), its
+colours are set from tokens on the control or in its style's own resources, as the
+`MenuItem` styles in `Chrome.xaml` do. A new stock control needs the same treatment.
 
-## The design system (session 7)
+Still load-bearing from the old design system:
 
-Every colour, size, radius, border, duration and easing the app's own chrome uses is
-named in `src/AudioFool/Themes/DesignTokens.xaml`, and the reusable pieces built from
-those tokens are in `Themes/Components.xaml`. Both are merged in `App.xaml` after
-WPF-UI's dictionaries. Screens reference them by key; nothing in `MainWindow.xaml`
-carries a literal colour or measurement any more.
+- **Use `DynamicResource` for styles, templates and brushes in windows.** The theme
+  is merged before any window is built, so `StaticResource` would probably work too,
+  but it has not been tested.
+- **`WindowBackdropType.None`** on every window, and a dialog paints `color.window.bg`
+  on its root (see *A dialog has no shell* under Gotchas).
+- **Letter spacing** is `Formatting/LetterSpacing.cs` (`LetterSpacing.Em`). WPF has no
+  tracking property, so spacer elements are interleaved into the text and the
+  unspaced original is kept as the automation name. Only for short labels whose text
+  never changes.
+- **Don't key an optional style to `x:Null`** and set `Style="{DynamicResource X}"`
+  hoping it means "leave it unset": it drops WPF-UI's implicit style and the control
+  falls back to the *Aero* theme style (a white grid header, a near-white selected
+  row). Give the control a real style.
 
-**The defaults in `DesignTokens.xaml` and `Components.xaml` are a base layer under
-PS1.** They are the retired Dark theme's values. Where PS1 restates a key, the base
-value never shows; where it doesn't, the base value is live. The inert defaults
-(transparent brushes, zero widths, empty slot templates) are how PS1 opts in to a
-mark by restating one key, and how it drops one by *removing* its override (session
-18 did this for the selection bar, the pane marks and the row focus ring).
+## The old design system (sessions 7–30, removed in session 31)
 
-**Not done: folding PS1 into the base layer.** Merging `Ps1Theme.xaml` into
-`DesignTokens.xaml` / `Components.xaml` would leave one set of files and no dead base
-values. It is a large diff for no visible change, so it was left. If it is ever done,
-the ThemeLab pixel diff below is how to prove nothing moved.
-
-Three conventions that are load-bearing:
-
-- **`MainWindow` uses `DynamicResource` for styles and templates, not `StaticResource`.**
-  This was essential while themes switched at runtime, since a `StaticResource` is
-  resolved once at load. PS1 is now merged before any window is built, so a
-  `StaticResource` in a window might resolve to PS1's value too, but that has not been
-  tested. Keep using `DynamicResource`.
-- **PS1 restyles a control WPF-UI already themes with an implicit style** in its
-  own dictionary - `Style TargetType`, no key. It does this for `DataGridColumnHeader`,
-  `DataGridCell`, `ProgressBar` and `ToggleButton`.
-
-  The obvious alternative is a trap, and it was tried: keying an optional style to
-  `x:Null` and setting `Style="{DynamicResource X}"` on the control does **not** mean
-  "leave it unset". It drops WPF-UI's implicit style and the control falls back to the
-  *Aero* theme style, which gave the track grid a white header strip with unreadable
-  titles and a near-white selected row.
-- **Themeable slots** are `ControlTemplate`s on a plain `Control`, so they cost one
-  element, and the theme can fill one without touching the window. `Components.xaml`
-  defines them:
-  - **Filled by PS1**: `AfWindowDecor` (the shell), `AfStatusLamp`, `AfEmptyState` and
-    `AfNowPlayingGlyph`. The first three are empty in the base layer. The base
-    `AfNowPlayingGlyph` is the old blue note, which PS1 replaces with a green ▶.
-  - **Base layer only**: `AfBrandMark` carries the logo. `AfBrandMarkImage` is an
-    empty style hook for animating it, and PS1 no longer fills it (the entrance
-    animation went in session 17).
-  - **Empty and unused**: `AfPaneMarkArtists` / `AfPaneMarkAlbums` / `AfPaneMarkTracks`,
-    since PS1 dropped its pane marks in session 18. They stay in `MainWindow.xaml`, take
-    no space, and are the place to bring a mark back.
-
-  The `Control` inherits the window's DataContext, so a filled slot can bind to the
-  view model.
-
-Two things could not be tokenised and are property-styled in `MainWindow.xaml` on
-purpose, each with the reason in a comment there: the browser `ListBoxItem` styles and
-the `DataGridRow` style, because both also carry a context menu bound through the
-window's `BindingProxy` (and the row style an `EventSetter`), neither of which a
-standalone dictionary can reach. Their *looks* still come from theme-owned resources —
-`AfBrowserRowTemplate` for the rows, and tokens for the grid.
-
-### PS1
-
-`Themes/Ps1Theme.xaml` plus `Themes/Ps1Motion.xaml`. Rewritten in session 17 (the
-earlier dark version is in git history before that session). The original grey console as
-1990s consumer electronics. **The grey is the primary surface; the controller
-colours are semantic punctuation.**
-
-This is the state as of session 18 (`f6b57c2` and after). The brief's greys were
-darkened about 15% at the user's request.
-
-- **Surfaces**: shell `#A7A4A3` behind everything (the `AfWindowDecor` slot, and
-  `AfSurfaceShell` on each dialog's root grid). Panes, deck, keys and menus are
-  surface `#B6B3B1` with a 1 px shadow `#656362` outline and a 1 px highlight
-  `#C6C3C2` inside the top edge. Inputs, slider and progress tracks and art mats are
-  recessed `#999593`, and carry ink text only. Ink is `#242424`. Corners are 1–3 px.
-- **Where each accent is used.** This is the whole list, and each item was asked
-  for or approved by the user:
-
-  | Colour | Used for |
-  |---|---|
-  | Green `#00AC9F` | the Play/Pause key while it shows **Play**; the playing row's ▶; the seek bar's travelled part; the ready lamp; Bit-Perfect ON |
-  | Red `#DF0024` | the Play/Pause key while it shows **Pause**; error text (darkened `#7A0015`); Last.fm "reconnect" |
-  | Blue `#2E6DB4` | links (darkened `#143860`) |
-  | Yellow `#F3C300` | the scanning lamp; the scan progress bar; Last.fm "waiting" |
-  | Pink | **never**, at the user's request |
-
-  One accent per component. The Play/Pause key is the only accent *fill*. Previous,
-  Next, shuffle, repeat, selection, hover, focus, volume, Primary buttons and the
-  Statistics bars are all neutral. If a new control seems to need a colour, it
-  probably wants ink. Ask before adding one.
-- **No list has a selection marker.** The track grid never had one (a selected,
-  playing row carries only green), and the user asked for its ink focus bar to go.
-  The blue 3 px bar on the selected artist and album went too, in session 18: the
-  user found the dark-grey highlight enough. Selection is the grey row everywhere.
-  PS1 no longer overrides `AfStrokeSelectionBar` / `AfSizeSelectionBar`, and
-  `Ps1Motion.xaml` no longer animates `AfRowSelectionBar`; the element is still in
-  `AfBrowserRowTemplate`, inert, so a theme can bring a marker back.
-- **Contrast** is measured, and the table is in `Ps1Theme.xaml`'s header comment.
-  Ink is 6.3:1 on the shell and 7.4:1 on the surface; secondary `#353332` is 5.1:1
-  and 6.0:1. **Green is only 1.0–1.4:1 against these greys**, so every accent mark
-  has an ink keyline (`AfStatusKeyline`) and a shape or word beside it. The keys:
-  ink on green 5.5:1, light on red 4.2:1.
-
-It works on two levels: it redefines AudioFool's tokens *and* the WPF-UI keys the
-stock controls resolve at runtime. It also runs on WPF-UI's **Light** base (the
-`ThemesDictionary` in `App.xaml`, and in ThemeLab's `LabApp.xaml`), so anything it
-misses is light rather than white-on-grey.
-That is why the WPF-UI key list in that file is long, and covers the per-control
-keys as well as the palette.
-
-- **Motion is a separate dictionary** so honouring Windows' "show animations" setting is
-  a matter of not merging it — `ThemeService` checks `SystemParameters.ClientAreaAnimation`.
-  The obvious alternative, zeroing the duration tokens at runtime, is not available:
-  a storyboard held by a style cannot read a `DynamicResource`, because applying a
-  style seals it and freezes the freezables it holds. For the same reason the animated
-  pieces were split into small styles of their own, so `Ps1Motion.xaml` replaces those
-  rather than duplicating whole templates. Only the row hover (`AfRowHoverWash`) is
-  left: the logo entrance went in session 17 and the selection marker in session 18.
-  A `ScaleTransform` declared *in a template* can be animated; one set through a style
-  setter cannot.
-- **`WindowBackdropType.None`.** PS1 is an opaque hardware surface; Mica would let the
-  desktop through the chassis. Every window, dialogs included, declares
-  `WindowBackdropType="None"` in its XAML. A new window must do the same, and paint
-  `AfSurfaceShell` on its root grid (see *A dialog has no shell* under Gotchas).
-- **The accent is pinned after `ApplicationAccentColorManager.Apply`.** That call writes
-  its brushes straight into `Application.Resources`, which outranks every merged
-  dictionary, so a theme cannot restate the accent by redefining those keys in its own
-  file. `ThemeService` calls `Apply`, then copies PS1's values for those keys back over
-  the top. PS1's accent is the dark-grey key `#4A4746`, applied with
-  `ApplicationTheme.Light`.
-- **Letter spacing** is `Formatting/LetterSpacing.cs`. WPF has no tracking property, so
-  the spacer character is interleaved into the text and the unspaced original is kept as
-  the automation name. Only for short labels whose text never changes — it applies on
-  `Loaded` and does not watch `Text`.
-
+From session 7 every value lived in `Themes/DesignTokens.xaml` (`Af*` tokens),
+`Themes/Components.xaml` (components and "themeable slots": `ControlTemplate`s on a
+plain `Control`), `Themes/Ps1Theme.xaml` (the grey-console PS1 of sessions 17–18:
+`Af*` overrides, about 160 WPF-UI key overrides, implicit `DataGridColumnHeader`,
+`DataGridCell`, `ProgressBar` and `ToggleButton` styles) and `Themes/Ps1Motion.xaml`
+(the row hover fade, merged only when Windows animations were on). The session notes
+above that name `Af*` keys describe that system; they are history. The files are in git
+history before session 31.
 
 ### Shuffle and repeat (session 5)
 `PlayOrder` (`src/AudioFool.Core/Playback/PlayOrder.cs`) holds a permutation of the
@@ -2154,6 +2087,8 @@ ThemeLab.exe --focus ArtistList     # keyboard focus visuals do render
 ThemeLab.exe --focusrow AlbumList  # focus the selected row (the ring a click leaves)
 ThemeLab.exe --window tags          # the tag dialog
 ThemeLab.exe --dump keys.txt
+ThemeLab.exe --dump out.txt --dumpkeys keys.txt   # resolve the keys listed in keys.txt, one per line
+ThemeLab.exe --brushdump 1 --out shot.png   # also writes shot.brushes.txt: every brush and corner radius in the tree, hover/press ones included
 ThemeLab.exe --menu               # does the logo open the menu?
 ThemeLab.exe --menu --menutree   # sizes and clips under the menu item
 ThemeLab.exe --window stats --w 900 # statistics, from the real library.json
@@ -2360,8 +2295,9 @@ off-screen window, so focus rings can be reviewed.
   `DisplayIndex` on every column. Since session 27 there is no separate now-playing
   column (the triangle is in the # cell), so # is DisplayIndex 0.
 - **A DataGrid's `CellStyle` set from its style loses to an implicit `DataGridCell` style**
-  (`Ps1Theme.xaml` has one, with 8 px padding). Found in session 27 by measuring: text
-  sat 2 px off the header. Set `CellStyle` on each column instead.
+  (the old `Ps1Theme.xaml` had one, with 8 px padding). Found in session 27 by
+  measuring: text sat 2 px off the header. Set `CellStyle` on each column instead, as
+  the song table still does.
 - **DataGrid fits star columns to the viewport minus `CellsPanelHorizontalOffset`**, and
   that offset is where the cells sit relative to the *grid*, including any margin on the
   `ScrollContentPresenter`. A symmetric list padding is therefore subtracted twice, and
@@ -2451,8 +2387,8 @@ off-screen window, so focus rings can be reviewed.
   PS1 slider's travelled segment to 0 px, unnoticed since session 7. Add
   `Style="{x:Null}"` as well when a template part must be bare.
 - **A dialog has no shell unless it paints one.** With `WindowBackdropType.None`,
-  a `FluentWindow` is transparent behind its content. The main window has the
-  `AfWindowDecor` slot; dialogs paint `AfSurfaceShell` on their root grid. Render
+  a `FluentWindow` is transparent behind its content. Every window paints
+  `color.window.bg` on its root grid (the main window on a border behind the rest). Render
   with `--bg "#FF00FF"` to catch a gap: the default dark backdrop hides it.
 - **Two PowerShell traps in pixel scripts.** Variable names are case-insensitive,
   so `$B` (a blue byte) overwrites `$b` (the bitmap). And `diff` is a built-in alias

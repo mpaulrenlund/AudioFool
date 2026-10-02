@@ -127,18 +127,9 @@
         </Grid.RowDefinitions>
 
         <!--
-            The shell surface. First in the Grid so it draws behind everything
-            else - a theme may put its plate, texture or geometry here, and it is
-            the only place any of those are allowed to go. PS1 paints the grey
-            shell here.
-        -->
-        <Control Grid.Row="0" Grid.RowSpan="4"
-                 Template="{DynamicResource AfWindowDecor}"
-                 Focusable="False" IsTabStop="False" IsHitTestVisible="False" />
-
-        <!--
-            The new theme's window grey (spec 3): behind the title bar, in the
-            panel gaps and margins, around the playback bar and under the status bar.
+            The window grey (spec 3): first in the Grid so it draws behind
+            everything else - the title bar, the panel gaps and margins, around
+            the playback bar and under the status bar.
         -->
         <Border Grid.Row="0" Grid.RowSpan="4"
                 Background="{DynamicResource color.window.bg}"
@@ -189,13 +180,8 @@
                       Width="{theme:Token titleBar.logoSlot.width}"
                       Height="{theme:Token titleBar.logoSlot.height}">
                     <Menu Background="Transparent" VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <!--
-                            FontWeight is set here for the submenu, not the header:
-                            menu items inherit it from the item that owns them.
-                        -->
                         <MenuItem x:Name="LogoMenuItem"
                                   Style="{StaticResource theme.logoMenuItem}"
-                                  FontWeight="{DynamicResource AfFontWeightSemiBold}"
                                   FocusVisualStyle="{DynamicResource theme.focusRing.inside}"
                                   AutomationProperties.Name="AudioFool">
                             <MenuItem.Header>
@@ -300,14 +286,21 @@
                     because the two combine - search runs inside the filter - and
                     after it, so the box keeps its right edge level with Albums.
                     Clicking anywhere on the chip clears it. The spec has no filter
-                    chip; it borrows the status-bar chip's colours and corners.
+                    chip; it borrows the status-bar chip's colours and corners, and
+                    its hover: control.faceHover, held while pressed, with the
+                    border and text unchanged (theme.chip).
                 -->
                 <ui:Button x:Name="LibraryFilterChip"
                            Margin="{theme:Thickness Left=statusBar.chipGap}"
                            Height="{theme:Token titleBar.search.height}"
                            VerticalAlignment="Center"
                            Background="{DynamicResource color.status.chipBg}"
+                           MouseOverBackground="{DynamicResource color.control.faceHover}"
+                           PressedBackground="{DynamicResource color.control.faceHover}"
                            BorderBrush="{DynamicResource color.status.chipBorder}"
+                           MouseOverBorderBrush="{DynamicResource color.status.chipBorder}"
+                           PressedBorderBrush="{DynamicResource color.status.chipBorder}"
+                           PressedForeground="{DynamicResource color.text.primary}"
                            BorderThickness="{theme:Thickness All=layout.panelBorder}"
                            CornerRadius="{DynamicResource radius.chip}"
                            FocusVisualStyle="{DynamicResource theme.focusRing.chip}"

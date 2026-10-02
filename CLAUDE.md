@@ -76,4 +76,4 @@ If the spec and the mockup disagree, the spec wins. If the spec is silent on som
 - Before editing, describe the plan and wait for approval.
 - For visual checks against `design/screenshots/`, publish and install as described in HANDOFF.md, then capture the app with `PrintWindow`. Never drive the mouse or keyboard.
 - When done, list what changed and anything that differs from the spec or mockup, then update `design/progress.md`.
-- Work on `main`, no branch (the user's call, 2026-10-01: all sessions are planned for one day). Screens move to the new theme as each session restyles them; the old PS1 files (`Themes/DesignTokens.xaml`, `Components.xaml`, `Ps1Theme.xaml`, `Ps1Motion.xaml`) go once the last screen has moved.
+- Work on `main`, no branch (the user's call, 2026-10-01: all sessions are planned for one day). Every screen is on the new theme, and the old PS1 files (`Themes/DesignTokens.xaml`, `Components.xaml`, `Ps1Theme.xaml`, `Ps1Motion.xaml`, the `Af*` keys) were deleted in session 31. WPF-UI's own colour keys are no longer overridden: a stock control that shows gets its colours from tokens, on the control or in its style.

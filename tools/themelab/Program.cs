@@ -38,6 +38,8 @@ internal static class Program
             _backdrop = (Color)ColorConverter.ConvertFromString(bg);
         }
 
+        _brushDump = Arg(args, "--brushdump") is not null;
+
         var app = new LabApp();
         app.InitializeComponent();
 
@@ -46,7 +48,7 @@ internal static class Program
             // After Apply, so the dump shows what the theme and
             // ApplicationAccentColorManager actually leave in place.
             ThemeService.Apply();
-            Dump(dumpPath);
+            Dump(dumpPath, Arg(args, "--dumpkeys"));
             return 0;
         }
 
@@ -812,45 +814,12 @@ internal static class Program
             }
         }
 
-        if (Arg(args, "--probe") is not null)
-        {
-            var pane = FindFirst<System.Windows.Controls.HeaderedContentControl>(main);
-            Console.WriteLine($"pane={pane}  styleIsAppAfPane={ReferenceEquals(pane?.Style, Application.Current.TryFindResource("AfPane"))}");
-            if (pane is not null)
-            {
-                var border = FindFirst<System.Windows.Controls.Border>(pane);
-                Console.WriteLine($"outer border radius={border?.CornerRadius} bg={Describe(border?.Background)} "
-                    + $"stroke={Describe(border?.BorderBrush)}");
-                Console.WriteLine($"pane resolves AfRadiusPanel={Describe(pane.TryFindResource("AfRadiusPanel"))} "
-                    + $"AfSurfacePanel={Describe(pane.TryFindResource("AfSurfacePanel"))}");
-                Console.WriteLine($"window resolves AfRadiusPanel={Describe(main.TryFindResource("AfRadiusPanel"))}");
-
-                for (DependencyObject? node = pane; node is not null; node = LogicalTreeHelper.GetParent(node) ?? VisualTreeHelper.GetParent(node))
-                {
-                    if (node is FrameworkElement fe && fe.Resources.Count + fe.Resources.MergedDictionaries.Count > 0)
-                    {
-                        Console.WriteLine($"  scope {fe.GetType().Name}: own={fe.Resources.Count} merged={fe.Resources.MergedDictionaries.Count} "
-                            + $"hasToken={fe.Resources.Contains("AfRadiusPanel")}");
-                    }
-                }
-
-                var appRes = Application.Current.Resources;
-                for (var i = 0; i < appRes.MergedDictionaries.Count; i++)
-                {
-                    var d = appRes.MergedDictionaries[i];
-                    Console.WriteLine($"  app[{i}] src={d.Source} count={d.Count} hasToken={d.Contains("AfRadiusPanel")} "
-                        + $"value={(d.Contains("AfRadiusPanel") ? Describe(d["AfRadiusPanel"]) : "-")}");
-                }
-            }
-        }
-
         // --artmenu: does right-clicking the album header art offer Edit Album Tags
         // for the selected album? Opens the menu off-screen and reads its bindings.
         if (Arg(args, "--artmenu") is not null)
         {
             var art = FindAll<System.Windows.Controls.Border>(main)
-                .FirstOrDefault(b => b.ContextMenu is not null
-                    && ReferenceEquals(b.Style, main.TryFindResource("AfArtFrameLarge")));
+                .FirstOrDefault(b => b.ContextMenu is not null && b.Cursor == System.Windows.Input.Cursors.Hand);
             if (art?.ContextMenu is not { } menu)
             {
                 Console.WriteLine("artmenu: no context menu on the header art");
@@ -1615,9 +1584,16 @@ internal static class Program
     /// Prints the resolved value of every theme resource key listed, so token
     /// defaults can be baked from what WPF-UI actually supplies.
     /// </summary>
-    private static void Dump(string path)
+    /// <summary>
+    /// Prints what each key resolves to from the application's resources. The
+    /// keys come from <paramref name="keysPath"/> (one per line) when given,
+    /// otherwise from the list below.
+    /// </summary>
+    private static void Dump(string path, string? keysPath)
     {
-        string[] keys =
+        string[] keys = keysPath is not null
+            ? File.ReadAllLines(keysPath).Select(k => k.Trim()).Where(k => k.Length > 0).ToArray()
+            :
         [
             "ApplicationBackgroundBrush",
             "ControlFillColorDefaultBrush", "ControlFillColorSecondaryBrush",
@@ -1659,8 +1635,6 @@ internal static class Program
             "SliderOuterThumbBackground", "SliderThumbBackground",
             "SliderThumbBackgroundPointerOver",
             "ContentControlThemeFontFamily", "ControlContentThemeFontSize",
-            "AfSurfacePanel", "AfSurfaceShell", "AfRadiusPanel", "AfFontMono",
-            "AfSizeBrandMark", "AfSizeTrackRowHeight", "AfStrokeSelectionBar",
         ];
 
         var sb = new StringBuilder();
@@ -2040,6 +2014,56 @@ internal static class Program
         encoder.Frames.Add(BitmapFrame.Create(rtb));
         using var stream = File.Create(path);
         encoder.Save(stream);
+
+        if (_brushDump)
+            DumpBrushes(window, Path.ChangeExtension(path, ".brushes.txt"));
+    }
+
+    /// <summary>
+    /// Set by --brushdump: next to each PNG, write every brush and corner radius
+    /// held by every element in the rendered tree. A render shows only the state
+    /// it was drawn in; this also shows what a control holds ready for hover,
+    /// press, disabled or selected text, so two builds can be compared for
+    /// states no off-screen render reaches.
+    /// </summary>
+    private static bool _brushDump;
+
+    private static readonly Dictionary<Type, DependencyProperty[]> BrushProperties = [];
+
+    private static void DumpBrushes(Visual root, string path)
+    {
+        var sb = new StringBuilder();
+        void Walk(DependencyObject node, string trail)
+        {
+            var type = node.GetType();
+            if (!BrushProperties.TryGetValue(type, out var props))
+            {
+                props = type.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static
+                                       | System.Reflection.BindingFlags.FlattenHierarchy)
+                    .Where(f => f.FieldType == typeof(DependencyProperty))
+                    .Select(f => (DependencyProperty)f.GetValue(null)!)
+                    .Where(p => typeof(Brush).IsAssignableFrom(p.PropertyType) || p.PropertyType == typeof(CornerRadius))
+                    .Distinct()
+                    .OrderBy(p => p.Name, StringComparer.Ordinal)
+                    .ToArray();
+                BrushProperties[type] = props;
+            }
+
+            var name = node is FrameworkElement { Name.Length: > 0 } fe ? $"{type.Name}#{fe.Name}" : type.Name;
+            var here = trail.Length == 0 ? name : trail + "/" + name;
+            foreach (var p in props)
+            {
+                var value = node.GetValue(p);
+                if (value is not null)
+                    sb.AppendLine($"{here} {p.Name} = {Describe(value)}");
+            }
+
+            for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+                Walk(VisualTreeHelper.GetChild(node, i), here + $"[{i}]");
+        }
+
+        Walk(root, "");
+        File.WriteAllText(path, sb.ToString());
     }
 
     private static void PrintPeers(System.Windows.Automation.Peers.AutomationPeer peer, int depth)
