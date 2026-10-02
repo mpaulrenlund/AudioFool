@@ -2,7 +2,7 @@
   "$description": "AudioFool PS1 theme tokens. Values match design/theme-spec.md. Sizes are in device-independent pixels.",
   "font": {
     "family": ["Segoe UI Variable Text", "Segoe UI"],
-    "tabularFiguresFor": ["trackNumber", "timeLabel", "tableCell"]
+    "tabularFiguresFor": ["trackNumber", "timeLabel", "tableCell", "statValue"]
   },
   "color": {
     "window": {
@@ -113,7 +113,8 @@
     "timeLabel": { "size": 12, "weight": 400, "color": "text.muted" },
     "outputReadout": { "size": 11.5, "weight": 400, "color": "text.muted" },
     "search": { "size": 13, "weight": 400, "color": "text.primary" },
-    "status": { "size": 12, "weight": 400, "color": "text.status" }
+    "status": { "size": 12, "weight": 400, "color": "text.status" },
+    "statValue": { "size": 24, "weight": 600, "color": "text.heading" }
   },
   "layout": {
     "designSize": { "width": 1720, "height": 1080 },
@@ -145,6 +146,34 @@
   "albums": { "rowHeight": 64, "rowPaddingY": 4, "rowPaddingX": 8, "thumbSize": 56, "thumbGap": 12, "lineGap": 3, "rowGap": 0, "placeholderIconSize": 20 },
   "albumHeader": { "paddingY": 22, "paddingX": 24, "artSize": 144, "artGap": 24, "titleMinHeight": 39, "titleToDetailsGap": 8, "detailsLineGap": 3, "placeholderIconSize": 36 },
   "popup": { "toolTipPaddingX": 8, "toolTipPaddingY": 5, "toolTipMaxWidth": 260, "menuPaddingY": 3 },
+  "dialog": {
+    "titleIconSize": 16, "titleIconGap": 8,
+    "paddingX": 20, "paddingTop": 12, "paddingBottom": 16,
+    "paragraphGap": 10, "fieldGap": 8, "buttonGap": 8,
+    "buttonHeight": 30, "buttonPaddingX": 16, "buttonMinWidth": 80,
+    "checkBoxSize": 16, "checkBoxGap": 8, "checkStrokeOn24Grid": 3,
+    "emphasisWeight": 600, "multilinePaddingY": 6
+  },
+  "lastFm": { "width": 480, "minWidth": 400, "labelWidth": 100 },
+  "tagEdit": {
+    "width": 460, "minWidth": 380, "labelWidth": 90,
+    "artSize": 72, "artGap": 12, "artTextGap": 4, "fieldsGapTop": 16,
+    "numberWidth": 80, "yearWidth": 140, "ofGap": 8,
+    "commentMinHeight": 64, "commentMaxHeight": 140, "clearButtonGap": 6
+  },
+  "artSearch": {
+    "width": 820, "height": 640, "minWidth": 520, "minHeight": 400,
+    "tileSize": 164, "tileMargin": 4, "tilePadding": 6, "tileTextGap": 6,
+    "statusGapTop": 10, "statusGapBottom": 6
+  },
+  "statistics": {
+    "width": 900, "minWidth": 720, "minHeight": 420,
+    "tileGap": 8, "columnGap": 12, "sectionGap": 12,
+    "tilePaddingX": 14, "tilePaddingY": 12, "tileLineGap": 2,
+    "sectionPaddingY": 6,
+    "rowPaddingX": 6, "rowPaddingY": 4, "rowGap": 2, "barGap": 4, "detailGap": 3, "summaryGap": 10
+  },
+  "artViewer": { "minSize": 280, "screenMargin": 80, "captionPaddingTop": 10, "captionPaddingBottom": 12 },
   "emptyState": { "squareSize": 31, "squareStroke": 1, "squareToTitleGap": 22, "titleToSublineGap": 4 },
   "songTable": {
     "headerHeight": 32,

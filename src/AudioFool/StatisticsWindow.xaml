@@ -2,31 +2,49 @@
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:theme="clr-namespace:AudioFool.Theming"
+                 xmlns:fmt="clr-namespace:AudioFool.Formatting"
                  Title="Library Statistics"
                  Icon="/Resources/AudioFool.ico"
-                 Width="900" SizeToContent="Height"
-                 MinWidth="720" MinHeight="420"
+                 Width="{theme:Token statistics.width}" SizeToContent="Height"
+                 MinWidth="{theme:Token statistics.minWidth}" MinHeight="{theme:Token statistics.minHeight}"
                  WindowStartupLocation="Manual"
                  WindowBackdropType="None"
                  ExtendsContentIntoTitleBar="True"
                  WindowCornerPreference="Round">
 
     <ui:FluentWindow.Resources>
+        <!-- Section headers, as ARTISTS and ALBUMS (6.2): small grey capitals, tracked. -->
+        <Style x:Key="SectionHeader" TargetType="TextBlock" BasedOn="{StaticResource type.panelHeader}">
+            <Setter Property="fmt:LetterSpacing.Em" Value="{DynamicResource type.panelHeader.letterSpacingEm}" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="Body" TargetType="TextBlock" BasedOn="{StaticResource type.tableCell}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextTrimming" Value="None" />
+        </Style>
+
         <!--
             A row you can click. A real Button, so it takes keyboard focus, answers
             Enter and Space, and exposes an Invoke pattern to UI Automation. Its
             template is written out in full rather than BasedOn WPF-UI's button,
             which would paint a filled control behind every row. The negative side
             margin lets the hover wash reach past the text while the text itself
-            stays level with the pane header.
+            stays level with the section header.
+
+            Hover and press are the browser rows' (6.3): the hover wash, then the
+            selection grey, with row corners. No focus outline, as on the main
+            window's list rows (the user's call).
 
             A row with nothing to show - a tag no track is missing - is disabled,
             which removes the hover, the hand cursor and the focus stop together.
         -->
         <Style x:Key="StatRowButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Padding" Value="6,4" />
-            <Setter Property="Margin" Value="-6,0,-6,2" />
+            <Setter Property="Padding" Value="{theme:Thickness X=statistics.rowPaddingX, Y=statistics.rowPaddingY}" />
+            <Setter Property="Margin" Value="{theme:Thickness Left=-statistics.rowPaddingX, Right=-statistics.rowPaddingX, Bottom=statistics.rowGap}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -35,18 +53,9 @@
                     <ControlTemplate TargetType="Button">
                         <Grid Background="Transparent" SnapsToDevicePixels="True">
                             <Border x:Name="Wash" Opacity="0"
-                                    Background="{DynamicResource AfSurfaceRowHover}"
-                                    CornerRadius="{DynamicResource AfRadiusWell}" />
+                                    Background="{DynamicResource color.state.hoverOverlay}"
+                                    CornerRadius="{DynamicResource radius.row}" />
                             <ContentPresenter Margin="{TemplateBinding Padding}" />
-                            <Border x:Name="FocusSpacer" Visibility="Collapsed" IsHitTestVisible="False"
-                                    BorderBrush="{DynamicResource AfFocusRingSpacer}"
-                                    BorderThickness="{DynamicResource AfFocusRingInset}"
-                                    CornerRadius="{DynamicResource AfRadiusWell}" />
-                            <Border x:Name="FocusRing" Visibility="Collapsed" IsHitTestVisible="False"
-                                    Margin="1"
-                                    BorderBrush="{DynamicResource AfFocusRing}"
-                                    BorderThickness="{DynamicResource AfFocusRingInset}"
-                                    CornerRadius="{DynamicResource AfRadiusWell}" />
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -54,11 +63,7 @@
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Wash" Property="Background"
-                                        Value="{DynamicResource AfSurfaceRowSelected}" />
-                            </Trigger>
-                            <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="FocusSpacer" Property="Visibility" Value="Visible" />
-                                <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                                        Value="{DynamicResource color.state.selectionBg}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Cursor" Value="Arrow" />
@@ -70,10 +75,10 @@
         </Style>
 
         <!--
-            One labelled bar: label and figure on the first line, the bar, then an
-            optional quieter detail line. The bar colour comes from the owning
-            ItemsControl's Tag, so each section picks its own brush without a
-            template per section.
+            One labelled bar: label and figures on the first line, the bar, then an
+            optional detail line. The bar is the seek and volume groove (6.7); its
+            fill comes from the owning ItemsControl's Tag, so each section picks its
+            own brush without a template per section.
         -->
         <DataTemplate x:Key="BarRowTemplate">
             <Button Style="{StaticResource StatRowButton}"
@@ -88,70 +93,86 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{Binding Label}"
-                                   FontSize="{DynamicResource AfFontSizeBody}"
-                                   Foreground="{DynamicResource AfTextPrimary}"
+                                   Style="{DynamicResource type.songTitle}"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock x:Name="ValueText" Grid.Column="1" Text="{Binding Value}"
-                                   Style="{DynamicResource AfMetaText}"
-                                   FontFamily="{DynamicResource AfFontMono}"
-                                   Margin="12,0,0,0" />
+                                   Style="{DynamicResource type.timeLabel}"
+                                   VerticalAlignment="Center"
+                                   Margin="{theme:Thickness Left=statistics.columnGap}" />
                     </Grid>
 
-                    <!-- The track is the divider stroke, not the well: PS1's panes are
-                         already wells, and a well-coloured track vanishes into them. -->
-                    <Border Height="6" Margin="0,4,0,0"
-                            CornerRadius="{DynamicResource AfRadiusWell}"
-                            Background="{DynamicResource AfStrokeDivider}"
-                            SnapsToDevicePixels="True">
+                    <Grid Height="{theme:Token playbackBar.trackHeight}"
+                          Margin="{theme:Thickness Top=statistics.barGap}"
+                          SnapsToDevicePixels="True">
+                        <Border Background="{DynamicResource color.slider.track}"
+                                CornerRadius="{DynamicResource radius.sliderTrack}">
+                            <Border Height="{theme:Token shadow.sliderTrackInset.inset1.depth}"
+                                    VerticalAlignment="Top"
+                                    Background="{DynamicResource shadow.sliderTrackInset.inset1.fade}"
+                                    CornerRadius="{DynamicResource radius.sliderTrack}" />
+                        </Border>
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="{Binding Fill}" />
                                 <ColumnDefinition Width="{Binding Rest}" />
                             </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" CornerRadius="{DynamicResource AfRadiusWell}"
+                            <Border Grid.Column="0" CornerRadius="{DynamicResource radius.sliderTrack}"
                                     Background="{Binding Tag, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
                         </Grid>
-                    </Border>
+                    </Grid>
 
-                    <TextBlock Text="{Binding Detail}" Style="{DynamicResource AfMetaTextQuiet}"
-                               Margin="0,3,0,0"
+                    <TextBlock Text="{Binding Detail}" Style="{DynamicResource type.albumMeta}"
+                               Margin="{theme:Thickness Top=statistics.detailGap}"
                                Visibility="{Binding Detail, Converter={StaticResource NullToCollapsed}}" />
                 </StackPanel>
             </Button>
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsComplete}" Value="True">
-                    <Setter TargetName="ValueText" Property="Foreground" Value="{DynamicResource AfStatusOkText}" />
+                    <Setter TargetName="ValueText" Property="Foreground" Value="{DynamicResource color.text.primary}" />
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
+
+        <!-- A section's list, inside the panel and level with its header label. -->
+        <Style x:Key="SectionList" TargetType="ItemsControl">
+            <Setter Property="ItemTemplate" Value="{StaticResource BarRowTemplate}" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Tag" Value="{DynamicResource color.slider.volumeFill}" />
+            <Setter Property="Margin" Value="{theme:Thickness X=layout.panelHeaderPaddingX, Y=statistics.sectionPaddingY}" />
+        </Style>
+
+        <Style x:Key="Section" TargetType="HeaderedContentControl" BasedOn="{StaticResource theme.panel}">
+            <Setter Property="Margin" Value="{theme:Thickness Bottom=statistics.sectionGap}" />
+        </Style>
     </ui:FluentWindow.Resources>
 
-    <!-- The shell colour, for a theme that paints one; transparent (the backdrop) otherwise. -->
-    <Grid Background="{DynamicResource AfSurfaceShell}">
+    <Grid Background="{DynamicResource color.window.bg}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="Library Statistics">
-            <ui:TitleBar.Icon>
-                <ui:ImageIcon Source="/Resources/AudioFool.ico" Width="16" Height="16" />
-            </ui:TitleBar.Icon>
-        </ui:TitleBar>
+        <ui:TitleBar Grid.Row="0"
+                     Style="{DynamicResource theme.dialogTitleBar}"
+                     Header="{DynamicResource theme.dialogTitle}" />
 
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+        <!-- No visible scrollbar (the theme's rule); the wheel and keys still scroll. -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden"
                       HorizontalScrollBarVisibility="Disabled"
                       Focusable="False">
-            <StackPanel Margin="20,4,20,8">
+            <StackPanel Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop}">
 
-                <TextBlock Text="{Binding Scope}" Style="{DynamicResource AfMetaText}"
-                           Foreground="{DynamicResource AfStatusCautionText}"
-                           TextWrapping="Wrap" Margin="0,0,0,10"
+                <!-- No colour, like a dialog's error line: the wording says it. -->
+                <TextBlock Text="{Binding Scope}" Style="{StaticResource Body}"
+                           Foreground="{DynamicResource color.text.heading}"
+                           FontWeight="{DynamicResource dialog.emphasisWeight.fontWeight}"
+                           Margin="{theme:Thickness Bottom=statistics.summaryGap}"
                            Visibility="{Binding HasScope, Converter={StaticResource BoolToVisibility}}" />
 
                 <!-- headline figures -->
-                <ItemsControl x:Name="Tiles" ItemsSource="{Binding Tiles}" Focusable="False" Margin="0,0,-8,12">
+                <ItemsControl x:Name="Tiles" ItemsSource="{Binding Tiles}" Focusable="False"
+                              Margin="{theme:Thickness Right=-statistics.tileGap, Bottom=statistics.sectionGap}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <UniformGrid Rows="1" />
@@ -159,16 +180,14 @@
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <HeaderedContentControl Style="{DynamicResource AfPane}" Margin="0,0,8,0">
-                                <StackPanel Margin="14,12,14,12">
+                            <HeaderedContentControl Style="{DynamicResource theme.panel}"
+                                                    Margin="{theme:Thickness Right=statistics.tileGap}">
+                                <StackPanel Margin="{theme:Thickness X=statistics.tilePaddingX, Y=statistics.tilePaddingY}">
                                     <TextBlock Text="{Binding Value}"
-                                               FontFamily="{DynamicResource AfFontMono}"
-                                               FontSize="{DynamicResource AfFontSizeTitle}"
-                                               FontWeight="{DynamicResource AfFontWeightSemiBold}"
-                                               Foreground="{DynamicResource AfTextPrimary}"
+                                               Style="{DynamicResource type.statValue}"
                                                TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding Label}" Style="{DynamicResource AfMetaTextQuiet}"
-                                               Margin="0,2,0,0" />
+                                    <TextBlock Text="{Binding Label}" Style="{DynamicResource type.albumMeta}"
+                                               Margin="{theme:Thickness Top=statistics.tileLineGap}" />
                                 </StackPanel>
                             </HeaderedContentControl>
                         </DataTemplate>
@@ -178,80 +197,81 @@
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="{theme:Token statistics.columnGap}" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
-                        <HeaderedContentControl Style="{DynamicResource AfPane}" Margin="0,0,0,12">
+                        <HeaderedContentControl Style="{StaticResource Section}">
                             <HeaderedContentControl.Header>
-                                <TextBlock Text="TOP ARTISTS BY TRACKS" Style="{DynamicResource AfPaneHeaderText}" />
+                                <TextBlock Text="TOP ARTISTS BY TRACKS" Style="{StaticResource SectionHeader}" />
                             </HeaderedContentControl.Header>
                             <ItemsControl x:Name="TopArtistList" ItemsSource="{Binding TopArtists}"
-                                          ItemTemplate="{StaticResource BarRowTemplate}"
-                                          Tag="{DynamicResource AccentFillColorDefaultBrush}"
-                                          Focusable="False" Margin="12,6,12,2" />
+                                          Style="{StaticResource SectionList}" />
                         </HeaderedContentControl>
 
-                        <HeaderedContentControl Style="{DynamicResource AfPane}" Margin="0,0,0,12">
+                        <HeaderedContentControl Style="{StaticResource Section}">
                             <HeaderedContentControl.Header>
-                                <TextBlock Text="FILE TYPES" Style="{DynamicResource AfPaneHeaderText}" />
+                                <TextBlock Text="FILE TYPES" Style="{StaticResource SectionHeader}" />
                             </HeaderedContentControl.Header>
                             <ItemsControl x:Name="FileTypeList" ItemsSource="{Binding FileTypes}"
-                                          ItemTemplate="{StaticResource BarRowTemplate}"
-                                          Tag="{DynamicResource AccentFillColorDefaultBrush}"
-                                          Focusable="False" Margin="12,6,12,2" />
+                                          Style="{StaticResource SectionList}" />
                         </HeaderedContentControl>
 
-                        <HeaderedContentControl Style="{DynamicResource AfPane}" Margin="0,0,0,12">
+                        <HeaderedContentControl Style="{StaticResource Section}">
                             <HeaderedContentControl.Header>
-                                <TextBlock Text="AUDIO QUALITY" Style="{DynamicResource AfPaneHeaderText}" />
+                                <TextBlock Text="AUDIO QUALITY" Style="{StaticResource SectionHeader}" />
                             </HeaderedContentControl.Header>
                             <ItemsControl x:Name="QualityList" ItemsSource="{Binding Quality}"
-                                          ItemTemplate="{StaticResource BarRowTemplate}"
-                                          Tag="{DynamicResource AccentFillColorDefaultBrush}"
-                                          Focusable="False" Margin="12,6,12,2" />
+                                          Style="{StaticResource SectionList}" />
                         </HeaderedContentControl>
                     </StackPanel>
 
                     <StackPanel Grid.Column="2">
-                        <HeaderedContentControl Style="{DynamicResource AfPane}" Margin="0,0,0,12">
+                        <HeaderedContentControl Style="{StaticResource Section}">
                             <HeaderedContentControl.Header>
-                                <TextBlock Text="MISSING TAGS" Style="{DynamicResource AfPaneHeaderText}" />
+                                <TextBlock Text="MISSING TAGS" Style="{StaticResource SectionHeader}" />
                             </HeaderedContentControl.Header>
-                            <StackPanel Margin="12,6,12,2">
+                            <StackPanel Margin="{theme:Thickness X=layout.panelHeaderPaddingX, Y=statistics.sectionPaddingY}">
                                 <TextBlock x:Name="TagSummary" Text="{Binding TagSummary}"
-                                           Style="{DynamicResource AfMetaText}" TextWrapping="Wrap"
-                                           Margin="0,0,0,10" />
-                                <!-- Caution, not danger: a missing tag is a gap to fill, not a fault. -->
+                                           Style="{StaticResource Body}"
+                                           Margin="{theme:Thickness Bottom=statistics.summaryGap}" />
+                                <!-- Yellow, the "off" role (the user's call): a missing tag
+                                     is a gap to fill. Margin 0: the StackPanel pads. -->
                                 <ItemsControl x:Name="TagGapList" ItemsSource="{Binding TagGaps}"
-                                              ItemTemplate="{StaticResource BarRowTemplate}"
-                                              Tag="{DynamicResource AfStatBarCaution}"
-                                              Focusable="False" />
+                                              Style="{StaticResource SectionList}"
+                                              Tag="{DynamicResource color.status.lastFmOff}"
+                                              Margin="0" />
                             </StackPanel>
                         </HeaderedContentControl>
 
-                        <HeaderedContentControl Style="{DynamicResource AfPane}" Margin="0,0,0,12">
+                        <HeaderedContentControl Style="{StaticResource Section}">
                             <HeaderedContentControl.Header>
-                                <TextBlock Text="TRACKS BY DECADE" Style="{DynamicResource AfPaneHeaderText}" />
+                                <TextBlock Text="TRACKS BY DECADE" Style="{StaticResource SectionHeader}" />
                             </HeaderedContentControl.Header>
                             <ItemsControl x:Name="DecadeList" ItemsSource="{Binding Decades}"
-                                          ItemTemplate="{StaticResource BarRowTemplate}"
-                                          Tag="{DynamicResource AccentFillColorDefaultBrush}"
-                                          Focusable="False" Margin="12,6,12,2" />
+                                          Style="{StaticResource SectionList}" />
                         </HeaderedContentControl>
                     </StackPanel>
                 </Grid>
             </StackPanel>
         </ScrollViewer>
 
-        <Grid Grid.Row="2" Margin="20,4,20,16">
-            <TextBlock Text="Click a row to show those tracks in the library, or an artist to go to them."
-                       Style="{DynamicResource AfMetaTextQuiet}" VerticalAlignment="Center"
-                       Margin="0,0,96,0" />
+        <Grid Grid.Row="2" Margin="{theme:Thickness X=dialog.paddingX, Bottom=dialog.paddingBottom}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0"
+                       Text="Click a row to show those tracks in the library, or an artist to go to them."
+                       Style="{DynamicResource type.albumMeta}"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center"
+                       Margin="{theme:Thickness Right=dialog.buttonGap}" />
             <!-- Not IsDefault: Enter belongs to whichever row has focus. -->
-            <ui:Button x:Name="CloseButton" HorizontalAlignment="Right" Content="Close" IsCancel="True"
-                       Click="Close_Click" />
+            <Button x:Name="CloseButton" Grid.Column="1" Content="Close" IsCancel="True"
+                    Style="{StaticResource theme.dialogButton}"
+                    Click="Close_Click" />
         </Grid>
     </Grid>
 </ui:FluentWindow>

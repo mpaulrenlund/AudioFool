@@ -31,9 +31,9 @@ public sealed class StatisticsViewModel
         var leader = stats.TopArtists.Count > 0 ? stats.TopArtists[0].TrackCount : 1;
         TopArtists = [.. stats.TopArtists.Select((a, i) => new BarRow(
             $"{i + 1}.  {a.Name}",
-            $"{a.TrackCount:N0} tracks  ·  {Display.Percent(a.Share)}",
+            $"{a.TrackCount:N0} tracks · {Display.Percent(a.Share)}",
             (double)a.TrackCount / leader,
-            $"{Plural(a.AlbumCount, "album")}  ·  {Display.LongDuration(a.Duration)}")
+            $"{Plural(a.AlbumCount, "album")} · {Display.LongDuration(a.Duration)}")
         {
             ArtistName = a.Name,
             ToolTip = $"Show {a.Name} in the library",
@@ -45,7 +45,7 @@ public sealed class StatisticsViewModel
         var busiestDecade = stats.Decades.Count > 0 ? stats.Decades.Max(d => d.Count) : 1;
         Decades = [.. stats.Decades.Select(s => new BarRow(
             s.Label,
-            $"{s.Count:N0}  ·  {Display.Percent(s.Share)}",
+            $"{s.Count:N0} · {Display.Percent(s.Share)}",
             (double)s.Count / busiestDecade)
         {
             Filter = s.Filter,
@@ -55,7 +55,7 @@ public sealed class StatisticsViewModel
         // A complete field has nothing to show, so it is the one row left inert.
         TagGaps = [.. stats.TagGaps.Select(g => g.Missing == 0
             ? new BarRow(g.Field, "Complete", 0, g.Note, isComplete: true)
-            : new BarRow(g.Field, $"{g.Missing:N0} missing  ·  {Display.Percent(g.Share)}", g.Share, g.Note)
+            : new BarRow(g.Field, $"{g.Missing:N0} missing · {Display.Percent(g.Share)}", g.Share, g.Note)
             {
                 Filter = g.Filter,
                 ToolTip = ShowTracks(g.Missing) + " to fix them",
@@ -84,7 +84,7 @@ public sealed class StatisticsViewModel
 
     private static BarRow SliceRow(Slice s) => new(
         s.Label,
-        $"{s.Count:N0}  ·  {Display.Percent(s.Share)}  ·  {Display.Size(s.Bytes)}",
+        $"{s.Count:N0} · {Display.Percent(s.Share)} · {Display.Size(s.Bytes)}",
         s.Share)
     {
         Filter = s.Filter,

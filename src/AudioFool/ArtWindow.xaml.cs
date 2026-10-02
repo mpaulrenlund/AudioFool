@@ -16,13 +16,13 @@ public partial class ArtWindow : FluentWindow
         InitializeComponent();
 
         Owner = owner;
+        // The title bar shows the window's Title (theme.dialogTitle).
         Title = caption;
-        Bar.Title = caption;
         // The file's own size and format when known: the bitmap is capped at
         // 2,000 px, so its size alone would under-report a larger cover.
         Caption.Text = Services.AlbumArtService.InfoFor(art) is { } info
-            ? $"{caption}   ·   {info.SizeText}   ·   {info.FormatText}"
-            : $"{caption}   ·   {art.PixelWidth} × {art.PixelHeight}";
+            ? $"{caption} · {info.SizeText} · {info.FormatText}"
+            : $"{caption} · {art.PixelWidth} × {art.PixelHeight}";
         ArtImage.Source = art;
 
         SizeToArt(art, owner);
@@ -30,30 +30,33 @@ public partial class ArtWindow : FluentWindow
 
     /// <summary>
     /// Matches the window to the cover's aspect ratio, so a square cover doesn't
-    /// sit in a tall window with dead space above and below. Clamped to the work
-    /// area, and positioned over the owner rather than the screen centre.
+    /// sit in a tall window with dead space above and below. Only the cover is
+    /// scaled; the title bar, caption, margins and frame keep their size.
+    /// Clamped to the work area, and positioned over the owner rather than the
+    /// screen centre.
     /// </summary>
     private void SizeToArt(BitmapSource art, Window owner)
     {
-        // Room for the title bar and the caption line underneath.
-        const double chrome = 96;
-        const double margin = 80;
+        var n = Theming.TokenResources.Current!.Numbers;
+        var frame = 2 * n["layout.panelBorder"];
+        // DesiredSize includes the caption's margin.
+        Caption.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var chromeX = (2 * n["layout.windowMarginX"]) + frame;
+        var chromeY = n["layout.titleBarHeight"] + Caption.DesiredSize.Height + frame;
+        var margin = n["artViewer.screenMargin"];
 
         var work = SystemParameters.WorkArea;
-        var maxWidth = work.Width - margin;
-        var maxHeight = work.Height - margin;
-
-        var width = (double)art.PixelWidth;
-        var height = art.PixelHeight + chrome;
+        var maxWidth = work.Width - margin - chromeX;
+        var maxHeight = work.Height - margin - chromeY;
 
         // Never blow a small cover up past its own resolution - it would just be
         // a soft, magnified version of itself.
-        var scale = Math.Min(1.0, Math.Min(maxWidth / width, maxHeight / height));
-        width *= scale;
-        height *= scale;
+        var scale = Math.Min(1.0, Math.Min(maxWidth / art.PixelWidth, maxHeight / art.PixelHeight));
 
-        Width = Math.Max(MinWidth, width);
-        Height = Math.Max(MinHeight, height);
+        // Whole pixels, so the centred cover and its frame land on the pixel grid.
+        // The caption's measured height isn't whole, so the sums are rounded up.
+        Width = Math.Max(MinWidth, Math.Ceiling(Math.Floor(art.PixelWidth * scale) + chromeX));
+        Height = Math.Max(MinHeight, Math.Ceiling(Math.Floor(art.PixelHeight * scale) + chromeY));
 
         var centreX = owner.Left + (owner.ActualWidth / 2);
         var centreY = owner.Top + (owner.ActualHeight / 2);

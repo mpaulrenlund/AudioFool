@@ -2,73 +2,115 @@
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:theme="clr-namespace:AudioFool.Theming"
                  Title="Edit Tags"
                  Icon="/Resources/AudioFool.ico"
-                 Width="460" SizeToContent="Height"
-                 MinWidth="380"
+                 Width="{theme:Token tagEdit.width}" SizeToContent="Height"
+                 MinWidth="{theme:Token tagEdit.minWidth}"
                  WindowStartupLocation="Manual"
                  WindowBackdropType="None"
                  ExtendsContentIntoTitleBar="True"
                  WindowCornerPreference="Round">
 
-    <!-- The shell colour, for a theme that paints one; transparent (the backdrop) otherwise. -->
-    <Grid Background="{DynamicResource AfSurfaceShell}">
+    <ui:FluentWindow.Resources>
+        <!-- A field's label, level with its box. -->
+        <Style x:Key="Label" TargetType="TextBlock" BasedOn="{StaticResource type.tableCell}">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="{theme:Thickness Bottom=dialog.fieldGap}" />
+        </Style>
+
+        <!-- A field on its own row. -->
+        <Style x:Key="Field" TargetType="TextBox" BasedOn="{StaticResource theme.dialogTextBox}">
+            <Setter Property="Margin" Value="{theme:Thickness Bottom=dialog.fieldGap}" />
+        </Style>
+
+        <!-- A track or disc number, paired with its total by "of". -->
+        <Style x:Key="NumberField" TargetType="TextBox" BasedOn="{StaticResource theme.dialogTextBox}">
+            <Setter Property="Width" Value="{theme:Token tagEdit.numberWidth}" />
+        </Style>
+
+        <Style x:Key="Of" TargetType="TextBlock" BasedOn="{StaticResource type.tableCell}">
+            <Setter Property="Text" Value="of" />
+            <Setter Property="Foreground" Value="{DynamicResource color.text.muted}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="{theme:Thickness X=tagEdit.ofGap}" />
+        </Style>
+
+        <!-- A detail field's clear button, docked right of its box. -->
+        <Style x:Key="ClearButton" TargetType="Button" BasedOn="{StaticResource theme.dialogIconButton}">
+            <Setter Property="Margin" Value="{theme:Thickness Left=tagEdit.clearButtonGap}" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Command" Value="{Binding ClearFieldCommand}" />
+            <Setter Property="ToolTip" Value="{Binding ClearToolTip}" />
+        </Style>
+    </ui:FluentWindow.Resources>
+
+    <Grid Background="{DynamicResource color.window.bg}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar x:Name="Bar" Grid.Row="0" Title="{Binding WindowTitle}">
-            <ui:TitleBar.Icon>
-                <ui:ImageIcon Source="/Resources/AudioFool.ico" Width="16" Height="16" />
-            </ui:TitleBar.Icon>
-        </ui:TitleBar>
+        <ui:TitleBar x:Name="Bar" Grid.Row="0"
+                     Style="{DynamicResource theme.dialogTitleBar}"
+                     Header="{DynamicResource theme.dialogTitle}" />
 
         <StackPanel Grid.Row="1">
             <!-- Cover art - the album dialog only, not a track or a selection. Replacing -->
             <!-- it always applies to every track in the album plus the folder cover file. -->
-            <StackPanel Margin="20,12,20,0"
+            <StackPanel Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop}"
                         Visibility="{Binding ShowsArt, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Orientation="Horizontal">
                     <!-- The cover's size and format, read from its bytes: the current one, -->
                     <!-- or the one Save would write once a new cover is picked. -->
+                    <!-- Framed as the Albums list's thumbnails (6.4). -->
                     <StackPanel VerticalAlignment="Top" ToolTip="{Binding ArtSourceText}">
-                        <Border Width="72" Height="72" Style="{DynamicResource AfArtFrame}">
+                        <Border Width="{theme:Token tagEdit.artSize}" Height="{theme:Token tagEdit.artSize}"
+                                Background="{DynamicResource color.panel.bg}"
+                                BorderBrush="{DynamicResource color.art.thumbBorder}"
+                                BorderThickness="{theme:Thickness All=layout.panelBorder}"
+                                CornerRadius="{DynamicResource radius.art}"
+                                SnapsToDevicePixels="True">
                             <Grid>
                                 <ui:SymbolIcon Symbol="MusicNote224"
-                                               FontSize="{DynamicResource AfIconSizeMedium}"
-                                               Foreground="{DynamicResource AfTextPlaceholder}"
+                                               FontSize="{theme:Token albums.placeholderIconSize}"
+                                               Foreground="{DynamicResource color.text.muted}"
                                                Visibility="{Binding ArtPreview, Converter={StaticResource NullToVisible}}" />
                                 <Image Source="{Binding ArtPreview}" Stretch="UniformToFill"
+                                       RenderOptions.BitmapScalingMode="HighQuality"
                                        Visibility="{Binding ArtPreview, Converter={StaticResource NullToCollapsed}}" />
                             </Grid>
                         </Border>
-                        <TextBlock x:Name="ArtSizeText" Text="{Binding ArtSizeText}" Style="{DynamicResource AfMetaText}"
-                                   TextTrimming="None" HorizontalAlignment="Center" Margin="0,4,0,0" />
-                        <TextBlock x:Name="ArtFormatText" Text="{Binding ArtFormatText}" Style="{DynamicResource AfMetaText}"
-                                   TextTrimming="None" HorizontalAlignment="Center" />
+                        <TextBlock x:Name="ArtSizeText" Text="{Binding ArtSizeText}" Style="{DynamicResource type.albumMeta}"
+                                   HorizontalAlignment="Center" Margin="{theme:Thickness Top=tagEdit.artTextGap}" />
+                        <TextBlock x:Name="ArtFormatText" Text="{Binding ArtFormatText}" Style="{DynamicResource type.albumMeta}"
+                                   HorizontalAlignment="Center" />
                     </StackPanel>
                     <!-- Centred on the art itself, not on the art plus its two lines. -->
-                    <Grid VerticalAlignment="Top" Height="72" Margin="12,0,0,0">
+                    <Grid VerticalAlignment="Top" Height="{theme:Token tagEdit.artSize}"
+                          Margin="{theme:Thickness Left=tagEdit.artGap}">
                         <StackPanel VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
-                                <ui:Button Content="Choose Image..." Command="{Binding ChooseImageCommand}" />
-                                <ui:Button x:Name="SearchInternetButton" Content="Search Internet..." Margin="8,0,0,0"
-                                           ToolTip="Find a JPEG cover of at least 1,000 × 1,000 on the iTunes Store, the Cover Art Archive or fanart.tv"
-                                           Click="SearchInternet_Click" />
+                                <Button Content="Choose Image..." Style="{StaticResource theme.dialogButton}"
+                                        Command="{Binding ChooseImageCommand}" />
+                                <Button x:Name="SearchInternetButton" Content="Search Internet..."
+                                        Style="{StaticResource theme.dialogButton}"
+                                        Margin="{theme:Thickness Left=dialog.buttonGap}"
+                                        ToolTip="Find a JPEG cover of at least 1,000 × 1,000 on the iTunes Store, the Cover Art Archive or fanart.tv"
+                                        Click="SearchInternet_Click" />
                             </StackPanel>
                             <TextBlock Text="Replacing the cover updates every track in this album,&#10;plus its folder cover file."
-                                       Style="{DynamicResource AfMetaText}" TextTrimming="None"
-                                       Margin="0,6,0,0" TextWrapping="Wrap" />
+                                       Style="{DynamicResource type.albumMeta}" TextTrimming="None" TextWrapping="Wrap"
+                                       Margin="{theme:Thickness Top=dialog.fieldGap}" />
                         </StackPanel>
                     </Grid>
                 </StackPanel>
             </StackPanel>
 
-            <Grid Margin="20,16,20,4">
+            <Grid Margin="{theme:Thickness X=dialog.paddingX, Top=tagEdit.fieldsGapTop}">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="{theme:Token tagEdit.labelWidth}" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
@@ -87,148 +129,171 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="Title" VerticalAlignment="Center" Margin="0,0,0,8"
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Title" Style="{StaticResource Label}"
                            Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}" />
-                <ui:TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
-                            Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}" />
+                <TextBox Grid.Row="0" Grid.Column="1" Style="{StaticResource Field}"
+                         AutomationProperties.Name="Title"
+                         Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"
+                         Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}" />
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="Artist" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <ui:TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Artist, UpdateSourceTrigger=PropertyChanged}"
-                            PlaceholderText="{Binding ArtistPlaceholder}" Margin="0,0,0,8" />
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Artist" Style="{StaticResource Label}" />
+                <TextBox Grid.Row="1" Grid.Column="1" Style="{StaticResource Field}"
+                         AutomationProperties.Name="Artist"
+                         Text="{Binding Artist, UpdateSourceTrigger=PropertyChanged}"
+                         theme:Placeholder.Text="{Binding ArtistPlaceholder}" />
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Album Artist" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <ui:TextBox Grid.Row="2" Grid.Column="1" Text="{Binding AlbumArtist, UpdateSourceTrigger=PropertyChanged}"
-                            PlaceholderText="{Binding AlbumArtistPlaceholder}" Margin="0,0,0,8" />
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Album Artist" Style="{StaticResource Label}" />
+                <TextBox Grid.Row="2" Grid.Column="1" Style="{StaticResource Field}"
+                         AutomationProperties.Name="Album Artist"
+                         Text="{Binding AlbumArtist, UpdateSourceTrigger=PropertyChanged}"
+                         theme:Placeholder.Text="{Binding AlbumArtistPlaceholder}" />
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="Album" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <ui:TextBox Grid.Row="3" Grid.Column="1" Text="{Binding AlbumTitle, UpdateSourceTrigger=PropertyChanged}"
-                            PlaceholderText="{Binding AlbumTitlePlaceholder}" Margin="0,0,0,8" />
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Album" Style="{StaticResource Label}" />
+                <TextBox Grid.Row="3" Grid.Column="1" Style="{StaticResource Field}"
+                         AutomationProperties.Name="Album"
+                         Text="{Binding AlbumTitle, UpdateSourceTrigger=PropertyChanged}"
+                         theme:Placeholder.Text="{Binding AlbumTitlePlaceholder}" />
 
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="Year" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <!-- Wide enough for a full date plus WPF-UI's clear button while focused. -->
-                <ui:TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Year, UpdateSourceTrigger=PropertyChanged}"
-                            PlaceholderText="{Binding YearPlaceholder}"
-                            ToolTip="A year (2026), or a full date written year-month-day (2026-10-02)."
-                            HorizontalAlignment="Left" Width="140" Margin="0,0,0,8" />
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Year" Style="{StaticResource Label}" />
+                <!-- Wide enough for a full date. -->
+                <TextBox Grid.Row="4" Grid.Column="1" Style="{StaticResource Field}"
+                         AutomationProperties.Name="Year"
+                         Text="{Binding Year, UpdateSourceTrigger=PropertyChanged}"
+                         theme:Placeholder.Text="{Binding YearPlaceholder}"
+                         ToolTip="A year (2026), or a full date written year-month-day (2026-10-02)."
+                         HorizontalAlignment="Left" Width="{theme:Token tagEdit.yearWidth}" />
 
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="Track" VerticalAlignment="Center" Margin="0,0,0,8"
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Track" Style="{StaticResource Label}"
                            Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}" />
-                <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8"
+                <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal"
+                            Margin="{theme:Thickness Bottom=dialog.fieldGap}"
                             Visibility="{Binding IsTrackMode, Converter={StaticResource BoolToVisibility}}">
-                    <ui:TextBox Text="{Binding TrackNumber, UpdateSourceTrigger=PropertyChanged}" Width="80" />
-                    <TextBlock Text="of" VerticalAlignment="Center" Margin="8,0,8,0"
-                               Foreground="{DynamicResource AfTextTertiary}" />
-                    <ui:TextBox Text="{Binding TrackCount, UpdateSourceTrigger=PropertyChanged}" Width="80" />
+                    <TextBox Style="{StaticResource NumberField}" AutomationProperties.Name="Track number"
+                             Text="{Binding TrackNumber, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Style="{StaticResource Of}" />
+                    <TextBox Style="{StaticResource NumberField}" AutomationProperties.Name="Track count"
+                             Text="{Binding TrackCount, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
 
                 <!-- Album mode has no track number to pair it with, so the total stands alone. -->
-                <TextBlock Grid.Row="5" Grid.Column="0" Text="Track Count" VerticalAlignment="Center" Margin="0,0,0,8"
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="Track Count" Style="{StaticResource Label}"
                            Visibility="{Binding IsAlbumMode, Converter={StaticResource BoolToVisibility}}" />
-                <ui:TextBox Grid.Row="5" Grid.Column="1" Text="{Binding TrackCount, UpdateSourceTrigger=PropertyChanged}"
-                            PlaceholderText="{Binding TrackCountPlaceholder}"
-                            HorizontalAlignment="Left" Width="80" Margin="0,0,0,8"
-                            Visibility="{Binding IsAlbumMode, Converter={StaticResource BoolToVisibility}}" />
+                <TextBox Grid.Row="5" Grid.Column="1" Style="{StaticResource Field}"
+                         AutomationProperties.Name="Track count"
+                         Text="{Binding TrackCount, UpdateSourceTrigger=PropertyChanged}"
+                         theme:Placeholder.Text="{Binding TrackCountPlaceholder}"
+                         HorizontalAlignment="Left" Width="{theme:Token tagEdit.numberWidth}"
+                         Visibility="{Binding IsAlbumMode, Converter={StaticResource BoolToVisibility}}" />
 
-                <TextBlock Grid.Row="6" Grid.Column="0" Text="Disc" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
-                    <ui:TextBox Text="{Binding DiscNumber, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="{Binding DiscNumberPlaceholder}" Width="80" />
-                    <TextBlock Text="of" VerticalAlignment="Center" Margin="8,0,8,0"
-                               Foreground="{DynamicResource AfTextTertiary}" />
-                    <ui:TextBox Text="{Binding DiscCount, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="{Binding DiscCountPlaceholder}" Width="80" />
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="Disc" Style="{StaticResource Label}" />
+                <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal"
+                            Margin="{theme:Thickness Bottom=dialog.fieldGap}">
+                    <TextBox Style="{StaticResource NumberField}" AutomationProperties.Name="Disc number"
+                             Text="{Binding DiscNumber, UpdateSourceTrigger=PropertyChanged}"
+                             theme:Placeholder.Text="{Binding DiscNumberPlaceholder}" />
+                    <TextBlock Style="{StaticResource Of}" />
+                    <TextBox Style="{StaticResource NumberField}" AutomationProperties.Name="Disc count"
+                             Text="{Binding DiscCount, UpdateSourceTrigger=PropertyChanged}"
+                             theme:Placeholder.Text="{Binding DiscCountPlaceholder}" />
                 </StackPanel>
 
                 <!-- The album dialog has no track numbers to edit, so this is how -->
                 <!-- "01, 02, 03" becomes "1, 2, 3" across the album. -->
-                <TextBlock Grid.Row="7" Grid.Column="0" Text="Numbers" VerticalAlignment="Center" Margin="0,0,0,8"
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="Numbers" Style="{StaticResource Label}"
                            Visibility="{Binding ShowsRemoveLeadingZeros, Converter={StaticResource BoolToVisibility}}" />
-                <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8"
+                <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal"
+                            Margin="{theme:Thickness Bottom=dialog.fieldGap}"
                             Visibility="{Binding ShowsRemoveLeadingZeros, Converter={StaticResource BoolToVisibility}}">
-                    <ui:Button x:Name="RemoveLeadingZerosButton" Content="Remove Leading Zeros"
-                               Command="{Binding RemoveLeadingZerosCommand}"
-                               ToolTip="Rewrite every track's track and disc numbers without leading zeros - 01 becomes 1" />
+                    <Button x:Name="RemoveLeadingZerosButton" Content="Remove Leading Zeros"
+                            Style="{StaticResource theme.dialogButton}"
+                            Command="{Binding RemoveLeadingZerosCommand}"
+                            ToolTip="Rewrite every track's track and disc numbers without leading zeros - 01 becomes 1" />
                     <TextBlock x:Name="LeadingZerosText" Text="{Binding LeadingZerosText}"
-                               Style="{DynamicResource AfMetaText}" TextTrimming="None"
-                               VerticalAlignment="Center" Margin="8,0,0,0" />
+                               Style="{DynamicResource type.albumMeta}"
+                               VerticalAlignment="Center" Margin="{theme:Thickness Left=dialog.fieldGap}" />
                 </StackPanel>
 
                 <!-- Each detail field has a clear button. In the album dialog it is the
                      only way to clear a field the tracks disagree on: that box starts
                      empty, and an empty box there means "keep each track's own". -->
-                <TextBlock Grid.Row="8" Grid.Column="0" Text="Publisher" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <DockPanel Grid.Row="8" Grid.Column="1" Margin="0,0,0,8">
-                    <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Center"
-                               Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
-                               Command="{Binding ClearFieldCommand}" CommandParameter="Publisher"
-                               ToolTip="{Binding ClearToolTip}" AutomationProperties.Name="Clear Publisher" />
-                    <ui:TextBox Text="{Binding Publisher, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="{Binding PublisherPlaceholder}" />
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="Publisher" Style="{StaticResource Label}" />
+                <DockPanel Grid.Row="8" Grid.Column="1" Margin="{theme:Thickness Bottom=dialog.fieldGap}">
+                    <Button DockPanel.Dock="Right" Style="{StaticResource ClearButton}"
+                            Content="{DynamicResource theme.clearGlyph}"
+                            CommandParameter="Publisher" AutomationProperties.Name="Clear Publisher" />
+                    <TextBox Style="{StaticResource theme.dialogTextBox}" AutomationProperties.Name="Publisher"
+                             Text="{Binding Publisher, UpdateSourceTrigger=PropertyChanged}"
+                             theme:Placeholder.Text="{Binding PublisherPlaceholder}" />
                 </DockPanel>
 
-                <TextBlock Grid.Row="9" Grid.Column="0" Text="Composer" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <DockPanel Grid.Row="9" Grid.Column="1" Margin="0,0,0,8">
-                    <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Center"
-                               Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
-                               Command="{Binding ClearFieldCommand}" CommandParameter="Composer"
-                               ToolTip="{Binding ClearToolTip}" AutomationProperties.Name="Clear Composer" />
-                    <ui:TextBox Text="{Binding Composer, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="{Binding ComposerPlaceholder}"
-                                ToolTip="Separate several composers with a semicolon." />
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="Composer" Style="{StaticResource Label}" />
+                <DockPanel Grid.Row="9" Grid.Column="1" Margin="{theme:Thickness Bottom=dialog.fieldGap}">
+                    <Button DockPanel.Dock="Right" Style="{StaticResource ClearButton}"
+                            Content="{DynamicResource theme.clearGlyph}"
+                            CommandParameter="Composer" AutomationProperties.Name="Clear Composer" />
+                    <TextBox Style="{StaticResource theme.dialogTextBox}" AutomationProperties.Name="Composer"
+                             Text="{Binding Composer, UpdateSourceTrigger=PropertyChanged}"
+                             theme:Placeholder.Text="{Binding ComposerPlaceholder}"
+                             ToolTip="Separate several composers with a semicolon." />
                 </DockPanel>
 
-                <TextBlock Grid.Row="10" Grid.Column="0" Text="Conductor" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <DockPanel Grid.Row="10" Grid.Column="1" Margin="0,0,0,8">
-                    <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Center"
-                               Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
-                               Command="{Binding ClearFieldCommand}" CommandParameter="Conductor"
-                               ToolTip="{Binding ClearToolTip}" AutomationProperties.Name="Clear Conductor" />
-                    <ui:TextBox Text="{Binding Conductor, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="{Binding ConductorPlaceholder}" />
+                <TextBlock Grid.Row="10" Grid.Column="0" Text="Conductor" Style="{StaticResource Label}" />
+                <DockPanel Grid.Row="10" Grid.Column="1" Margin="{theme:Thickness Bottom=dialog.fieldGap}">
+                    <Button DockPanel.Dock="Right" Style="{StaticResource ClearButton}"
+                            Content="{DynamicResource theme.clearGlyph}"
+                            CommandParameter="Conductor" AutomationProperties.Name="Clear Conductor" />
+                    <TextBox Style="{StaticResource theme.dialogTextBox}" AutomationProperties.Name="Conductor"
+                             Text="{Binding Conductor, UpdateSourceTrigger=PropertyChanged}"
+                             theme:Placeholder.Text="{Binding ConductorPlaceholder}" />
                 </DockPanel>
 
-                <TextBlock Grid.Row="11" Grid.Column="0" Text="Genre" VerticalAlignment="Center" Margin="0,0,0,8" />
-                <DockPanel Grid.Row="11" Grid.Column="1" Margin="0,0,0,8">
-                    <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Center"
-                               Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
-                               Command="{Binding ClearFieldCommand}" CommandParameter="Genre"
-                               ToolTip="{Binding ClearToolTip}" AutomationProperties.Name="Clear Genre" />
-                    <ui:TextBox Text="{Binding Genre, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="{Binding GenrePlaceholder}"
-                                ToolTip="Separate several genres with a semicolon." />
+                <TextBlock Grid.Row="11" Grid.Column="0" Text="Genre" Style="{StaticResource Label}" />
+                <DockPanel Grid.Row="11" Grid.Column="1" Margin="{theme:Thickness Bottom=dialog.fieldGap}">
+                    <Button DockPanel.Dock="Right" Style="{StaticResource ClearButton}"
+                            Content="{DynamicResource theme.clearGlyph}"
+                            CommandParameter="Genre" AutomationProperties.Name="Clear Genre" />
+                    <TextBox Style="{StaticResource theme.dialogTextBox}" AutomationProperties.Name="Genre"
+                             Text="{Binding Genre, UpdateSourceTrigger=PropertyChanged}"
+                             theme:Placeholder.Text="{Binding GenrePlaceholder}"
+                             ToolTip="Separate several genres with a semicolon." />
                 </DockPanel>
 
                 <!-- Top-aligned label: the box grows with the text, up to MaxHeight, then scrolls. -->
-                <TextBlock Grid.Row="12" Grid.Column="0" Text="Comments" VerticalAlignment="Top" Margin="0,8,0,0" />
+                <TextBlock Grid.Row="12" Grid.Column="0" Text="Comments" Style="{StaticResource Label}"
+                           VerticalAlignment="Top" Margin="{theme:Thickness Top=dialog.multilinePaddingY}" />
                 <DockPanel Grid.Row="12" Grid.Column="1">
-                    <ui:Button DockPanel.Dock="Right" Margin="6,0,0,0" Padding="6" VerticalAlignment="Top"
-                               Appearance="Transparent" Icon="{ui:SymbolIcon Dismiss16}"
-                               Command="{Binding ClearFieldCommand}" CommandParameter="Comment"
-                               ToolTip="{Binding ClearToolTip}" AutomationProperties.Name="Clear Comments" />
-                    <ui:TextBox Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="{Binding CommentPlaceholder}"
-                                AcceptsReturn="True" TextWrapping="Wrap"
-                                MinHeight="64" MaxHeight="140"
-                                VerticalScrollBarVisibility="Auto"
-                                VerticalContentAlignment="Top" />
+                    <Button DockPanel.Dock="Right" Style="{StaticResource ClearButton}"
+                            Content="{DynamicResource theme.clearGlyph}"
+                            CommandParameter="Comment" AutomationProperties.Name="Clear Comments" />
+                    <TextBox Style="{StaticResource theme.dialogTextBox.multiline}" AutomationProperties.Name="Comments"
+                             Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}"
+                             theme:Placeholder.Text="{Binding CommentPlaceholder}"
+                             MinHeight="{theme:Token tagEdit.commentMinHeight}"
+                             MaxHeight="{theme:Token tagEdit.commentMaxHeight}" />
                 </DockPanel>
             </Grid>
         </StackPanel>
 
-        <Grid Grid.Row="2" Margin="20,4,20,16">
+        <Grid Grid.Row="2" Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop, Bottom=dialog.paddingBottom}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
+            <!-- No colour, like the other dialogs' error lines. -->
             <TextBlock Grid.Column="0" Text="{Binding ValidationError}"
-                       Foreground="{DynamicResource AfStatusDangerText}"
-                       FontSize="{DynamicResource AfFontSizeBody}" VerticalAlignment="Center"
-                       TextWrapping="Wrap" />
+                       Style="{DynamicResource type.tableCell}"
+                       Foreground="{DynamicResource color.text.heading}"
+                       FontWeight="{DynamicResource dialog.emphasisWeight.fontWeight}"
+                       VerticalAlignment="Center" TextWrapping="Wrap" TextTrimming="None"
+                       Margin="{theme:Thickness Right=dialog.buttonGap}" />
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <ui:Button Content="Cancel" Click="Cancel_Click" Margin="0,0,8,0" />
-                <ui:Button Content="Save" Appearance="Primary" IsEnabled="{Binding CanSave}" Click="Save_Click" />
+                <Button Content="Cancel" Click="Cancel_Click"
+                        Style="{StaticResource theme.dialogButton}"
+                        Margin="{theme:Thickness Right=dialog.buttonGap}" />
+                <Button Content="Save" IsEnabled="{Binding CanSave}" Click="Save_Click"
+                        Style="{StaticResource theme.dialogButton.primary}" />
             </StackPanel>
         </Grid>
     </Grid>

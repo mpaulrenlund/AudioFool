@@ -641,6 +641,300 @@
         </Style.Triggers>
     </Style>
 
+    <!-- ========================================================= dialogs -->
+
+    <!--
+        A dialog's title bar: the main window's 48 px strip and coloured window
+        buttons (theme.windowButton), with the app icon and the window's title on
+        the left in type.status. The title is the dialog's own Header rather than
+        WPF-UI's Title and Icon, so its size, colour and spacing are tokens.
+        Each dialog sets Header="{DynamicResource theme.dialogTitle}" on its
+        title bar itself: WPF-UI sets Header locally when the bar is built,
+        which beats a style setter.
+        x:Shared="False" gives every title bar its own copy; the art viewer is
+        modeless, so two dialogs can be open at once.
+    -->
+    <StackPanel x:Key="theme.dialogTitle" x:Shared="False"
+                Orientation="Horizontal"
+                VerticalAlignment="Center"
+                Margin="{theme:Thickness Left=layout.windowMarginX}">
+        <Image Source="pack://application:,,,/AudioFool;component/Resources/AudioFool.ico"
+               Width="{theme:Token dialog.titleIconSize}"
+               Height="{theme:Token dialog.titleIconSize}"
+               VerticalAlignment="Center"
+               RenderOptions.BitmapScalingMode="HighQuality" />
+        <TextBlock Style="{DynamicResource type.status}"
+                   Margin="{theme:Thickness Left=dialog.titleIconGap}"
+                   VerticalAlignment="Center"
+                   TextTrimming="CharacterEllipsis"
+                   Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" />
+    </StackPanel>
+
+    <!-- As MainWindow's AppTitleBar: ButtonsBackground is the minimize and
+         maximize hover, PaletteRedBrush close's. PaletteRedBrush is a new brush
+         of the token's colour: a <StaticResource> alias here, as MainWindow
+         uses, fails to load inside a style's resources ("Value nodes must be
+         followed by EndMember"). -->
+    <Style x:Key="theme.dialogTitleBar" TargetType="ui:TitleBar"
+           BasedOn="{StaticResource {x:Type ui:TitleBar}}">
+        <Setter Property="Height" Value="{theme:Token layout.titleBarHeight}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="ButtonsBackground" Value="{DynamicResource color.window.buttonHover}" />
+        <Style.Resources>
+            <SolidColorBrush x:Key="PaletteRedBrush" Color="{StaticResource color.window.closeHover.value}" />
+            <Style TargetType="ui:TitleBarButton" BasedOn="{StaticResource theme.windowButton}" />
+        </Style.Resources>
+    </Style>
+
+    <!--
+        A dialog button: the status-bar chip's shape with the transport buttons'
+        lighter face, so it reads as the same family of moulded controls. Hover
+        brightens to control.faceHover and a press sinks the label by
+        playbackBar.pressedOffset, as the transport buttons do. Keyboard focus is
+        the chip's teal ring. The primary button differs only by weight: teal is
+        playback's and blue the artists', so no colour marks it.
+    -->
+    <Style x:Key="theme.dialogButton" TargetType="ButtonBase">
+        <Setter Property="Height" Value="{theme:Token dialog.buttonHeight}" />
+        <Setter Property="MinWidth" Value="{theme:Token dialog.buttonMinWidth}" />
+        <Setter Property="Padding" Value="{theme:Thickness X=dialog.buttonPaddingX}" />
+        <Setter Property="FontFamily" Value="{DynamicResource font.family}" />
+        <Setter Property="FontSize" Value="{theme:Token type.search.size}" />
+        <Setter Property="FontWeight" Value="{DynamicResource type.search.weight.fontWeight}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+        <Setter Property="Background" Value="{DynamicResource color.control.face}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource color.control.faceBorder}" />
+        <Setter Property="BorderThickness" Value="{theme:Thickness All=layout.panelBorder}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{DynamicResource theme.focusRing.chip}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ButtonBase">
+                    <Border x:Name="Face"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{DynamicResource radius.chip}"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter x:Name="Label" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource color.control.faceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource color.control.face}" />
+                            <Setter TargetName="Label" Property="RenderTransform">
+                                <Setter.Value>
+                                    <TranslateTransform Y="{theme:Token playbackBar.pressedOffset}" />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="{theme:Token layout.disabledOpacity}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="theme.dialogButton.primary" TargetType="ButtonBase" BasedOn="{StaticResource theme.dialogButton}">
+        <Setter Property="FontWeight" Value="{DynamicResource dialog.emphasisWeight.fontWeight}" />
+    </Style>
+
+    <!--
+        A dialog text field: the search box (6.1) without its magnifier or clear
+        button. Panel grey with the soft top inset at rest; focused, the lighter
+        fill and the 2 px teal ring outside the border, so the box does not move.
+        The -2 px on the text host cancels WPF's caret gutter, as the search
+        box's does, so the text starts exactly paddingX in. An empty field shows
+        theme:Placeholder.Text in text.placeholder, as the search box shows its own.
+    -->
+    <Style x:Key="theme.dialogTextBox" TargetType="TextBox">
+        <Setter Property="Height" Value="{theme:Token titleBar.search.height}" />
+        <Setter Property="FontFamily" Value="{DynamicResource font.family}" />
+        <Setter Property="FontSize" Value="{theme:Token type.search.size}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource color.text.primary}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource color.text.muted}" />
+        <Setter Property="Background" Value="{DynamicResource color.panel.bg}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource color.panel.border}" />
+        <Setter Property="BorderThickness" Value="{theme:Thickness All=layout.panelBorder}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Grid>
+                        <Border x:Name="FocusRing"
+                                Visibility="Collapsed"
+                                Margin="{theme:Thickness All=-titleBar.search.focusRingWidth}"
+                                BorderBrush="{DynamicResource color.state.searchFocusRing}"
+                                BorderThickness="{theme:Thickness All=titleBar.search.focusRingWidth}"
+                                CornerRadius="{DynamicResource radius.surface}"
+                                IsHitTestVisible="False" />
+                        <Border x:Name="Box"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{DynamicResource radius.surface}"
+                                SnapsToDevicePixels="True">
+                            <Grid>
+                                <Border Height="{theme:Token shadow.searchInset.inset1.depth}"
+                                        VerticalAlignment="Top"
+                                        Background="{DynamicResource shadow.searchInset.inset1.fade}"
+                                        CornerRadius="{DynamicResource radius.surface}"
+                                        IsHitTestVisible="False" />
+                                <Grid Margin="{theme:Thickness X=titleBar.search.paddingX}">
+                                    <!-- Padding is applied by the text host itself (0 on a
+                                         single-line field), so only the placeholder needs it. -->
+                                    <TextBlock x:Name="PlaceholderText"
+                                               Visibility="Collapsed"
+                                               Margin="{TemplateBinding Padding}"
+                                               VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                               Foreground="{DynamicResource color.text.placeholder}"
+                                               Text="{TemplateBinding theme:Placeholder.Text}"
+                                               TextTrimming="CharacterEllipsis"
+                                               IsHitTestVisible="False" />
+                                    <ScrollViewer x:Name="PART_ContentHost"
+                                                  Margin="-2,0,0,0"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  Style="{x:Null}"
+                                                  Focusable="False"
+                                                  HorizontalScrollBarVisibility="Hidden"
+                                                  VerticalScrollBarVisibility="Hidden" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="PlaceholderText" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="FocusRing" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource color.state.searchFocusBg}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="{theme:Token layout.disabledOpacity}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        A multi-line dialog field (the tag editor's Comments): the same box,
+        growing with its text between the MinHeight and MaxHeight the window
+        sets, then scrolling with no visible bar. Text and placeholder start at
+        the top, inset by dialog.multilinePaddingY.
+    -->
+    <Style x:Key="theme.dialogTextBox.multiline" TargetType="TextBox" BasedOn="{StaticResource theme.dialogTextBox}">
+        <Setter Property="Height" Value="Auto" />
+        <Setter Property="AcceptsReturn" Value="True" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+        <Setter Property="Padding" Value="{theme:Thickness Y=dialog.multilinePaddingY}" />
+    </Style>
+
+    <!--
+        A square dialog button holding one glyph, as tall as a field: the tag
+        editor's clear buttons. The ✕ is the search box's clear glyph.
+    -->
+    <Style x:Key="theme.dialogIconButton" TargetType="ButtonBase" BasedOn="{StaticResource theme.dialogButton}">
+        <Setter Property="Width" Value="{theme:Token dialog.buttonHeight}" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <!-- Its content: Content="{DynamicResource theme.clearGlyph}". Not shared,
+         so each button gets its own copy. -->
+    <Viewbox x:Key="theme.clearGlyph" x:Shared="False"
+             Width="{theme:Token titleBar.search.iconSize}"
+             Height="{theme:Token titleBar.search.iconSize}">
+        <Canvas Width="24" Height="24">
+            <Path Data="M 7,7 L 17,17 M 17,7 L 7,17"
+                  Stroke="{DynamicResource color.text.muted}"
+                  StrokeThickness="{theme:Token titleBar.search.iconStrokeOn24Grid}"
+                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+        </Canvas>
+    </Viewbox>
+
+    <!--
+        A dialog checkbox: a small moulded face (control.face, faceBorder,
+        radius.row) with a dark-grey tick, not teal. The label is type.tableCell.
+        Keyboard focus is the chip's teal ring, around the box and label.
+    -->
+    <Style x:Key="theme.checkBox" TargetType="CheckBox">
+        <Setter Property="FontFamily" Value="{DynamicResource font.family}" />
+        <Setter Property="FontSize" Value="{theme:Token type.tableCell.size}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.text.secondary}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{DynamicResource theme.focusRing.chip}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid VerticalAlignment="Center">
+                            <Border x:Name="Box"
+                                    Width="{theme:Token dialog.checkBoxSize}"
+                                    Height="{theme:Token dialog.checkBoxSize}"
+                                    Background="{DynamicResource color.control.face}"
+                                    BorderBrush="{DynamicResource color.control.faceBorder}"
+                                    BorderThickness="{theme:Thickness All=layout.panelBorder}"
+                                    CornerRadius="{DynamicResource radius.row}"
+                                    SnapsToDevicePixels="True">
+                                <Viewbox Margin="{theme:Thickness All=layout.panelBorder}">
+                                    <Canvas Width="24" Height="24">
+                                        <Path x:Name="Tick"
+                                              Visibility="Collapsed"
+                                              Data="M 5,12.5 L 10,17.5 L 19,7"
+                                              Stroke="{DynamicResource color.control.iconNeutral}"
+                                              StrokeThickness="{theme:Token dialog.checkStrokeOn24Grid}"
+                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                              StrokeLineJoin="Round" />
+                                    </Canvas>
+                                </Viewbox>
+                            </Border>
+                        </Grid>
+                        <ContentPresenter Grid.Column="1"
+                                          Margin="{theme:Thickness Left=dialog.checkBoxGap}"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Box" Property="Background" Value="{DynamicResource color.control.faceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="{theme:Token layout.disabledOpacity}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        A link inside dialog text: blue is only for artist names, so a link is
+        told apart by weight and a permanent underline instead of colour.
+    -->
+    <Style x:Key="theme.link" TargetType="Hyperlink">
+        <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+        <Setter Property="FontWeight" Value="{DynamicResource dialog.emphasisWeight.fontWeight}" />
+        <Setter Property="TextDecorations" Value="Underline" />
+    </Style>
+
     <!-- ====================================================== focus rings -->
 
     <!--

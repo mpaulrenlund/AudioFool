@@ -1433,6 +1433,34 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
 
+### Changes from session 30 (2026-10-01): new PS1 theme, dialogs (step 6)
+
+Step 6 of `design/progress.md`, which has the details, measurements and decisions.
+The spec doesn't cover the dialogs; the user chose to match the main window using
+the existing tokens, one dialog at a time.
+
+- All five dialogs (art viewer, Last.fm, Statistics, cover art search, Edit Tags) are
+  on the central theme and use **no `Af*` resource**. Shared pieces in
+  `Theming/Chrome.xaml`: `theme.dialogTitleBar` + `theme.dialogTitle` (set
+  `Header="{DynamicResource theme.dialogTitle}"` on the bar itself: WPF-UI sets
+  `Header` locally), `theme.dialogButton` (`.primary` is semibold), `theme.dialogTextBox`
+  (`.multiline`), `theme:Placeholder.Text` (`Theming/Placeholder.cs`),
+  `theme.dialogIconButton` + `theme.clearGlyph`, `theme.checkBox`, `theme.link`.
+- The user's calls: light buttons, primary told apart by weight only; coloured window
+  buttons on dialogs; errors and cautions in `text.heading` semibold, no colour;
+  Statistics' missing-tags bars yellow; no focus outline on Statistics rows.
+- **Selection grey only reads on panel grey** (`#BAB7B2` against the window's
+  `#BAB7B3`), so lists in dialogs sit in a `theme.panel`.
+- ThemeLab: `--window artview` renders (`--artfile` for any image); the dialog modes
+  raise `Loaded` on the title bar (`RaiseLoaded`) so WPF-UI colours the window buttons,
+  and print title bar, fields and buttons. A dialog's last bitmap row can show magenta
+  when its content height isn't whole: ThemeLab rounding, not a gap.
+- **Still to do:** delete the old theme files (`Themes/DesignTokens.xaml`,
+  `Components.xaml`, `Ps1Theme.xaml`, `Ps1Motion.xaml`). MainWindow still uses
+  `AfFontWeightSemiBold` and `AfWindowDecor`, and `Ps1Theme.xaml`'s ~120 WPF-UI
+  colour overrides still colour stock pieces (the logo drop-down among them).
+- 394 tests. Installed.
+
 ### Changes from session 29 (2026-10-01): new PS1 theme, polish (step 5)
 
 Step 5 of `design/progress.md` (parts 1–3), which has the details, measurements and decisions.

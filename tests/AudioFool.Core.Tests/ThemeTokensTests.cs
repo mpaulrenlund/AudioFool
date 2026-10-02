@@ -139,7 +139,8 @@ public class ThemeTokensTests
 
         // 48, plus control.faceHover and status.lastFmOff, scanTrack and scanFill (session 4).
         Assert.Equal(52, t.Colors.Count);
-        Assert.Equal(19, t.TextStyles.Count);
+        // 19, plus statValue (dialogs, Statistics).
+        Assert.Equal(20, t.TextStyles.Count);
         Assert.Equal(8, t.Shadows.Count);
         Assert.Equal(["Segoe UI Variable Text", "Segoe UI"], t.FontFamily);
     }
@@ -180,7 +181,7 @@ public class ThemeTokensTests
         Assert.Equal(0.12, header.LetterSpacingEm);
 
         Assert.Equal("color.accent.blue", styles["headerArtist"].ColorKey);
-        Assert.Equal(["tableCell", "timeLabel", "trackNumber"],
+        Assert.Equal(["statValue", "tableCell", "timeLabel", "trackNumber"],
             styles.Values.Where(s => s.TabularFigures).Select(s => s.Name).Order());
     }
 

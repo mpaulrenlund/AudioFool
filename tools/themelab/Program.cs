@@ -1042,7 +1042,29 @@ internal static class Program
 
             var viewer = new ArtWindow(art, $"{album.ArtistName} - {album.Title}", main);
             Console.WriteLine($"artview: bitmap {art.PixelWidth}x{art.PixelHeight}  caption '{((System.Windows.Controls.TextBlock)viewer.FindName("Caption")).Text}'");
+
+            // Rendered at the size SizeToArt picked. Shown off-screen like the main
+            // window, unactivated, so WPF-UI's title bar loads: it copies each
+            // window button's glyph colour across only once the window is loaded.
+            var (vw, vh) = (Math.Ceiling(viewer.Width), Math.Ceiling(viewer.Height));
+            viewer.ShowActivated = false;
+            viewer.ShowInTaskbar = false;
+            viewer.Left = -20000;
+            viewer.Top = -20000;
+            viewer.Show();
+            Settle(300);
+            var viewerRoot = (FrameworkElement)viewer.Content;
+            viewerRoot.Measure(new Size(vw, vh));
+            viewerRoot.Arrange(new Rect(0, 0, vw, vh));
+            viewerRoot.UpdateLayout();
+            Settle(300);
+            var image = (FrameworkElement)viewer.FindName("ArtImage");
+            var at = image.TranslatePoint(new Point(0, 0), viewerRoot);
+            Console.WriteLine($"artview: window {vw}x{vh}  image at {at.X:0.#},{at.Y:0.#} size {image.ActualWidth:0.#}x{image.ActualHeight:0.#}");
+            PrintTitleBar((Wpf.Ui.Controls.TitleBar)viewer.FindName("Bar"), viewerRoot);
+            Save(viewerRoot, outPath, vw, vh, scale);
             viewer.Close();
+            Console.WriteLine("wrote " + outPath);
             return 0;
         }
 
@@ -1179,8 +1201,24 @@ internal static class Program
             var height = Math.Ceiling(root.DesiredSize.Height);
             root.Arrange(new Rect(0, 0, w, height));
             root.UpdateLayout();
+            var tagsBar = Descendants<Wpf.Ui.Controls.TitleBar>(root).First();
+            RaiseLoaded(tagsBar);
             Settle(400);
             Save(root, outPath, w, height, scale);
+            Console.WriteLine($"  size {w}x{height} (content measured {root.DesiredSize.Height:0.##})");
+            PrintTitleBar(tagsBar, root);
+            foreach (var box in Descendants<System.Windows.Controls.TextBox>(root).Where(t => t.ActualWidth > 0))
+            {
+                var p = box.TranslatePoint(new Point(0, 0), root);
+                Console.WriteLine($"  field {System.Windows.Automation.AutomationProperties.GetName(box),-13} at {p.X:0.#},{p.Y:0.#} size {box.ActualWidth:0.#}x{box.ActualHeight:0.#}"
+                    + $"  text '{box.Text}' placeholder '{AudioFool.Theming.Placeholder.GetText(box)}'");
+            }
+            foreach (var b in Descendants<System.Windows.Controls.Button>(root).Where(b => b.ActualWidth > 0 && b is not Wpf.Ui.Controls.TitleBarButton))
+            {
+                var p = b.TranslatePoint(new Point(0, 0), root);
+                var name = b.Content as string ?? System.Windows.Automation.AutomationProperties.GetName(b);
+                Console.WriteLine($"  button '{name}' at {p.X:0.#},{p.Y:0.#} size {b.ActualWidth:0.#}x{b.ActualHeight:0.#} weight {b.FontWeight} enabled={b.IsEnabled}");
+            }
         }
         else if (which == "click")
         {
@@ -1345,8 +1383,28 @@ internal static class Program
             }
 
             root.UpdateLayout();
+            var searchBar = Descendants<Wpf.Ui.Controls.TitleBar>(root).First();
+            RaiseLoaded(searchBar);
             Settle(400);
             Save(root, outPath, w, h, scale);
+            PrintTitleBar(searchBar, root);
+            foreach (var box in Descendants<System.Windows.Controls.TextBox>(root).Where(t => t.ActualWidth > 0))
+            {
+                var p = box.TranslatePoint(new Point(0, 0), root);
+                Console.WriteLine($"  textbox {box.Name} at {p.X:0.#},{p.Y:0.#} size {box.ActualWidth:0.#}x{box.ActualHeight:0.#} text '{box.Text}'");
+            }
+            foreach (var b in Descendants<System.Windows.Controls.Button>(root).Where(b => b.ActualWidth > 0 && b is not Wpf.Ui.Controls.TitleBarButton))
+            {
+                var p = b.TranslatePoint(new Point(0, 0), root);
+                Console.WriteLine($"  button '{System.Windows.Automation.AutomationProperties.GetName(b)}{b.Content as string}' at {p.X:0.#},{p.Y:0.#} size {b.ActualWidth:0.#}x{b.ActualHeight:0.#} weight {b.FontWeight} enabled={b.IsEnabled}");
+            }
+            var items = Descendants<System.Windows.Controls.ListBoxItem>(root).ToList();
+            foreach (var item in items.Take(3))
+            {
+                var frame = Descendants<System.Windows.Controls.Border>(item).First(x => x.Width > 0 && !double.IsNaN(x.Width));
+                var p = frame.TranslatePoint(new Point(0, 0), root);
+                Console.WriteLine($"  cover frame at {p.X:0.#},{p.Y:0.#} size {frame.ActualWidth:0.#}  border {frame.BorderBrush}  selected={item.IsSelected}");
+            }
         }
         else if (which == "lastfm")
         {
@@ -1403,9 +1461,22 @@ internal static class Program
             var height = Math.Ceiling(root.DesiredSize.Height);
             root.Arrange(new Rect(0, 0, w, height));
             root.UpdateLayout();
+            var lfmBar = Descendants<Wpf.Ui.Controls.TitleBar>(root).First();
+            RaiseLoaded(lfmBar);
             Settle(400);
             Save(root, outPath, w, height, scale);
             Console.WriteLine($"  size {w}x{height}");
+            PrintTitleBar(lfmBar, root);
+            foreach (var b in Descendants<System.Windows.Controls.Button>(root).Where(b => b.Visibility == Visibility.Visible && b.ActualWidth > 0 && b is not Wpf.Ui.Controls.TitleBarButton))
+            {
+                var p = b.TranslatePoint(new Point(0, 0), root);
+                Console.WriteLine($"  button '{b.Content}' at {p.X:0.#},{p.Y:0.#} size {b.ActualWidth:0.#}x{b.ActualHeight:0.#} weight {b.FontWeight} enabled={b.IsEnabled}");
+            }
+            foreach (var t in Descendants<System.Windows.Controls.TextBox>(root).Where(t => t.ActualWidth > 0))
+            {
+                var p = t.TranslatePoint(new Point(0, 0), root);
+                Console.WriteLine($"  textbox {t.Name} at {p.X:0.#},{p.Y:0.#} size {t.ActualWidth:0.#}x{t.ActualHeight:0.#} enabled={t.IsEnabled}");
+            }
         }
         else if (which == "stats")
         {
@@ -1443,8 +1514,23 @@ internal static class Program
             var height = Math.Ceiling(root.DesiredSize.Height);
             root.Arrange(new Rect(0, 0, w, height));
             root.UpdateLayout();
+            var statsBar = Descendants<Wpf.Ui.Controls.TitleBar>(root).First();
+            RaiseLoaded(statsBar);
             Settle(400);
             Save(root, outPath, w, height, scale);
+            Console.WriteLine($"  size {w}x{height} (content measured {root.DesiredSize.Height:0.##}, rows {Descendants<System.Windows.Controls.Button>(root).Count(b => b.DataContext is BarRow)})");
+            PrintTitleBar(statsBar, root);
+            foreach (var panel in Descendants<System.Windows.Controls.HeaderedContentControl>(root).Where(p => p.ActualWidth > 0))
+            {
+                var p = panel.TranslatePoint(new Point(0, 0), root);
+                var label = (panel.Header as System.Windows.Controls.TextBlock)?.Text ?? "(tile)";
+                Console.WriteLine($"  panel {label,-22} at {p.X:0.#},{p.Y:0.#} size {panel.ActualWidth:0.#}x{panel.ActualHeight:0.#}");
+            }
+            var firstRow = Descendants<System.Windows.Controls.Button>(root).First(b => b.DataContext is BarRow);
+            var rowAt = firstRow.TranslatePoint(new Point(0, 0), root);
+            var rowText = Descendants<System.Windows.Controls.TextBlock>(firstRow).First();
+            var textAt = rowText.TranslatePoint(new Point(0, 0), root);
+            Console.WriteLine($"  first row at {rowAt.X:0.#},{rowAt.Y:0.#} size {firstRow.ActualWidth:0.#}x{firstRow.ActualHeight:0.#}  label at x {textAt.X:0.#} {rowText.FontSize}px");
         }
         else
         {
@@ -1462,6 +1548,54 @@ internal static class Program
 
         Console.WriteLine("wrote " + outPath);
         return 0;
+    }
+
+    /// <summary>
+    /// A dialog's title bar: its height, what its header holds and where the
+    /// title text lands, and each window button's size and glyph colour.
+    /// </summary>
+    private static void PrintTitleBar(Wpf.Ui.Controls.TitleBar bar, FrameworkElement root)
+    {
+        Console.WriteLine($"titlebar: height {bar.ActualHeight:0.#}  header {bar.Header?.GetType().Name ?? "null"}");
+        foreach (var text in Descendants<System.Windows.Controls.TextBlock>(bar).Where(t => t.Text.Length > 0))
+        {
+            var p = text.TranslatePoint(new Point(0, 0), root);
+            Console.WriteLine($"  text '{text.Text}' at {p.X:0.#},{p.Y:0.#}  {text.FontSize}px {text.Foreground}");
+        }
+        foreach (var image in Descendants<System.Windows.Controls.Image>(bar))
+        {
+            var p = image.TranslatePoint(new Point(0, 0), root);
+            Console.WriteLine($"  icon at {p.X:0.#},{p.Y:0.#} size {image.ActualWidth:0.#}x{image.ActualHeight:0.#}");
+        }
+        foreach (var button in Descendants<Wpf.Ui.Controls.TitleBarButton>(bar))
+        {
+            var p = button.TranslatePoint(new Point(0, 0), root);
+            Console.WriteLine($"  button {button.ButtonType,-8} at {p.X:0.#} size {button.ActualWidth:0.#}x{button.ActualHeight:0.#}  "
+                + $"glyph {button.ButtonsForeground}  name '{System.Windows.Automation.AutomationProperties.GetName(button)}'");
+        }
+    }
+
+    /// <summary>
+    /// A dialog laid out by hand is never loaded, and WPF-UI copies each window
+    /// button's glyph colour across only on Loaded, so the buttons render black.
+    /// Raising Loaded on the title bar and everything in it runs those handlers
+    /// without showing the window.
+    /// </summary>
+    private static void RaiseLoaded(FrameworkElement element)
+    {
+        element.RaiseEvent(new RoutedEventArgs(FrameworkElement.LoadedEvent, element));
+        foreach (var child in Descendants<FrameworkElement>(element))
+            child.RaiseEvent(new RoutedEventArgs(FrameworkElement.LoadedEvent, child));
+    }
+
+    private static IEnumerable<T> Descendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match) yield return match;
+            foreach (var deeper in Descendants<T>(child)) yield return deeper;
+        }
     }
 
     private static string? Arg(string[] args, string name)
