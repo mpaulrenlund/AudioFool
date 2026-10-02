@@ -40,6 +40,15 @@ public sealed class Album
     /// <summary>"1 track" / "21 tracks", for the album header.</summary>
     public string TrackCountDisplay => Tracks.Count == 1 ? "1 track" : $"{Tracks.Count} tracks";
 
+    /// <summary>
+    /// "9 of 13 tracks" when this is part of <paramref name="whole"/>, as a search
+    /// or a Statistics filter shows it; otherwise <see cref="TrackCountDisplay"/>.
+    /// </summary>
+    public string TrackCountDisplayWithin(Album whole) =>
+        whole.Tracks.Count > Tracks.Count
+            ? $"{Tracks.Count} of {whole.Tracks.Count} tracks"
+            : TrackCountDisplay;
+
 
     public override string ToString() => $"{ArtistName} - {Title}";
 }

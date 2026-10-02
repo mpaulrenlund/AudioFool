@@ -565,8 +565,9 @@
         was pressed.
 
         Applied as an implicit style inside the title bar's resources; close's
-        red hover comes from PaletteRedBrush, re-pointed there too, because
-        WPF-UI's title-bar template sets it on that one button directly.
+        hover comes from PaletteRedBrush, re-pointed there to the same grey as
+        the others (the user's call), because WPF-UI's title-bar template sets
+        it on that one button directly.
     -->
     <Style x:Key="theme.windowButton" TargetType="ui:TitleBarButton"
            BasedOn="{StaticResource {x:Type ui:TitleBarButton}}">
@@ -605,9 +606,15 @@
                             <Setter TargetName="Glyph" Property="Data"
                                     Value="M 7.5,8.5 H 13.5 A 2,2 0 0 1 15.5,10.5 V 16.5 A 2,2 0 0 1 13.5,18.5 H 7.5 A 2,2 0 0 1 5.5,16.5 V 10.5 A 2,2 0 0 1 7.5,8.5 Z M 8.5,5.5 H 16.5 A 2,2 0 0 1 18.5,7.5 V 15.5" />
                         </Trigger>
+                        <!-- The icon stays red on hover, over the same grey as the
+                             others (the user's call, 2026-10-02), not white on red as
+                             spec 6.1 has it. Set on the Path: WPF-UI's title bar sets
+                             close's hover foreground to white itself, which outranks
+                             a style setter for MouseOverButtonsForeground. -->
                         <Trigger Property="ButtonType" Value="Close">
                             <Setter Property="CommandParameter" Value="{x:Static ui:TitleBarButtonType.Close}" />
                             <Setter TargetName="Glyph" Property="Data" Value="M 6,6 L 18,18 M 18,6 L 6,18" />
+                            <Setter TargetName="Glyph" Property="Stroke" Value="{DynamicResource color.window.close}" />
                         </Trigger>
                         <Trigger Property="ButtonType" Value="Help">
                             <Setter Property="CommandParameter" Value="{x:Static ui:TitleBarButtonType.Help}" />
@@ -654,11 +661,19 @@
         x:Shared="False" gives every title bar its own copy; the art viewer is
         modeless, so two dialogs can be open at once.
     -->
-    <StackPanel x:Key="theme.dialogTitle" x:Shared="False"
-                Orientation="Horizontal"
-                VerticalAlignment="Center"
-                Margin="{theme:Thickness Left=layout.windowMarginX}">
-        <Image Source="pack://application:,,,/AudioFool;component/Resources/AudioFool.ico"
+    <!-- Capped at the bar's width less the window buttons (TitleRoomConverter):
+         the bar's header column is Auto, which offers unlimited width, so a long
+         title ("Edit Album Tags - Andy Timmons Band Plays Sgt. Pepper") never
+         trimmed and pushed the buttons past the window's right edge, half of
+         Close off it. A DockPanel, so the capped width reaches the text. -->
+    <theme:TitleRoomConverter x:Key="theme.titleRoom" />
+    <DockPanel x:Key="theme.dialogTitle" x:Shared="False"
+               LastChildFill="True"
+               VerticalAlignment="Center"
+               MaxWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ui:TitleBar}, Converter={StaticResource theme.titleRoom}}"
+               Margin="{theme:Thickness Left=layout.windowMarginX}">
+        <Image DockPanel.Dock="Left"
+               Source="pack://application:,,,/AudioFool;component/Resources/AudioFool.ico"
                Width="{theme:Token dialog.titleIconSize}"
                Height="{theme:Token dialog.titleIconSize}"
                VerticalAlignment="Center"
@@ -668,10 +683,10 @@
                    VerticalAlignment="Center"
                    TextTrimming="CharacterEllipsis"
                    Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" />
-    </StackPanel>
+    </DockPanel>
 
     <!-- As MainWindow's AppTitleBar: ButtonsBackground is the minimize and
-         maximize hover, PaletteRedBrush close's. PaletteRedBrush is a new brush
+         maximize hover, PaletteRedBrush close's (the same grey, the user's call). It is a new brush
          of the token's colour: a <StaticResource> alias here, as MainWindow
          uses, fails to load inside a style's resources ("Value nodes must be
          followed by EndMember"). -->
@@ -681,7 +696,7 @@
         <Setter Property="Padding" Value="0" />
         <Setter Property="ButtonsBackground" Value="{DynamicResource color.window.buttonHover}" />
         <Style.Resources>
-            <SolidColorBrush x:Key="PaletteRedBrush" Color="{StaticResource color.window.closeHover.value}" />
+            <SolidColorBrush x:Key="PaletteRedBrush" Color="{StaticResource color.window.buttonHover.value}" />
             <Style TargetType="ui:TitleBarButton" BasedOn="{StaticResource theme.windowButton}" />
         </Style.Resources>
     </Style>

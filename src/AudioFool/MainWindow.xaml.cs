@@ -340,20 +340,46 @@ public partial class MainWindow : FluentWindow
 
     private void SelectTypeAheadMatch()
     {
+        object? match = null;
         if (_typeAheadTarget == ArtistList)
-        {
-            var match = _viewModel.Artists.FirstOrDefault(a =>
+            match = _viewModel.Artists.FirstOrDefault(a =>
                 a.SortKey.StartsWith(_typeAheadBuffer, StringComparison.OrdinalIgnoreCase));
-            if (match is not null)
-                ArtistList.SelectedItem = match;
-        }
         else if (_typeAheadTarget == AlbumList)
-        {
-            var match = _viewModel.Albums.FirstOrDefault(a =>
+            match = _viewModel.Albums.FirstOrDefault(a =>
                 a.Title.StartsWith(_typeAheadBuffer, StringComparison.OrdinalIgnoreCase));
-            if (match is not null)
-                AlbumList.SelectedItem = match;
-        }
+
+        if (_typeAheadTarget is not { } list || match is null)
+            return;
+
+        list.SelectedItem = match;
+        FocusSelectedRow(list);
+    }
+
+    /// <summary>
+    /// Gives the list's selected row the keyboard, so the arrow keys carry on
+    /// from a type-ahead match: "King" lands on King Gizzard, Down goes on to
+    /// Kingdom Hearts. Queued behind the selection's own scroll
+    /// (<see cref="BrowserList_SelectionChanged"/>), since a row scrolled out of
+    /// a virtualised list has no container to focus until it is in view.
+    /// </summary>
+    private void FocusSelectedRow(ListBox list)
+    {
+        var target = list.SelectedItem;
+        list.Dispatcher.BeginInvoke(
+            () =>
+            {
+                if (!ReferenceEquals(list.SelectedItem, target))
+                    return;
+
+                if (list.ItemContainerGenerator.ContainerFromItem(target) is not ListBoxItem)
+                {
+                    list.ScrollIntoView(target);
+                    list.UpdateLayout();
+                }
+
+                (list.ItemContainerGenerator.ContainerFromItem(target) as ListBoxItem)?.Focus();
+            },
+            DispatcherPriority.ContextIdle);
     }
 
     private void OnTypeAheadInput(object sender, TextCompositionEventArgs e)
@@ -725,12 +751,21 @@ public partial class MainWindow : FluentWindow
 
     private void TrackGrid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // Tab in an edit walks the column too, as in a spreadsheet: down, or up
+        // with Shift. Without this it left the table for the transport buttons.
+        if (e.Key == Key.Tab && e.OriginalSource is TextBoxBase)
+        {
+            SaveAndEditNextRow((Keyboard.Modifiers & ModifierKeys.Shift) != 0 ? -1 : 1);
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key is not (Key.Enter or Key.Return))
             return;
 
         if (e.OriginalSource is TextBoxBase)
         {
-            SaveAndEditNextRow();
+            SaveAndEditNextRow(1);
             e.Handled = true;
             return;
         }
@@ -888,11 +923,12 @@ public partial class MainWindow : FluentWindow
     private sealed record TypedText(string Text, int SelectionStart, int SelectionLength);
 
     /// <summary>
-    /// Enter saves the cell and opens the same field on the row below, so a
-    /// column of track numbers can be typed straight down. Esc stops. The last
-    /// row just saves.
+    /// Enter or Tab saves the cell and opens the same field on the row below
+    /// (<paramref name="step"/> 1), Shift+Tab on the row above (-1), so a column
+    /// of track numbers can be typed straight down. Esc stops. Past the first or
+    /// last row it just saves.
     /// </summary>
-    private void SaveAndEditNextRow()
+    private void SaveAndEditNextRow(int step)
     {
         if (TrackGrid.CurrentCell is not { Item: Track track, Column: { } column })
             return;
@@ -903,12 +939,12 @@ public partial class MainWindow : FluentWindow
         _lastInlineSave = Task.CompletedTask;
         TrackGrid.CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true);
 
-        if (index < 0 || index + 1 >= rows.Count)
+        if (index < 0 || index + step < 0 || index + step >= rows.Count)
             return;
 
         // Taken before the save: a new track number can re-sort the edited row
-        // elsewhere, and "next" is the track that was below it.
-        var next = rows[index + 1];
+        // elsewhere, and "next" is the track that was beside it.
+        var next = rows[index + step];
         TrackGrid.SelectedItems.Clear();
         TrackGrid.SelectedItem = next;
         TrackGrid.CurrentCell = new DataGridCellInfo(next, column);

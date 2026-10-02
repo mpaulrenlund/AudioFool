@@ -221,7 +221,7 @@ internal static class Program
             Console.WriteLine($"dpi {VisualTreeHelper.GetDpi(main).PixelsPerDip}");
         }
 
-        if (which == "click")
+        if (which == "click" || Arg(args, "--typeahead") is not null)
         {
             LoadRealLibrary(vm);
         }
@@ -614,6 +614,48 @@ internal static class Program
             nav.GetMethod("ShowFocusVisual", hidden, Type.EmptyTypes)!.Invoke(null, null);
             var fe = System.Windows.Input.Keyboard.FocusedElement as FrameworkElement;
             Console.WriteLine($"focusvisual: {fe?.GetType().Name} '{fe?.Name}' style={(fe?.FocusVisualStyle is null ? "none" : "set")}");
+        }
+
+        // --typeahead King [--typeaheadlist ArtistList] [--tabfrom ShuffleButton]
+        // [--keys "Down,Down"]: type-ahead over the real library, as if the pointer
+        // were over the list (hover can't be faked, so the target and the typed
+        // text are set on the window directly), with focus starting elsewhere.
+        // Then real key presses through InputManager; prints each selection.
+        if (Arg(args, "--typeahead") is { } aheadText)
+        {
+            main.UpdateLayout();
+            var list = (System.Windows.Controls.ListBox)main.FindName(Arg(args, "--typeaheadlist") ?? "ArtistList");
+            System.Windows.Input.Keyboard.Focus((IInputElement)main.FindName(Arg(args, "--tabfrom") ?? "ShuffleButton"));
+            Settle(100);
+            const System.Reflection.BindingFlags own = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+            string Here()
+            {
+                var focused = System.Windows.Input.Keyboard.FocusedElement as FrameworkElement;
+                var name = list.SelectedItem switch
+                {
+                    ArtistGroup a => a.Name,
+                    AudioFool.ViewModels.AlbumItemViewModel al => al.Title,
+                    _ => "<none>",
+                };
+                var focusName = focused is System.Windows.Controls.ListBoxItem { DataContext: ArtistGroup fa } ? fa.Name
+                    : focused is System.Windows.Controls.ListBoxItem { DataContext: AudioFool.ViewModels.AlbumItemViewModel fal } ? fal.Title
+                    : focused?.Name;
+                return $"selected '{name}', focus {focused?.GetType().Name} '{focusName}'";
+            }
+            Console.WriteLine($"typeahead: before: {Here()}");
+            typeof(MainWindow).GetField("_typeAheadTarget", own)!.SetValue(main, list);
+            typeof(MainWindow).GetField("_typeAheadBuffer", own)!.SetValue(main, aheadText);
+            typeof(MainWindow).GetMethod("SelectTypeAheadMatch", own)!.Invoke(main, null);
+            Settle(300);
+            Console.WriteLine($"typeahead: '{aheadText}': {Here()}");
+            foreach (var key in (Arg(args, "--keys") ?? "Down").Split(',').Select(Enum.Parse<System.Windows.Input.Key>))
+            {
+                System.Windows.Input.InputManager.Current.ProcessInput(new System.Windows.Input.KeyEventArgs(
+                    System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(main), Environment.TickCount, key)
+                { RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent });
+                Settle(100);
+                Console.WriteLine($"typeahead: {key}: {Here()}");
+            }
         }
 
         // --tabwalk 20 [--tabfrom SearchBox] [--keys "Tab,Tab,Down"]: real key presses
@@ -1260,6 +1302,17 @@ internal static class Program
             Console.WriteLine($"main: filter='{vm.LibraryFilter?.Description}' artists={vm.Artists.Count:N0} tracks={shown:N0} "
                 + $"selected='{vm.SelectedArtist?.Name}' / '{vm.SelectedAlbum?.Album.Title}'");
             Console.WriteLine($"main: status='{vm.StatusText}'");
+            // The header line, and the album Edit Album Tags would open on: the
+            // same lookup EditAlbumTags makes, read through the private library.
+            if (vm.SelectedAlbum is { } headerAlbum
+                && typeof(MainViewModel).GetField("_folderFilteredLibrary", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                       ?.GetValue(vm) is AudioFool.Core.Library.MusicLibrary wholeLibrary)
+            {
+                var whole = wholeLibrary.WholeAlbumOf(headerAlbum.Album);
+                Console.WriteLine($"main: header='{vm.AlbumHeaderTrackCount}' shown={headerAlbum.Album.Tracks.Count} "
+                    + $"album dialog would edit={whole.Tracks.Count} "
+                    + $"(#{string.Join(",", whole.Tracks.Select(t => t.TrackNumber))})");
+            }
             Console.WriteLine($"main: chip visible={chip.IsVisible} size={chip.ActualWidth:0}x{chip.ActualHeight:0} "
                 + $"uia='{System.Windows.Automation.AutomationProperties.GetName(chip)}'");
 
@@ -1473,6 +1526,7 @@ internal static class Program
             Rows("quality", statsVm.Quality);
             Rows("missing tags", statsVm.TagGaps);
             Console.WriteLine($"    {statsVm.TagSummary}");
+            Rows("albums that disagree", statsVm.AlbumGaps);
             Rows("decades", statsVm.Decades);
 
             // Never shown, for the same reason as the tag dialog above.
@@ -1526,6 +1580,21 @@ internal static class Program
     private static void PrintTitleBar(Wpf.Ui.Controls.TitleBar bar, FrameworkElement root)
     {
         Console.WriteLine($"titlebar: height {bar.ActualHeight:0.#}  header {bar.Header?.GetType().Name ?? "null"}");
+        // The header's ancestors up to the bar: a long title must be offered a
+        // limited width somewhere here, or it pushes the window buttons out.
+        if (bar.Header is FrameworkElement headerElement)
+        {
+            Console.WriteLine($"  header width {headerElement.ActualWidth:0.#} (bar {bar.ActualWidth:0.#})");
+            for (DependencyObject? n = VisualTreeHelper.GetParent(headerElement); n is not null && n != bar; n = VisualTreeHelper.GetParent(n))
+            {
+                var fe = n as FrameworkElement;
+                var cols = n is System.Windows.Controls.Grid g
+                    ? " cols [" + string.Join(", ", g.ColumnDefinitions.Select(c => $"{c.Width}={c.ActualWidth:0}")) + "]"
+                    : "";
+                var col = fe is not null ? $" in col {System.Windows.Controls.Grid.GetColumn(fe)}" : "";
+                Console.WriteLine($"    {n.GetType().Name} '{fe?.Name}' {fe?.ActualWidth:0.#}{col}{cols}");
+            }
+        }
         foreach (var text in Descendants<System.Windows.Controls.TextBlock>(bar).Where(t => t.Text.Length > 0))
         {
             var p = text.TranslatePoint(new Point(0, 0), root);
@@ -2586,6 +2655,58 @@ internal static class Program
         Settle(300);
         Log($"enter walk: last row Enter -> selected='{(grid.SelectedItem as Track)?.DisplayTitle}' any editing="
             + $"{grid.Items.OfType<Track>().Any(t => Cell(t, "SongColumn").IsEditing)}");
+
+        // 5d. Tab walks the column like Enter, and never leaves the table: down
+        //     after a save, down unchanged, and on the last row it saves and
+        //     stays. Shift+Tab (up) is called directly: WPF reads the real Shift
+        //     key, which can't be faked here.
+        {
+            var rowsNow = grid.Items.OfType<Track>().ToList();
+            var tabFrom = rowsNow[0];
+            var tabTo = rowsNow[1].FilePath;
+            Select(tabFrom, "TrackNumberColumn");
+            Press(Cell(tabFrom, "TrackNumberColumn"), System.Windows.Input.Key.F2);
+            Box(tabFrom, "TrackNumberColumn")!.Text = tabFrom.TrackNumber == 1 ? "11" : "1";
+            before = vm.StatusText;
+            var tabHandled = Press(Box(tabFrom, "TrackNumberColumn")!, System.Windows.Input.Key.Tab);
+            AwaitSave(before);
+            var tabNext = vm.Tracks.First(t => t.FilePath == tabTo);
+            var tabBox = Box(tabNext, "TrackNumberColumn");
+            var tabOk = tabHandled && (grid.SelectedItem as Track)?.FilePath == tabTo
+                        && Cell(tabNext, "TrackNumberColumn").IsEditing && tabBox?.IsKeyboardFocused == true;
+            Log($"tab walk: saved -> status='{vm.StatusText}' '{(grid.SelectedItem as Track)?.DisplayTitle}' editing #="
+                + $"{Cell(tabNext, "TrackNumberColumn").IsEditing} focused={tabBox?.IsKeyboardFocused} {(tabOk ? "OK" : "BROKEN")}");
+            Log("tab walk: " + FileTags(tabFrom.FilePath));
+
+            var tabThird = grid.Items.OfType<Track>().SkipWhile(t => t.FilePath != tabTo).Skip(1).FirstOrDefault();
+            if (tabBox is not null && tabThird is not null)
+            {
+                Press(tabBox, System.Windows.Input.Key.Tab);
+                Settle(300);
+                var ok = (grid.SelectedItem as Track)?.FilePath == tabThird.FilePath && Cell(tabThird, "TrackNumberColumn").IsEditing;
+                Log($"tab walk: unchanged Tab -> '{(grid.SelectedItem as Track)?.DisplayTitle}' {(ok ? "OK" : "BROKEN")}");
+
+                // Up a row, as Shift+Tab does.
+                typeof(MainWindow).GetMethod("SaveAndEditNextRow", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                    .Invoke(main, [-1]);
+                Settle(300);
+                var back = vm.Tracks.First(t => t.FilePath == tabTo);
+                var upOk = (grid.SelectedItem as Track)?.FilePath == tabTo && Cell(back, "TrackNumberColumn").IsEditing;
+                Log($"tab walk: up (Shift+Tab) -> '{(grid.SelectedItem as Track)?.DisplayTitle}' {(upOk ? "OK" : "BROKEN")}");
+                if (Box(back, "TrackNumberColumn") is { } backBox)
+                    Press(backBox, System.Windows.Input.Key.Escape);
+            }
+
+            var tabLast = grid.Items.OfType<Track>().Last();
+            Select(tabLast, "TrackNumberColumn");
+            Press(Cell(tabLast, "TrackNumberColumn"), System.Windows.Input.Key.F2);
+            var lastHandled = Press(Box(tabLast, "TrackNumberColumn")!, System.Windows.Input.Key.Tab);
+            Settle(300);
+            var lastOk = lastHandled && grid.IsKeyboardFocusWithin
+                         && !grid.Items.OfType<Track>().Any(t => Cell(t, "TrackNumberColumn").IsEditing);
+            Log($"tab walk: last row Tab -> stays in table={grid.IsKeyboardFocusWithin} "
+                + $"focus={System.Windows.Input.Keyboard.FocusedElement?.GetType().Name} {(lastOk ? "OK" : "BROKEN")}");
+        }
 
         // 6. Album: emptying is refused; a rebuild mid-edit cancels cleanly;
         //    a real change moves the track to its new album.

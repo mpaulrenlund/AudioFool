@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-01 after the thirty-first build session. Read this alongside
+Updated 2026-10-02 after the thirty-second build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1432,6 +1432,122 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Bluetooth/virtual devices, or the device changed after launch (it probes once).
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
+
+### Changes from session 32 (2026-10-02): a filtered album is no longer taken for the whole
+
+The user noticed that the Statistics **Track total** and **Disc total** filters showed
+almost every album with exactly 9 tracks.
+
+- **What it was.** A search or Statistics filter builds its albums from the tracks it
+  matched, so an album there can be a part of one. The header counted only that part.
+  In 55 of the 68 albums missing a track total, the tracks missing it are exactly 1–9.
+  All 570 were last written on 25 September, before AudioFool rewrote numbers at all
+  (28 September), one file a minute or so apart. That looks like "01/13" being fixed
+  to "1" by hand, which drops the total, and only 1–9 have a zero to fix. The cause
+  is a guess; the dates are measured.
+- **The trap was real.** On 2 October, 07:44–07:52, tracks 1–9 of four Andy Timmons
+  albums (*Ear X-Tacy*, *Pawn Kings*, *Orange Swirl*, 13 tracks each, and *Ear X-Tacy 2*,
+  10) were written as "1/9" … "9/9" on `D:\Music`, read from the raw `TRCK` frames.
+  AudioFool never fills a total in by itself, so 9 was typed, presumably from the
+  header, and Edit Album Tags opened from a filtered album wrote only those 9 tracks.
+  **Not repaired**: the user chose to fix the trap first. 64 files changed that
+  morning; the other folders (Marcus Miller *M2* and *Marcus Miller*, She *Rift*,
+  `SSD Library`) weren't checked.
+- **The header says "9 of 13 tracks"** while a search or filter shows part of an
+  album (`Album.TrackCountDisplayWithin`), "13 tracks" otherwise. The duration and
+  the track list still cover only the shown tracks.
+- **Edit Album Tags always edits the whole album** (the user's call), from the album
+  row and the header art alike: `EditAlbumTags` looks the album up with
+  `MusicLibrary.WholeAlbumOf` in `_folderFilteredLibrary`, by the first track's
+  path, since the two builds can settle on different spellings of a name. Ticked
+  folders only, as before. To edit just the shown tracks: select them in the grid,
+  then Edit Tags.
+- **Verified**: 6 new tests in `AlbumHeaderTextTests` (**400** in total). ThemeLab
+  `--window click --click "Track total" --search "Andy Timmons"`, which now prints the
+  header and the album the dialog would get, on the real cache: *Ear X-Tacy* shows 9
+  tracks, header "9 of 13 tracks", the dialog would edit all 13; unfiltered it reads
+  "13 tracks". Render checked. Installed; the installed build starts.
+
+**Albums that disagree** (later in session 32, the user's request: "where the Track
+Count or Disc # Varies", for the cleanup ahead). A new Statistics section under
+Missing tags, yellow like it, with three rows:
+
+- **Track total varies**: tracks *on the same disc* name different totals, or some
+  name one and some don't. A set whose discs each carry their own total (79 albums
+  today) is fine. **60 albums, 831 tracks.**
+- **Disc total varies**: the tracks name different disc totals, or some have none.
+  **30 albums, 600 tracks.**
+- **Disc # doesn't fit** (the user's choice over "every album whose disc # varies",
+  which would be 123 ordinary multi-disc sets of 126): some tracks have a disc number
+  and some don't, or a disc number is past its own total. **4 albums, 76 tracks**:
+  both Wipeout soundtracks, *And-Thology 2*, and Boys Noize *Mayday* ("disc 2 of 1" on
+  every track).
+- **Clicking a row shows whole albums**, header "13 tracks", so Edit Album Tags fixes
+  it, and a fixed album leaves the filter. `TrackFilter` gained
+  `TrackFilter.ForAlbums(name, Func<Album,bool>)`, which groups the tracks it's
+  given with `LibraryScanner.Build` (the sidebar's own grouping) and keeps every track
+  of a matching album. `Matches(track)` became `Apply(tracks)`, since an album filter
+  can't judge one track. `ApplyToView` calls it on every rebuild (one more `Build`,
+  ~40 ms, only while such a filter is on).
+- **Built from cached ints**, so "01" against "1" isn't caught, though the album
+  dialog says "Varies" for it. That needs the spellings, which aren't cached.
+- The checks are public (`LibraryStatistics.TrackTotalVaries`, `DiscTotalVaries`,
+  `DiscNumberDoesNotFit`). 8 new tests, and the every-row test now covers these rows
+  (**408** in total).
+- **Statistics is about 215 px taller**: content 1,294 px at 900 wide (was 1,079).
+  On 1080p it caps at the work area and scrolls, with no bar.
+- **Verified** on the real cache with ThemeLab: `--window stats` (now prints the
+  section; 0 magenta, render checked) and `--window click --click "<row>"` for each
+  row: whole albums shown, Edit Album Tags would get every track. Installed; the
+  installed build starts.
+- **Tab in an in-place edit walks the column** (later in session 32, the user's
+  report: Tab while editing # jumped to the Previous button). The table is one Tab
+  stop (session 29), so Tab left it. Now `TrackGrid_PreviewKeyDown` sends Tab in an
+  edit box to `SaveAndEditNextRow(1)`, as Enter does, and Shift+Tab to `(-1)`, the row
+  above. On the last row (or first, going up) it saves and stays in the table. Tab
+  outside an edit is unchanged. ThemeLab `--window edit` gained a Tab walk: after a
+  save, unchanged, up a row (called directly: WPF reads the real Shift key, so
+  Shift+Tab itself is untested), and the last row, all OK; `library.json` and
+  `settings.json` unchanged. Not yet tried with the real keyboard. Installed.
+- **The arrow keys carry on from a type-ahead match** (later in session 32, the
+  user's request: type "King" over Artists, then Down to Kingdom Hearts). Type-ahead
+  selected the row but left keyboard focus where it was, so the arrows went
+  elsewhere. `SelectTypeAheadMatch` now also calls `FocusSelectedRow`, which focuses
+  the selected `ListBoxItem` at `ContextIdle`, after the selection's own scroll
+  (scrolling it in first if it has no container yet). The list's own arrow keys
+  then move the selection. Artists and Albums both; no match leaves focus alone.
+  Rows still draw no focus outline (session 26's decision). ThemeLab **`--typeahead
+  <text> [--typeaheadlist AlbumList] [--tabfrom X] [--keys "Down,Up"]`** sets the
+  hover target directly (hover can't be faked), types, then sends real key presses:
+  "King" → King Gizzard, Down → Kingdom Hearts, Down → Koan Sound, Up → Kingdom
+  Hearts, with focus on each row. Installed.
+- **A long dialog title no longer pushes Close off the window** (later in session 32,
+  the user's screenshot: *Andy Timmons Band Plays Sgt. Pepper*'s album dialog, Close
+  half cut off and clicking it unreliable). The window was the right size; WPF-UI's
+  TitleBar puts its header in an **Auto** column (`[Auto, *, Auto, Auto=buttons]`), so
+  the title was offered unlimited width, never trimmed, and the row came to 473 px in
+  a 460 px window. `theme.dialogTitle` is now a DockPanel whose `MaxWidth` is the
+  bar's width less the three window buttons and the left margin
+  (`Theming/TitleRoomConverter.cs`, from the tokens), so a long title ends in "…".
+  ThemeLab's dialog title-bar printout now walks the header's ancestors with their
+  widths and column definitions, which is how the Auto column was found. Verified:
+  that album's Close at x 414–460 (was 427–473); all five dialogs' Close ends at
+  the window's edge; a short-title dialog 0 px different, 0 magenta. Installed.
+- **Close hovers grey, its X staying red** (later in session 32, the user's call,
+  overriding spec 6.1's red fill with a white X), on the main window and every
+  dialog, matching Minimize and Maximize. `PaletteRedBrush` (the key WPF-UI's title
+  bar reads for close's hover) now points at `color.window.buttonHover` in
+  `MainWindow.xaml` and `theme.dialogTitleBar`. The red X is set on the Path in
+  `theme.windowButton`'s Close trigger: WPF-UI sets close's
+  `MouseOverButtonsForeground` to white itself, which a style setter can't beat.
+  Verified: ThemeLab `--winhover Close` at 1720 wide (at 1300 the window is wider
+  than the bitmap and the buttons fall outside it): close's background `#AFACA8`, the
+  same as Maximize's hover, the X still 52 red pixels, none white; a dialog's brush
+  dump gives close `MouseOverBackground` `#0F000000` (Maximize's) and the Path red.
+  Recorded under Decisions in `design/progress.md`. Installed.
+- **The shell's `library.json` is current as of 2 October, 08:03**: the installed
+  build's smoke test rescanned `D:\Music` into the container copy. The figures above
+  include this morning's "of 9" edits.
 
 ### Changes from session 31 (2026-10-01): new PS1 theme, old theme files removed (step 6, done)
 

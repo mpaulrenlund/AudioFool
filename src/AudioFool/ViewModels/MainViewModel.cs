@@ -486,7 +486,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public string AlbumHeaderYear => SelectedAlbum?.Album.YearDisplay ?? "";
 
-    public string AlbumHeaderTrackCount => SelectedAlbum?.Album.TrackCountDisplay ?? "";
+    /// <summary>"13 tracks", or "9 of 13 tracks" while a search or filter shows part of it.</summary>
+    public string AlbumHeaderTrackCount => SelectedAlbum is { } item
+        ? item.Album.TrackCountDisplayWithin(_folderFilteredLibrary.WholeAlbumOf(item.Album))
+        : "";
 
     /// <summary>
     /// "1:06:27", or "41:40" under an hour: the Time column's clock format, not
@@ -849,7 +852,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // The statistics filter narrows what search sees; the status-bar library
         // above stays unfiltered, so its counts still describe the whole library.
         IReadOnlyList<Track> filtered = LibraryFilter is { } filter
-            ? visible.Where(filter.Matches).ToList()
+            ? filter.Apply(visible)
             : visible;
         _filteredTrackCount = filtered.Count;
 
@@ -1198,13 +1201,19 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (item is null || Application.Current.MainWindow is not { } owner)
             return;
 
-        var editVm = new TagEditViewModel(item.Album, _artService, new OnlineArtSearch(_settings.FanartTvApiKey));
+        // Always the whole album, never the part a search or Statistics filter
+        // shows: its fields are album-wide, and writing them to some tracks splits
+        // the album. A filtered album once had "of 9" written over 13 tracks.
+        // Editing just the shown tracks is a grid selection plus Edit Tags.
+        var album = _folderFilteredLibrary.WholeAlbumOf(item.Album);
+
+        var editVm = new TagEditViewModel(album, _artService, new OnlineArtSearch(_settings.FanartTvApiKey));
         var window = new TagEditWindow(editVm, owner);
 
         if (window.ShowDialog() != true)
             return;
 
-        _ = ApplyAlbumEditAsync(item.Album, editVm.BuildAlbumEdit(), editVm.PickedArtPayload());
+        _ = ApplyAlbumEditAsync(album, editVm.BuildAlbumEdit(), editVm.PickedArtPayload());
     }
 
     private void EditSelectedTracksTags(IReadOnlyList<Track> tracks, Window owner)

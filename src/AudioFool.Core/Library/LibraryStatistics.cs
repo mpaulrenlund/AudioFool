@@ -39,6 +39,12 @@ public sealed class LibraryStatistics
     /// </summary>
     public int FullyTaggedCount { get; init; }
 
+    /// <summary>
+    /// Albums whose tracks disagree on a number that is the album's, in a fixed
+    /// order: track total, disc total, then disc numbers that don't fit.
+    /// </summary>
+    public IReadOnlyList<AlbumGap> AlbumGaps { get; init; } = [];
+
     public static LibraryStatistics Empty { get; } = new();
 
     public const string UnknownDecade = "Unknown";
@@ -118,6 +124,19 @@ public sealed class LibraryStatistics
                 .OrderByDescending(g => g.Missing)],
 
             FullyTaggedCount = tracks.Count(t => TagChecks.Where(c => c.Essential).All(c => !c.IsMissing(t))),
+
+            // Judged on the sidebar's own albums, which is the grouping the
+            // row's filter rebuilds, so the two always agree.
+            AlbumGaps = [.. AlbumChecks
+                .Select(c =>
+                {
+                    var failing = library.Artists.SelectMany(a => a.Albums).Where(c.Fails).ToList();
+                    var failingTracks = failing.Sum(a => a.Tracks.Count);
+                    return new AlbumGap(c.Label, failing.Count, failingTracks, Share(failingTracks, total), c.Note)
+                    {
+                        Filter = TrackFilter.ForAlbums(c.Label, c.Fails),
+                    };
+                })],
         };
     }
 
@@ -202,6 +221,44 @@ public sealed class LibraryStatistics
             Note: "Folder images only - embedded artwork is not counted"),
     ];
 
+    // ---------------------------------------------------- albums that disagree
+
+    /// <summary>
+    /// Album-wide numbers the tracks should agree on, which the album tag dialog
+    /// shows as "Varies" when they don't. Disc # is not one: it rightly varies in
+    /// every multi-disc set, so only a disc number that can't be right counts.
+    /// </summary>
+    private static readonly AlbumCheck[] AlbumChecks =
+    [
+        new("Track total varies", TrackTotalVaries,
+            Note: "Within a disc - each disc of a set may have its own"),
+        new("Disc total varies", DiscTotalVaries),
+        new("Disc # doesn't fit", DiscNumberDoesNotFit,
+            Note: "Missing on some tracks, or past the disc total"),
+    ];
+
+    /// <summary>
+    /// Tracks on the same disc name different track totals, or some name one and
+    /// some don't. A set whose discs each carry their own total is fine.
+    /// </summary>
+    public static bool TrackTotalVaries(Album album) => album.Tracks
+        .GroupBy(t => t.DiscNumber)
+        .Any(disc => disc.Select(t => t.TrackCount).Distinct().Skip(1).Any());
+
+    /// <summary>The tracks name different disc totals, or some name one and some don't.</summary>
+    public static bool DiscTotalVaries(Album album) =>
+        album.Tracks.Select(t => t.DiscCount).Distinct().Skip(1).Any();
+
+    /// <summary>
+    /// Some tracks have a disc number and some don't, or a track's disc number is
+    /// past its own disc total ("disc 2 of 1").
+    /// </summary>
+    public static bool DiscNumberDoesNotFit(Album album) =>
+        (album.Tracks.Any(t => t.DiscNumber is > 0) && album.Tracks.Any(t => t.DiscNumber is not > 0))
+        || album.Tracks.Any(t => t.DiscNumber is > 0 && t.DiscCount is > 0 && t.DiscNumber > t.DiscCount);
+
+    private sealed record AlbumCheck(string Label, Func<Album, bool> Fails, string? Note = null);
+
     private static double Share(int count, int total) => total == 0 ? 0 : (double)count / total;
 }
 
@@ -232,16 +289,51 @@ public sealed record TagGap(string Field, int Missing, double Share, string? Not
     public TrackFilter? Filter { get; init; }
 }
 
+/// <param name="Albums">Albums that fail the check.</param>
+/// <param name="Tracks">Every track of those albums: what clicking the row shows.</param>
+/// <param name="Share">Fraction of all tracks in those albums, 0 to 1.</param>
+public sealed record AlbumGap(string Check, int Albums, int Tracks, double Share, string? Note)
+{
+    /// <summary>Selects exactly the <see cref="Tracks"/> of the failing albums.</summary>
+    public TrackFilter? Filter { get; init; }
+}
+
 /// <summary>
 /// A named subset of the library - "Missing Year", "FLAC", "From the 1990s" -
 /// that the browser can be narrowed to. The name is what the filter chip and the
-/// status bar show while it is on.
+/// status bar show while it is on. Applied to the current tracks each time the
+/// view is rebuilt, so a fixed track (or album) leaves it.
 /// </summary>
-public sealed class TrackFilter(string description, Func<Track, bool> matches)
+public sealed class TrackFilter
 {
-    public string Description { get; } = description;
+    private readonly Func<IReadOnlyList<Track>, IReadOnlyList<Track>> _apply;
 
-    public bool Matches(Track track) => matches(track);
+    /// <summary>A filter that judges each track on its own.</summary>
+    public TrackFilter(string description, Func<Track, bool> matches)
+        : this(description, tracks => tracks.Where(matches).ToList())
+    {
+    }
+
+    private TrackFilter(string description, Func<IReadOnlyList<Track>, IReadOnlyList<Track>> apply)
+    {
+        Description = description;
+        _apply = apply;
+    }
+
+    /// <summary>
+    /// A filter that judges albums, and keeps every track of an album that
+    /// matches. The albums are grouped as the sidebar groups them.
+    /// </summary>
+    public static TrackFilter ForAlbums(string description, Func<Album, bool> matches) =>
+        new(description, tracks => LibraryScanner.Build(tracks).Artists
+            .SelectMany(a => a.Albums)
+            .Where(matches)
+            .SelectMany(a => a.Tracks)
+            .ToList());
+
+    public string Description { get; }
+
+    public IReadOnlyList<Track> Apply(IReadOnlyList<Track> tracks) => _apply(tracks);
 
     public override string ToString() => Description;
 }

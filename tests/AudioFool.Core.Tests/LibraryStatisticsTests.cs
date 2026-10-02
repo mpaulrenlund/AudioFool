@@ -215,20 +215,98 @@ public class LibraryStatisticsTests
             T("C", "Z", "dsf", bitDepth: 1, sampleRate: 2_822_400, kind: "DSD", year: 1961),
             T("C", "Z", "m4a", kind: "ALAC", albumArtist: ""),
             T("D", "W", "xm", bitDepth: null, kind: "", year: null),
+            // One album failing all three album checks.
+            T("E", "V", track: 1, trackCount: 13, disc: 1, discCount: 1),
+            T("E", "V", track: 2, trackCount: 9, disc: 2, discCount: null),
+            T("E", "V", track: 3, trackCount: 13, disc: null, discCount: 1),
         ];
         var stats = Stats(tracks);
 
         var rows = stats.FileTypes.Concat(stats.Quality).Concat(stats.Decades)
             .Select(s => (s.Label, s.Count, s.Filter))
             .Concat(stats.TagGaps.Select(g => (Label: g.Field, Count: g.Missing, g.Filter)))
+            .Concat(stats.AlbumGaps.Select(g => (Label: g.Check, Count: g.Tracks, g.Filter)))
             .ToList();
 
         Assert.NotEmpty(rows);
+        Assert.All(stats.AlbumGaps, g => Assert.True(g.Albums > 0, $"{g.Check} found no album"));
         foreach (var (label, count, filter) in rows)
         {
             Assert.NotNull(filter);
-            Assert.True(count == tracks.Count(filter.Matches), $"{label}: counted {count}, filter matches {tracks.Count(filter.Matches)}");
+            var shown = filter.Apply(tracks).Count;
+            Assert.True(count == shown, $"{label}: counted {count}, filter shows {shown}");
         }
+    }
+
+    // ------------------------------------------------- albums that disagree
+
+    [Fact]
+    public void Track_total_varies_when_tracks_on_one_disc_disagree()
+    {
+        // The case that started it: tracks 1-9 "of 9" or blank, 10-13 "of 13".
+        var stats = Stats(
+            T("Andy Timmons", "Ear X-Tacy", track: 1, trackCount: 9),
+            T("Andy Timmons", "Ear X-Tacy", track: 10, trackCount: 13),
+            T("Andy Timmons", "Pawn Kings", track: 1, trackCount: null),
+            T("Andy Timmons", "Pawn Kings", track: 10, trackCount: 13),
+            T("Andy Timmons", "Resolution", track: 1, trackCount: 11),
+            T("Andy Timmons", "Resolution", track: 2, trackCount: 11));
+
+        var gap = stats.AlbumGaps.Single(g => g.Check == "Track total varies");
+        Assert.Equal(2, gap.Albums);
+        Assert.Equal(4, gap.Tracks);
+    }
+
+    [Fact]
+    public void Each_disc_having_its_own_track_total_is_fine()
+    {
+        var stats = Stats(
+            T("Au5", "Au5", track: 1, trackCount: 15, disc: 1, discCount: 2),
+            T("Au5", "Au5", track: 1, trackCount: 16, disc: 2, discCount: 2));
+
+        Assert.All(stats.AlbumGaps, g => Assert.Equal(0, g.Albums));
+    }
+
+    [Fact]
+    public void Disc_total_varies_counts_a_missing_total()
+    {
+        var stats = Stats(
+            T("A", "X", disc: 1, discCount: 1),
+            T("A", "X", disc: 1, discCount: null));
+
+        Assert.Equal(1, stats.AlbumGaps.Single(g => g.Check == "Disc total varies").Albums);
+    }
+
+    [Theory]
+    [InlineData(1, 1, 2, 1, true)]       // disc 2 of 1 (the Wipeout soundtracks)
+    [InlineData(1, 2, null, 2, true)]    // one track has no disc #
+    [InlineData(1, 2, 2, 2, false)]      // an ordinary two-disc set
+    [InlineData(null, null, null, null, false)] // no disc tags at all
+    public void Disc_number_that_cannot_be_right(int? disc1, int? count1, int? disc2, int? count2, bool fails)
+    {
+        var stats = Stats(
+            T("A", "X", track: 1, disc: disc1, discCount: count1),
+            T("A", "X", track: 2, disc: disc2, discCount: count2));
+
+        Assert.Equal(fails ? 1 : 0, stats.AlbumGaps.Single(g => g.Check == "Disc # doesn't fit").Albums);
+    }
+
+    [Fact]
+    public void An_album_fixed_while_filtered_leaves_the_filter()
+    {
+        var bad = T("A", "X", track: 1, trackCount: 9);
+        var good = T("A", "X", track: 10, trackCount: 13);
+        var filter = Stats(bad, good).AlbumGaps.Single(g => g.Check == "Track total varies").Filter!;
+
+        Assert.Equal(2, filter.Apply([bad, good]).Count);
+
+        // What a save does: a new Track with the corrected total, same file.
+        var fixedTrack = new Track
+        {
+            FilePath = bad.FilePath, Artist = bad.Artist, AlbumArtist = bad.AlbumArtist,
+            Album = bad.Album, TrackNumber = 1, TrackCount = 13, DiscNumber = 1, DiscCount = 1,
+        };
+        Assert.Empty(filter.Apply([fixedTrack, good]));
     }
 
     [Fact]

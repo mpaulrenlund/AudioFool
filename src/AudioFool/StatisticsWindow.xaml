@@ -245,6 +245,16 @@
                             </StackPanel>
                         </HeaderedContentControl>
 
+                        <!-- Yellow like the missing tags: each is a gap to fix. -->
+                        <HeaderedContentControl Style="{StaticResource Section}">
+                            <HeaderedContentControl.Header>
+                                <TextBlock Text="ALBUMS THAT DISAGREE" Style="{StaticResource SectionHeader}" />
+                            </HeaderedContentControl.Header>
+                            <ItemsControl x:Name="AlbumGapList" ItemsSource="{Binding AlbumGaps}"
+                                          Style="{StaticResource SectionList}"
+                                          Tag="{DynamicResource color.status.lastFmOff}" />
+                        </HeaderedContentControl>
+
                         <HeaderedContentControl Style="{StaticResource Section}">
                             <HeaderedContentControl.Header>
                                 <TextBlock Text="TRACKS BY DECADE" Style="{StaticResource SectionHeader}" />

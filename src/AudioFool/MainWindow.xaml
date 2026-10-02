@@ -139,7 +139,7 @@
             6.1. The window buttons are WPF-UI's own, restyled by
             theme.windowButton; see Theming/Chrome.xaml for why they are not
             replaced. ButtonsBackground is the minimize/maximize hover, and
-            PaletteRedBrush close's: WPF-UI's template sets that one directly.
+            PaletteRedBrush close's, the same grey (the user's call): WPF-UI's template sets that one directly.
         -->
         <ui:TitleBar x:Name="AppTitleBar"
                      Grid.Row="0"
@@ -147,7 +147,7 @@
                      Padding="0"
                      ButtonsBackground="{DynamicResource color.window.buttonHover}">
             <ui:TitleBar.Resources>
-                <StaticResource x:Key="PaletteRedBrush" ResourceKey="color.window.closeHover" />
+                <StaticResource x:Key="PaletteRedBrush" ResourceKey="color.window.buttonHover" />
                 <Style TargetType="ui:TitleBarButton" BasedOn="{StaticResource theme.windowButton}" />
             </ui:TitleBar.Resources>
             <!--

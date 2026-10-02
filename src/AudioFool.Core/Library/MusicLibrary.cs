@@ -11,6 +11,33 @@ public sealed class MusicLibrary
     public static MusicLibrary Empty { get; } = new();
 
     public int AlbumCount => Artists.Sum(a => a.Albums.Count);
+
+    private Dictionary<string, Album>? _albumByPath;
+
+    /// <summary>
+    /// The album in this library that holds <paramref name="shown"/>'s tracks.
+    /// A search or a Statistics filter builds its albums from the tracks it
+    /// matched, so an album there can be a part of one; looked up in the whole
+    /// library, this is the album as it really is. By path, since the two builds
+    /// can settle on different spellings of a name. <paramref name="shown"/>
+    /// itself when this library doesn't have it.
+    /// </summary>
+    public Album WholeAlbumOf(Album shown)
+    {
+        if (shown.Tracks.Count == 0)
+            return shown;
+
+        if (_albumByPath is null)
+        {
+            var byPath = new Dictionary<string, Album>(StringComparer.OrdinalIgnoreCase);
+            foreach (var album in Artists.SelectMany(a => a.Albums))
+                foreach (var track in album.Tracks)
+                    byPath.TryAdd(track.FilePath, album);
+            _albumByPath = byPath;
+        }
+
+        return _albumByPath.TryGetValue(shown.Tracks[0].FilePath, out var whole) ? whole : shown;
+    }
 }
 
 /// <summary>Progress while scanning, for the status bar.</summary>

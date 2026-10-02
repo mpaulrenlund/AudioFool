@@ -61,6 +61,16 @@ public sealed class StatisticsViewModel
                 ToolTip = ShowTracks(g.Missing) + " to fix them",
             })];
 
+        // Whole albums: the row shows every track of each one, so Edit Album Tags
+        // can put it right, and a fixed album drops out of the filter.
+        AlbumGaps = [.. stats.AlbumGaps.Select(g => g.Albums == 0
+            ? new BarRow(g.Check, "None", 0, g.Note, isComplete: true)
+            : new BarRow(g.Check, $"{Plural(g.Albums, "album")} · {Plural(g.Tracks, "track")}", g.Share, g.Note)
+            {
+                Filter = g.Filter,
+                ToolTip = $"Show {(g.Albums == 1 ? "this album" : $"these {g.Albums:N0} albums")} in the library to fix them",
+            })];
+
         TagSummary = stats.TrackCount == 0
             ? "No tracks scanned yet."
             : $"{stats.FullyTaggedCount:N0} of {stats.TrackCount:N0} tracks " +
@@ -77,6 +87,7 @@ public sealed class StatisticsViewModel
     public IReadOnlyList<BarRow> Quality { get; }
     public IReadOnlyList<BarRow> Decades { get; }
     public IReadOnlyList<BarRow> TagGaps { get; }
+    public IReadOnlyList<BarRow> AlbumGaps { get; }
     public string TagSummary { get; }
 
     /// <summary>The row the window was closed by clicking, if any.</summary>
