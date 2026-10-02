@@ -1115,7 +1115,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 ("Last.fm: off", "Scrobbling is switched off. Click to turn it back on."),
             ScrobblerState.Failing =>
                 ($"Last.fm: {_scrobbler.Pending:N0} waiting",
-                 $"The last send to Last.fm failed: {_scrobbler.LastError.TrimEnd('.')}. "
+                 $"The last send to Last.fm failed: {_scrobbler.LastError?.TrimEnd('.')}. "
                  + "The plays are kept and will be sent once it answers."),
             ScrobblerState.Disconnected =>
                 ("Last.fm: not connected", "Not scrobbling. Click to connect to Last.fm."),
