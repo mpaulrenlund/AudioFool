@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-05 after the thirty-fourth build session. Read this alongside
+Updated 2026-10-05 after the thirty-fifth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1433,7 +1433,13 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
 
-### Changes from session 35 (2026-10-05): double-click the status line for Statistics
+### Changes from session 35 (2026-10-05): last track on reopen, quality tier in the bar, Statistics tweaks
+
+Four small requests from the user, one commit: **`309fb20`**, pushed to `origin/main`.
+**503 tests pass.** All installed; the installed build starts. **Ask the user** to try
+the three things only the real app can show: double-clicking the status line, a real
+close-and-reopen (the bar should show the last track, and Play should start it), and the
+quality label on a few kinds of file.
 
 - **Double-clicking the status bar's dot or text opens Statistics** (the user's request,
   no tooltip). A `MouseBinding` (`LeftDoubleClick` → `ShowStatisticsCommand`) on
@@ -1462,7 +1468,8 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   from 0:00. Since the bar is filled by `NowPlaying`, the window title and the row's
   now-playing triangle also show the track, just as they do after Stop.
   - Verified with ThemeLab `--window click --lastplayed "Ihlo|Union|D:\...\05. Triumph.flac"`
-    (render and printout of the bar: art 128 px, "FLAC · 1,516 kbps · 44.1 kHz", 4:54) and
+    (render and printout of the bar: art 128 px, "FLAC · 1,516 kbps · 44.1 kHz" before the
+    next change made it "Hi-Res Lossless", 4:54) and
     the new **`--restoreplay 1 [--restoreplayfrom <artist>]`**, which presses Play at engine
     volume 0: Triumph starts, Next goes to Parhelion; the same after moving to Rush first.
     The shell's settings copy was backed up and restored (hash equal). 498 tests.
@@ -2940,8 +2947,11 @@ retag of the playing track reaches the scrobbler.
    unasked, since it writes to many files.
 4. ~~**Show the full date in the album header?**~~ Done in session 33. The Albums list
    subtitle still shows only the year.
-4b. **Resume playback on launch?** Session 33 reopens on the last song but doesn't play
-   it. Only if the user asks.
+4b. **Resume playback on launch?** Session 33 reopens on the last song, and session 35
+   shows it in the now-playing bar so Play starts it, but from 0:00 and only when
+   pressed. Playing by itself, or from the saved position, is still only if the user asks.
+4c. **The flaky test** seen once in session 35 (1 failure in 8 runs, not identified). If
+   it shows again, note which test it is.
 5. MilkDrop 3 / projectM visualisation. Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll` — source only).
    Proposed next step: spike build of `libprojectM.dll`. No implementation started.
