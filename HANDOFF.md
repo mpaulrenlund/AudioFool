@@ -1438,7 +1438,7 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
 The user asked for the Analyze findings across the library in Statistics ("Likely
 Transcoded or fake Flac, Upscaled mp3, etc."). **Their choices**: a sampled check, started
 by a button; all four kinds of problem; the *possibly* cases as separate rows.
-**497 tests pass** (479 + 18). Not committed.
+**497 tests pass** (479 + 18). Commit `5b71b19`, pushed, with part 1.
 
 - **Statistics → QUALITY CHECK** (left column, under Audio Quality), seven rows, yellow
   like Missing tags, each clickable to filter the library: Likely / Possibly transcoded
@@ -1501,7 +1501,7 @@ by a button; all four kinds of problem; the *possibly* cases as separate rows.
 
 Right-click a song → **Analyze…** (the user's request). User-facing behaviour is in the
 README's *Analyzing a track*. **479 tests pass** (436 + 15 in `SpectrumAnalysisTests` +
-28 in `QualityOpinionTests`). Installed; the installed build starts. Not committed.
+28 in `QualityOpinionTests`). Installed; the installed build starts. Committed with part 2 as `5b71b19`, pushed.
 
 - **The user's choices**: a spectrogram (over an average-spectrum curve or both), a
   heat-map colour scale (over greyscale or teal; it adds colours outside the spec's
