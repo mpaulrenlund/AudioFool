@@ -185,7 +185,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek")
+        if (which is "queue" or "clicks" or "seek" or "analysis" || Arg(args, "--qualitycheck") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
         var runtime = new BassRuntime();
@@ -993,6 +993,32 @@ internal static class Program
             }
         }
 
+        // --trackmenu 1: the song row's context menu, opened off-screen, with each
+        // item's command and parameter. Nothing is invoked: Analyze would show a
+        // real window, and showing one takes focus.
+        if (Arg(args, "--trackmenu") is not null)
+        {
+            var row = FindAll<System.Windows.Controls.DataGridRow>(main).FirstOrDefault(r => r.ContextMenu is not null);
+            if (row?.ContextMenu is not { } menu)
+            {
+                Console.WriteLine("trackmenu: no context menu on a song row");
+            }
+            else
+            {
+                menu.PlacementTarget = row;
+                menu.IsOpen = true;
+                Settle(300);
+                foreach (var entry in menu.Items.OfType<System.Windows.Controls.MenuItem>())
+                {
+                    var track = entry.CommandParameter as AudioFool.Core.Models.Track;
+                    Console.WriteLine($"trackmenu: '{entry.Header}' command={entry.Command is not null} "
+                        + $"canExecute={entry.Command?.CanExecute(entry.CommandParameter)} enabled={entry.IsEnabled} "
+                        + $"param='{track?.Title}' row='{(row.Item as AudioFool.Core.Models.Track)?.Title}'");
+                }
+                menu.IsOpen = false;
+            }
+        }
+
         // --menu: does clicking the logo open the File-style menu? Two checks that
         // do not need a mouse. First hit-test the middle of the logo and walk up,
         // which is the path a click takes; then expand through the automation peer,
@@ -1756,6 +1782,80 @@ internal static class Program
                 Console.WriteLine($"  textbox {t.Name} at {p.X:0.#},{p.Y:0.#} size {t.ActualWidth:0.#}x{t.ActualHeight:0.#} enabled={t.IsEnabled}");
             }
         }
+        else if (which == "analysis")
+        {
+            // --window analysis --file <audio> [--state working|error]: the Analyze
+            // window on a real file, read only. Never shown (it centres itself over
+            // its owner on Loaded), so the analysis is run here instead, with the
+            // dispatcher pumped until it finishes. --state working renders the
+            // progress line at 40% without running; --state error a missing file.
+            var file = Arg(args, "--file") ?? throw new ArgumentException("--window analysis needs --file <audio file>");
+            var state = Arg(args, "--state");
+            runtime.Initialise();
+            var track = state == "error"
+                ? new AudioFool.Core.Models.Track { FilePath = file + ".missing", Title = "Missing file", Kind = "FLAC", BitDepth = 16, SampleRate = 44100 }
+                : AudioFool.Core.Library.TagReader.Read(file);
+
+            var analysisVm = new AnalysisViewModel(track);
+            var dialog = new AnalysisWindow(analysisVm, main);
+            dialog.ApplyTemplate();
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            if (state == "working")
+            {
+                analysisVm.Progress = 0.4;
+                analysisVm.Status = "Reading the file… 40%";
+            }
+            else
+            {
+                var run = analysisVm.RunAsync(CancellationToken.None);
+                while (!run.IsCompleted)
+                    Settle(50);
+            }
+
+            Console.WriteLine($"analysis: {track.FilePath}");
+            Console.WriteLine($"  {analysisVm.Subtitle}  ({clock.ElapsedMilliseconds} ms)");
+            if (analysisVm.Error is { } error)
+                Console.WriteLine($"  error: {error}");
+            if (analysisVm.Opinion is { } opinion)
+            {
+                Console.WriteLine($"  {opinion.Verdict}: {opinion.Headline}");
+                foreach (var e in analysisVm.Explanations)
+                    Console.WriteLine($"    - {e}");
+                Console.WriteLine($"  facts: {analysisVm.Facts}");
+            }
+
+            var root = (FrameworkElement)dialog.Content;
+            var aw = Arg(args, "--w") is null ? Math.Ceiling(dialog.Width) : w;
+            root.Measure(new Size(aw, double.PositiveInfinity));
+            var height = Math.Ceiling(root.DesiredSize.Height);
+            root.Arrange(new Rect(0, 0, aw, height));
+            root.UpdateLayout();
+            var analysisBar = Descendants<Wpf.Ui.Controls.TitleBar>(root).First();
+            RaiseLoaded(analysisBar);
+            Settle(400);
+            root.UpdateLayout();
+            Save(root, outPath, aw, height, scale);
+            Console.WriteLine($"  size {aw}x{height}");
+            PrintTitleBar(analysisBar, root);
+
+            var frame = (FrameworkElement)dialog.FindName("PictureFrame");
+            var frameAt = frame.TranslatePoint(new Point(0, 0), root);
+            Console.WriteLine($"  picture frame at {frameAt.X:0.#},{frameAt.Y:0.#} size {frame.ActualWidth:0.#}x{frame.ActualHeight:0.#}");
+            foreach (var name in new[] { "FrequencyAxis", "TimeAxis", "LegendAxis", "Overlay" })
+            {
+                var canvas = (System.Windows.Controls.Canvas)dialog.FindName(name);
+                var labels = canvas.Children.OfType<System.Windows.Controls.TextBlock>()
+                    .Select(t => $"{t.Text}@{System.Windows.Controls.Canvas.GetLeft(t):0},{System.Windows.Controls.Canvas.GetTop(t):0}");
+                var lines = canvas.Children.OfType<System.Windows.Shapes.Line>().Select(l => $"line y {l.Y1:0.#}");
+                Console.WriteLine($"  {name}: {string.Join("  ", labels.Concat(lines))}");
+            }
+            foreach (var b in Descendants<System.Windows.Controls.Button>(root).Where(b => b.ActualWidth > 0 && b is not Wpf.Ui.Controls.TitleBarButton))
+            {
+                var p = b.TranslatePoint(new Point(0, 0), root);
+                Console.WriteLine($"  button '{b.Content}' at {p.X:0.#},{p.Y:0.#} size {b.ActualWidth:0.#}x{b.ActualHeight:0.#}");
+            }
+        }
         else if (which == "stats")
         {
             // The real library, read from the cache and never written back:
@@ -1770,7 +1870,45 @@ internal static class Program
             Console.WriteLine($"stats: {tracks.Count:N0} tracks from {(cached is null ? "samples" : "library.json")}, "
                 + $"computed in {clock.ElapsedMilliseconds} ms");
 
-            var statsVm = new StatisticsViewModel(stats, someFoldersHidden: Arg(args, "--hidden") is not null);
+            // --qualitycache <file>: the quality section over the real library with
+            // results kept in that file (never the app's own quality.json).
+            // --qualitycheck 1 runs a real check first, reading the music drive;
+            // --qualitystop <seconds> stops it part-way, to check a resume.
+            if (Arg(args, "--qualitycache") is { } qualityPath)
+            {
+                LoadRealLibrary(vm);
+                vm.QualityCachePath = qualityPath;
+                if (Arg(args, "--qualitycheck") is not null)
+                {
+                    var stopAfter = Arg(args, "--qualitystop") is { } s ? TimeSpan.FromSeconds(double.Parse(s, CultureInfo.InvariantCulture)) : (TimeSpan?)null;
+                    var qualityClock = System.Diagnostics.Stopwatch.StartNew();
+                    vm.StartQualityCheck();
+                    Settle(500);
+                    var lastReport = TimeSpan.Zero;
+                    while (vm.IsCheckingQuality)
+                    {
+                        Settle(500);
+                        if (stopAfter is { } limit && qualityClock.Elapsed >= limit)
+                        {
+                            vm.StopQualityCheck();
+                            stopAfter = null;
+                        }
+                        if (qualityClock.Elapsed - lastReport >= TimeSpan.FromSeconds(60))
+                        {
+                            lastReport = qualityClock.Elapsed;
+                            var p = vm.QualityProgress;
+                            Console.WriteLine($"  quality: {p.Done:N0} of {p.Total:N0}, {p.Flagged:N0} flagged, at {qualityClock.Elapsed:mm\\:ss}  status '{vm.StatusText}'");
+                        }
+                    }
+                    Settle(300);
+                    Console.WriteLine($"quality check: '{vm.StatusText}' in {qualityClock.Elapsed:mm\\:ss}");
+                }
+            }
+
+            var quality = new QualitySectionViewModel(vm);
+            var statsVm = new StatisticsViewModel(stats, someFoldersHidden: Arg(args, "--hidden") is not null) { QualityCheck = quality };
+            Console.WriteLine($"  [quality check] {quality.Summary}  button '{quality.ButtonText}' enabled={quality.CanToggle}");
+            foreach (var r in quality.Rows) Console.WriteLine($"    {r.Label,-32} {r.Value,-30} clickable={r.IsClickable}");
             foreach (var t in statsVm.Tiles) Console.WriteLine($"  tile  {t.Label,-10} {t.Value}");
             void Rows(string name, IEnumerable<BarRow> rows)
             {

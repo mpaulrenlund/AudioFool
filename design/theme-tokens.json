@@ -74,6 +74,15 @@
       "border": "#8F8C88",
       "thumbBorder": "#9C9995",
       "thumbBorderSelected": "#6E6B67"
+    },
+    "spectrogram": {
+      "level0": "#000000",
+      "level1": "#2C0B4F",
+      "level2": "#8B1A6B",
+      "level3": "#D9342B",
+      "level4": "#F58A1F",
+      "level5": "#FCE94F",
+      "marker": "#F7F6F4"
     }
   },
   "shadow": {
@@ -172,6 +181,15 @@
     "tilePaddingX": 14, "tilePaddingY": 12, "tileLineGap": 2,
     "sectionPaddingY": 6,
     "rowPaddingX": 6, "rowPaddingY": 4, "rowGap": 2, "barGap": 4, "detailGap": 3, "summaryGap": 10
+  },
+  "analysis": {
+    "width": 880, "minWidth": 640, "minHeight": 520,
+    "pictureHeight": 300, "floorDb": -120, "topDb": -20,
+    "axisGap": 6, "freqAxisWidth": 48, "timeAxisHeight": 18,
+    "legendWidth": 10, "legendGap": 10,
+    "markerThickness": 1, "markerDash": 4,
+    "headerGap": 2, "sectionGap": 14, "findingGap": 6, "progressWidth": 240,
+    "legendStepDb": 20, "timeLabelSpacing": 110, "freqLabelSpacing": 50
   },
   "artViewer": { "minSize": 280, "screenMargin": 80, "captionPaddingTop": 10, "captionPaddingBottom": 12 },
   "emptyState": { "squareSize": 31, "squareStroke": 1, "squareToTitleGap": 22, "titleToSublineGap": 4 },

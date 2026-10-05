@@ -6,6 +6,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using AudioFool.Core.Analysis;
 using AudioFool.Core.Art;
 using AudioFool.Core.Library;
 using AudioFool.Core.Models;
@@ -169,10 +170,18 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private bool _isPlaying;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction))]
     private bool _isScanning;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProgressFraction))]
     private double _scanFraction;
+
+    /// <summary>The status bar's progress bar: a library scan, else a quality check.</summary>
+    public bool ShowsProgress => IsScanning || IsCheckingQuality;
+
+    public double ProgressFraction => IsScanning ? ScanFraction
+        : QualityProgress.Total == 0 ? 0 : (double)QualityProgress.Done / QualityProgress.Total;
 
     [ObservableProperty]
     private string _statusText = "Ready";
@@ -1200,9 +1209,109 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var stats = LibraryStatistics.Compute(_folderFilteredLibrary);
         var someHidden = FolderFilters.Any(f => !f.IsEnabled);
 
-        var statsVm = new StatisticsViewModel(stats, someHidden);
+        // The quality section is live: a check running behind the window updates it.
+        using var quality = new QualitySectionViewModel(this);
+        var statsVm = new StatisticsViewModel(stats, someHidden) { QualityCheck = quality };
         if (new StatisticsWindow(statsVm, owner).ShowDialog() == true && statsVm.Chosen is { } row)
             ApplyStatisticsChoice(row);
+    }
+
+    // ------------------------------------------------------------ quality check
+
+    private QualityCache? _qualityCache;
+    private CancellationTokenSource? _qualityCts;
+    private Task<QualityScanSummary>? _qualityScan;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction))]
+    private bool _isCheckingQuality;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProgressFraction))]
+    private QualityScanProgress _qualityProgress;
+
+    /// <summary>Raised on the UI thread whenever new results have been saved.</summary>
+    public event EventHandler? QualityResultsChanged;
+
+    /// <summary>The saved results, read from <c>quality.json</c> the first time they're needed.</summary>
+    private QualityCache QualityResults => _qualityCache ??= QualityCache.Load(QualityCachePath);
+
+    /// <summary>Where the results are kept; ThemeLab points it at a scratch file.</summary>
+    public string QualityCachePath { get; set; } = QualityCache.DefaultPath;
+
+    /// <summary>Counted over what Statistics counts: the ticked folders, ignoring any search.</summary>
+    public QualityStatistics ComputeQualityStatistics() =>
+        QualityStatistics.Compute(_folderFilteredLibrary.AllTracks, QualityResults);
+
+    /// <summary>
+    /// Checks every track in the ticked folders that hasn't been checked yet, in
+    /// the background, with progress in the status bar. Stopping (or closing the
+    /// app) keeps what was done; the next check carries on from there.
+    /// </summary>
+    public void StartQualityCheck()
+    {
+        if (IsCheckingQuality)
+            return;
+
+        _ = RunQualityCheckAsync();
+    }
+
+    public void StopQualityCheck() => _qualityCts?.Cancel();
+
+    private async Task RunQualityCheckAsync()
+    {
+        _runtime.Initialise();
+        var cache = QualityResults;
+        var tracks = _folderFilteredLibrary.AllTracks;
+        var dispatcher = Application.Current.Dispatcher;
+
+        _qualityCts?.Dispose();
+        _qualityCts = new CancellationTokenSource();
+        QualityProgress = default;
+        IsCheckingQuality = true;
+
+        var progress = new Progress<QualityScanProgress>(p =>
+        {
+            QualityProgress = p;
+            StatusText = $"Checking audio quality... {p.Done:N0} of {p.Total:N0} tracks"
+                + (p.Flagged > 0 ? $" · {p.Flagged:N0} found" : "");
+        });
+
+        try
+        {
+            _qualityScan = QualityScanner.RunAsync(tracks, cache, progress, _qualityCts.Token,
+                save: () =>
+                {
+                    cache.Save(QualityCachePath);
+                    dispatcher.BeginInvoke(() => QualityResultsChanged?.Invoke(this, EventArgs.Empty));
+                });
+
+            // Kept, so closing the app can wait for the last save.
+            var summary = await _qualityScan;
+            StatusText = DescribeQualityCheck(summary);
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Quality check failed: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingQuality = false;
+            QualityResultsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private static string DescribeQualityCheck(QualityScanSummary s)
+    {
+        var found = s.Flagged == 1 ? "1 flagged" : $"{s.Flagged:N0} flagged";
+        var message = s.Cancelled
+            ? $"Quality check stopped after {s.Checked:N0} tracks · {found} · it carries on from there next time"
+            : $"Quality check done: {s.Checked:N0} tracks checked · {found} · see Statistics";
+
+        if (s.Missing > 0)
+            message += $" · {s.Missing:N0} not found (is the drive connected?)";
+
+        return message;
     }
 
     /// <summary>What clicking a Statistics row does: go to an artist, or filter to a subset.</summary>
@@ -1252,6 +1361,22 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
 
         _ = ApplyTrackEditAsync(track, editVm.BuildTrackEdit());
+    }
+
+    /// <summary>
+    /// Opens a spectrogram and quality opinion for one track. Not modal, so
+    /// several can be open to compare; each reads its file on its own.
+    /// </summary>
+    [RelayCommand]
+    private void AnalyzeTrack(Track? track)
+    {
+        if (track is null || Application.Current.MainWindow is not { } owner)
+            return;
+
+        // Done at startup already; the decoders it loads are what the analysis reads with.
+        _runtime.Initialise();
+
+        new AnalysisWindow(new AnalysisViewModel(track), owner).Show();
     }
 
     [RelayCommand]
@@ -1850,6 +1975,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         _scanCts?.Cancel();
         _scanCts?.Dispose();
+
+        // Each thread finishes the file it's on (well under a second), then the
+        // results are saved; wait for that rather than lose the last 30 seconds.
+        _qualityCts?.Cancel();
+        _qualityScan?.Wait(TimeSpan.FromSeconds(3));
 
         SaveVolumeOnly();
     }

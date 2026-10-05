@@ -360,6 +360,61 @@ scrobbling but does not reveal your password.
 
 ---
 
+## Analyzing a track
+
+Right-click a song → **Analyze…** opens a window with the track's **spectrogram**
+(time left to right, frequency bottom to top, loudness from black through purple, red
+and orange to yellow) and **AudioFool's opinion** of whether the audio matches what the
+file claims to be: its format, bit depth, sample rate and bitrate, as the song table
+shows them.
+
+The whole file is decoded in the background, about a second or two per track, without
+touching playback. The window isn't modal, so several can be open side by side to
+compare tracks; closing one stops its analysis. If several rows are selected, the one
+you right-clicked is analysed.
+
+The opinion is one of **Consistent**, **Can't tell**, **Possibly not…** or **Not…**,
+with the reasons in plain sentences and the measured figures underneath. What it looks
+for:
+
+- **A lossy source in a lossless file.** MP3 and AAC encoders cut everything above
+  16–20.5 kHz, depending on bitrate, and the spectrum stops dead there. A real CD master
+  fades out, or ends at 21 kHz or above where the converter's filter is. A cutoff below
+  19 kHz is called lossy outright; one between 19 and 20.6 kHz only *possibly* lossy,
+  since a few masters are filtered there too. The cutoff is drawn on the picture as a
+  dashed line.
+- **An MP3 re-encoded from a lower bitrate.** A 320 kbps file that stops at 16 kHz was
+  made from something around 128 kbps. Only *possibly* when it's less than 2 kHz short:
+  older iTunes and Xing encoders cut at 16 kHz whatever the bitrate.
+- **Fake hi-res.** An 88.2 kHz-and-up file (or DSD) with nothing above about 24 kHz, or
+  with a mirror image of the treble just above 22.05 kHz, was upsampled from CD quality.
+  Faint noise only up there is called *possibly* not hi-res.
+- **Fake 24-bit.** A 24-bit file whose music uses only 16 bits, the other eight zero.
+  Real 24-bit audio uses them in nearly every sample; some albums are 16-bit with only
+  the fades or edits done in 24-bit, and those count as fake too.
+
+It can't see everything: a very quiet or dull recording leaves nothing above 14 kHz to
+judge, and is reported as **Can't tell**, as is music that stops below 11 kHz (old
+game samples, lo-fi), since no encoder cuts that low. DSD is read as 176.4 kHz PCM for
+the analysis. Tracker modules have no source quality to check.
+
+### Checking the whole library
+
+Logo menu → **Statistics…** has a **QUALITY CHECK** section with a row per problem:
+likely and possibly transcoded lossless, upscaled and possibly upscaled MP3, fake and
+possibly fake hi-res, and fake 24-bit. Click a row to show those tracks in the library,
+as with the other rows.
+
+**Check quality** reads three 10-second slices of each track (about 11 minutes for
+26,800 tracks, on four background threads while you keep listening; the slices gave the
+same verdict as reading whole tracks). Progress shows in the status bar, and Statistics
+can be closed while it runs. The results are kept in
+`%LOCALAPPDATA%\AudioFool\quality.json`, so later checks only read new or changed
+files, and stopping (or quitting) keeps what was done. A result follows its file to a
+new drive letter; a retagged file is checked again. Only the ticked folders are checked.
+
+---
+
 ## Output modes
 
 The **Bit-Perfect** switch in the bottom-right of the status bar chooses how audio

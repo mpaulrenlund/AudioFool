@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-05 after the thirty-third build session. Read this alongside
+Updated 2026-10-05 after the thirty-fourth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1433,6 +1433,139 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
 
+### Changes from session 34, part 2 (2026-10-05): the quality check in Statistics
+
+The user asked for the Analyze findings across the library in Statistics ("Likely
+Transcoded or fake Flac, Upscaled mp3, etc."). **Their choices**: a sampled check, started
+by a button; all four kinds of problem; the *possibly* cases as separate rows.
+**497 tests pass** (479 + 18). Not committed.
+
+- **Statistics → QUALITY CHECK** (left column, under Audio Quality), seven rows, yellow
+  like Missing tags, each clickable to filter the library: Likely / Possibly transcoded
+  lossless, Upscaled / Possibly upscaled MP3, Fake / Possibly fake hi-res, Fake 24-bit
+  (`QualityStatistics.Rows`). A summary line ("982 of 26,861 tracks checked...") and one
+  button: Check quality / Check the rest / Stop checking / All checked. **The section is
+  live** (`QualitySectionViewModel`), unlike the rest of Statistics: the check runs in
+  `MainViewModel` and carries on after the window closes; its progress and each saved
+  batch update the open window. Progress also shows in the status bar (text and the
+  scan bar: `ShowsProgress` / `ProgressFraction` now cover both a scan and a check).
+- **Sampled reads** (`AnalysisSampling.Library`: three 10 s slices at ¼, ½, ¾; a track
+  under a minute is read whole). `SpectrumAccumulator.Restart()` between slices so no
+  transform spans a join; tested (a join heard as a click fills in the empty band).
+  MP3s skip Prescan when sampled. **Measured**: the 30 test files gave the same verdict
+  sampled as whole, 6-10× faster. Throughput is linear in threads: 13/s on 1, 42/s on
+  4, 74-83/s on 8. `QualityScanner` uses a quarter of the cores, at most 4, at
+  BelowNormal priority: about 11 minutes for the library.
+- **The run over 1,200 random tracks changed three rules** (the flagged files were read
+  through one by one):
+  - **A cutoff under 11 kHz is the music, not an encoder** (`LowestEncoderCutoffHz`):
+    *Father* (Aphex Twin, 2.2 kHz), an N64 Zelda track (6.4 kHz) and a Liquid Tension
+    Experiment track (6.7 kHz) had been called lossy. Now *Can't tell*.
+  - **MP3s less than 2 kHz short of their bitrate's cutoff are only *possibly*
+    re-encoded** (new flag `PossiblyReEncodedLossy`): many 192 kbps files stop at 16 kHz,
+    which older iTunes and Xing encoders do at any bitrate.
+  - **Fake 24-bit counts samples, not bits** (`SpectrumAnalysis.ExtraBitsShare`): Bit
+    Brigade's *Batman* is 16-bit music with 24-bit fades, so any-sample-uses-24-bits said
+    "real" while the music isn't. Under half the non-silent samples using more than 16
+    bits is now *Not true 24-bit*. Real 24-bit measured 99.4-99.6%.
+- **The noisiest row is Possibly transcoded lossless** (19-20.6 kHz): ~2% of tracks,
+  many of them early digital masters filtered at 20 kHz (*Brothers in Arms*, Doobie
+  Brothers compilations, live Ozric Tentacles). That's why it's a separate row. A known
+  way to separate those from LAME (LAME's patchy content above 16 kHz over time) was not
+  built.
+- **Results**: `%LOCALAPPDATA%\AudioFool\quality.json` (`QualityCache`), saved every
+  30 s, at the end and on Stop; closing the app waits up to 3 s for the last save.
+  Keyed by **file name + size + write time**, not path, so results follow a drive-letter
+  change and a retagged file is checked again; `QualityCache.CurrentVersion` (1) must be
+  bumped whenever the rules change, which makes the next check re-read everything. A
+  file that's missing (drive out) isn't recorded; one that can't be decoded is, as
+  *Can't tell*. The rows' filters match by key too, so a fixed (retagged) file drops out.
+- **`Finding.Flag` / `Opinion.Flags`** (`QualityFlag`) are what's counted; the Analyze
+  window is unchanged apart from the three rules above.
+- **Verified** with ThemeLab **`--window stats --qualitycache <scratch file>
+  [--qualitycheck 1] [--qualitystop <s>]`**, which loads the real library, runs the
+  real check (reading `D:\Music`, results only in the scratch file) and prints the
+  section. Stopped at 20 s: 982 tracks, 53 flagged, the section and button right; then
+  resumed, which skipped those 982 and checked the other **25,879 in 9 min 26 s** with
+  no failures. Whole library: likely transcoded lossless 135, possibly 519; upscaled MP3
+  154, possibly 346; fake hi-res 75, possibly 52; fake 24-bit 123 (1,404 flags). The
+  biggest albums per row are believable: stream-captured live sets (Justice at the Accor
+  Arena as FLAC, Justice's Coachella as MP3), game rips (Wipeout Omega), live discs sold
+  as hi-res (Rush's *Grace Under Pressure* Super Deluxe, Bring Me the Horizon's Royal
+  Albert Hall), and 24-bit releases of 16-bit masters (Howard Shore's *The Two Towers*,
+  *Sempiternal*). Render checked, 0 magenta. **The real app hasn't run a check**: those
+  results are in a scratch file, so the user's first press of Check quality reads the
+  whole library (about 10 minutes).
+
+### Changes from session 34 (2026-10-05): Analyze, a spectrogram and a quality opinion
+
+Right-click a song → **Analyze…** (the user's request). User-facing behaviour is in the
+README's *Analyzing a track*. **479 tests pass** (436 + 15 in `SpectrumAnalysisTests` +
+28 in `QualityOpinionTests`). Installed; the installed build starts. Not committed.
+
+- **The user's choices**: a spectrogram (over an average-spectrum curve or both), a
+  heat-map colour scale (over greyscale or teal; it adds colours outside the spec's
+  roles, kept to the picture and defined as tokens), and a separate, non-modal window.
+- **Core, `AudioFool.Core/Analysis/`**:
+  - `Fft` (radix-2, tables built once) and `SpectrumAccumulator` (pure, no BASS): Hann
+    windows of about 11 Hz per bin at any rate (4,096 at 44.1/48 kHz, doubling with the
+    rate), channels averaged by power so out-of-phase content can't cancel, a full-scale
+    sine at 0 dB. It keeps the mean and peak spectrum per bin and an 800 × 512 picture
+    (mean power per band per time slice). For a lossless source over 16 bits it ORs
+    every sample on the 24-bit grid to count the bits used.
+  - `TrackAnalyzer`: its own decode-only float stream (never the engine's or the
+    device), MP3s prescanned, **DSD converted at 176.4 kHz** through BassDsd's
+    `CreateStream` frequency argument rather than the global `DSDFrequency`, which
+    playback owns. About 400× real time off the USB SSD: 0.2–0.9 s for a CD-rate track,
+    1.3–2 s for 96/192 kHz and DSD128.
+  - `QualityOpinion`: pure, tested on synthetic spectra. The rules and why are in its
+    doc comment. A **cliff** is ≥ 20 dB lost within 0.5 kHz against the median of the
+    kilohertz below (so one loud FM-synth partial can't fake one), never coming back
+    within 15 dB. Lossless: cliff < 19 kHz → *Made from a lossy file*; 19–20.6 kHz →
+    *Possibly from a lossy file*; 21 kHz+ is a converter's filter. Lossy: a cutoff under
+    LAME's usual one for the stated bitrate → *Re-encoded from a lower bitrate*. Hi-res
+    and DSD: a cliff under 24.5 kHz, a notch at 22.05 or 24 kHz with louder content
+    both sides (imaging), or 25–32 kHz at decoder silence → *Not true hi-res*; 25–32 kHz
+    ≥ 35 dB under the 14–19 kHz treble → *Possibly not*. 24-bit using ≤ 16 bits → *Not
+    true 24-bit*. Too quiet, too short, or no treble → *Can't tell*. The worst finding
+    sets the verdict; findings are listed worst first.
+- **Measured on the real library before setting the thresholds** (headless probe in
+  the session scratchpad, `aprobe`): 25 real files and five fakes made from them (an MP3
+  decoded to a 16-bit WAV, twice; a CD track and an MP3 upsampled to 96 kHz through
+  BASSmix; 16-bit padded to 24). Every genuine CD-rate file reads Consistent, including
+  Bring Me the Horizon and James Taylor, whose converter walls are at 21.1–21.3 kHz;
+  every fake is caught. MP3 cutoffs: 320 kbps 20.3 kHz (ELO's 21.6), 198 kbps 18.8, a
+  48 kHz 128 kbps 16.8. Two real hi-res files are flagged: **Metallica's 96 kHz *My
+  Friend of Misery*** (a gap at 22.05 kHz with the treble mirrored above it, plainly
+  visible in the picture) and, as *possibly*, **Evangelion's 192 kHz *Interference of
+  Others*** (only noise above 25 kHz, 43 dB down). BBNG, Daft Punk, RHCP, Muse, Pet
+  Sounds, the 16/96 MMW and the Pink Floyd DSD128 read Consistent.
+- **Not decided by the data**: the 19–20.6 kHz band. A 320 kbps MP3 decoded to FLAC
+  cuts at 20.2 kHz and reads *Possibly*, not *Made from*; no honest master in the sample
+  had a wall that low, but the line was drawn conservatively. **Bit counting needs BASS
+  to hand back exact 24-bit values as float**; it does (real 24-bit FLACs read 24, the
+  padded fake 16).
+- **App**: `AnalysisViewModel` runs it on `Task.Run` and builds the frozen bitmap there
+  (`Services/SpectrogramImage`, the six `color.spectrogram.level*` tokens between
+  `analysis.floorDb` −120 and `analysis.topDb` −20). `AnalysisWindow` draws the axes,
+  colour legend and the dashed cutoff marker (`color.spectrogram.marker`, the slider
+  thumb's off-white) in code from the picture's size; the picture is an `ImageBrush`
+  so the row, not the 512 px bitmap, sets its height (min `analysis.pictureHeight`
+  300, growing with the window). Placed over the main window, each further one stepped
+  down a title bar's height; kept on screen as the opinion makes it taller. Escape or
+  Close closes it and cancels. `MainViewModel.AnalyzeTrackCommand`; the row's menu
+  item sits under Edit Tags….
+- **Verified** with ThemeLab **`--window analysis --file <audio> [--state
+  working|error]`** (runs the analysis with the dispatcher pumped, then renders and
+  prints the opinion, the picture frame, every axis label and the marker) on Metallica,
+  the upsampled-MP3 fake, a 320 kbps MP3, the DSD and the two states: renders checked,
+  0 magenta on `--bg "#FF00FF"`. **`--trackmenu 1`** opens a song row's menu off-screen:
+  Edit Tags… and Analyze… both bound, enabled, parameter the row's track.
+  `--window tokens` passes; `ThemeTokensTests` counts 59 colours.
+- **Not exercised in the running app**: the real right-click, the window shown on
+  screen (placement, cascading, resizing, Escape), and cancelling by closing mid-read.
+  The user should try it.
+
 ### Changes from session 33 (2026-10-05): full release date in the header, reopen where you left off
 
 Commits `49e04de` and `b9fa5b2`, pushed to `origin/main`. **436 tests pass** (425 + 5
@@ -1950,6 +2083,25 @@ covers. Work is on `main`, no branch, at the user's request.
 | `src/AudioFool/Theming/TokenExtensions.cs` | `{theme:Token key}` and `{theme:Thickness ...}` markup extensions. |
 | `tests/AudioFool.Core.Tests/ThemeTokensTests.cs` | 27 tests: colour and shadow parsing, the path walk, reference checks, the shipped file. |
 | `tools/themelab/TokenSheet.cs` | `--window tokens`. |
+
+## New source files added in session 34
+
+| File | Purpose |
+|---|---|
+| `src/AudioFool.Core/Analysis/Fft.cs` | Radix-2 complex FFT of one fixed size. |
+| `src/AudioFool.Core/Analysis/SpectrumAccumulator.cs` | Samples in, `SpectrumAnalysis` out: mean and peak spectra, the 800 × 512 picture, the peak sample, the 24-bit bit count. Pure. |
+| `src/AudioFool.Core/Analysis/TrackAnalyzer.cs` | Opens a decode-only BASS stream (DSD at 176.4 kHz) and feeds the accumulator, with progress and cancellation. `AnalysisException` for a file it can't read. |
+| `src/AudioFool.Core/Analysis/QualityOpinion.cs` | `QualityClaim` (what the file says), the cliff and image-notch detectors, and the `Opinion`: verdict, headline, findings worst first, cutoff. Pure. |
+| `src/AudioFool/Services/SpectrogramImage.cs` | Paints the picture with the heat-map tokens; the legend gradient. |
+| `src/AudioFool/ViewModels/AnalysisViewModel.cs` | Runs the analysis in the background; the headline, explanations and footer figures. |
+| `src/AudioFool/AnalysisWindow.xaml[.cs]` | The non-modal window: picture, axes, legend, cutoff marker, opinion. |
+| `tests/AudioFool.Core.Tests/SpectrumAnalysisTests.cs` | 19 tests on synthetic audio: the FFT, 0 dB calibration, power averaging, the picture's rows, short and silent tracks, bit counting and its share, restarts between slices, where slices go. |
+| `tests/AudioFool.Core.Tests/QualityOpinionTests.cs` | 36 tests on synthetic spectra, one per rule and flag, plus the claim and kHz wording. |
+| `src/AudioFool.Core/Analysis/QualityCache.cs` | (part 2) The saved check results, `quality.json`, keyed by file name + size + write time. |
+| `src/AudioFool.Core/Analysis/QualityScanner.cs` | (part 2) The library check: sampled reads on background threads, progress, periodic saves, stop and resume. |
+| `src/AudioFool.Core/Analysis/QualityStatistics.cs` | (part 2) The QUALITY CHECK rows and their filters. |
+| `src/AudioFool/ViewModels/QualitySectionViewModel.cs` | (part 2) The live Statistics section: rows, summary, Check / Stop button. |
+| `tests/AudioFool.Core.Tests/QualityCheckTests.cs` | (part 2) 6 tests: the cache's key and round trip, the scanner with a fake analyser (skip, missing, unreadable, cancel), the rows and filters. |
 
 ## Logo and icon resource files
 
@@ -2659,6 +2811,12 @@ off-screen window, so focus rings can be reviewed.
 - **Replacing a `TitleBarButton`'s template drops its `CommandParameter`.** WPF-UI sets
   it in the template's own triggers, and it is the only thing telling the shared command
   which button was pressed. `theme.windowButton` restates it per `ButtonType`.
+- **A ProgressBar's (any RangeBase's) `Value` binds two-way by default.** Bound to a
+  read-only property it throws at load and the app won't start (session 34: the status
+  bar's `ProgressFraction`; the user hit it). Add `Mode=OneWay`.
+- **"The process is alive" is not a smoke test.** An unhandled-error dialog keeps the
+  process running and responding. After installing, find the main window by process id
+  with UI Automation and confirm `SearchBox` is in it (the snippet is in session 34).
 - **`library.json` can list files that no longer exist.** It still held 2 m4a and
   10 wav files deleted since the last full scan. Before picking a sample file from
   the cache, check that it exists (`Test-Path -LiteralPath`).

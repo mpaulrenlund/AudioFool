@@ -90,6 +90,9 @@ public sealed class StatisticsViewModel
     public IReadOnlyList<BarRow> AlbumGaps { get; }
     public string TagSummary { get; }
 
+    /// <summary>The library check's section, which updates while a check runs.</summary>
+    public QualitySectionViewModel? QualityCheck { get; init; }
+
     /// <summary>The row the window was closed by clicking, if any.</summary>
     public BarRow? Chosen { get; set; }
 

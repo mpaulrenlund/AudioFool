@@ -681,6 +681,10 @@
                                             <MenuItem Header="Edit Tags…"
                                                       Command="{Binding Source={StaticResource Proxy}, Path=Data.EditTrackTagsCommand}"
                                                       CommandParameter="{Binding}" />
+                                            <!-- The row right-clicked, even when several are selected. -->
+                                            <MenuItem Header="Analyze…"
+                                                      Command="{Binding Source={StaticResource Proxy}, Path=Data.AnalyzeTrackCommand}"
+                                                      CommandParameter="{Binding}" />
                                         </ContextMenu>
                                     </Setter.Value>
                                 </Setter>
@@ -1119,10 +1123,10 @@
                          Style="{StaticResource theme.scanProgress}"
                          Margin="{theme:Thickness Left=statusBar.chipGap}"
                          Minimum="0" Maximum="1"
-                         Value="{Binding ScanFraction}"
+                         Value="{Binding ProgressFraction, Mode=OneWay}"
                          VerticalAlignment="Center"
                          AutomationProperties.Name="Scan progress"
-                         Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" />
+                         Visibility="{Binding ShowsProgress, Converter={StaticResource BoolToVisibility}}" />
 
             <!--
                 Last.fm, only while there is no working session (the user's call):

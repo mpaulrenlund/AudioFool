@@ -1,0 +1,172 @@
+<ui:FluentWindow x:Class="AudioFool.AnalysisWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:theme="clr-namespace:AudioFool.Theming"
+                 xmlns:fmt="clr-namespace:AudioFool.Formatting"
+                 Title="{Binding WindowTitle}"
+                 Icon="/Resources/AudioFool.ico"
+                 Width="{theme:Token analysis.width}" SizeToContent="Height"
+                 MinWidth="{theme:Token analysis.minWidth}" MinHeight="{theme:Token analysis.minHeight}"
+                 WindowStartupLocation="Manual"
+                 WindowBackdropType="None"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowCornerPreference="Round">
+
+    <ui:FluentWindow.Resources>
+        <Style x:Key="SectionHeader" TargetType="TextBlock" BasedOn="{StaticResource type.panelHeader}">
+            <Setter Property="fmt:LetterSpacing.Em" Value="{DynamicResource type.panelHeader.letterSpacingEm}" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="Body" TargetType="TextBlock" BasedOn="{StaticResource type.tableCell}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextTrimming" Value="None" />
+        </Style>
+
+        <!-- Axis labels: the fine print, placed by code on the canvases. -->
+        <Style x:Key="AxisLabel" TargetType="TextBlock" BasedOn="{StaticResource type.albumMeta}" />
+    </ui:FluentWindow.Resources>
+
+    <Grid Background="{DynamicResource color.window.bg}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar x:Name="Bar" Grid.Row="0"
+                     Style="{DynamicResource theme.dialogTitleBar}"
+                     Header="{DynamicResource theme.dialogTitle}" />
+
+        <Grid Grid.Row="1" Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="{Binding TrackTitle}"
+                       Style="{DynamicResource type.songTitle}"
+                       FontWeight="{DynamicResource dialog.emphasisWeight.fontWeight}"
+                       TextTrimming="CharacterEllipsis" />
+            <TextBlock Grid.Row="1" Text="{Binding Subtitle}"
+                       Style="{DynamicResource type.albumMeta}"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="{theme:Thickness Top=analysis.headerGap, Bottom=dialog.paddingTop}" />
+
+            <!--
+                The spectrogram in a panel, like a Statistics section: frequency on
+                the left axis, time along the bottom, the colour scale on the right.
+                It takes any height the window is given beyond its minimum.
+            -->
+            <HeaderedContentControl Grid.Row="2" Style="{DynamicResource theme.panel}">
+                <HeaderedContentControl.Header>
+                    <TextBlock Text="SPECTRUM" Style="{StaticResource SectionHeader}" />
+                </HeaderedContentControl.Header>
+
+                <Grid Margin="{theme:Thickness X=layout.panelHeaderPaddingX, Top=dialog.paddingTop, Bottom=analysis.axisGap}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="{theme:Token analysis.freqAxisWidth}" />
+                        <ColumnDefinition Width="{theme:Token analysis.axisGap}" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="{theme:Token analysis.legendGap}" />
+                        <ColumnDefinition Width="{theme:Token analysis.legendWidth}" />
+                        <ColumnDefinition Width="{theme:Token analysis.axisGap}" />
+                        <ColumnDefinition Width="{theme:Token analysis.freqAxisWidth}" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" MinHeight="{theme:Token analysis.pictureHeight}" />
+                        <RowDefinition Height="{theme:Token analysis.axisGap}" />
+                        <RowDefinition Height="{theme:Token analysis.timeAxisHeight}" />
+                    </Grid.RowDefinitions>
+
+                    <Canvas x:Name="FrequencyAxis" Grid.Column="0" Grid.Row="0" ClipToBounds="False" />
+
+                    <Border x:Name="PictureFrame" Grid.Column="2" Grid.Row="0"
+                            BorderBrush="{DynamicResource color.art.border}"
+                            BorderThickness="{theme:Thickness All=layout.panelBorder}"
+                            Background="{DynamicResource color.spectrogram.level0}"
+                            SnapsToDevicePixels="True">
+                        <Grid>
+                            <!-- A brush, not an Image: it has no size of its own, so the
+                                 picture is the row's height rather than the bitmap's. -->
+                            <Border>
+                                <Border.Background>
+                                    <ImageBrush ImageSource="{Binding Picture}" Stretch="Fill"
+                                                RenderOptions.BitmapScalingMode="HighQuality" />
+                                </Border.Background>
+                            </Border>
+                            <Canvas x:Name="Overlay" ClipToBounds="True" IsHitTestVisible="False" />
+
+                            <!-- While the file is read: a progress line on the panel grey. -->
+                            <Border Background="{DynamicResource color.panel.bg}"
+                                    Visibility="{Binding IsWorking, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Status}" Style="{DynamicResource type.tableCell}"
+                                               HorizontalAlignment="Center" />
+                                    <ProgressBar Style="{DynamicResource theme.scanProgress}"
+                                                 Width="{theme:Token analysis.progressWidth}"
+                                                 Margin="{theme:Thickness Top=dialog.fieldGap}"
+                                                 Minimum="0" Maximum="1" Value="{Binding Progress, Mode=OneWay}" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- A file that can't be read: the reason, no colour (like a dialog error). -->
+                            <Border Background="{DynamicResource color.panel.bg}"
+                                    Visibility="{Binding Error, Converter={StaticResource NullToCollapsed}}">
+                                <TextBlock Text="{Binding Error}" Style="{StaticResource Body}"
+                                           Foreground="{DynamicResource color.text.heading}"
+                                           FontWeight="{DynamicResource dialog.emphasisWeight.fontWeight}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           TextAlignment="Center"
+                                           Margin="{theme:Thickness X=dialog.paddingX}" />
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <Border x:Name="Legend" Grid.Column="4" Grid.Row="0"
+                            BorderBrush="{DynamicResource color.art.border}"
+                            BorderThickness="{theme:Thickness All=layout.panelBorder}"
+                            SnapsToDevicePixels="True" />
+                    <Canvas x:Name="LegendAxis" Grid.Column="6" Grid.Row="0" ClipToBounds="False" />
+
+                    <Canvas x:Name="TimeAxis" Grid.Column="2" Grid.Row="2" ClipToBounds="False" />
+                </Grid>
+            </HeaderedContentControl>
+
+            <!-- AudioFool's opinion: the verdict, then each finding's reasons. -->
+            <StackPanel Grid.Row="3" Margin="{theme:Thickness Top=analysis.sectionGap}"
+                        Visibility="{Binding Opinion, Converter={StaticResource NullToCollapsed}}">
+                <TextBlock x:Name="HeadlineText" Text="{Binding Headline}"
+                           Style="{DynamicResource type.nowPlayingTitle}"
+                           TextWrapping="Wrap" />
+                <ItemsControl x:Name="ExplanationList" ItemsSource="{Binding Explanations}" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Style="{StaticResource Body}"
+                                       Margin="{theme:Thickness Top=analysis.findingGap}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop, Bottom=dialog.paddingBottom}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="FactsText" Grid.Column="0" Text="{Binding Facts}"
+                       Style="{DynamicResource type.albumMeta}"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center"
+                       Margin="{theme:Thickness Right=dialog.buttonGap}" />
+            <Button x:Name="CloseButton" Grid.Column="1" Content="Close" IsCancel="True"
+                    Style="{StaticResource theme.dialogButton}"
+                    Click="Close_Click" />
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

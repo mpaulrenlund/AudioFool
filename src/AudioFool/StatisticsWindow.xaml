@@ -225,6 +225,35 @@
                             <ItemsControl x:Name="QualityList" ItemsSource="{Binding Quality}"
                                           Style="{StaticResource SectionList}" />
                         </HeaderedContentControl>
+
+                        <!--
+                            The library check (Analyze, across the library). Live, unlike
+                            the rest: a check running behind the window updates it. Yellow
+                            like the missing tags: each row is something to look at.
+                        -->
+                        <HeaderedContentControl Style="{StaticResource Section}"
+                                                Visibility="{Binding QualityCheck, Converter={StaticResource NullToCollapsed}}">
+                            <HeaderedContentControl.Header>
+                                <TextBlock Text="QUALITY CHECK" Style="{StaticResource SectionHeader}" />
+                            </HeaderedContentControl.Header>
+                            <StackPanel DataContext="{Binding QualityCheck}"
+                                        Margin="{theme:Thickness X=layout.panelHeaderPaddingX, Y=statistics.sectionPaddingY}">
+                                <TextBlock x:Name="QualitySummary" Text="{Binding Summary}"
+                                           Style="{StaticResource Body}"
+                                           Margin="{theme:Thickness Bottom=statistics.summaryGap}" />
+                                <ItemsControl x:Name="QualityCheckList" ItemsSource="{Binding Rows}"
+                                              Style="{StaticResource SectionList}"
+                                              Tag="{DynamicResource color.status.lastFmOff}"
+                                              Margin="0"
+                                              Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}" />
+                                <Button x:Name="QualityCheckButton"
+                                        Content="{Binding ButtonText}"
+                                        Command="{Binding ToggleCommand}"
+                                        Style="{StaticResource theme.dialogButton}"
+                                        HorizontalAlignment="Left"
+                                        Margin="{theme:Thickness Bottom=statistics.sectionPaddingY}" />
+                            </StackPanel>
+                        </HeaderedContentControl>
                     </StackPanel>
 
                     <StackPanel Grid.Column="2">
