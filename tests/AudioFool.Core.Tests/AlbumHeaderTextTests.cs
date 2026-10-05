@@ -19,6 +19,18 @@ public class AlbumHeaderTextTests
     }
 
     [Theory]
+    [InlineData("2022-05-13", 2022, "2022-05-13")]
+    [InlineData("2022-05", 2022, "2022-05")]
+    [InlineData("2022", 2022, "2022")]
+    [InlineData(null, 2022, "2022")]
+    [InlineData(null, null, "Year unknown")]
+    public void Header_date_is_the_full_date_when_there_is_one(string? sortDate, int? year, string expected)
+    {
+        var album = new Album { Title = "A", ArtistName = "B", Year = year, SortDate = sortDate };
+        Assert.Equal(expected, album.DateDisplay);
+    }
+
+    [Theory]
     [InlineData(9, 13, "9 of 13 tracks")]
     [InlineData(1, 13, "1 of 13 tracks")]
     [InlineData(13, 13, "13 tracks")]

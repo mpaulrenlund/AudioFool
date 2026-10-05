@@ -1450,9 +1450,8 @@ almost every album with exactly 9 tracks.
   10) were written as "1/9" … "9/9" on `D:\Music`, read from the raw `TRCK` frames.
   AudioFool never fills a total in by itself, so 9 was typed, presumably from the
   header, and Edit Album Tags opened from a filtered album wrote only those 9 tracks.
-  **Not repaired**: the user chose to fix the trap first. 64 files changed that
-  morning; the other folders (Marcus Miller *M2* and *Marcus Miller*, She *Rift*,
-  `SSD Library`) weren't checked.
+  **Repaired by the user** (confirmed 2026-10-05); nothing more to do or report
+  on it.
 - **The header says "9 of 13 tracks"** while a search or filter shows part of an
   album (`Album.TrackCountDisplayWithin`), "13 tracks" otherwise. The duration and
   the track list still cover only the shown tracks.
@@ -1627,7 +1626,8 @@ Missing tags, yellow like it, with three rows:
   Details, numbers and the spec rewording in `design/progress.md`. Checked: probe at
   three Albums widths and at the minimum width, the Tab walk, `--window tokens`, focus
   rings on the stack (`--focus X --focusvisual 1`), the badge at 4x, 425 tests.
-  **Not seen in the running app.**
+  **Seen in the running app** (the user's screenshot, 2026-10-05: Previous on the
+  panel edge, the Repeat/Shuffle stack, the 4 px menu corners).
 - **The shell's `library.json` is current as of 2 October, 08:03**: the installed
   build's smoke test rescanned `D:\Music` into the container copy. The figures above
   include this morning's "of 9" edits.

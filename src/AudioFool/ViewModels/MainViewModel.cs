@@ -484,7 +484,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// </summary>
     public string AlbumHeaderArtist => SelectedAlbum?.Album.ArtistName ?? "";
 
-    public string AlbumHeaderYear => SelectedAlbum?.Album.YearDisplay ?? "";
+    /// <summary>The full date (YYYY-MM-DD) when the files have one, else the year.</summary>
+    public string AlbumHeaderYear => SelectedAlbum?.Album.DateDisplay ?? "";
 
     /// <summary>"13 tracks", or "9 of 13 tracks" while a search or filter shows part of it.</summary>
     public string AlbumHeaderTrackCount => SelectedAlbum is { } item

@@ -37,6 +37,13 @@ public sealed class Album
     /// <summary>"1975" or "Year unknown", for the album list subtitle.</summary>
     public string YearDisplay => Year?.ToString() ?? "Year unknown";
 
+    /// <summary>
+    /// "2022-05-13" when the files carry a full date, "2022-05" for a month, else
+    /// <see cref="YearDisplay"/>, for the album header. It is the date the album
+    /// sorts by, so a year-only track in the set can win over its dated siblings.
+    /// </summary>
+    public string DateDisplay => SortDate ?? YearDisplay;
+
     /// <summary>"1 track" / "21 tracks", for the album header.</summary>
     public string TrackCountDisplay => Tracks.Count == 1 ? "1 track" : $"{Tracks.Count} tracks";
 
