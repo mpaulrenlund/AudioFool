@@ -145,13 +145,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private Track? _nowPlaying;
 
     /// <summary>
-    /// The now-playing format line (spec 6.7): "MP3 · 320 kbps · 44.1 kHz",
-    /// leaving out whatever the file doesn't report.
+    /// The now-playing format line: the quality tier, "Hi-Res Lossless", "CD
+    /// Quality Lossless", "Lossy" or "DSD" (the user's call, replacing spec 6.7's
+    /// "MP3 · 320 kbps · 44.1 kHz"). Same rule as the Statistics Audio Quality rows.
     /// </summary>
-    public string NowPlayingFormat => NowPlaying is { } track
-        ? string.Join(" · ", new[] { track.Kind, Display.Bitrate(track.Bitrate), Display.SampleRate(track.SampleRate) }
-            .Where(part => part.Length > 0))
-        : "";
+    public string NowPlayingFormat => NowPlaying is { } track ? LibraryStatistics.Badge(track) : "";
 
     /// <summary>
     /// The window's own title, which the in-app title bar does not show. It is
@@ -868,7 +866,55 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (found.Track is { } track
             && Tracks.FirstOrDefault(t => string.Equals(t.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase)) is { } shown)
+        {
             RevealTrackRequested?.Invoke(this, shown);
+            ShowRestoredTrack(shown);
+        }
+    }
+
+    /// <summary>
+    /// The album the restored track was on, for Play to start from it. Null once
+    /// anything has played, after which Play behaves as it always has.
+    /// </summary>
+    private List<Track>? _restoredQueue;
+
+    /// <summary>
+    /// Fills the now-playing bar with last time's track (the user's request), at
+    /// 0:00 and stopped: nothing is loaded into the engine and nothing is sent to
+    /// Last.fm. Pressing Play starts this track, in its album.
+    /// </summary>
+    private void ShowRestoredTrack(Track track)
+    {
+        _restoredQueue = Tracks.ToList();
+
+        NowPlaying = track;
+        DurationSeconds = track.Duration.TotalSeconds;
+        DurationDisplay = Display.Time(track.Duration);
+
+        _ = LoadNowPlayingArtAsync(track);
+    }
+
+    /// <summary>
+    /// Plays the restored track if Play is pressed before anything else has
+    /// played. The queue is mapped to the library's current copies, so a tag save
+    /// since startup is honoured.
+    /// </summary>
+    private bool PlayRestoredTrack()
+    {
+        if (_restoredQueue is not { } queue || NowPlaying is not { } shown)
+            return false;
+
+        _restoredQueue = null;
+
+        var current = queue.Select(LibraryCopyOf).ToList();
+        var index = current.FindIndex(t => string.Equals(t.FilePath, shown.FilePath, StringComparison.OrdinalIgnoreCase));
+        if (index < 0)
+            return false;
+
+        if (!_engine.Play(current, index))
+            StatusText = $"Couldn't play {Path.GetFileName(shown.FilePath)}. The format may need an add-on that isn't installed.";
+
+        return true;
     }
 
     /// <summary>
@@ -1735,6 +1781,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         if (_engine.State == PlaybackState.Stopped)
         {
+            if (PlayRestoredTrack())
+                return;
+
             PlayTrack(Tracks.FirstOrDefault());
             return;
         }
@@ -1885,6 +1934,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // different object, would lose the grid's now-playing note too.
         var track = LibraryCopyOf(engineTrack);
 
+        _restoredQueue = null;
         NowPlaying = track;
         RememberLastPlayed(track);
 

@@ -185,7 +185,8 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "analysis" || Arg(args, "--qualitycheck") is not null)
+        if (which is "queue" or "clicks" or "seek" or "analysis" || Arg(args, "--qualitycheck") is not null
+            || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
         var runtime = new BassRuntime();
@@ -245,6 +246,37 @@ internal static class Program
                     .Where(i => lpGrid.ItemContainerGenerator.ContainerFromIndex(i) is System.Windows.Controls.DataGridRow { IsSelected: true })
                     .Select(i => i + 1);
                 Console.WriteLine($"rows whose container IsSelected: {string.Join(",", flagged)}");
+                Console.WriteLine($"now-playing bar: '{vm.NowPlaying?.DisplayTitle}' / '{vm.NowPlaying?.Artist}' / '{vm.NowPlayingFormat}' " +
+                                  $"duration {vm.DurationDisplay}, art {(vm.NowPlayingArt is null ? "none" : $"{vm.NowPlayingArt.PixelWidth}px")}, " +
+                                  $"playing {vm.IsPlaying}, engine {engine.State}");
+
+                // --restoreplay 1: press Play (silently, engine volume 0) and report
+                // which track the engine starts and where it sits in its queue.
+                if (Arg(args, "--restoreplay") is not null)
+                {
+                    // Pick another album first: Play must still start the restored track.
+                    if (Arg(args, "--restoreplayfrom") is { } otherArtist
+                        && vm.Artists.FirstOrDefault(a => a.Name == otherArtist) is { } other)
+                    {
+                        vm.SelectedArtist = other;
+                        Pump();
+                        Console.WriteLine($"moved to: '{vm.SelectedArtist?.Name}' / '{vm.SelectedAlbum?.Album.Title}'");
+                    }
+
+                    engine.Volume = 0;
+                    vm.TogglePlayCommand.Execute(null);
+                    var clock = System.Diagnostics.Stopwatch.StartNew();
+                    while (engine.CurrentTrack is null && clock.ElapsedMilliseconds < 5000)
+                        Settle(10);
+                    Settle(300);
+                    Console.WriteLine($"Play -> engine '{engine.CurrentTrack?.DisplayTitle}' ({engine.State}), " +
+                                      $"bar '{vm.NowPlaying?.DisplayTitle}', playing {vm.IsPlaying}");
+                    vm.NextCommand.Execute(null);
+                    Settle(500);
+                    Console.WriteLine($"Next -> engine '{engine.CurrentTrack?.DisplayTitle}', bar '{vm.NowPlaying?.DisplayTitle}'");
+                    engine.Stop();
+                    Settle(100);
+                }
             }
         }
         else if (which is "edit" or "queue" or "clicks")

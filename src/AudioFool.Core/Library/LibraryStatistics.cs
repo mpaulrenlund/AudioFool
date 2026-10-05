@@ -177,15 +177,28 @@ public sealed class LibraryStatistics
     /// </summary>
     public const int HighBitrateKbps = 256;
 
+    /// <summary>
+    /// The Statistics row label, in the user's wording. "Over 256 kbps" includes
+    /// 256 itself, as <see cref="Classify"/> does.
+    /// </summary>
     public static string Describe(QualityTier tier) => tier switch
     {
-        QualityTier.HiRes => "Hi-res lossless",
-        QualityTier.CdQuality => "CD-quality lossless",
+        QualityTier.HiRes => "Hi-Res Lossless",
+        QualityTier.CdQuality => "CD Quality Lossless",
         QualityTier.Dsd => "DSD",
-        QualityTier.LossyHigh => $"Lossy, {HighBitrateKbps} kbps and up",
-        QualityTier.LossyLow => $"Lossy, under {HighBitrateKbps} kbps",
-        QualityTier.Module => "Tracker module",
+        QualityTier.LossyHigh => $"Lossy - Over {HighBitrateKbps} kbps",
+        QualityTier.LossyLow => $"Lossy - Under {HighBitrateKbps} kbps",
+        QualityTier.Module => "Tracker Module",
         _ => tier.ToString(),
+    };
+
+    /// <summary>
+    /// The now-playing bar's quality line: the tier without the bitrate split.
+    /// </summary>
+    public static string Badge(Track track) => Classify(track) switch
+    {
+        QualityTier.LossyHigh or QualityTier.LossyLow => "Lossy",
+        var tier => Describe(tier),
     };
 
     // -------------------------------------------------------------- decades
@@ -267,10 +280,10 @@ public enum QualityTier
 {
     HiRes,
     CdQuality,
-    Dsd,
     LossyHigh,
     LossyLow,
     Module,
+    Dsd,   // last, the user's call
 }
 
 /// <param name="Share">Fraction of all tracks, 0 to 1.</param>

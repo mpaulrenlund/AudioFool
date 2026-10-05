@@ -1109,14 +1109,26 @@
                 <Ellipse x:Name="LibraryDot" Grid.Column="1"
                          Style="{StaticResource theme.statusDot}"
                          Fill="{DynamicResource color.status.libraryDot}"
-                         Margin="{theme:Thickness Left=statusBar.dotTextGap}" />
+                         Margin="{theme:Thickness Left=statusBar.dotTextGap}">
+                    <Ellipse.InputBindings>
+                        <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding ShowStatisticsCommand}" />
+                    </Ellipse.InputBindings>
+                </Ellipse>
 
+                <!-- Double-click the dot or the line to open Statistics (the user's call; no tooltip).
+                     Left-aligned with a clear background so only the text itself is the target. -->
                 <TextBlock x:Name="StatusLine" Grid.Column="2"
                            Text="{Binding StatusText}"
                            Style="{DynamicResource type.status}"
                            Margin="{theme:Thickness Left=statusBar.dotTextGap}"
                            TextTrimming="CharacterEllipsis"
-                           VerticalAlignment="Center" />
+                           HorizontalAlignment="Left"
+                           Background="Transparent"
+                           VerticalAlignment="Center">
+                    <TextBlock.InputBindings>
+                        <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding ShowStatisticsCommand}" />
+                    </TextBlock.InputBindings>
+                </TextBlock>
             </Grid>
 
             <ProgressBar Grid.Column="1"

@@ -1433,6 +1433,53 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
 
+### Changes from session 35 (2026-10-05): double-click the status line for Statistics
+
+- **Double-clicking the status bar's dot or text opens Statistics** (the user's request,
+  no tooltip). A `MouseBinding` (`LeftDoubleClick` → `ShowStatisticsCommand`) on
+  `LibraryDot` and `StatusLine` in `MainWindow.xaml`. The text block is now left-aligned
+  with a transparent background, so the target is the text itself, not the empty space to
+  its right. It works whatever the line says (counts, scan or save messages).
+- Verified: build clean, ThemeLab render of the status bar unchanged, 497 tests pass, and
+  the installed build starts (UIA found `SearchBox`). **The double-click itself has not
+  been exercised**: it needs the real mouse. One test run had a single failure that
+  didn't repeat in seven more runs; the change is XAML only, so it is an existing flaky
+  test, not yet identified.
+- **QUALITY CHECK rows run from the highest claimed quality to the lowest** (the user's
+  order): Fake 24-bit, Fake hi-res, Possibly fake hi-res, Likely / Possibly transcoded
+  lossless, Upscaled / Possibly upscaled MP3. Only `QualityStatistics.Rows` changed; the
+  saved results are keyed by flag, so `quality.json` needs no version bump. A new test
+  pins the order (**498** tests). ThemeLab `--window stats` with a 20 s sample check
+  prints the rows in that order. Installed; the installed build starts.
+- **The now-playing bar shows last session's track at launch** (the user's request), instead
+  of the blank art tile: art, title, artist, format line and duration, at 0:00, stopped.
+  `RestoreLastPlayed` → `ShowRestoredTrack`, only when the song itself was found and shown
+  (not for an album-only match). Nothing is loaded into the engine and nothing goes to
+  Last.fm. **Play starts that track** within its album (`_restoredQueue`, captured at restore
+  and mapped through `LibraryCopyOf` at play time), even after browsing elsewhere; the
+  first track the engine reports clears it, and Play then behaves as before. This is not
+  "resume on launch" (still not picked): nothing plays until Play is pressed, and it starts
+  from 0:00. Since the bar is filled by `NowPlaying`, the window title and the row's
+  now-playing triangle also show the track, just as they do after Stop.
+  - Verified with ThemeLab `--window click --lastplayed "Ihlo|Union|D:\...\05. Triumph.flac"`
+    (render and printout of the bar: art 128 px, "FLAC · 1,516 kbps · 44.1 kHz", 4:54) and
+    the new **`--restoreplay 1 [--restoreplayfrom <artist>]`**, which presses Play at engine
+    volume 0: Triumph starts, Next goes to Parhelion; the same after moving to Rush first.
+    The shell's settings copy was backed up and restored (hash equal). 498 tests.
+    Installed; the installed build starts. **Not seen on a real relaunch yet.**
+  - Known gap: a background scan that changes the library rebuilds `Track` objects, so the
+    row triangle can drop off until playback starts (the bar keeps its track).
+- **The now-playing format line is the quality tier** (the user's call): "Hi-Res
+  Lossless", "CD Quality Lossless", "Lossy" or "DSD", from `LibraryStatistics.Badge`
+  (`Classify`, so it always agrees with Statistics; both lossy tiers read "Lossy"). The
+  kind, bitrate and sample rate are no longer in the bar; they remain in the grid's
+  columns. **Statistics' Audio Quality rows are renamed** to "Hi-Res Lossless", "CD Quality
+  Lossless", "Lossy - Over 256 kbps" (256 itself included, as before), "Lossy - Under 256
+  kbps", "Tracker Module", and **DSD is last** (`QualityTier` reordered). 5 new tests
+  (**503**). ThemeLab: the bar reads "Hi-Res Lossless" for Ihlo's *Triumph* (24-bit), and
+  `--window stats` shows the five rows in order; both rendered, looked at. Installed. Also
+  recorded under Decisions in `design/progress.md`.
+
 ### Changes from session 34, part 2 (2026-10-05): the quality check in Statistics
 
 The user asked for the Analyze findings across the library in Statistics ("Likely

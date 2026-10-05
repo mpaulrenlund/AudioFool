@@ -172,11 +172,25 @@ public class QualityCheckTests : IDisposable
 
         Assert.Equal(2, stats.Gaps.Single(g => g.Flag == QualityFlag.LossySource).Tracks);
         Assert.Equal(0.5, stats.Gaps.Single(g => g.Flag == QualityFlag.LossySource).Share);
-        Assert.Equal("Likely transcoded lossless", stats.Gaps[0].Label);
-
         // A rebuilt library (new Track objects) still matches; a retagged file doesn't.
         var rebuilt = new[] { Flac(@"E:\a.flac"), Flac(@"D:\b.flac", size: 2000) };
-        Assert.Single(stats.Gaps[0].Filter.Apply(rebuilt));
+        Assert.Single(stats.Gaps.Single(g => g.Flag == QualityFlag.LossySource).Filter.Apply(rebuilt));
+    }
+
+    [Fact]
+    public void Statistics_rows_run_from_highest_claimed_quality_to_lowest()
+    {
+        Assert.Equal(
+            [
+                "Fake 24-bit",
+                "Fake hi-res",
+                "Possibly fake hi-res",
+                "Likely transcoded lossless",
+                "Possibly transcoded lossless",
+                "Upscaled MP3",
+                "Possibly upscaled MP3",
+            ],
+            QualityStatistics.Rows.Select(r => r.Label));
     }
 
     /// <summary>Reports straight away on the reporting thread, unlike Progress&lt;T&gt;.</summary>

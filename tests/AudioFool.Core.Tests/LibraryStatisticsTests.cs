@@ -140,13 +140,28 @@ public class LibraryStatisticsTests
     public void Quality_rows_follow_tier_order_and_skip_empty_tiers()
     {
         var stats = Stats(
+            T("A", "X", "dsf", bitDepth: 1, sampleRate: 2_822_400, kind: "DSD"),
+            T("A", "X", "mp3", bitDepth: null, bitrate: 320),
             T("A", "X", "mp3", bitDepth: null, bitrate: 128),
             T("A", "X", "flac", bitDepth: 24),
             T("A", "X", "flac"));
 
         Assert.Equal(
-            ["Hi-res lossless", "CD-quality lossless", "Lossy, under 256 kbps"],
+            ["Hi-Res Lossless", "CD Quality Lossless", "Lossy - Over 256 kbps", "Lossy - Under 256 kbps", "DSD"],
             stats.Quality.Select(s => s.Label));
+    }
+
+    [Theory]
+    [InlineData("flac", 24, 96_000, 2800, "FLAC", "Hi-Res Lossless")]
+    [InlineData("flac", 16, 44_100, 1013, "FLAC", "CD Quality Lossless")]
+    [InlineData("mp3", null, 44_100, 320, "MP3", "Lossy")]
+    [InlineData("mp3", null, 44_100, 128, "MP3", "Lossy")]
+    [InlineData("dsf", 1, 2_822_400, 5644, "DSD", "DSD")]
+    public void Now_playing_badge_names_the_tier(string ext, int? depth, int? rate, int? kbps, string kind, string expected)
+    {
+        var track = T("A", "X", ext, bitDepth: depth, sampleRate: rate, bitrate: kbps, kind: kind);
+
+        Assert.Equal(expected, LibraryStatistics.Badge(track));
     }
 
     [Fact]
