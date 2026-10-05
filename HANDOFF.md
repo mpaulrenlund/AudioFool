@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-02 after the thirty-second build session. Read this alongside
+Updated 2026-10-05 after the thirty-third build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1433,6 +1433,61 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
 
+### Changes from session 33 (2026-10-05): full release date in the header, reopen where you left off
+
+Commits `49e04de` and `b9fa5b2`, pushed to `origin/main`. **436 tests pass** (425 + 5
+for the header date + 6 in `LastPlayedTests`). Both installed.
+
+- **The album header's year line shows the full date** (the user's request), "2022-05-13"
+  when the files carry one, "2022-05" for a month, else the year, else "Year unknown":
+  `Album.DateDisplay` = `SortDate ?? YearDisplay`, bound through `AlbumHeaderYear`. It is
+  the date the album *sorts* by, the earliest across its tracks, so a year-only track in
+  an otherwise dated set makes the header show the bare year. The Albums list subtitle
+  still shows only the year (not asked for). This closes "Show the full date in the album
+  header?" in *Suggested next steps*. Seen in the running app only as far as the install
+  went; the user has not commented on it.
+- **The app reopens on the song that was playing** (the user's request: "open it at the
+  position of the last Artist/Album/Song"). It selects; it does **not** play or load the
+  engine (offered: resume playback too; not picked).
+  - **Saved**: `AppSettings.LastPlayed` (`LastPlayedTrack(FilePath, Artist, Album)`, the
+    artist and album as the sidebar names them), written from `OnEngineTrackChanged` →
+    `RememberLastPlayed`, so each *started* track, not a clicked row, and a crash keeps
+    it. Like `SaveVolumeOnly`, it re-reads settings from disk and changes only this field,
+    so it can't clobber folders edited elsewhere. Skipped when unchanged.
+  - **Restored**: `ApplyLibrary` calls `RestoreLastPlayed` once, on the first library with
+    tracks in it (the cached one at startup, or the scan's if there is no cache).
+    `MusicLibrary.Locate` finds it by path; failing that (a drive that changed letter) by
+    artist and album name, then the file name within that album; an album with no file
+    match opens the album with no song selected. If the artist or album isn't in the view
+    (gone, or its folder unticked) nothing happens and the first artist opens as before.
+    The song is highlighted through `RevealTrackRequested`, which `MainWindow` answers
+    by selecting and scrolling the grid at `Background` priority (the rows bind after the
+    album selection that raised it). The Artists and Albums lists scroll through their
+    existing `BrowserList_SelectionChanged`.
+  - **Known gap**: the background scan that follows startup calls `ApplyLibrary` with
+    `keepSelection: true` when it finds changes. That keeps the artist and album but
+    clears the song highlight (the track list is rebuilt). Not handled; the restore
+    runs only once.
+  - **Verified** with a new ThemeLab option, **`--lastplayed "Artist|Album|path"`** (with
+    `--window click` or `--window main --typeahead zzzz`), against the cached library
+    with a throwaway settings object: the exact path, an `E:` path (drive changed) and a
+    missing album each give the expected artist, album and song row, with nothing
+    playing and the selection stable after 800 ms. **ThemeLab always selects row index 4
+    before it renders (`grid.SelectedIndex = --row`, default 4), so a render shows row 5
+    highlighted whatever was restored.** Trust the printed "opened on:" line, which is taken
+    before that. The real app's first-launch behaviour (no saved song yet, so it opens on
+    the first artist) and the real restore on a relaunch **have not been seen**.
+  - The shell's `settings.json` is the packaged-AppData copy, so it never shows what the
+    real app saved; ask the user whether it worked.
+- **Andy Timmons albums are repaired** (the user's note, 2026-10-05); the "not repaired"
+  line in session 32's section is corrected. Not to be raised again.
+- **The Statistics quality tiers were explained, not changed** (the user: "keep it as it
+  is"): lossless is *Hi-res* when over 16 bit or over 48 kHz, else *CD quality*;
+  `LibraryStatistics.Classify`. A track with no bit depth or sample rate lands in CD
+  quality.
+- **The user's screenshot confirms** the session 32 playback bar (Previous on the Songs
+  panel edge, Repeat over Shuffle) and the 4 px menu corners in the running app.
+
 ### Changes from session 32 (2026-10-02): a filtered album is no longer taken for the whole
 
 The user noticed that the Statistics **Track total** and **Disc total** filters showed
@@ -2678,8 +2733,10 @@ retag of the playing track reaches the scrobbler.
    them back, MusicBrainz release dates are the source (the release-group search in
    `OnlineArtSearch` is most of the lookup already). Offer it; don't build it
    unasked, since it writes to many files.
-4. **Show the full date in the album header?** It shows only the year today, while
-   the sort uses the date. Not asked for.
+4. ~~**Show the full date in the album header?**~~ Done in session 33. The Albums list
+   subtitle still shows only the year.
+4b. **Resume playback on launch?** Session 33 reopens on the last song but doesn't play
+   it. Only if the user asks.
 5. MilkDrop 3 / projectM visualisation. Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll` — source only).
    Proposed next step: spike build of `libprojectM.dll`. No implementation started.

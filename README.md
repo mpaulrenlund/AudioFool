@@ -457,6 +457,13 @@ right when you might be clicking around, so a rebuild re-selects the same artist
 album by name rather than throwing you back to the top of the list — and when nothing
 changed it doesn't touch the collections at all.
 
+**Opening where you left off.** Each time a song starts, its path, artist and album go
+into `settings.json` (`LastPlayed`). On the next launch, once the cached library is
+shown, the Artists and Albums lists select that artist and album and the song is
+highlighted in the track list. It doesn't start playing. If the music drive has come back
+under another letter, the song is found by artist, album and file name; if the album is
+gone or its folder is unticked, the app opens on the first artist as usual.
+
 The cache is disposable: delete it, or change `LibraryCache.CurrentVersion`, and the
 next start does a full scan and writes a fresh one. It's written to a temp file and
 moved into place, so an interrupted write leaves the last good cache rather than a
