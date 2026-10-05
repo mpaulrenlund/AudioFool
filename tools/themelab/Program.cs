@@ -178,6 +178,11 @@ internal static class Program
             GlobalHotkeys = false,
         };
 
+        // --lastplayed "Artist|Album|path": what the last session was playing, for
+        // --window click to open on (see the check after LoadRealLibrary).
+        if (Arg(args, "--lastplayed")?.Split('|') is [var lpArtist, var lpAlbum, var lpPath])
+            settings.LastPlayed = new AudioFool.Core.Settings.LastPlayedTrack(lpPath, lpArtist, lpAlbum);
+
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
         if (which is "queue" or "clicks" or "seek")
@@ -224,6 +229,23 @@ internal static class Program
         if (which == "click" || Arg(args, "--typeahead") is not null)
         {
             LoadRealLibrary(vm);
+
+            if (settings.LastPlayed is not null)
+            {
+                Pump();
+                var lpGrid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
+                var artistList = (System.Windows.Controls.ListBox)main.FindName("ArtistList");
+                Console.WriteLine($"opened on: artist '{vm.SelectedArtist?.Name}', album '{vm.SelectedAlbum?.Album.Title}', " +
+                                  $"song '{(lpGrid.SelectedItem as Track)?.DisplayTitle}' (row {lpGrid.SelectedIndex + 1} of {lpGrid.Items.Count}), " +
+                                  $"artist row {artistList.SelectedIndex + 1} of {artistList.Items.Count}, now playing: {vm.NowPlaying?.DisplayTitle ?? "nothing"}");
+                Settle(800);
+                Console.WriteLine($"after settling: song row {lpGrid.SelectedIndex + 1}, selected rows {lpGrid.SelectedItems.Count}, " +
+                                  $"VM selected tracks {vm.SelectedTracks.Count}");
+                var flagged = Enumerable.Range(0, lpGrid.Items.Count)
+                    .Where(i => lpGrid.ItemContainerGenerator.ContainerFromIndex(i) is System.Windows.Controls.DataGridRow { IsSelected: true })
+                    .Select(i => i + 1);
+                Console.WriteLine($"rows whose container IsSelected: {string.Join(",", flagged)}");
+            }
         }
         else if (which is "edit" or "queue" or "clicks")
         {

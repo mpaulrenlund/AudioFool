@@ -1,4 +1,5 @@
 using AudioFool.Core.Models;
+using AudioFool.Core.Settings;
 
 namespace AudioFool.Core.Library;
 
@@ -13,6 +14,42 @@ public sealed class MusicLibrary
     public int AlbumCount => Artists.Sum(a => a.Albums.Count);
 
     private Dictionary<string, Album>? _albumByPath;
+
+    /// <summary>
+    /// Finds where a remembered track sits in the artist tree. By path first; if
+    /// the path is gone (a drive that changed letter), by artist and album name,
+    /// and then the file name within that album. When only the album is found the
+    /// track is null; null overall when the album is not here at all.
+    /// </summary>
+    public (ArtistGroup Artist, Album Album, Track? Track)? Locate(LastPlayedTrack last)
+    {
+        foreach (var artist in Artists)
+            foreach (var album in artist.Albums)
+                if (album.Tracks.FirstOrDefault(t => string.Equals(t.FilePath, last.FilePath, StringComparison.OrdinalIgnoreCase)) is { } hit)
+                    return (artist, album, hit);
+
+        var name = Path.GetFileName(last.FilePath);
+        foreach (var artist in Artists.Where(a => SortRules.NameComparer.Equals(a.Name, last.Artist)))
+            foreach (var album in artist.Albums.Where(a => SortRules.NameComparer.Equals(a.Title, last.Album)))
+                return (artist, album, album.Tracks.FirstOrDefault(t =>
+                    string.Equals(Path.GetFileName(t.FilePath), name, StringComparison.OrdinalIgnoreCase)));
+
+        return null;
+    }
+
+    /// <summary>
+    /// The artist and album names <see cref="Locate"/> will find <paramref name="track"/>
+    /// by later; null when the track is not in this library.
+    /// </summary>
+    public LastPlayedTrack? Remember(Track track)
+    {
+        foreach (var artist in Artists)
+            foreach (var album in artist.Albums)
+                if (album.Tracks.Any(t => string.Equals(t.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase)))
+                    return new LastPlayedTrack(track.FilePath, artist.Name, album.Title);
+
+        return null;
+    }
 
     /// <summary>
     /// The album in this library that holds <paramref name="shown"/>'s tracks.

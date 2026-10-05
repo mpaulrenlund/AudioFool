@@ -818,6 +818,64 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         _library = library;
         ApplyToView(keepSelection);
+
+        // Once, on the first library with anything in it: the one shown at startup.
+        if (_restoreLastPlayed && library.AllTracks.Count > 0)
+        {
+            _restoreLastPlayed = false;
+            RestoreLastPlayed();
+        }
+    }
+
+    private bool _restoreLastPlayed = true;
+
+    /// <summary>
+    /// Raised at startup with the song that was playing when the app last closed,
+    /// for the window to select in the track grid and scroll to.
+    /// </summary>
+    public event EventHandler<Track>? RevealTrackRequested;
+
+    /// <summary>
+    /// Opens on the artist and album of the track that was playing last time, with
+    /// that song selected. It does not start playing. Quietly does nothing when
+    /// the track is no longer in the view (album gone, folder unticked).
+    /// </summary>
+    private void RestoreLastPlayed()
+    {
+        if (_settings.LastPlayed is not { } last || _library.Locate(last) is not { } found)
+            return;
+
+        var artist = Artists.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Name, found.Artist.Name));
+        if (artist is null)
+            return;
+
+        SelectedArtist = artist;
+
+        var album = Albums.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Album.Title, found.Album.Title));
+        if (album is null)
+            return;
+
+        SelectedAlbum = album;
+
+        if (found.Track is { } track
+            && Tracks.FirstOrDefault(t => string.Equals(t.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase)) is { } shown)
+            RevealTrackRequested?.Invoke(this, shown);
+    }
+
+    /// <summary>
+    /// Remembers what is playing for the next launch. Re-reads settings from disk
+    /// first and changes only this value, like <see cref="SaveVolumeOnly"/>.
+    /// </summary>
+    private void RememberLastPlayed(Track track)
+    {
+        if (_library.Remember(track) is not { } last || last == _settings.LastPlayed)
+            return;
+
+        _settings.LastPlayed = last;
+
+        var onDisk = AppSettings.Load();
+        onDisk.LastPlayed = last;
+        onDisk.Save();
     }
 
     /// <summary>
@@ -1703,6 +1761,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var track = LibraryCopyOf(engineTrack);
 
         NowPlaying = track;
+        RememberLastPlayed(track);
 
         DurationSeconds = track.Duration.TotalSeconds > 0
             ? track.Duration.TotalSeconds

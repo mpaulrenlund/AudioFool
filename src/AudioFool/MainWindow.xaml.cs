@@ -67,6 +67,24 @@ public partial class MainWindow : FluentWindow
         TrackGrid.PreviewMouseWheel += (_, _) => _slowClickTimer.Stop();
         TrackGrid.LostKeyboardFocus += TrackGrid_LostKeyboardFocus;
         _viewModel.TracksChanging += OnTracksChanging;
+        _viewModel.RevealTrackRequested += OnRevealTrackRequested;
+    }
+
+    /// <summary>
+    /// Selects the song the app opened on and scrolls it into view. Deferred until
+    /// the grid has bound the album's rows, which happens after the selection that
+    /// raised this.
+    /// </summary>
+    private void OnRevealTrackRequested(object? sender, Track track)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (!TrackGrid.Items.Contains(track))
+                return;
+
+            TrackGrid.SelectedItem = track;
+            TrackGrid.ScrollIntoView(track);
+        }, DispatcherPriority.Background);
     }
 
     /// <summary>
@@ -165,6 +183,7 @@ public partial class MainWindow : FluentWindow
         _taskbarControls.Dispose();
         _slowClickTimer.Stop();
         _viewModel.TracksChanging -= OnTracksChanging;
+        _viewModel.RevealTrackRequested -= OnRevealTrackRequested;
     }
 
     // ------------------------------------------------------ layout calculations

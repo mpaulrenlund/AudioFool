@@ -22,6 +22,12 @@ public sealed class AppSettings
     /// </summary>
     public WindowBounds? Window { get; set; }
 
+    /// <summary>
+    /// The track that was playing most recently, so the next launch can open on it.
+    /// Null until something has played.
+    /// </summary>
+    public LastPlayedTrack? LastPlayed { get; set; }
+
     /// <summary>Rescan the library on startup rather than waiting to be asked.</summary>
     public bool ScanOnStartup { get; set; } = true;
 
@@ -151,3 +157,10 @@ public sealed class AppSettings
         return this;
     }
 }
+
+/// <summary>
+/// Where to open the library next time: the track's path, plus the artist (as the
+/// sidebar names them) and album, which still find it if the drive has changed
+/// letter since.
+/// </summary>
+public sealed record LastPlayedTrack(string FilePath, string Artist, string Album);
