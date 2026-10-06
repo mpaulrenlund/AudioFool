@@ -86,6 +86,12 @@ internal sealed class OutputChain : IDisposable
     public void SeekBetweenBlocks(int stream, long bytes, bool fade) =>
         Volatile.Write(ref _pendingSeek, new PendingSeek(stream, bytes, fade));
 
+    /// <summary>
+    /// Fades the next block in, for a stream added mid-track to a stopped device.
+    /// Call before <see cref="Start"/>.
+    /// </summary>
+    public void FadeInNextBlock() => Volatile.Write(ref _fadeInNext, true);
+
     /// <summary>The position a seek not yet applied will move <paramref name="stream"/> to.</summary>
     public long? PendingSeekBytes(int stream) =>
         Volatile.Read(ref _pendingSeek) is { } seek && seek.Stream == stream ? seek.Bytes : null;

@@ -22,7 +22,7 @@ namespace AudioFool.Core.Playback;
 /// opening a file inside the audio callback would risk an underrun.
 /// </para>
 /// </summary>
-public sealed class AudioEngine : IDisposable
+public sealed class AudioEngine : IFileHolder, IDisposable
 {
     /// <summary>
     /// NoRampin suppresses BASS's default fade-in on a newly added channel, which
@@ -55,6 +55,16 @@ public sealed class AudioEngine : IDisposable
     private double _volume = 0.7;
     private PlaybackState _state = PlaybackState.Stopped;
     private bool _disposed;
+
+    // While a save has the playing track's file: where it was, in ticks, or -1.
+    private long _releasedAtTicks = -1;
+
+    // While a save has the next track's file: its index, or -1. If the playing
+    // track ends meanwhile, the handover waits for the save (_advanceAfterRelease).
+    private int _releasedNextIndex = -1;
+    private bool _advanceAfterRelease;
+
+    private readonly object _releaseGate = new();
 
     public AudioEngine(BassRuntime runtime)
     {
@@ -145,6 +155,153 @@ public sealed class AudioEngine : IDisposable
 
             return (_currentStream != 0 && Is(_index)) || (_prefetchedStream != 0 && Is(_prefetchedIndex));
         }
+    }
+
+    /// <summary>
+    /// Closes <paramref name="path"/>'s streams for the length of
+    /// <paramref name="write"/> - a tag save that resizes the file - and then
+    /// reopens them on the rewritten file.
+    /// <para>
+    /// The playing track stops (paused stays paused), and comes back at the
+    /// position it was at, faded in so it doesn't click. Nothing is announced:
+    /// to the rest of the app it is the same play of the same track, so the
+    /// scrobbler and the waveform carry on. The next track's stream is only
+    /// ahead of time, so dropping and reopening it is silent; if the playing
+    /// track ends before the save does, the handover waits for it.
+    /// </para>
+    /// <para>
+    /// If anything else starts playing meanwhile, that wins and nothing is
+    /// reopened.
+    /// </para>
+    /// </summary>
+    public T WhileReleased<T>(string path, Func<T> write)
+    {
+        lock (_releaseGate)
+        {
+            var released = Release(path);
+            try
+            {
+                return write();
+            }
+            finally
+            {
+                Reacquire(released);
+            }
+        }
+    }
+
+    private sealed record Released(List<Track> Queue, int Index, TimeSpan At, bool Paused);
+
+    /// <summary>Frees the streams reading <paramref name="path"/>. Returns the playing track's place if it was one.</summary>
+    private Released? Release(string path)
+    {
+        Released? current = null;
+        var discard = 0;
+
+        lock (_gate)
+        {
+            bool Is(int index) => index >= 0 && index < _queue.Count
+                && string.Equals(_queue[index].FilePath, path, StringComparison.OrdinalIgnoreCase);
+
+            if (_prefetchedStream != 0 && Is(_prefetchedIndex))
+            {
+                discard = _prefetchedStream;
+                _releasedNextIndex = _prefetchedIndex;
+                _prefetchedStream = 0;
+                _prefetchedIndex = -1;
+            }
+
+            if (_currentStream != 0 && Is(_index))
+            {
+                var paused = _state == PlaybackState.Paused;
+                current = new Released(_queue, _index, Position, paused);
+                Interlocked.Exchange(ref _releasedAtTicks, current.At.Ticks);
+
+                // As PlayCore does: a playing device is flushed, so the old stream's
+                // buffered tail doesn't play on; a paused one can't be flushed and
+                // is closed, and reopened when the track comes back.
+                if (!paused)
+                    _output?.Stop();
+
+                BassMix.MixerRemoveChannel(_currentStream);
+                FreeStream(_currentStream);
+                _currentStream = 0;
+
+                if (paused)
+                {
+                    _output?.Dispose();
+                    _output = null;
+                }
+            }
+        }
+
+        FreeStream(discard);
+        return current;
+    }
+
+    /// <summary>Reopens what <see cref="Release"/> let go of, unless playback has moved on.</summary>
+    private void Reacquire(Released? current)
+    {
+        var stopped = false;
+
+        if (current is not null)
+        {
+            var track = current.Queue[current.Index];
+            var stream = CreateDecodeStream(track.FilePath);
+
+            lock (_gate)
+            {
+                Interlocked.Exchange(ref _releasedAtTicks, -1);
+
+                var unchanged = ReferenceEquals(_queue, current.Queue) && _index == current.Index && _currentStream == 0;
+                if (!unchanged)
+                {
+                    FreeStream(stream);
+                }
+                else if (stream == 0 || !EnsureOutput(RateOf(stream)) || _output is null)
+                {
+                    // The rewritten file won't open: stop rather than sit silent.
+                    FreeStream(stream);
+                    stopped = true;
+                }
+                else
+                {
+                    var bytes = Bass.ChannelSeconds2Bytes(stream, current.At.TotalSeconds);
+                    if (bytes > 0)
+                        Bass.ChannelSetPosition(stream, bytes);
+
+                    _currentStream = stream;
+                    BassMix.MixerAddChannel(_output.Mixer, stream, SourceFlags);
+                    Bass.ChannelSetSync(stream, SyncFlags.End | SyncFlags.Mixtime, 0, _endSyncProc);
+
+                    if (!current.Paused)
+                    {
+                        // DoP is never faded; see Seek.
+                        if (!_isDopHandle.ContainsKey(stream))
+                            _output.FadeInNextBlock();
+                        _output.Start();
+                    }
+                }
+            }
+        }
+
+        int advanceTo, refetchAfter = -1;
+        lock (_gate)
+        {
+            advanceTo = _advanceAfterRelease ? _releasedNextIndex : -1;
+            if (!_advanceAfterRelease && _releasedNextIndex >= 0 && _prefetchedStream == 0 && _currentStream != 0)
+                refetchAfter = _index;
+
+            _advanceAfterRelease = false;
+            _releasedNextIndex = -1;
+        }
+
+        if (stopped)
+            Stop();
+        else if (advanceTo >= 0)
+            JumpTo(advanceTo);
+        else if (refetchAfter >= 0)
+            PrefetchAfter(refetchAfter);
     }
 
     public double Volume
@@ -265,6 +422,11 @@ public sealed class AudioEngine : IDisposable
     {
         get
         {
+            // The playing track's file is out for a save: hold the bar still.
+            var released = Interlocked.Read(ref _releasedAtTicks);
+            if (released >= 0)
+                return TimeSpan.FromTicks(released);
+
             var stream = Volatile.Read(ref _currentStream);
             if (stream == 0)
                 return TimeSpan.Zero;
@@ -354,6 +516,10 @@ public sealed class AudioEngine : IDisposable
                 FreeStream(stream);
                 return false;
             }
+
+            // Anything a save was holding back is superseded by this play.
+            _releasedNextIndex = -1;
+            _advanceAfterRelease = false;
 
             _queue = [.. queue];
             _index = startIndex;
@@ -534,6 +700,7 @@ public sealed class AudioEngine : IDisposable
         int promoted = 0;
         var promotedIndex = -1;
         var reopenAtIndex = -1;
+        var waitForSave = false;
 
         lock (_gate)
         {
@@ -577,6 +744,8 @@ public sealed class AudioEngine : IDisposable
             {
                 if (_prefetchedStream != 0)
                     reopenAtIndex = _prefetchedIndex;
+                else if (_releasedNextIndex >= 0)
+                    waitForSave = _advanceAfterRelease = true;   // WhileReleased plays it
 
                 _currentStream = 0;
             }
@@ -609,6 +778,10 @@ public sealed class AudioEngine : IDisposable
                 }
 
                 JumpTo(reopenAtIndex);
+            }
+            else if (waitForSave)
+            {
+                // The next track's file is mid-save; Reacquire moves on to it.
             }
             else
             {

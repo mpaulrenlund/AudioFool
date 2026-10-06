@@ -2865,6 +2865,23 @@ internal static class Program
         Settle(200);
     }
 
+    /// <summary>The engine, timing how long a save keeps the file away from playback.</summary>
+    private sealed class TimedHolder(AudioEngine engine) : AudioFool.Core.Library.IFileHolder
+    {
+        public (TimeSpan At, long Ms)? Released { get; private set; }
+
+        public bool HoldsFile(string path) => engine.HoldsFile(path);
+
+        public T WhileReleased<T>(string path, Func<T> write)
+        {
+            var at = engine.Position;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var result = engine.WhileReleased(path, write);
+            Released = (at, clock.ElapsedMilliseconds);
+            return result;
+        }
+    }
+
     private static void RunQueueEdit(MainViewModel vm, AudioEngine engine)
     {
         var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
@@ -2952,24 +2969,93 @@ internal static class Program
         Log($"playing edit -> 04: title='{vm.NowPlaying?.Title}' scrobbler='{tracker.Current?.Artist} / {tracker.Current?.Title}' "
             + $"{(playingOk ? "OK" : "STALE")}");
 
-        // A save that would grow the playing file is refused, and the file is
-        // left exactly as it was.
+        // A save that would grow the paused playing file goes through while the
+        // engine lets go of it, and the track comes back paused where it was.
         var path = Row("04").FilePath;
-        string Hash() => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)));
-        var hashBefore = Hash();
+        var sizeBefore = new FileInfo(path).Length;
+        var pausedAt = engine.Position;
         Await(vm.ApplyInlineEditAsync(Row("04"), AudioFool.Core.Library.InlineField.Title, new string('x', 300_000)));
-        var refusedOk = vm.StatusText.Contains("playing or up next") && Hash() == hashBefore
-                        && vm.NowPlaying?.Title == "Four Edited";
-        Log($"resizing edit -> 04: file unchanged={Hash() == hashBefore} title='{vm.NowPlaying?.Title}' {(refusedOk ? "OK" : "WRONG")}");
+        var pausedOk = new FileInfo(path).Length > sizeBefore && vm.NowPlaying?.Title?.Length == 300_000
+                       && engine.State == PlaybackState.Paused && engine.HoldsFile(path)
+                       && Math.Abs((engine.Position - pausedAt).TotalMilliseconds) < 30;
+        Log($"resizing edit, paused -> 04: grew {sizeBefore:N0} -> {new FileInfo(path).Length:N0} B, "
+            + $"position {pausedAt.TotalMilliseconds:0} -> {engine.Position.TotalMilliseconds:0} ms, state={engine.State} "
+            + $"{(pausedOk ? "OK" : "WRONG")}");
 
-        // The stream still plays after both saves: position moves on.
+        // The stream still plays after the saves: position moves on.
         var at = engine.Position;
         engine.TogglePause();
-        Settle(200);
+        Settle(300);
         Log($"after saves, playback resumes: {at.TotalMilliseconds:0} ms -> {engine.Position.TotalMilliseconds:0} ms, state={engine.State}");
 
+        // The next track: dropped and opened again, silently.
+        vm.PlayTrackCommand.Execute(Row("01"));
+        var two = Row("02").FilePath;
+        bool Until(Func<bool> condition)
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (clock.ElapsedMilliseconds < 5000)
+            {
+                if (condition())
+                    return true;
+                Settle(10);
+            }
+            return false;
+        }
+        Until(() => engine.HoldsFile(two));
+        var twoSize = new FileInfo(two).Length;
+        Await(vm.ApplyInlineEditAsync(Row("02"), AudioFool.Core.Library.InlineField.Title, new string('y', 300_000)));
+        var refetched = Until(() => engine.HoldsFile(two));
+        Log($"resizing edit, next -> 02: grew {twoSize:N0} -> {new FileInfo(two).Length:N0} B, reopened ahead={refetched}, "
+            + $"still on '{engine.CurrentTrack?.Title}' {engine.State} {(refetched && new FileInfo(two).Length > twoSize && engine.State == PlaybackState.Playing ? "OK" : "WRONG")}");
+
+        // And if the playing track ends while the next one's file is out, the
+        // handover waits for the save rather than stopping.
+        engine.WhileReleased(two, () =>
+        {
+            engine.Seek(engine.Duration - TimeSpan.FromMilliseconds(200));
+            Thread.Sleep(1000);
+            return 0;
+        });
+        var handedOver = WaitFor("02");
+        Log($"track ends during next's save: now '{Path.GetFileName(vm.NowPlaying?.FilePath)}' state={engine.State} "
+            + $"{(handedOver && engine.State == PlaybackState.Playing ? "OK" : "WRONG")}");
         engine.Stop();
         Settle(200);
+
+        // --long "a.flac;b.mp3;c.dsf": real tracks, long enough to save while
+        // playing. Each is copied into the scratch folder first; only the copy
+        // is played and saved.
+        foreach (var source in (Arg(Environment.GetCommandLineArgs(), "--long") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var copy = Path.Combine(_scratchDir!, "long-" + Path.GetFileName(source));
+            File.Copy(source, copy);
+            var track = AudioFool.Core.Library.TagReader.Read(copy);
+            engine.Play([track], 0);
+            engine.Seek(TimeSpan.FromSeconds(30));
+            Settle(500);
+
+            var size = new FileInfo(copy).Length;
+            var holder = new TimedHolder(engine);
+            var commentLength = int.Parse(Arg(Environment.GetCommandLineArgs(), "--longcomment") ?? "300000", CultureInfo.InvariantCulture);
+            var result = AudioFool.Core.Library.TagWriter.WriteSelectedTrackTags(track,
+                new AudioFool.Core.Library.TracksTagEdit { Details = new AudioFool.Core.Library.TagDetailsEdit { Comment = new string('z', commentLength) } },
+                holder);
+            var back = engine.Position;
+            Settle(400);
+            var after = engine.Position;
+            var comment = AudioFool.Core.Library.TagReader.ReadDetails(copy)?.Comment.Length ?? 0;
+            var ok = result.Success && comment == commentLength && engine.State == PlaybackState.Playing && engine.HoldsFile(copy)
+                     && (holder.Released is not { } r || Math.Abs((back - r.At).TotalMilliseconds) < 25)
+                     && after - back > TimeSpan.FromMilliseconds(250);
+            Log($"save while playing {Path.GetExtension(copy)}: {(result.Success ? "saved" : result.ErrorMessage)}, {size:N0} -> {new FileInfo(copy).Length:N0} B, comment {comment:N0}, "
+                + (holder.Released is { } rel
+                    ? $"released for {rel.Ms} ms at {rel.At.TotalMilliseconds:0} ms, back at {back.TotalMilliseconds:0} ms, "
+                    : "not released (saved in place), ")
+                + $"400 ms on {after.TotalMilliseconds:0}, output '{engine.OutputDescription}' {(ok ? "OK" : "WRONG")}");
+            engine.Stop();
+            Settle(200);
+        }
     }
 
     /// <summary>

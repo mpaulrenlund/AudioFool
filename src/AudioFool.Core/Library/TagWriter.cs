@@ -28,12 +28,12 @@ public sealed record FolderArtWriteResult(bool Success, string? ErrorMessage, st
 public static class TagWriter
 {
     /// <summary>Applies a single-track edit, optionally replacing the embedded art.</summary>
-    /// <param name="holdsFile">
-    /// Whether playback has the file open. Such a file only takes a save that
-    /// leaves its size alone; see <see cref="SaveTags"/>.
+    /// <param name="holder">
+    /// Playback, which may have the file open. A save that would resize such a
+    /// file is made while playback lets go of it; see <see cref="SaveTags"/>.
     /// </param>
     public static TagWriteResult WriteTrackTags(Track track, TrackTagEdit edit, ArtPayload? art, string? folderArtPath,
-                                                Func<string, bool>? holdsFile = null)
+                                                IFileHolder? holder = null)
     {
         var save = SaveTags(track.FilePath, file =>
         {
@@ -46,7 +46,7 @@ public static class TagWriter
             WriteNumbers(file, new NumberEdit(edit.TrackNumber), new NumberEdit(edit.TrackCount),
                          new NumberEdit(edit.DiscNumber), new NumberEdit(edit.DiscCount));
             ApplyDetails(tag, edit.Details);
-        }, art, holdsFile);
+        }, art, holder);
 
         if (!save.Success)
             return TagWriteResult.Fail(save.ErrorMessage!);
@@ -61,7 +61,7 @@ public static class TagWriter
     /// field the edit leaves null.
     /// </summary>
     public static TagWriteResult WriteAlbumTrackTags(Track track, AlbumTagEdit edit, ArtPayload? art, string? folderArtPath,
-                                                     Func<string, bool>? holdsFile = null)
+                                                     IFileHolder? holder = null)
     {
         var save = SaveTags(track.FilePath, file =>
         {
@@ -79,7 +79,7 @@ public static class TagWriter
                 edit.DiscNumber ?? (strip ? Existing(tag.Disc) : null),
                 edit.DiscCount ?? (strip ? Existing(tag.DiscCount) : null));
             ApplyDetails(tag, edit.Details);
-        }, art, holdsFile);
+        }, art, holder);
 
         if (!save.Success)
             return TagWriteResult.Fail(save.ErrorMessage!);
@@ -92,7 +92,7 @@ public static class TagWriter
     /// fields the edit sets are written; everything else stays as the file has it.
     /// Never touches the art.
     /// </summary>
-    public static TagWriteResult WriteSelectedTrackTags(Track track, TracksTagEdit edit, Func<string, bool>? holdsFile = null)
+    public static TagWriteResult WriteSelectedTrackTags(Track track, TracksTagEdit edit, IFileHolder? holder = null)
     {
         var save = SaveTags(track.FilePath, file =>
         {
@@ -110,7 +110,7 @@ public static class TagWriter
 
             WriteNumbers(file, edit.TrackNumber, edit.TrackCount, edit.DiscNumber, edit.DiscCount);
             ApplyDetails(tag, edit.Details);
-        }, art: null, holdsFile);
+        }, art: null, holder);
 
         if (!save.Success)
             return TagWriteResult.Fail(save.ErrorMessage!);
@@ -252,20 +252,22 @@ public static class TagWriter
     /// stream decoding the file hears nothing (measured bit for bit on FLAC, MP3
     /// and DSF). A save that grows or shrinks the tag moves the audio instead,
     /// and a stream already decoding the file would then jump and lose its end.
-    /// So for a file playback holds (<paramref name="holdsFile"/>), the save is
-    /// tried on a scratch copy first, and refused if it would change the size.
+    /// So for a file playback holds (<paramref name="holder"/>), the save is
+    /// tried on a scratch copy first. One that keeps the size is made with the
+    /// stream still reading; one that changes it is made while playback lets go
+    /// of the file, which costs the playing track a short gap.
     /// </para>
     /// </summary>
     private static (bool Success, string? ErrorMessage) SaveTags(string path, Action<TagLib.File> applyFields,
-                                                                 ArtPayload? art, Func<string, bool>? holdsFile)
+                                                                 ArtPayload? art, IFileHolder? holder)
     {
-        if (holdsFile?.Invoke(path) == true)
+        if (holder?.HoldsFile(path) == true)
         {
             var (resized, error) = TrialSave(path, applyFields, art);
             if (error is not null)
                 return (false, error);
             if (resized)
-                return (false, "it is playing or up next, and this change would rewrite the whole file. Save it again when it isn't loaded");
+                return holder.WhileReleased(path, () => Save(path, applyFields, art));
         }
 
         return Save(path, applyFields, art);

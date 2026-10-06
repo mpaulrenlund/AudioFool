@@ -6,7 +6,8 @@ namespace AudioFool.Core.Tests;
 /// <summary>
 /// Saving a file that playback has open. BASS holds the playing track and the
 /// next one open for reading and lets others write; the writer must share too,
-/// and must refuse a save that would move the audio under the open stream.
+/// and a save that would move the audio under the open stream must be made
+/// while playback lets go of the file.
 /// </summary>
 public class TagWriteSharingTests
 {
@@ -22,6 +23,39 @@ public class TagWriteSharingTests
     {
         Details = new TagDetailsEdit { Comment = new string('x', 300_000) },
     };
+
+    /// <summary>
+    /// Playback holding one file as BASS would. While released, the file has no
+    /// handle on it; the write is checked to have run inside the release.
+    /// </summary>
+    private sealed class FakePlayback(string path) : IFileHolder, IDisposable
+    {
+        private FileStream? _held = HoldLikePlayback(path);
+
+        public List<string> Released { get; } = [];
+        public long? SizeWhileReleased { get; private set; }
+
+        public bool HoldsFile(string p) => _held is not null && p == path;
+
+        public T WhileReleased<T>(string p, Func<T> write)
+        {
+            Released.Add(p);
+            _held!.Dispose();
+            _held = null;
+            try
+            {
+                var result = write();
+                SizeWhileReleased = new FileInfo(path).Length;
+                return result;
+            }
+            finally
+            {
+                _held = HoldLikePlayback(path);
+            }
+        }
+
+        public void Dispose() => _held?.Dispose();
+    }
 
     [Theory]
     [InlineData("sample.flac")]
@@ -42,7 +76,7 @@ public class TagWriteSharingTests
     [Theory]
     [InlineData("sample.flac")]
     [InlineData("sample.mp3")]
-    public void A_held_file_takes_a_save_that_keeps_its_size(string fixture)
+    public void A_held_file_takes_a_save_that_keeps_its_size_without_being_released(string fixture)
     {
         using var file = new TempAudioFile(fixture);
 
@@ -53,8 +87,11 @@ public class TagWriteSharingTests
         var size = new FileInfo(file.Path).Length;
 
         TagWriteResult result;
-        using (HoldLikePlayback(file.Path))
-            result = TagWriter.WriteSelectedTrackTags(track, SmallEdit, holdsFile: _ => true);
+        using (var playback = new FakePlayback(file.Path))
+        {
+            result = TagWriter.WriteSelectedTrackTags(track, SmallEdit, playback);
+            Assert.Empty(playback.Released);
+        }
 
         Assert.True(result.Success, result.ErrorMessage);
         Assert.Equal(size, new FileInfo(file.Path).Length);
@@ -64,22 +101,42 @@ public class TagWriteSharingTests
     [Theory]
     [InlineData("sample.flac")]
     [InlineData("sample.mp3")]
-    public void A_held_file_refuses_a_save_that_would_resize_it_and_is_left_untouched(string fixture)
+    public void A_resizing_save_to_a_held_file_is_made_while_playback_lets_go_of_it(string fixture)
     {
         using var file = new TempAudioFile(fixture);
         var track = TagReader.Read(file.Path);
-        var before = Hash(file.Path);
-        var asked = new List<string>();
+        var size = new FileInfo(file.Path).Length;
 
         TagWriteResult result;
-        using (HoldLikePlayback(file.Path))
-            result = TagWriter.WriteSelectedTrackTags(track, LargeEdit, holdsFile: p => { asked.Add(p); return true; });
+        using (var playback = new FakePlayback(file.Path))
+        {
+            result = TagWriter.WriteSelectedTrackTags(track, LargeEdit, playback);
+            Assert.Equal([file.Path], playback.Released);
+            Assert.True(playback.SizeWhileReleased > size);
+        }
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Equal(300_000, TagReader.ReadDetails(file.Path)!.Comment.Length);
+        Assert.Empty(Directory.GetFiles(Path.GetTempPath(), "AudioFool-trial-*"));
+    }
+
+    [Fact]
+    public void A_held_file_whose_trial_save_fails_is_not_released_and_left_untouched()
+    {
+        using var file = new TempAudioFile("sample.flac");
+        var track = TagReader.Read(file.Path);
+        File.WriteAllBytes(file.Path, [1, 2, 3, 4]);
+        var before = Hash(file.Path);
+
+        TagWriteResult result;
+        using (var playback = new FakePlayback(file.Path))
+        {
+            result = TagWriter.WriteSelectedTrackTags(track, LargeEdit, playback);
+            Assert.Empty(playback.Released);
+        }
 
         Assert.False(result.Success);
-        Assert.Contains("playing or up next", result.ErrorMessage);
-        Assert.Equal([file.Path], asked);
         Assert.Equal(before, Hash(file.Path));
-        Assert.Empty(Directory.GetFiles(Path.GetTempPath(), "AudioFool-trial-*"));
     }
 
     [Theory]
@@ -91,7 +148,7 @@ public class TagWriteSharingTests
         var track = TagReader.Read(file.Path);
         var size = new FileInfo(file.Path).Length;
 
-        var result = TagWriter.WriteSelectedTrackTags(track, LargeEdit, holdsFile: _ => false);
+        var result = TagWriter.WriteSelectedTrackTags(track, LargeEdit);
 
         Assert.True(result.Success, result.ErrorMessage);
         Assert.True(new FileInfo(file.Path).Length > size);

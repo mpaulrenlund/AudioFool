@@ -1135,7 +1135,8 @@ device name still in its tooltip.
     `holdsFile`. For a held file, `SaveTags` makes the save on a scratch copy in
     `%TEMP%` (`AudioFool-trial-*`, same extension, deleted afterwards). If the
     copy changed size, it refuses with "it is playing or up next, and this change
-    would rewrite the whole file. Save it again when it isn't loaded". Otherwise
+    would rewrite the whole file. Save it again when it isn't loaded" (**superseded in
+    session 37**: such a save is now made while the engine lets go of the file). Otherwise
     it makes the real save.
     - The usual trigger is **Edit Album Tags with a new cover while the album
       plays**. The other tracks and the folder `cover.jpg` are written; the
@@ -1432,6 +1433,43 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Bluetooth/virtual devices, or the device changed after launch (it probes once).
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
+
+### Changes from session 37 (2026-10-06): saving to the playing track, 600 px covers, darker now-playing row
+
+- **Cover search shows covers from 600 × 600** (was 1,000). `OnlineArtSearch.MinimumSize`;
+  the status line reads the constant instead of repeating it.
+- **Now-playing row `#B4C6BF`** (was `#C3CDC9`), the user's pick. Text contrast about 4.5:1.
+- **A save that resizes the playing or next track goes through now** (the user's call,
+  reversing session 19's refusal). The usual trigger is a new cover in Edit Album Tags
+  while the album plays: before, those two tracks were named as failed.
+  - `TagWriter` takes an **`IFileHolder`** (`HoldsFile`, `WhileReleased`) instead of
+    `Func<string, bool> holdsFile`; `AudioEngine` implements it. The trial save on a
+    scratch copy stays: a same-size save is still made with the stream reading (no gap),
+    and only a resizing one calls `WhileReleased(path, save)`.
+  - **Playing track**: the device is flushed (as `PlayCore` does), the stream freed, the
+    save made, a new stream opened on the rewritten file, set to the old position, and
+    started with a 5 ms fade-in (`OutputChain.FadeInNextBlock`; not for DoP). **Paused**:
+    the chain is closed (it can't be flushed) and reopened, still paused. `Position`
+    returns the held position during the save so the seekbar stays still. No
+    `TrackChanged` is raised, so the scrobbler, waveform and now-playing bar carry on.
+  - **Next track**: its prefetched stream is dropped and opened again after the save.
+    If the playing track ends during the save, the end sync sets `_advanceAfterRelease`
+    instead of stopping, and the release moves on to the next track when the save is done.
+  - Anything that starts playing during the save wins (`PlayCore` clears the release
+    state; `Reacquire` checks the queue reference and index). If the rewritten file won't
+    open, playback stops.
+  - Still not handled (unchanged from session 19): a stream opened *during* a resizing
+    save, e.g. pressing Next onto the track being saved.
+  - **Verified**: `TagWriteSharingTests` reworked (a resizing save to a held file is made
+    inside the release; a same-size one isn't released; a failed trial isn't released).
+    **514 tests**. ThemeLab `--window queue` against the real engine: paused resize keeps
+    position (60 → 60 ms) and state; the next track grows and is reopened ahead; a track
+    ending during the next one's save hands over to it. New `--long "a;b"` (copies real
+    tracks into the scratch folder, saves a big comment while playing at 0:30;
+    `--longcomment N` sets its length): FLAC released for 34–39 ms, MP3 66 ms, DSF 37 ms
+    (with a 3 MB comment; 300 KB fitted the DSF in place), each back at the same position
+    and playing on. Shared mode only: exclusive mode can't be silenced, so it wasn't run.
+    Not verified: listening to the gap, exclusive mode, DoP.
 
 ### Changes from session 36 (2026-10-06): a waveform in the seekbar
 
@@ -2661,6 +2699,7 @@ ThemeLab.exe --window tags --album "Goodbye Yellow Brick Road" --pick 1-8 --set 
 ThemeLab.exe --rows 1,2,3,4       # several selected grid rows
 ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
 ThemeLab.exe --window queue       # edit queued and playing tracks while the real engine plays silently
+ThemeLab.exe --window queue --long "D:/Music/x/a.flac;D:/Music/y/b.dsf" [--longcomment 3000000]   # also save to real tracks (copied to scratch) while they play
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
 ThemeLab.exe --w 1300 --h 700 --lastfm failing   # the status-bar indicator
 ThemeLab.exe --menushot menu.png --scale 2      # the logo menu's drop-down, without opening it
@@ -3022,37 +3061,22 @@ retag of the playing track reaches the scrobbler.
    - **Watch the green.** At the darker greys it is 1.0–1.4:1, so the seek fill
      and the ▶ read by hue alone. If the user finds them faint, a thicker keyline
      or a bolder mark is the fix.
-0. **Ask the user how in-place editing feels in the running app** after the
-   session 20 fixes: the slow click, and Enter opening the next row's field. Only
-   ThemeLab has driven it, and the Enter walk's focus is still intermittent there
-   (see session 21).
-0. **A new cover on the playing album skips the playing and next tracks** (session
-   19: resizing saves to a file playback holds are refused, at the user's
-   choice). If that ever annoys them, the alternative they turned down is to
-   reopen the stream at its position after such a save.
+0. ~~**Ask the user how in-place editing feels in the running app**~~ Asked
+   2026-10-06: the user says it works great.
+0. ~~**A new cover on the playing album skips the playing and next tracks**~~ Done in
+   session 37: the engine lets go of the file for the save and reopens it at its
+   position.
 1. A visible, editable queue view — now the most conspicuous missing player feature.
-2. **Library-wide tag stripping**, if the user wants it. They keep their tags lean and
-   use the new dialog fields mainly to *clear* publisher, composer, conductor, genre
-   and comment. Clearing album by album is slow over ~2,400 albums; a one-shot "strip
-   these tags from every track" would do it at once. They like track and disc counts,
-   so those must never be in the strip set. Ask before building: it rewrites every
-   file on the drive.
-3. **Dates lost to earlier saves cannot be recovered from the files.** Before
-   session 12, every tag-dialog save cut a full date to its year. If the user wants
-   them back, MusicBrainz release dates are the source (the release-group search in
-   `OnlineArtSearch` is most of the lookup already). Offer it; don't build it
-   unasked, since it writes to many files.
+2. ~~Library-wide tag stripping~~, ~~recovering dates lost to pre-session-12 saves
+   from MusicBrainz~~, ~~resuming playback on launch~~, ~~a Last.fm Love button~~ and
+   ~~TAK/DTS playback~~: **dropped by the user (2026-10-06). Don't build or suggest them.**
 4. ~~**Show the full date in the album header?**~~ Done in session 33. The Albums list
    subtitle still shows only the year.
-4b. **Resume playback on launch?** Session 33 reopens on the last song, and session 35
-   shows it in the now-playing bar so Play starts it, but from 0:00 and only when
-   pressed. Playing by itself, or from the saved position, is still only if the user asks.
 4c. **The flaky test** seen once in session 35 (1 failure in 8 runs, not identified). If
    it shows again, note which test it is.
 5. MilkDrop 3 / projectM visualisation. Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll` — source only).
    Proposed next step: spike build of `libprojectM.dll`. No implementation started.
 6. Profile the post-scan memory.
-7. TAK and DTS via a libVLC fallback decoder, if those files matter.
 8. Code signing would remove the SmartScreen warning on first launch, but is rarely worth
    the cost for a personal build.
