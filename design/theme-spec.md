@@ -93,7 +93,7 @@ All colors live in the central theme (`theme-tokens.json`). Names below are the 
 |---|---|---|
 | `state.selectionBg` | `#BAB7B2` | Selected artist, album, and song rows |
 | `state.hoverOverlay` | `rgba(0,0,0,0.035)` | Laid over any list row on hover |
-| `state.nowPlayingBg` | `#C3CDC9` | Background of the currently playing song row |
+| `state.nowPlayingBg` | `#B4C6BF` | Background of the currently playing song row |
 | `state.searchFocusBg` | `#D9D6D2` | Search box background while focused |
 
 ### Transport controls

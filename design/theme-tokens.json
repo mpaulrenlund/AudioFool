@@ -36,7 +36,7 @@
     "state": {
       "selectionBg": "#BAB7B2",
       "hoverOverlay": "rgba(0,0,0,0.035)",
-      "nowPlayingBg": "#C3CDC9",
+      "nowPlayingBg": "#B4C6BF",
       "searchFocusBg": "#D9D6D2",
       "focusRing": "#0C5A51",
       "searchFocusRing": "#15786C"
