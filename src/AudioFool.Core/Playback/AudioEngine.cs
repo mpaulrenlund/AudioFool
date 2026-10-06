@@ -178,7 +178,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     {
         lock (_releaseGate)
         {
-            var released = Release(path);
+            var released = Release(file => string.Equals(file, path, StringComparison.OrdinalIgnoreCase), closeDevice: false);
             try
             {
                 return write();
@@ -190,18 +190,44 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         }
     }
 
+    /// <summary>
+    /// Moves output to the Windows default device, which has just changed, in
+    /// <paramref name="mode"/>: the caller has worked out whether the new device
+    /// can do exclusive mode. The device connection is closed and opened again,
+    /// and the playing track carries on from where it was (paused stays paused),
+    /// the same way <see cref="WhileReleased{T}"/> brings it back. Its stream is
+    /// opened again too, since the device decides what DSD becomes.
+    /// </summary>
+    public void SwitchDevice(OutputMode mode)
+    {
+        lock (_releaseGate)
+        {
+            lock (_gate)
+            {
+                _requestedMode = mode;
+                _exclusiveRefusedAt.Clear();
+                OutputWarning = null;
+            }
+
+            Reacquire(Release(_ => true, closeDevice: true));
+        }
+    }
+
     private sealed record Released(List<Track> Queue, int Index, TimeSpan At, bool Paused);
 
-    /// <summary>Frees the streams reading <paramref name="path"/>. Returns the playing track's place if it was one.</summary>
-    private Released? Release(string path)
+    /// <summary>
+    /// Frees the streams reading a file <paramref name="matches"/> accepts, and with
+    /// <paramref name="closeDevice"/> the device connection too. Returns the playing
+    /// track's place if it was one of them.
+    /// </summary>
+    private Released? Release(Func<string, bool> matches, bool closeDevice)
     {
         Released? current = null;
         var discard = 0;
 
         lock (_gate)
         {
-            bool Is(int index) => index >= 0 && index < _queue.Count
-                && string.Equals(_queue[index].FilePath, path, StringComparison.OrdinalIgnoreCase);
+            bool Is(int index) => index >= 0 && index < _queue.Count && matches(_queue[index].FilePath);
 
             if (_prefetchedStream != 0 && Is(_prefetchedIndex))
             {
@@ -232,6 +258,15 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                     _output?.Dispose();
                     _output = null;
                 }
+            }
+
+            // Nothing loaded (stopped): the next play opens the new device.
+            if (closeDevice && _output is not null)
+            {
+                if (current is null)
+                    _output.Stop();
+                _output.Dispose();
+                _output = null;
             }
         }
 

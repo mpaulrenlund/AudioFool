@@ -33,9 +33,28 @@ public sealed class BassRuntime
         // missing add-ons that cannot be obtained. See README for the options.
     ];
 
+    /// <summary>
+    /// How long a change of default device is left to settle before it is probed.
+    /// Windows announces one change per role, and a device that has just appeared
+    /// can take a moment to answer format queries.
+    /// </summary>
+    private const int DeviceSettleMs = 500;
+
     private readonly List<int> _pluginHandles = [];
+    private readonly object _probeGate = new();
+
+    // Held in a field: BASSWASAPI calls it from its own thread.
+    private WasapiNotifyProcedure? _notifyProc;
+    private Timer? _deviceSettle;
+    private string? _deviceId;
 
     public bool IsInitialised { get; private set; }
+
+    /// <summary>
+    /// Raised, on a worker thread, once the Windows default output device has
+    /// changed and the new one has been probed.
+    /// </summary>
+    public event EventHandler? DefaultOutputChanged;
 
     /// <summary>
     /// The rate Windows mixes at for the default device. Shared-mode output runs
@@ -90,6 +109,7 @@ public sealed class BassRuntime
 
             LoadPlugins();
             ProbeOutputDevice();
+            WatchDefaultDevice();
 
             IsInitialised = true;
             return true;
@@ -157,8 +177,57 @@ public sealed class BassRuntime
     }
 
     /// <summary>
+    /// Asks BASSWASAPI to report device changes. Only a new default output
+    /// matters: output always opens the default device (see OutputChain).
+    /// </summary>
+    private void WatchDefaultDevice()
+    {
+        try
+        {
+            _notifyProc = OnWasapiNotify;
+            BassWasapi.SetNotify(_notifyProc);
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException)
+        {
+            // basswasapi.dll missing: there is no device to follow.
+        }
+    }
+
+    private void OnWasapiNotify(WasapiNotificationType notify, int device, IntPtr user)
+    {
+        if (notify != WasapiNotificationType.DefaultOutput)
+            return;
+
+        lock (_probeGate)
+        {
+            _deviceSettle ??= new Timer(_ => ReprobeDefaultDevice());
+            _deviceSettle.Change(DeviceSettleMs, Timeout.Infinite);
+        }
+    }
+
+    /// <summary>
+    /// Probes the default device again, and raises <see cref="DefaultOutputChanged"/>
+    /// if it is a different one. Public so a test can stand in for the notification.
+    /// </summary>
+    public bool ReprobeDefaultDevice()
+    {
+        bool changed;
+        lock (_probeGate)
+        {
+            var before = _deviceId;
+            ProbeOutputDevice();
+            changed = _deviceId != before;
+        }
+
+        if (changed)
+            DefaultOutputChanged?.Invoke(this, EventArgs.Empty);
+        return changed;
+    }
+
+    /// <summary>
     /// Asks the default output device what it can do, so the UI can offer
-    /// exclusive mode only when it's actually achievable.
+    /// exclusive mode only when it's actually achievable. Run again whenever
+    /// the default device changes.
     /// </summary>
     private void ProbeOutputDevice()
     {
@@ -178,6 +247,13 @@ public sealed class BassRuntime
                 if (info.IsInput || info.IsLoopback || !info.IsDefault)
                     continue;
 
+                // Still the same device (Windows announces each role separately).
+                // Probing it again could even be wrong: a device we hold in
+                // exclusive mode refuses format checks.
+                if (_deviceId is not null && info.ID == _deviceId)
+                    return;
+
+                _deviceId = info.ID;
                 OutputDeviceName = info.Name ?? "default device";
                 if (info.MixFrequency > 0)
                     SharedMixRate = info.MixFrequency;
@@ -192,6 +268,11 @@ public sealed class BassRuntime
                 ConfigureDsdConversionRate();
                 return;
             }
+
+            // No default output at all, e.g. the last device was unplugged.
+            _deviceId = null;
+            ExclusiveRates = [];
+            SupportsExclusive = false;
         }
         catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException)
         {
@@ -217,9 +298,11 @@ public sealed class BassRuntime
         // rate turns out to be. 705.6 kHz is an eighth of DSD128.
         int[] preferred = [705600, 352800, 176400, 88200];
 
+        // None of them (no exclusive mode at all): BASSDSD's own default, so a
+        // device switched to doesn't keep the last one's rate.
         var best = preferred.FirstOrDefault(ExclusiveRates.Contains);
         if (best == 0)
-            return;
+            best = 88200;
 
         Bass.Configure(Configuration.DSDFrequency, best);
         DsdConversionRate = best;
@@ -242,6 +325,10 @@ public sealed class BassRuntime
     {
         if (!IsInitialised)
             return;
+
+        if (_notifyProc is not null)
+            BassWasapi.SetNotify(null);
+        _deviceSettle?.Dispose();
 
         foreach (var handle in _pluginHandles)
             Bass.PluginFree(handle);

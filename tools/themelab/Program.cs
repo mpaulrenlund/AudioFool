@@ -185,7 +185,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "analysis" or "waveform" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "analysis" or "waveform" or "device" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -1242,6 +1242,12 @@ internal static class Program
         // --window waveform --file <audio> [--at 0.4]: plays it silently, waits
         // for the seekbar's waveform, moves to that fraction of the track and
         // renders the window, plus the seekbar alone at 3x next to it.
+        if (which == "device")
+        {
+            RunDeviceSwitch(vm, engine, runtime, Arg(args, "--long") ?? throw new ArgumentException("--window device needs --long \"a.flac;b.flac\""));
+            return 0;
+        }
+
         if (which == "waveform")
         {
             RunWaveform(main, vm, engine, Arg(args, "--file") ?? throw new ArgumentException("--window waveform needs --file <audio file>"),
@@ -2863,6 +2869,109 @@ internal static class Program
         }
         engine.Stop();
         Settle(200);
+    }
+
+    /// <summary>
+    /// --window device: what happens when the Windows default output changes,
+    /// without changing it. SwitchDevice is what the change calls, so it is
+    /// called directly, on copies of real tracks played silently in shared mode.
+    /// </summary>
+    private static void RunDeviceSwitch(MainViewModel vm, AudioEngine engine, BassRuntime runtime, string files)
+    {
+        void Log(string s) => Console.WriteLine(s);
+        var dir = Path.Combine(Path.GetTempPath(), "themelab-device-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var tracks = files.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(source =>
+            {
+                var copy = Path.Combine(dir, Path.GetFileName(source));
+                File.Copy(source, copy);
+                return AudioFool.Core.Library.TagReader.Read(copy);
+            }).ToList();
+
+            runtime.Initialise();
+            vm.Volume = 0;
+            var notify = typeof(ManagedBass.Wasapi.WasapiNotificationType);
+            Log($"notifications: {string.Join(", ", Enum.GetNames(notify).Select(n => $"{n}={(int)Enum.Parse(notify, n)}"))}");
+            Log($"device: '{runtime.OutputDeviceName}' exclusive={runtime.SupportsExclusive} rates={string.Join("/", runtime.ExclusiveRates)} mix={runtime.SharedMixRate}");
+
+            var again = runtime.ReprobeDefaultDevice();
+            Log($"same device announced again: changed={again}, exclusive still {runtime.SupportsExclusive} {(again ? "WRONG" : "OK")}");
+
+            bool Until(Func<bool> condition)
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                while (clock.ElapsedMilliseconds < 5000)
+                {
+                    if (condition())
+                        return true;
+                    Settle(10);
+                }
+                return false;
+            }
+
+            // Playing.
+            engine.Play(tracks, 0);
+            engine.Seek(TimeSpan.FromSeconds(30));
+            Settle(500);
+            var before = engine.Position;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            engine.SwitchDevice(OutputMode.Shared);
+            var took = clock.ElapsedMilliseconds;
+            var back = engine.Position;
+            Settle(400);
+            var later = engine.Position;
+            var playingOk = engine.State == PlaybackState.Playing && Math.Abs((back - before).TotalMilliseconds) < 25
+                            && later - back > TimeSpan.FromMilliseconds(250) && engine.HasOutput;
+            Log($"switch while playing: {took} ms, {before.TotalMilliseconds:0} -> {back.TotalMilliseconds:0} ms, 400 ms on {later.TotalMilliseconds:0}, "
+                + $"state={engine.State} output '{engine.OutputDescription}' {(playingOk ? "OK" : "WRONG")}");
+
+            // The next track was opened ahead; it is opened again on the new device.
+            if (tracks.Count > 1)
+            {
+                var next = tracks[1].FilePath;
+                Until(() => engine.HoldsFile(next));
+                engine.SwitchDevice(OutputMode.Shared);
+                var reopened = Until(() => engine.HoldsFile(next));
+                Log($"next track after a switch: opened ahead again={reopened} {(reopened ? "OK" : "WRONG")}");
+            }
+
+            // Paused.
+            engine.Pause();
+            Settle(100);
+            var pausedAt = engine.Position;
+            engine.SwitchDevice(OutputMode.Shared);
+            var pausedOk = engine.State == PlaybackState.Paused && Math.Abs((engine.Position - pausedAt).TotalMilliseconds) < 25;
+            Log($"switch while paused: {pausedAt.TotalMilliseconds:0} -> {engine.Position.TotalMilliseconds:0} ms, state={engine.State} {(pausedOk ? "OK" : "WRONG")}");
+            engine.Resume();
+            Settle(400);
+            Log($"  resumed: {engine.Position.TotalMilliseconds:0} ms, state={engine.State} {(engine.Position - pausedAt > TimeSpan.FromMilliseconds(250) ? "OK" : "WRONG")}");
+
+            // Stopped: the connection is closed, and the next play opens one.
+            engine.Stop();
+            engine.SwitchDevice(OutputMode.Shared);
+            var closed = !engine.HasOutput;
+            var played = engine.Play(tracks, 0);
+            Settle(300);
+            Log($"switch while stopped: closed={closed}, plays after={played && engine.State == PlaybackState.Playing && engine.Position > TimeSpan.Zero} "
+                + $"{(closed && played ? "OK" : "WRONG")}");
+
+            // The view model's side: what the change itself runs on the UI thread.
+            var follow = (Task)typeof(MainViewModel).GetMethod("FollowDefaultDeviceAsync",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.Invoke(vm, null)!;
+            Until(() => follow.IsCompleted);
+            follow.GetAwaiter().GetResult();
+            Log($"view model: status '{vm.StatusText}', bit-perfect {vm.IsExclusiveOutput}, can use {vm.CanUseExclusiveOutput}, "
+                + $"state={engine.State} {(engine.State == PlaybackState.Playing ? "OK" : "WRONG")}");
+
+            engine.Stop();
+            Settle(200);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     /// <summary>The engine, timing how long a save keeps the file away from playback.</summary>

@@ -30,6 +30,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly DispatcherTimer _positionTimer;
     private readonly DispatcherTimer _searchDebounce;
     private readonly LastFmScrobbler _scrobbler;
+    private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
 
     private MusicLibrary _library = MusicLibrary.Empty;
     private MusicLibrary _folderFilteredLibrary = MusicLibrary.Empty;
@@ -61,6 +62,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _engine.TrackChanged += OnEngineTrackChanged;
         _engine.StateChanged += OnEngineStateChanged;
         _engine.PlaybackFinished += OnEnginePlaybackFinished;
+        _runtime.DefaultOutputChanged += OnDefaultOutputChanged;
 
         _scrobbler = new LastFmScrobbler(ScrobbleQueue.Load(ScrobbleQueue.DefaultPath, DateTimeOffset.UtcNow))
         {
@@ -453,10 +455,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     // ---------------------------------------------------------------- output
 
-    /// <summary>Bound to the toolbar toggle. Off = shared, on = exclusive.</summary>
+    /// <summary>
+    /// Bound to the toolbar toggle. Off = shared, on = exclusive. The setting is
+    /// the user's choice; it only takes effect on a device that supports it, so
+    /// it survives a switch to one that doesn't and comes back on the way back.
+    /// </summary>
     public bool IsExclusiveOutput
     {
-        get => _settings.OutputMode == OutputMode.Exclusive;
+        get => _settings.OutputMode == OutputMode.Exclusive && _runtime.SupportsExclusive;
         set
         {
             var mode = value ? OutputMode.Exclusive : OutputMode.Shared;
@@ -473,6 +479,29 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             OnPropertyChanged(nameof(CanUseDsdPassthrough));
             RefreshOutputState();
         }
+    }
+
+    private void OnDefaultOutputChanged(object? sender, EventArgs e) =>
+        _dispatcher.BeginInvoke(() => _ = FollowDefaultDeviceAsync());
+
+    /// <summary>
+    /// The Windows default output device changed (the runtime has probed it):
+    /// playback moves to it, and Bit-Perfect follows what it can do.
+    /// </summary>
+    private async Task FollowDefaultDeviceAsync()
+    {
+        var mode = IsExclusiveOutput ? OutputMode.Exclusive : OutputMode.Shared;
+        await Task.Run(() => _engine.SwitchDevice(mode));
+
+        OnPropertyChanged(nameof(CanUseExclusiveOutput));
+        OnPropertyChanged(nameof(IsExclusiveOutput));
+        OnPropertyChanged(nameof(CanUseDsdPassthrough));
+        OnPropertyChanged(nameof(OutputDeviceName));
+        RefreshOutputState();
+
+        StatusText = _settings.OutputMode == OutputMode.Exclusive && !_runtime.SupportsExclusive
+            ? $"Sound output moved to {_runtime.OutputDeviceName}. It can't do Bit-Perfect, so that is off until a device that can is the default."
+            : $"Sound output moved to {_runtime.OutputDeviceName}.";
     }
 
     /// <summary>Greyed out when the device can't do exclusive mode at all.</summary>

@@ -1431,14 +1431,44 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   `BassRuntime.ProbeOutputDevice` finds no exclusive-mode rate on the default device
   at startup: Windows' "Allow applications to take exclusive control" unticked,
   Bluetooth/virtual devices, or the device changed after launch (it probes once).
-  Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
-  when the default device changes.
+  ~~Offered: re-probing when the default device changes~~ Done in session 37, with
+  output following the device. (A tooltip saying why it is disabled was turned down
+  in session 37, along with the chip's tooltip.)
 
 ### Changes from session 37 (2026-10-06): saving to the playing track, 600 px covers, darker now-playing row
 
 - **Cover search shows covers from 600 × 600** (was 1,000). `OnlineArtSearch.MinimumSize`;
   the status line reads the constant instead of repeating it.
 - **Now-playing row `#B4C6BF`** (was `#C3CDC9`), the user's pick. Text contrast about 4.5:1.
+- **The Bit-Perfect chip has no tooltip** (the user's call: not necessary). Its accessible
+  name is unchanged. This also settles session 24's offer of a tooltip saying why it is
+  disabled: don't add one.
+- **Output follows the Windows default device** (the user's call: playback follows,
+  and Bit-Perfect is remembered). Before, the device was probed once at startup and the
+  shared chain built once, so a device switched to mid-session was ignored until restart
+  (not tested before the change; that is what the code did).
+  - `BassRuntime` registers `BassWasapi.SetNotify`; on `DefaultOutput` (2) it waits
+    500 ms for the other roles' notices, then `ReprobeDefaultDevice()`: the device is
+    compared by WASAPI ID, and the same device is **not** probed again (one held in
+    exclusive mode refuses format checks, which would grey the button). A new device
+    gets the full probe (rates, mix rate, DSD conversion rate, which now falls back to
+    88.2 kHz when it has no exclusive rates) and raises `DefaultOutputChanged` (worker
+    thread).
+  - `MainViewModel.FollowDefaultDeviceAsync` (on the UI thread) calls
+    `AudioEngine.SwitchDevice(mode)` off it. **`IsExclusiveOutput` is now the setting
+    *and* `SupportsExclusive`**: the setting is the user's choice for the session (still
+    reset to Shared each launch), so it survives a device that can't do it.
+  - `SwitchDevice` reuses the save release: `Release(_ => true, closeDevice: true)` frees
+    the current and next streams and the device connection, then `Reacquire` reopens on
+    the new default at the same position. Stopped: only the connection is closed.
+  - **Verified**: ThemeLab **`--window device --long "a.flac;b.flac"`** calls
+    `SwitchDevice` directly on copies of real tracks (shared, silent): playing 27 ms,
+    same position, plays on; the next track opened ahead again; paused stays paused at
+    the same position and resumes; stopped closes the connection and the next play
+    works; the view model's handler reports the device. `ReprobeDefaultDevice()` on an
+    unchanged device returns false and leaves the rates alone. **Not verified: a real
+    switch of the default device** (it is a Windows setting, so it is the user's to make),
+    exclusive mode, Bluetooth.
 - **A save that resizes the playing or next track goes through now** (the user's call,
   reversing session 19's refusal). The usual trigger is a new cover in Edit Album Tags
   while the album plays: before, those two tracks were named as failed.
@@ -2700,6 +2730,7 @@ ThemeLab.exe --rows 1,2,3,4       # several selected grid rows
 ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
 ThemeLab.exe --window queue       # edit queued and playing tracks while the real engine plays silently
 ThemeLab.exe --window queue --long "D:/Music/x/a.flac;D:/Music/y/b.dsf" [--longcomment 3000000]   # also save to real tracks (copied to scratch) while they play
+ThemeLab.exe --window device --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a change of default output device, simulated: playing, paused, stopped, next track
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
 ThemeLab.exe --w 1300 --h 700 --lastfm failing   # the status-bar indicator
 ThemeLab.exe --menushot menu.png --scale 2      # the logo menu's drop-down, without opening it

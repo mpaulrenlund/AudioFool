@@ -454,6 +454,14 @@ The line under the volume slider shows what the output is actually doing, e.g.
 `Exclusive 96 kHz/24-bit (bit-perfect)`. If exclusive mode is refused — another app
 already has the device exclusively — it falls back to shared and says so.
 
+**Switching sound devices.** Output always goes to the Windows default device, and
+follows it when it changes while the app is open — headphones plugged in, a different
+device picked in Windows' sound settings. The playing track carries on from where it was
+after a short gap (a paused one stays paused), and the status line names the new device.
+The device is checked again at the same time: Bit-Perfect is greyed out on one that can't
+do exclusive mode (Bluetooth usually can't), and if it was on, it comes back on when you
+return to a device that can.
+
 ### DSD
 
 The **DSD passthrough** switch chooses between two paths. It requires bit-perfect
