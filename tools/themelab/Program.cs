@@ -2928,7 +2928,7 @@ internal static class Program
             var p = vm.NowPlaying;
             var row = Row(file);
             var ok = arrived && p is not null && p.Title == expectTitle && p.Artist == expectArtist
-                     && vm.WindowTitle == $"{expectArtist} â€“ {expectTitle}"
+                     && vm.WindowTitle == $"{expectArtist} – {expectTitle}"
                      && tracker.Current?.Title == expectTitle && tracker.Current?.Artist == expectArtist;
             Log($"{how} -> {file}: arrived={arrived} title='{p?.Title}' artist='{p?.Artist}' window='{vm.WindowTitle}' "
                 + $"scrobbler='{tracker.Current?.Artist} / {tracker.Current?.Title}' note={ReferenceEquals(p, row)} "
