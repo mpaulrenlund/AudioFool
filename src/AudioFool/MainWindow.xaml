@@ -1175,14 +1175,6 @@
                           IsChecked="{Binding IsExclusiveOutput, Mode=TwoWay}"
                           IsEnabled="{Binding CanUseExclusiveOutput}"
                           AutomationProperties.Name="Bit-Perfect">
-                <ToggleButton.ToolTip>
-                    <TextBlock>
-                        Exclusive WASAPI: opens the sound device at each track's own<LineBreak />
-                        sample rate, so nothing is resampled on the way out.<LineBreak /><LineBreak />
-                        Other applications go silent while music is playing, and the<LineBreak />
-                        volume slider is fixed at 100%.
-                    </TextBlock>
-                </ToggleButton.ToolTip>
                 <StackPanel Orientation="Horizontal">
                     <Ellipse x:Name="BitPerfectDot"
                              Margin="{theme:Thickness Right=statusBar.chipDotGap}"
