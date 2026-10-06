@@ -19,6 +19,9 @@ with nothing else in the way.
   the seek bar are green, and a library scan fills a yellow bar. Selection is a
   darker grey row, with no marker or outline. Every coloured mark also has a shape
   or a word. It respects the Windows "show animations" setting.
+- A waveform in the seek bar: the playing track's loud and quiet parts, teal up to where
+  you are and grey after, moving smoothly while it plays. It's read in the background
+  when the track starts (well under a second for most files); until then the bar is plain.
 - Gapless playback.
 - [Last.fm scrobbling](#lastfm-scrobbling), with plays kept offline until they can be sent.
 - Optional [bit-perfect output](#output-modes) — exclusive WASAPI at the source's own

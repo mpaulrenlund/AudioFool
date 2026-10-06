@@ -1435,63 +1435,97 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
 
 ### Changes from session 36 (2026-10-06): a waveform in the seekbar
 
-The user asked for the track's quiet and loud parts behind the seekbar. Four mockups were
-shown (mirrored outline, thin bars, waveform replacing the track, rises above the track)
-and the user picked **C: the waveform replaces the track**. **512 tests pass** (503 + 9).
-Installed and committed. The user has seen it in the real window (smooth at 144 Hz); still worth asking them to drag
-the handle across it.
+The user asked to see the track's quiet and loud parts behind the seekbar. One commit:
+**`676ec97`**, pushed to `origin/main`. **512 tests pass** (503 + 9). Installed. The user
+has used it in the real app and says it moves smoothly on their 144 Hz monitor.
 
-- **`Waveform` / `WaveformLevels`** (`AudioFool.Core/Analysis/Waveform.cs`): a
-  decode-only float stream (like `TrackAnalyzer`, never the engine's), 600 RMS columns
-  scaled so the loudest is 1, on a linear scale. RMS, not peak: a loud master's peaks are
-  a solid brick. Samples go into small blocks (4 per column when the length is known,
-  2,048 frames when it isn't), and the blocks are shared out among the columns at the end,
-  so a VBR MP3's estimated length still fills evenly. DSD is read at 44.1 kHz (falls back
-  to `DsdAnalysisRate` if refused). Null for a missing or undecodable file; no message.
-- **`MainViewModel.NowPlayingWaveform`**: `OnNowPlayingChanged` cancels any read in
-  progress and starts one on the thread pool. A result for a track that's no longer
-  playing is dropped. A tag-save rename keeps the path, so it isn't read again. It runs
-  for the restored track at launch too, so the stopped bar shows it. `Dispose` cancels it
-  and waits up to 1 s for the decode before BASS shuts down.
-- **`theme.slider`** (Chrome.xaml) gained a `theme:WaveformView` behind the `Track`.
-  When `theme:SeekWaveform.Levels` is set (only `SeekBar` binds it), a trigger on
-  `SeekWaveform.IsShown` hides the groove, makes the fill see-through (its clicks still
-  page), and shows the waveform. `WaveformView` (Theming/WaveformView.cs) builds one
-  frozen `StreamGeometry` per size and set of levels, then draws it twice, clipped at the
-  handle's centre: `Foreground` (`slider.seekFill`) played, `slider.track` the rest.
-  `Levels` is `IReadOnlyList<float>`: an array-typed property inside a template is a XAML
-  compile error (MC4102).
-- Tokens: `playbackBar.waveformHeight` 28 (first 22; the user asked for 30% bigger; `SeekBar`'s Height is set to it, so its click strip is 28 px), `playbackBar.waveformFloor` 2. No new
-  colours. Spec 6.7 Zone 3 describes it; `design/progress.md` records the departure (the
-  volume slider no longer matches the seekbar's style while a waveform shows).
-- Verified: ThemeLab **`--window waveform --file <audio> [--at 0.4]`** (new) plays at
-  volume 0, prints when the levels arrive and that the volume slider stays plain, and
-  renders: FLAC 428 ms, DSD64 513 ms, a 35-minute MP3 1,990 ms, each render looked at.
-  `--window click --lastplayed` now prints the waveform's column count (600 for the
-  restored, stopped track). Headless probe on cold files: FLAC 112–404 ms, DSD
-  ~1.2–1.3 s. Not verified: the real window on screen and a real drag over it.
-- **No handle on the waveform** (the user's call after using it). The trigger sets the
-  `Handle` thumb's Opacity to 0, so it still takes drags. A 2 px teal playhead line
-  (`WaveformView.Playhead`, token `playheadWidth`) was added and then removed at the
-  user's request the same day; the teal/grey split is the only marker. Installed.
-- **The split glides instead of stepping** (the user: "moves in a choppy way"). The
-  position timer is 250 ms, so the split jumped 4 times a second (0.6 px a step on a
-  3:30 track). `WaveformView.IsPlaying` (bound through `SeekWaveform.IsPlaying` from
-  `MainViewModel.IsPlaying`) moves the split forward from the last real position at one
-  second per second, never more than 0.4 s ahead (`MaxLeadSeconds`), so a late tick
-  pauses it briefly instead of letting it run on. It redraws on every `CompositionTarget.Rendering` frame
-  (the user has a 144 Hz primary monitor and asked for that rate), only while playing,
-  visible and showing a waveform, skipping only a split that hasn't moved at all. **The
-  frame rate on the real monitor is not measured.** Every probe window from the sandboxed
-  shell, off-screen or 1 px on the 144 Hz primary, got ~32 frames a second whatever
-  `Timeline.DesiredFrameRate` (60 or 144) or `timeBeginPeriod(1)` was, so those numbers
-  say nothing about the real app; measuring it needs the app on the user's screen. Each new value restarts the clock. ThemeLab `--window waveform` now samples
-  the drawn split for 2 s; **`--noglide 1`** shows the old stepping. *On The Run*, 507 px:
-  8 moves of up to 0.62 px before, 69 of at most 0.12 px after, none backwards.
-  Installed. The plain groove's handle (before the waveform loads) and the volume slider
-  still step; nobody watches those move.
-- Not done: no disk cache (each track is read on every play; fine at these timings), no
-  fade-in.
+**What it looks like now** (each point is the user's call, in the order they were made):
+
+1. Four mockups (mirrored outline, thin bars, waveform replacing the track, rising above
+   the track); the user picked **the waveform replaces the track**.
+2. **28 px tall** (`playbackBar.waveformHeight`). It was 22 px, the slider's click strip;
+   the user asked for 30% bigger. 29 would put the 14 px handle on a half pixel. `SeekBar`'s
+   own Height is set to the token, so its click strip is 28 px; the volume slider's stays
+   22, and both stay centred on the same line (measured).
+3. **No handle** on the waveform: teal meeting grey is the only marker. The `Handle`
+   thumb is at Opacity 0, not removed, so dragging it still works.
+4. A **2 px teal playhead line** was added for quiet passages, then **removed** at the
+   user's request. Its property and token are gone. Accepted trade-off: in a near-silent
+   stretch the split sits only on the 2 px floor (`playbackBar.waveformFloor`).
+5. The split **glides** instead of stepping 4 times a second.
+
+The plain groove with its handle still shows until a track's levels are read, and when
+they can't be (drive out, undecodable file). The volume slider never shows a waveform.
+No new colours: `slider.seekFill` played, `slider.track` the rest. Spec 6.7 Zone 3
+describes all of this. `design/progress.md` records where it departs from the spec: the
+volume slider no longer matches the seekbar's style, and there's no 14 px handle.
+
+**How it works**
+
+- **`Waveform` / `WaveformLevels`** (`AudioFool.Core/Analysis/Waveform.cs`). A
+  decode-only float stream, like `TrackAnalyzer` and never the engine's, so it runs beside
+  playback. 600 RMS columns, linear, scaled so the loudest is 1. RMS rather than peak,
+  because a loud master's peaks draw a solid brick. Samples go into small blocks (4 per
+  column when the length is known, 2,048 frames when it isn't), and the blocks are shared
+  out among the columns at the end, so a VBR MP3's estimated length still fills evenly.
+  DSD is read at 44.1 kHz, falling back to `DsdAnalysisRate` if that's refused. Returns
+  null for a missing or undecodable file, with no message.
+- **`MainViewModel.NowPlayingWaveform`**. `OnNowPlayingChanged` cancels any read in
+  progress and starts a new one on the thread pool, and drops a result for a track that's
+  no longer playing. A tag-save rename keeps the same path, so the file isn't read again.
+  It also runs for the restored track at launch, so the stopped bar shows the waveform.
+  `Dispose` cancels the read and waits up to 1 s for the decode (`_waveformDecode`, not
+  the async method, whose continuation needs the UI thread) before BASS shuts down.
+- **`theme.slider`** (Chrome.xaml) has a `theme:WaveformView` behind its `Track`. Only
+  `SeekBar` sets `theme:SeekWaveform.Levels` and `.IsPlaying`. A trigger on
+  `SeekWaveform.IsShown` hides the groove, makes the fill and the handle see-through
+  (they still take clicks and drags), and shows the waveform.
+- **`WaveformView`** (Theming/WaveformView.cs) builds one frozen `StreamGeometry` per
+  size and set of levels, then draws it twice, clipped at the split.
+  - The glide: while `IsPlaying`, the split runs on from the last real value at one
+    second per second, capped at `MaxLeadSeconds` (0.4). A late tick therefore stalls it
+    briefly instead of letting it run on, and each new value restarts the clock.
+  - It redraws on every `CompositionTarget.Rendering` frame, only while playing, visible
+    and showing a waveform. A split that hasn't moved at all is skipped.
+  - `Levels` is `IReadOnlyList<float>`, because an array-typed property inside a
+    template is a XAML compile error (MC4102).
+
+**Verified**
+
+- Timing, from a headless probe on files not read recently: FLAC 112–404 ms, DSD64
+  ~1.2–1.3 s, a 35-minute MP3 2 s. ThemeLab: FLAC 428 ms, DSD64 513 ms.
+- ThemeLab **`--window waveform --file <audio> [--at 0.4] [--noglide 1]`** (new). It
+  plays at volume 0 and prints when the levels arrive and that the volume slider stays
+  plain. It samples the drawn split for 2 s, then renders the window and a 3× crop of the
+  seekbar (`*.seekbar.png`).
+  - Glide on *On The Run* at 507 px: 8 moves of up to 0.62 px before, 64–69 of at most
+    0.18 px after, none backwards.
+  - Renders looked at: Ihlo *Union* at 2:27 and 4:50 (a quiet stretch), *Speak To Me*
+    (DSD) and the live MP3.
+- `--window click --lastplayed` now prints the waveform's column count (600 for the
+  restored, stopped track).
+- **Not measured: the real frame rate on the user's monitor.** The user says it's smooth.
+  See the trap below.
+
+**Traps found this session**
+
+- **Probe windows from the sandboxed shell render at ~32 fps**, whether off-screen or a
+  1 px window on the 144 Hz primary. `Timeline.DesiredFrameRate` (60 or 144) and
+  `timeBeginPeriod(1)` made no difference. A frame rate measured that way says nothing
+  about the real app. Monitors: `DISPLAY3` 3440×1440 at 144 Hz (primary), `DISPLAY2`
+  3440×1440 at 100 Hz on its right, `DISPLAY4` 1920×1080 at 60 Hz on its left.
+- **A `VisualBrush` crop of the seekbar is shifted about 7 px.** It aligns to the
+  visual's content bounds, and the `Track` overhangs by half a handle. Crop the
+  full-window render instead, as `--window waveform`'s numbers do; the 3× `.seekbar.png`
+  shows the shift.
+- **ThemeLab's `--window waveform` and `seek` start real playback**, which can save
+  settings. The writes re-read `settings.json` and change one value, and this session's
+  file was byte-identical to the 10/5 backup afterwards. Still, back it up before a run
+  that plays, as the feedback memory says.
+- **No Python on this machine.** Use the Edit tool or perl for multi-line edits.
+
+**Not done**: no disk cache (each track is read on every play, which is fine at these
+timings), no fade-in (the spec has no motion tokens).
 
 ### Changes from session 35 (2026-10-05): last track on reopen, quality tier in the bar, Statistics tweaks
 
@@ -2642,6 +2676,7 @@ ThemeLab.exe --tabwalk 18                   # 18 real Tab presses from the searc
 ThemeLab.exe --tabwalk 0 --keys "Tab,Tab,Tab,Tab,Down" --tabfrom SearchBox   # any key sequence
 ThemeLab.exe --logohover 1                  # logo item highlighted; prints its tooltip and its template's background triggers
 ThemeLab.exe --window seek --file "D:\Music\...\long.flac"   # click the seek bar's track mid-play (silent); prints the position trace, "no bounce" or "BOUNCED"
+ThemeLab.exe --window waveform --file "D:\Music\...\x.flac" --at 0.4 [--noglide 1]   # seekbar waveform: read time, 2 s glide trace, window + 3x seekbar render (plays silently)
 ```
 
 **Seek-bar clicks seek on mouse-down** (2026-10-01). The bar is two-way bound to the
