@@ -973,6 +973,9 @@
 
                     <Slider x:Name="SeekBar" Grid.Column="1"
                             Style="{StaticResource theme.slider}"
+                            theme:SeekWaveform.Levels="{Binding NowPlayingWaveform}"
+                            theme:SeekWaveform.IsPlaying="{Binding IsPlaying}"
+                            Height="{theme:Token playbackBar.waveformHeight}"
                             Margin="{theme:Thickness X=playbackBar.seekGap}"
                             Minimum="0"
                             Maximum="{Binding DurationSeconds}"

@@ -1178,6 +1178,10 @@
         slider's Foreground, and a round handle whose size is the slider's Tag.
         The whole sliderHitHeight strip takes clicks. No BasedOn: WPF-UI's
         Slider style would bring its own template triggers.
+        With theme:SeekWaveform.Levels set (the seekbar, once the playing track
+        is read), the groove gives way to the track's waveform: the played part
+        in Foreground, the rest in slider.track, split where the handle would
+        be; the handle is hidden.
     -->
     <Style x:Key="theme.slider" TargetType="Slider">
         <Setter Property="Height" Value="{theme:Token playbackBar.sliderHitHeight}" />
@@ -1191,7 +1195,8 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Slider">
                     <Grid Background="Transparent">
-                        <Border Height="{theme:Token playbackBar.trackHeight}"
+                        <Border x:Name="Groove"
+                                Height="{theme:Token playbackBar.trackHeight}"
                                 VerticalAlignment="Center"
                                 Background="{DynamicResource color.slider.track}"
                                 CornerRadius="{DynamicResource radius.sliderTrack}"
@@ -1201,16 +1206,28 @@
                                     Background="{DynamicResource shadow.sliderTrackInset.inset1.fade}"
                                     CornerRadius="{DynamicResource radius.sliderTrack}" />
                         </Border>
+                        <theme:WaveformView x:Name="Waveform"
+                                            Visibility="Collapsed"
+                                            Height="{theme:Token playbackBar.waveformHeight}"
+                                            VerticalAlignment="Center"
+                                            Floor="{theme:Token playbackBar.waveformFloor}"
+                                            Levels="{Binding (theme:SeekWaveform.Levels), RelativeSource={RelativeSource TemplatedParent}}"
+                                            Minimum="{TemplateBinding Minimum}"
+                                            Maximum="{TemplateBinding Maximum}"
+                                            Value="{TemplateBinding Value}"
+                                            IsPlaying="{Binding (theme:SeekWaveform.IsPlaying), RelativeSource={RelativeSource TemplatedParent}}"
+                                            PlayedBrush="{TemplateBinding Foreground}"
+                                            RestBrush="{DynamicResource color.slider.track}" />
                         <Track x:Name="PART_Track"
                                Margin="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource theme.thumbOverhang}}">
                             <Track.DecreaseRepeatButton>
-                                <RepeatButton Style="{StaticResource theme.sliderFill}" Command="Slider.DecreaseLarge" />
+                                <RepeatButton x:Name="Fill" Style="{StaticResource theme.sliderFill}" Command="Slider.DecreaseLarge" />
                             </Track.DecreaseRepeatButton>
                             <Track.IncreaseRepeatButton>
                                 <RepeatButton Style="{StaticResource theme.sliderSpace}" Command="Slider.IncreaseLarge" />
                             </Track.IncreaseRepeatButton>
                             <Track.Thumb>
-                                <Thumb Width="{TemplateBinding Tag}" Height="{TemplateBinding Tag}">
+                                <Thumb x:Name="Handle" Width="{TemplateBinding Tag}" Height="{TemplateBinding Tag}">
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
                                             <Ellipse Fill="{DynamicResource color.slider.thumb}"
@@ -1223,6 +1240,15 @@
                             </Track.Thumb>
                         </Track>
                     </Grid>
+                    <ControlTemplate.Triggers>
+                        <!-- The fill and handle stay, see-through, so clicks still page and drags still drag. -->
+                        <Trigger Property="theme:SeekWaveform.IsShown" Value="True">
+                            <Setter TargetName="Groove" Property="Visibility" Value="Hidden" />
+                            <Setter TargetName="Fill" Property="Opacity" Value="0" />
+                            <Setter TargetName="Waveform" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="Handle" Property="Opacity" Value="0" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

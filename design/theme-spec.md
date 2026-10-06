@@ -292,6 +292,7 @@ A panel-styled bar: `panel.bg`, 1 px `panel.border`, 4 px radius, inset top high
 - Track 6 px tall, `slider.track`, subtle inset shadow, fully rounded. Played portion `slider.seekFill`.
 - Handle 14 px circle, `slider.thumb` with 1 px `slider.thumbBorder`, small drop shadow.
 - Click or drag anywhere on the track to seek.
+- **Waveform** (added 2026-10-06, the user's choice): once the playing track's loudness has been read, the 6 px groove gives way to a waveform 28 px tall (`playbackBar.waveformHeight`; the user asked for 30% more than the first 22 px, 2026-10-06), and the seekbar's click strip grows to match. It's a filled shape mirrored about the middle, one RMS level per column, scaled so the loudest moment is full height, and never thinner than `playbackBar.waveformFloor` (2 px), so silence still shows a line. The played part is `slider.seekFill` and the rest is `slider.track`, split where the handle's centre would be. **No handle and no line on the waveform** (the user's call, 2026-10-06): the point where teal meets grey is the only position marker. (A 2 px teal playhead line was tried and removed the same day.) Clicking and dragging anywhere on the strip still seek. Until the levels are ready, or if the file can't be read, the plain groove shows. The volume slider keeps the plain groove.
 
 **Zone 4 — Volume** (240 px):
 - Speaker button (44 px clickable area, 17 px icon, `text.muted`, no face), 8 px gap, volume track.

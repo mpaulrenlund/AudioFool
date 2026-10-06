@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-05 after the thirty-fifth build session. Read this alongside
+Updated 2026-10-06 after the thirty-sixth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1433,6 +1433,66 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   Offered and not yet picked: a tooltip saying why it is disabled, and re-probing
   when the default device changes.
 
+### Changes from session 36 (2026-10-06): a waveform in the seekbar
+
+The user asked for the track's quiet and loud parts behind the seekbar. Four mockups were
+shown (mirrored outline, thin bars, waveform replacing the track, rises above the track)
+and the user picked **C: the waveform replaces the track**. **512 tests pass** (503 + 9).
+Installed and committed. The user has seen it in the real window (smooth at 144 Hz); still worth asking them to drag
+the handle across it.
+
+- **`Waveform` / `WaveformLevels`** (`AudioFool.Core/Analysis/Waveform.cs`): a
+  decode-only float stream (like `TrackAnalyzer`, never the engine's), 600 RMS columns
+  scaled so the loudest is 1, on a linear scale. RMS, not peak: a loud master's peaks are
+  a solid brick. Samples go into small blocks (4 per column when the length is known,
+  2,048 frames when it isn't), and the blocks are shared out among the columns at the end,
+  so a VBR MP3's estimated length still fills evenly. DSD is read at 44.1 kHz (falls back
+  to `DsdAnalysisRate` if refused). Null for a missing or undecodable file; no message.
+- **`MainViewModel.NowPlayingWaveform`**: `OnNowPlayingChanged` cancels any read in
+  progress and starts one on the thread pool. A result for a track that's no longer
+  playing is dropped. A tag-save rename keeps the path, so it isn't read again. It runs
+  for the restored track at launch too, so the stopped bar shows it. `Dispose` cancels it
+  and waits up to 1 s for the decode before BASS shuts down.
+- **`theme.slider`** (Chrome.xaml) gained a `theme:WaveformView` behind the `Track`.
+  When `theme:SeekWaveform.Levels` is set (only `SeekBar` binds it), a trigger on
+  `SeekWaveform.IsShown` hides the groove, makes the fill see-through (its clicks still
+  page), and shows the waveform. `WaveformView` (Theming/WaveformView.cs) builds one
+  frozen `StreamGeometry` per size and set of levels, then draws it twice, clipped at the
+  handle's centre: `Foreground` (`slider.seekFill`) played, `slider.track` the rest.
+  `Levels` is `IReadOnlyList<float>`: an array-typed property inside a template is a XAML
+  compile error (MC4102).
+- Tokens: `playbackBar.waveformHeight` 28 (first 22; the user asked for 30% bigger; `SeekBar`'s Height is set to it, so its click strip is 28 px), `playbackBar.waveformFloor` 2. No new
+  colours. Spec 6.7 Zone 3 describes it; `design/progress.md` records the departure (the
+  volume slider no longer matches the seekbar's style while a waveform shows).
+- Verified: ThemeLab **`--window waveform --file <audio> [--at 0.4]`** (new) plays at
+  volume 0, prints when the levels arrive and that the volume slider stays plain, and
+  renders: FLAC 428 ms, DSD64 513 ms, a 35-minute MP3 1,990 ms, each render looked at.
+  `--window click --lastplayed` now prints the waveform's column count (600 for the
+  restored, stopped track). Headless probe on cold files: FLAC 112–404 ms, DSD
+  ~1.2–1.3 s. Not verified: the real window on screen and a real drag over it.
+- **No handle on the waveform** (the user's call after using it). The trigger sets the
+  `Handle` thumb's Opacity to 0, so it still takes drags. A 2 px teal playhead line
+  (`WaveformView.Playhead`, token `playheadWidth`) was added and then removed at the
+  user's request the same day; the teal/grey split is the only marker. Installed.
+- **The split glides instead of stepping** (the user: "moves in a choppy way"). The
+  position timer is 250 ms, so the split jumped 4 times a second (0.6 px a step on a
+  3:30 track). `WaveformView.IsPlaying` (bound through `SeekWaveform.IsPlaying` from
+  `MainViewModel.IsPlaying`) moves the split forward from the last real position at one
+  second per second, never more than 0.4 s ahead (`MaxLeadSeconds`), so a late tick
+  pauses it briefly instead of letting it run on. It redraws on every `CompositionTarget.Rendering` frame
+  (the user has a 144 Hz primary monitor and asked for that rate), only while playing,
+  visible and showing a waveform, skipping only a split that hasn't moved at all. **The
+  frame rate on the real monitor is not measured.** Every probe window from the sandboxed
+  shell, off-screen or 1 px on the 144 Hz primary, got ~32 frames a second whatever
+  `Timeline.DesiredFrameRate` (60 or 144) or `timeBeginPeriod(1)` was, so those numbers
+  say nothing about the real app; measuring it needs the app on the user's screen. Each new value restarts the clock. ThemeLab `--window waveform` now samples
+  the drawn split for 2 s; **`--noglide 1`** shows the old stepping. *On The Run*, 507 px:
+  8 moves of up to 0.62 px before, 69 of at most 0.12 px after, none backwards.
+  Installed. The plain groove's handle (before the waveform loads) and the volume slider
+  still step; nobody watches those move.
+- Not done: no disk cache (each track is read on every play; fine at these timings), no
+  fade-in.
+
 ### Changes from session 35 (2026-10-05): last track on reopen, quality tier in the bar, Statistics tweaks
 
 Four small requests from the user, one commit: **`309fb20`**, pushed to `origin/main`.
@@ -2145,6 +2205,8 @@ covers. Work is on `main`, no branch, at the user's request.
 | `src/AudioFool.Core/Analysis/Fft.cs` | Radix-2 complex FFT of one fixed size. |
 | `src/AudioFool.Core/Analysis/SpectrumAccumulator.cs` | Samples in, `SpectrumAnalysis` out: mean and peak spectra, the 800 × 512 picture, the peak sample, the 24-bit bit count. Pure. |
 | `src/AudioFool.Core/Analysis/TrackAnalyzer.cs` | Opens a decode-only BASS stream (DSD at 176.4 kHz) and feeds the accumulator, with progress and cancellation. `AnalysisException` for a file it can't read. |
+| `src/AudioFool.Core/Analysis/Waveform.cs` | The seekbar waveform: `Waveform.Read` decodes a file on its own stream into 600 RMS columns (`WaveformLevels`), null if it can't. |
+| `src/AudioFool/Theming/WaveformView.cs` | Draws those levels in `theme.slider`, played part in the slider's Foreground; `SeekWaveform.Levels` switches the groove for it. |
 | `src/AudioFool.Core/Analysis/QualityOpinion.cs` | `QualityClaim` (what the file says), the cliff and image-notch detectors, and the `Opinion`: verdict, headline, findings worst first, cutoff. Pure. |
 | `src/AudioFool/Services/SpectrogramImage.cs` | Paints the picture with the heat-map tokens; the legend gradient. |
 | `src/AudioFool/ViewModels/AnalysisViewModel.cs` | Runs the analysis in the background; the headline, explanations and footer figures. |

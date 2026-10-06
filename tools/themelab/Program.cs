@@ -185,7 +185,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "analysis" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "analysis" or "waveform" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -248,7 +248,7 @@ internal static class Program
                 Console.WriteLine($"rows whose container IsSelected: {string.Join(",", flagged)}");
                 Console.WriteLine($"now-playing bar: '{vm.NowPlaying?.DisplayTitle}' / '{vm.NowPlaying?.Artist}' / '{vm.NowPlayingFormat}' " +
                                   $"duration {vm.DurationDisplay}, art {(vm.NowPlayingArt is null ? "none" : $"{vm.NowPlayingArt.PixelWidth}px")}, " +
-                                  $"playing {vm.IsPlaying}, engine {engine.State}");
+                                  $"playing {vm.IsPlaying}, engine {engine.State}, waveform {vm.NowPlayingWaveform?.Length.ToString() ?? "none"}");
 
                 // --restoreplay 1: press Play (silently, engine volume 0) and report
                 // which track the engine starts and where it sits in its queue.
@@ -1236,6 +1236,16 @@ internal static class Program
         if (which == "seek")
         {
             RunSeek(main, vm, engine, Arg(args, "--file") ?? throw new ArgumentException("--window seek needs --file <audio file>"));
+            return 0;
+        }
+
+        // --window waveform --file <audio> [--at 0.4]: plays it silently, waits
+        // for the seekbar's waveform, moves to that fraction of the track and
+        // renders the window, plus the seekbar alone at 3x next to it.
+        if (which == "waveform")
+        {
+            RunWaveform(main, vm, engine, Arg(args, "--file") ?? throw new ArgumentException("--window waveform needs --file <audio file>"),
+                double.Parse(Arg(args, "--at") ?? "0.4", CultureInfo.InvariantCulture), outPath, w, h, scale);
             return 0;
         }
 
@@ -2701,6 +2711,88 @@ internal static class Program
     /// land in between, and the position is sampled throughout: it should go to
     /// 0 and stay there, not bounce back to where it was.
     /// </summary>
+    private static void RunWaveform(MainWindow main, MainViewModel vm, AudioEngine engine, string file, double at,
+        string outPath, double w, double h, double scale)
+    {
+        vm.Volume = 0;
+        var bar = (System.Windows.Controls.Slider)main.FindName("SeekBar");
+        var volume = (System.Windows.Controls.Slider)main.FindName("VolumeSlider");
+        bool Shown(System.Windows.Controls.Slider s) => AudioFool.Theming.SeekWaveform.GetIsShown(s);
+
+        engine.Play([AudioFool.Core.Library.TagReader.Read(file)], 0);
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        Settle(50);
+        Console.WriteLine($"at start: waveform {(vm.NowPlayingWaveform is null ? "none" : "already there")}, groove shown {!Shown(bar)}");
+        while (vm.NowPlayingWaveform is null && clock.ElapsedMilliseconds < 15000)
+            Settle(20);
+        Console.WriteLine(vm.NowPlayingWaveform is { } levels
+            ? $"waveform after {clock.ElapsedMilliseconds} ms: {levels.Length} columns, seekbar shows it {Shown(bar)}, volume slider {Shown(volume)}"
+            : "waveform: NONE after 15 s");
+
+        engine.Seek(TimeSpan.FromSeconds(engine.Duration.TotalSeconds * at));
+        Settle(700);
+
+        // How the split moves while playing: where it was last drawn, read every
+        // ~16 ms for 2 s. Stepping on the 250 ms timer gives ~8 positions with
+        // big jumps; gliding gives many, each a fraction of a pixel.
+        // --noglide 1: the old stepping, for comparison.
+        if (Arg(Environment.GetCommandLineArgs(), "--noglide") is not null)
+        {
+            System.Windows.Data.BindingOperations.ClearBinding(bar, AudioFool.Theming.SeekWaveform.IsPlayingProperty);
+            AudioFool.Theming.SeekWaveform.SetIsPlaying(bar, false);
+        }
+        var view = Descendants(bar).OfType<AudioFool.Theming.WaveformView>().First();
+        var drawn = typeof(AudioFool.Theming.WaveformView).GetField("_drawnSplit",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var splits = new List<double>();
+        var frames = 0;
+        var renders = 0;
+        EventHandler countFrame = (_, _) =>
+        {
+            frames++;
+            var now = (double)drawn.GetValue(view)!;
+            if (splits.Count == 0 || now != splits[^1])
+                renders++;
+            splits.Add(now);
+        };
+        CompositionTarget.Rendering += countFrame;
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        while (watch.ElapsedMilliseconds < 2000)
+            Settle(5);
+        CompositionTarget.Rendering -= countFrame;
+        Console.WriteLine($"WPF frames: {frames / watch.Elapsed.TotalSeconds:0} a second; the split was in a new place on {renders / watch.Elapsed.TotalSeconds:0} a second");
+        var steps = splits.Zip(splits.Skip(1), (a, b) => b - a).Where(d => d != 0).ToList();
+        Console.WriteLine($"glide over 2 s ({view.ActualWidth:0} px wide, {view.ActualWidth / engine.Duration.TotalSeconds:0.00} px/s): " +
+                          $"{steps.Count} moves, largest {(steps.Count == 0 ? 0 : steps.Max()):0.00} px, " +
+                          $"backward {steps.Count(d => d < 0)} (largest {(steps.Any(d => d < 0) ? -steps.Min() : 0):0.00} px)");
+
+        engine.Pause();
+        Settle(300);
+        Console.WriteLine($"position {vm.PositionDisplay} of {vm.DurationDisplay}");
+
+        Save(main, outPath, w, h, scale);
+
+        bar.UpdateLayout();
+        const double zoom = 3;
+        var rtb = new RenderTargetBitmap((int)(bar.ActualWidth * zoom), (int)(bar.ActualHeight * zoom), 96 * zoom, 96 * zoom, PixelFormats.Pbgra32);
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen())
+        {
+            dc.DrawRectangle((Brush)main.FindResource("color.panel.bg"), null, new Rect(0, 0, bar.ActualWidth, bar.ActualHeight));
+            dc.DrawRectangle(new VisualBrush(bar) { Stretch = Stretch.None, AlignmentX = AlignmentX.Left, AlignmentY = AlignmentY.Top },
+                null, new Rect(0, 0, bar.ActualWidth, bar.ActualHeight));
+        }
+        rtb.Render(visual);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(rtb));
+        using (var stream = File.Create(Path.ChangeExtension(outPath, ".seekbar.png")))
+            encoder.Save(stream);
+
+        engine.Stop();
+        Settle(200);
+        Console.WriteLine($"after Stop: waveform {(vm.NowPlayingWaveform is null ? "cleared" : "kept")}");
+    }
+
     private static void RunSeek(MainWindow main, MainViewModel vm, AudioEngine engine, string file)
     {
         main.Left = 30000;

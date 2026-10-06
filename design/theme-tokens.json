@@ -243,6 +243,8 @@
     "volumeThumb": 12,
     "seekMinTrackWidth": 120,
     "sliderHitHeight": 22,
+    "waveformHeight": 28,
+    "waveformFloor": 2,
     "pressedOffset": 1,
     "iconStrokeOn24Grid": 2.2,
     "volumeIconStrokeOn24Grid": 2

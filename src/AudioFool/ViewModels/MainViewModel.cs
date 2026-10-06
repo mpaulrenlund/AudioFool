@@ -164,6 +164,69 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private BitmapSource? _nowPlayingArt;
 
+    /// <summary>
+    /// The now-playing track's loudness for the seekbar (the user's request,
+    /// 2026-10-06), or null until it has been read, or when it can't be.
+    /// </summary>
+    [ObservableProperty]
+    private float[]? _nowPlayingWaveform;
+
+    private CancellationTokenSource? _waveformCts;
+    private string? _waveformPath;
+    private Task _waveformDecode = Task.CompletedTask;
+
+    /// <summary>
+    /// Reads the new track's waveform in the background, on its own decode
+    /// stream. A rename by a tag save keeps the path, so it isn't read again.
+    /// </summary>
+    partial void OnNowPlayingChanged(Track? value)
+    {
+        var path = value?.FilePath;
+        if (string.Equals(path, _waveformPath, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _waveformCts?.Cancel();
+        _waveformCts = null;
+        _waveformPath = path;
+        NowPlayingWaveform = null;
+
+        if (path is null || !_runtime.Initialise())
+            return;
+
+        var cts = new CancellationTokenSource();
+        _waveformCts = cts;
+        _ = LoadWaveformAsync(path, cts);
+    }
+
+    private async Task LoadWaveformAsync(string path, CancellationTokenSource cts)
+    {
+        float[]? levels;
+        try
+        {
+            var decode = Task.Run(() => Waveform.Read(path, cts.Token), cts.Token);
+            _waveformDecode = decode;
+            levels = await decode;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception)
+        {
+            // Unreadable is not worth a message: the seekbar just stays plain.
+            levels = null;
+        }
+        finally
+        {
+            if (ReferenceEquals(_waveformCts, cts))
+                _waveformCts = null;
+            cts.Dispose();
+        }
+
+        if (string.Equals(path, _waveformPath, StringComparison.OrdinalIgnoreCase))
+            NowPlayingWaveform = levels;
+    }
+
     [ObservableProperty]
     private bool _isPlaying;
 
@@ -2030,6 +2093,18 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // results are saved; wait for that rather than lose the last 30 seconds.
         _qualityCts?.Cancel();
         _qualityScan?.Wait(TimeSpan.FromSeconds(3));
+
+        // BASS is shut down after this, so a waveform read mustn't be mid-file.
+        // It stops within one 16k-sample read of being cancelled.
+        _waveformCts?.Cancel();
+        try
+        {
+            _waveformDecode.Wait(TimeSpan.FromSeconds(1));
+        }
+        catch (AggregateException)
+        {
+            // Cancelled or failed: either way it has stopped.
+        }
 
         SaveVolumeOnly();
     }
