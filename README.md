@@ -11,14 +11,18 @@ with nothing else in the way.
   files carry one, so two albums from the same year still come out in release order.
   An album tagged with only a year sorts at the start of that year.
 - Songs sort by disc number, then track number.
-- One look, **PS1**: the original grey console as 1990s consumer electronics.
-  Warm grey plastic (`#A7A4A3`) fills the window, with slightly lighter raised
-  panels, recessed inputs and tracks, 1 px outlines and small corners. The
-  controller colours are rare, like the face buttons on a pad. The Play/Pause key
-  is green while it shows Play and red while it shows Pause. The playing track and
-  the seek bar are green, and a library scan fills a yellow bar. Selection is a
-  darker grey row, with no marker or outline. Every coloured mark also has a shape
-  or a word. It respects the Windows "show animations" setting.
+- One look, **PS1**: the light grey of the original PlayStation console. Lighter
+  panels (`#CAC7C3`) sit on a slightly darker window (`#BAB7B3`), with 1 px outlines
+  and squarish 4 px corners. The round transport buttons echo a controller's face
+  buttons. Colour is rare and always means something:
+  - **Teal is playback:** Play/Pause, the seek bar's waveform and the playing song's
+    row.
+  - **Blue is artist names.**
+  - **Shuffle and Repeat when on:** Shuffle turns blue and Repeat red.
+  - **Status chips:** a yellow dot means off, a teal one means on.
+
+  Selection is a mid-grey row with no outline, and lists scroll without visible
+  scrollbars. The design is specified in `design/` (spec, tokens and mockup).
 - A waveform in the seek bar: the playing track's loud and quiet parts, teal up to where
   you are and grey after, moving smoothly while it plays. It's read in the background
   when the track starts (well under a second for most files); until then the bar is plain.
