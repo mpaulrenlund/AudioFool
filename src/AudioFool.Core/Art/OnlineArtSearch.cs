@@ -45,7 +45,7 @@ public sealed record ArtSearchSummary(
 /// </summary>
 public sealed partial class OnlineArtSearch
 {
-    public const int MinimumSize = 1000;
+    public const int MinimumSize = 600;
 
     /// <summary>MusicBrainz asks every client to identify itself.</summary>
     private const string UserAgent = "AudioFool/1.0 (personal music player)";

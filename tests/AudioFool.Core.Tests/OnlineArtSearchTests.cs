@@ -64,11 +64,12 @@ public class OnlineArtSearchTests
     }
 
     [Theory]
+    [InlineData(600, 600, OnlineArtSearch.Verdict.Accept)]
     [InlineData(1000, 1000, OnlineArtSearch.Verdict.Accept)]
     [InlineData(3000, 3000, OnlineArtSearch.Verdict.Accept)]
-    [InlineData(999, 1000, OnlineArtSearch.Verdict.TooSmall)]
-    [InlineData(1500, 600, OnlineArtSearch.Verdict.TooSmall)]
-    public void Keeps_only_covers_at_least_1000_on_both_sides(int w, int h, OnlineArtSearch.Verdict expected) =>
+    [InlineData(599, 1000, OnlineArtSearch.Verdict.TooSmall)]
+    [InlineData(1500, 500, OnlineArtSearch.Verdict.TooSmall)]
+    public void Keeps_only_covers_at_least_600_on_both_sides(int w, int h, OnlineArtSearch.Verdict expected) =>
         Assert.Equal(expected, OnlineArtSearch.Classify(JpegProbe.Found, w, h));
 
     [Theory]

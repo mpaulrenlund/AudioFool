@@ -132,7 +132,7 @@ public sealed partial class ArtSearchViewModel : ObservableObject
         {
             summary.Shown switch
             {
-                0 => "No covers of at least 1,000 × 1,000 found",
+                0 => $"No covers of at least {OnlineArtSearch.MinimumSize:N0} × {OnlineArtSearch.MinimumSize:N0} found",
                 1 => "1 cover",
                 var n => $"{n} covers",
             },
@@ -140,7 +140,7 @@ public sealed partial class ArtSearchViewModel : ObservableObject
 
         var hidden = new List<string>();
         if (summary.TooSmall > 0)
-            hidden.Add($"{summary.TooSmall} under 1,000 px");
+            hidden.Add($"{summary.TooSmall} under {OnlineArtSearch.MinimumSize:N0} px");
         if (summary.NotJpeg > 0)
             hidden.Add($"{summary.NotJpeg} not JPEG");
         if (summary.Unrelated > 0)

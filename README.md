@@ -568,7 +568,7 @@ version with a field that holds a whole date.
 
 **Finding cover art online.** In *Edit Album Tags…*, **Search Internet…** beside
 *Choose Image…* looks the album up on the iTunes Store and the Cover Art Archive, and on
-fanart.tv as well once you give it an API key. Only JPEGs of at least 1,000 × 1,000 are
+fanart.tv as well once you give it an API key. Only JPEGs of at least 600 × 600 are
 shown. Each size is read from the image file itself, not taken from what the site
 claims. Covers by the album's artist are shown, exact title matches first, then larger
 first; anything by other artists is hidden. Double-click one to use it. Like a picked

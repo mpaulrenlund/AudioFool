@@ -442,7 +442,7 @@ is missing is a button:
   parameter; Dark and PS1 both resolve to the selected album.
 - **Search Internet for cover art** (album tag dialog, beside Choose Image). Opens
   `ArtSearchWindow`, which shows covers from the iTunes Store, the Cover Art Archive
-  and (with a key) fanart.tv. The user's rules: **JPEG only, at least 1,000 × 1,000**.
+  and (with a key) fanart.tv. The user's rules: **JPEG only, at least 600 × 600** (lowered from 1,000 on 2026-10-06).
   - **Everything is in `AudioFool.Core/Art/`.** `OnlineArtSearch` does the HTTP and
     the parsing. `JpegSize` reads a JPEG's frame header. Both are covered by 27 tests
     in `OnlineArtSearchTests`, all offline.
@@ -477,7 +477,7 @@ is missing is a button:
     and other artists' records that share a title (150cc's *Live Recordings* had
     returned Bob Dylan). The grid keeps itself sorted by relevance, then by pixel
     count.
-  - **Non-square covers pass** if both sides are at least 1,000. The Cover Art
+  - **Non-square covers pass** if both sides are at least 600. The Cover Art
     Archive's *Goodbye Yellow Brick Road* includes a 1514 × 2140 DVD sleeve.
   - **The final status goes through the dispatcher.** ThemeLab pumps the dispatcher
     by hand, with no synchronization context, so code after `await` ran on the
