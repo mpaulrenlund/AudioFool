@@ -179,6 +179,44 @@ public sealed class PlaylistStore
     }
 
     /// <summary>
+    /// Moves the songs at these paths, as one block in their playlist order, to
+    /// just before the song at <paramref name="beforePath"/>, or to the end when
+    /// that is null. Every other entry keeps its place among the rest, songs whose
+    /// file isn't found included. Returns whether the order changed; nothing is
+    /// saved, not even the date, when it didn't.
+    /// </summary>
+    public bool Move(Playlist playlist, IEnumerable<string> paths, string? beforePath, DateTime nowUtc)
+    {
+        var set = paths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var moving = playlist.Entries.Where(e => set.Contains(e.FilePath)).ToList();
+        if (moving.Count == 0)
+            return false;
+
+        var rest = playlist.Entries.Where(e => !set.Contains(e.FilePath)).ToList();
+
+        // Dropped on one of the moving songs: before the first one left after it.
+        var at = rest.Count;
+        if (beforePath is not null)
+        {
+            var target = playlist.Entries.FindIndex(e => string.Equals(e.FilePath, beforePath, StringComparison.OrdinalIgnoreCase));
+            if (target >= 0)
+            {
+                var anchor = playlist.Entries.Skip(target).FirstOrDefault(e => !set.Contains(e.FilePath));
+                at = anchor is null ? rest.Count : rest.IndexOf(anchor);
+            }
+        }
+
+        rest.InsertRange(at, moving);
+        if (rest.SequenceEqual(playlist.Entries, ReferenceEqualityComparer.Instance))
+            return false;
+
+        playlist.Entries.Clear();
+        playlist.Entries.AddRange(rest);
+        Touch(playlist, nowUtc);
+        return true;
+    }
+
+    /// <summary>
     /// Copies <paramref name="sourceFile"/> in as the playlist's picture, replacing
     /// any earlier one. The copy gets a new name each time, so nothing holding the
     /// old picture is shown it under the new one's name. Throws on a file that

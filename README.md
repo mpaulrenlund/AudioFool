@@ -344,6 +344,11 @@ playlist to play it from the top.
   added twice.
 - **Remove songs** with **Remove from Playlist** on the same menu, while a playlist
   shows. The files are untouched.
+- **Reorder songs** by dragging them: press a row (or one of several selected) and
+  drag, and a line shows where they'll land. Hold near the top or bottom edge to
+  scroll; Esc cancels. This works in the playlist's own order: if you've sorted by
+  another column, click **#** first. A song already playing keeps the order it started
+  with; the new order applies the next time you start a song.
 - **Rename, delete or give a playlist a picture** by right-clicking it. Without a
   picture it shows the first song's cover. Liked can't be renamed or deleted.
 - Typing in the search box goes back to Artists: search covers the library.
@@ -659,7 +664,7 @@ least-recently-used first.
 ## Known limitations
 
 - **No TAK or DTS decoder.** See [Format coverage](#format-coverage) for the options.
-- **No playlists, and no visible queue.** Shuffle and repeat do have controls now
+- **No visible queue.** Shuffle and repeat do have controls now
   (see [Play order](#play-order)), and so does search - but what is queued cannot be
   seen, reordered or saved - it is simply whatever the track grid was showing when
   you pressed play (an album, or a set of search results).

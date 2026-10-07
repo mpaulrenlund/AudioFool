@@ -340,6 +340,50 @@ public sealed partial class MainViewModel
         StatusText = $"Removed {Songs(removed)} from {item.Name}.";
     }
 
+    /// <summary>
+    /// Whether a song table row can be dragged to a new place: in a playlist,
+    /// and still in it (a song just unliked from Liked has no place).
+    /// </summary>
+    public bool CanReorder(Track track) =>
+        IsPlaylistMode && PlaylistPositions is { } positions && positions.ContainsKey(track.FilePath);
+
+    /// <summary>
+    /// Drag to reorder: moves these songs, as a block in playlist order, to just
+    /// before the row now at <paramref name="dropIndex"/> in the Songs panel, or to
+    /// the end past the last row. The rows are rebuilt; the play queue isn't
+    /// touched (the user's call: it keeps the order it started with). Returns
+    /// whether anything moved.
+    /// </summary>
+    public bool MovePlaylistSongs(IEnumerable<Track> songs, int dropIndex)
+    {
+        if (!IsPlaylistMode || SelectedPlaylist is not { } item)
+            return false;
+
+        var moving = new HashSet<Track>(songs.Where(CanReorder), ReferenceEqualityComparer.Instance);
+        if (moving.Count == 0)
+            return false;
+
+        // The first row from the drop point on that has a place. One of the moving
+        // songs is fine: the store then places them before the next one left, so a
+        // song not found that sat right after them stays there.
+        var before = Tracks.Skip(Math.Max(dropIndex, 0)).FirstOrDefault(CanReorder);
+
+        // A drop that leaves the table as it was changes nothing, not even the
+        // date, although the store might move a song not found past the block.
+        var shown = Tracks.Where(CanReorder).ToList();
+        var rest = shown.Where(t => !moving.Contains(t)).ToList();
+        var anchor = before is null ? null : shown.Skip(shown.IndexOf(before)).FirstOrDefault(t => !moving.Contains(t));
+        rest.InsertRange(anchor is null ? rest.Count : rest.IndexOf(anchor), shown.Where(moving.Contains));
+        if (rest.SequenceEqual(shown))
+            return false;
+
+        if (!_playlistStore.Move(item.Playlist, moving.Select(t => t.FilePath), before?.FilePath, Now))
+            return false;
+
+        AfterPlaylistChange(item.Playlist, rebuildRows: true);
+        return true;
+    }
+
     [RelayCommand]
     private void RenamePlaylist(PlaylistItemViewModel? item)
     {

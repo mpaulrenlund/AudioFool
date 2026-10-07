@@ -246,6 +246,69 @@ public class PlaylistTests
         Assert.Equal("New title", store.Liked.Entries[0].Album);
     }
 
+    /// <summary>A playlist of a.flac, b.flac, … in that order, made on Monday.</summary>
+    private static (PlaylistStore Store, Playlist Mix, string Path) Letters(string letters)
+    {
+        var path = NewPath();
+        var store = PlaylistStore.Load(path, Monday);
+        var mix = store.Create("Mix", Monday);
+        store.Add(mix, letters.Select(c => T($@"D:\Music\{c}.flac")), Monday);
+        return (store, mix, path);
+    }
+
+    private static string Order(Playlist playlist) =>
+        string.Concat(playlist.Entries.Select(e => Path.GetFileNameWithoutExtension(e.FilePath)));
+
+    private static string P(char c) => $@"D:\Music\{c}.flac";
+
+    [Theory]
+    [InlineData("abcde", "d", 'b', "adbce")]    // up
+    [InlineData("abcde", "b", 'e', "acdbe")]    // down, before e
+    [InlineData("abcde", "b", null, "acdeb")]   // to the end
+    [InlineData("abcde", "a", 'a', "abcde")]    // onto itself
+    [InlineData("abcde", "eb", 'a', "beacd")]   // a block keeps playlist order, not selection order
+    [InlineData("abcde", "bd", 'c', "abdce")]   // dropped on one of its own: before the next one left
+    [InlineData("abcde", "bd", 'd', "acbde")]
+    [InlineData("abcde", "ae", 'c', "baecd")]
+    public void Songs_move_as_a_block_to_just_before_the_target(string start, string moving, char? before, string expected)
+    {
+        var (store, mix, path) = Letters(start);
+
+        var moved = store.Move(mix, moving.Select(P), before is { } b ? P(b) : null, Tuesday);
+
+        Assert.Equal(expected, Order(mix));
+        Assert.Equal(expected != start, moved);
+        Assert.Equal(expected, Order(PlaylistStore.Load(path, Wednesday).Playlists.Single(p => p.Name == "Mix")));
+    }
+
+    [Fact]
+    public void A_move_stamps_the_date_and_one_that_changes_nothing_does_not()
+    {
+        var (store, mix, _) = Letters("abc");
+
+        Assert.False(store.Move(mix, [P('b')], P('c'), Tuesday));
+        Assert.False(store.Move(mix, [@"D:\Music\zzz.flac"], P('a'), Tuesday));
+        Assert.Equal(Monday, mix.ModifiedUtc);
+
+        Assert.True(store.Move(mix, [@"D:\MUSIC\C.FLAC"], P('a'), Wednesday));
+        Assert.Equal("cab", Order(mix));
+        Assert.Equal(Wednesday, mix.ModifiedUtc);
+    }
+
+    [Fact]
+    public void Songs_not_found_keep_their_place_among_the_rest()
+    {
+        // m isn't in the library, so the table shows a, b, c, d.
+        var (store, mix, _) = Letters("abmcd");
+
+        store.Move(mix, [P('d')], P('c'), Tuesday);
+        Assert.Equal("abmdc", Order(mix));
+
+        store.Move(mix, [P('a')], null, Tuesday);
+        Assert.Equal("bmdca", Order(mix));
+        Assert.Equal(5, mix.Entries.Count);
+    }
+
     [Fact]
     public void Header_text()
     {

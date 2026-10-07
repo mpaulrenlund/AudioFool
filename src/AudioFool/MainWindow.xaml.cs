@@ -66,6 +66,7 @@ public partial class MainWindow : FluentWindow
         _slowClickTimer.Tick += SlowClickTimer_Tick;
         TrackGrid.PreviewMouseWheel += (_, _) => _slowClickTimer.Stop();
         TrackGrid.LostKeyboardFocus += TrackGrid_LostKeyboardFocus;
+        HookReorder();
         _viewModel.TracksChanging += OnTracksChanging;
         _viewModel.RevealTrackRequested += OnRevealTrackRequested;
 
@@ -799,6 +800,13 @@ public partial class MainWindow : FluentWindow
             && FindAncestor<LikeToggle>(pressed) is { DataContext: Track liked })
         {
             _viewModel.ToggleLikeCommand.Execute(liked);
+            e.Handled = true;
+            return;
+        }
+
+        // A press in a playlist may become a drag to reorder (MainWindow.Reorder.cs).
+        if (e.ClickCount == 1 && BeginReorderPress(e))
+        {
             e.Handled = true;
             return;
         }

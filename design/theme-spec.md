@@ -328,6 +328,7 @@ Background `window.bg`, 12 px horizontal padding, 12 px text in `text.status`.
 - **Albums panel:** blank (header only) while playlists show.
 - **Header:** the album header's layout. The picture (one chosen, or the first song's cover), the name in the album-title style, then "Modified 2026-10-07", "N tracks" (plus " · N not found" when some aren't in the library), and the duration ("42:36"). No blue line.
 - **Song table:** the same columns. # is the song's place in the playlist and isn't edited in place; clicking # restores the playlist's order. A song unliked while Liked shows keeps its row (empty heart, no place) until the playlist is shown again.
+- **Drag to reorder** (added 2026-10-07): press a song row and drag past the system drag distance; the selected songs (or the pressed one) move together, keeping their order. A 2 px line (`songTable.dropLine.thickness`) in `text.primary` is drawn between rows where they'll land, across the row fill, over the rows rather than moving them. Holding within a row height of the list's top or bottom edge scrolls; Esc cancels. Only in the playlist's own order: no drag while the table is sorted by another column, and none in the album view. A reorder counts as a change (the Modified date updates and the playlist moves to the top of the list); a drop that leaves the order as it was changes nothing. The play queue isn't touched.
 - **Liked** always exists and can't be renamed or deleted.
 - Typing a search goes back to Artists.
 

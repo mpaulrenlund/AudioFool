@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-07 after the thirty-eighth build session. Read this alongside
+Updated 2026-10-07 after the thirty-ninth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1435,6 +1435,59 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   output following the device. (A tooltip saying why it is disabled was turned down
   in session 37, along with the chip's tooltip.)
 
+### Changes from session 39 (2026-10-07): drag to reorder in a playlist
+
+The step offered at the end of session 38. Planned, and the user picked the recommended
+option on all four questions (recorded in `design/progress.md` under Decisions; spec 6.9
+describes the result). **539 tests pass** (529 + 10 in `PlaylistTests`). Installed; the
+installed build starts (UIA found `SearchBox`, closed at once).
+
+- **What the user sees**: in a playlist, press a song row and drag. The selected songs
+  (or the pressed one) move together, in playlist order, to where a 2 px `text.primary`
+  line shows between rows. Holding within a row height of the list's top or bottom edge
+  scrolls a row every 50 ms; Esc cancels. No drag in the album view, or while the table
+  is sorted by another column (click # first). A reorder updates the Modified date, so
+  the playlist goes to the top of the list. The play queue isn't touched.
+- **Core**: `PlaylistStore.Move(playlist, paths, beforePath, now)`. The block goes before
+  `beforePath`, or before the first entry after it that isn't moving (so dropping on the
+  block itself keeps a not-found song that followed it in place), or to the end when
+  null. Every other entry, not-found ones included, keeps its place among the rest.
+- **View model**: `CanReorder(track)` (in a playlist and still in it, so an unliked
+  Liked row can't be dragged) and `MovePlaylistSongs(songs, dropIndex)`. **A drop that
+  leaves the table's order unchanged does nothing.** Without that check, a song dropped
+  just under itself moved a not-found song past it in the file and changed the date,
+  although the table looked the same (ThemeLab caught it). Then `AfterPlaylistChange`
+  rebuilds the rows, and `OnTracksChanging` / `RestoreGridPosition` put the selection
+  back by path.
+- **Window** (`MainWindow.Reorder.cs`, `DropLineAdorner.cs`): the press is caught in
+  `TrackGrid_PreviewMouseLeftButtonDown`, after the heart. **A plain press on a row of a
+  multiple selection collapses the selection at once**: `DataGridCell.OnAnyMouseLeftButtonDown`
+  passes `allowsMinimalSelect: false` (read in the dotnet/wpf source). So that press is
+  handled and the mouse captured, and a release without a drag collapses the selection
+  itself. A press on any other row goes to the grid as before (it selects, arms the slow
+  click, and the grid starts its drag-select capture). Once the drag starts, every
+  `PreviewMouseMove` is handled, which keeps `DataGrid.OnMouseMove` from drag-selecting.
+  The grid ends its own drag on any mouse up (a class handler with `handledEventsToo`).
+  After Esc the rest of the press is swallowed for the same reason. The line is an
+  adorner, clipped to `PART_ScrollContentPresenter`, so it never draws over the headers.
+- **Verified** with ThemeLab **`--window reorder`** (real library read-only, a scratch
+  playlist of eight songs plus one not found). Synthetic mouse events read the real
+  pointer, and taking capture raises a move with the real (released) button, so the lab
+  detaches the window's three mouse handlers and calls `BeginReorderPress(source, point)`,
+  `ReorderMoveTo(point)` and `ReorderRelease()` with points from the rows. Checked: one
+  song up; two selected songs to the end (the press was kept from the grid); a 1 px wobble
+  doesn't start a drag; a click on a row of a selection collapses to it; Esc; a drop on
+  itself and just under itself change nothing, not even the date; sorted and album view
+  don't drag; the not-found entry keeps its place; the file on disk matches; # renumbers;
+  the moved songs stay selected and focused. Measured the line: pixel rows 303–304 of the
+  render, exactly `#22211F`, 1,168 px across the row fill, on the boundary between rows
+  1 and 2.
+- **Not verified**: a real mouse drag in the running app (the feel, the threshold, the
+  capture), and edge scrolling, which needs the real pointer. **Ask the user** to try
+  both.
+- **Trap: scratch file names are case-insensitive.** `h.md` and `H.md` in the scratchpad
+  are one file; a splice through both wrote HANDOFF into itself (restored from git).
+
 ### Changes from session 38 (2026-10-07): likes and playlists
 
 The user asked for a Like column and playlists, and approved a plan first (their calls
@@ -2864,6 +2917,7 @@ ThemeLab.exe --logohover 1                  # logo item highlighted; prints its 
 ThemeLab.exe --window seek --file "D:\Music\...\long.flac"   # click the seek bar's track mid-play (silent); prints the position trace, "no bounce" or "BOUNCED"
 ThemeLab.exe --window waveform --file "D:\Music\...\x.flac" --at 0.4 [--noglide 1]   # seekbar waveform: read time, 2 s glide trace, window + 3x seekbar render (plays silently)
 ThemeLab.exe --window playlists --w 1720 --h 1080   # hearts, a playlist, Liked before/after an unlike, an empty playlist, the name prompt (scratch playlists file)
+ThemeLab.exe --window reorder --w 1720 --h 1080     # drag to reorder a playlist: moves, a block, Esc, no-ops, sorted; renders the drop line (scratch playlists file)
 ```
 
 **Seek-bar clicks seek on mouse-down** (2026-10-01). The bar is two-way bound to the

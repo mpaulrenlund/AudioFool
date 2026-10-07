@@ -220,7 +220,8 @@
     ],
     "numberCell": { "triangleSlot": 8, "triangleHeight": 10, "gap": 3, "numberWidth": 16, "numberWidth3Digits": 23 },
     "editBox": { "borderWidth": 1, "paddingX": 1 },
-    "likeIcon": { "size": 14, "strokeOn24Grid": 2 }
+    "likeIcon": { "size": 14, "strokeOn24Grid": 2 },
+    "dropLine": { "thickness": 2 }
   },
   "playbackBar": {
     "paddingX": 24,

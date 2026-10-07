@@ -286,6 +286,10 @@ internal static class Program
         {
             return RunPlaylists(main, vm, outPath, w, h, scale);
         }
+        else if (which == "reorder")
+        {
+            return RunReorder(main, vm, outPath, w, h, scale);
+        }
         else if (which is "edit" or "queue" or "clicks")
         {
             LoadTempLibrary(vm);
@@ -2810,6 +2814,152 @@ internal static class Program
         prompt.Close();
 
         Console.WriteLine($"saved: {File.ReadAllText(MainViewModel.PlaylistsPath).Length} bytes in {MainViewModel.PlaylistsPath}");
+        return 0;
+    }
+
+    /// <summary>
+    /// --window reorder: drag to reorder in a playlist of eight real songs plus
+    /// one that isn't in the library (playlists in a scratch file). Synthetic
+    /// mouse events read the real pointer, so the window's own steps are called
+    /// with points worked out from the rows: BeginReorderPress, ReorderMoveTo,
+    /// ReorderRelease. Prints the order after each case and renders the line.
+    /// </summary>
+    private static int RunReorder(MainWindow main, MainViewModel vm, string outPath, double w, double h, double scale)
+    {
+        LoadRealLibrary(vm);
+        Pump();
+        Settle(400);
+
+        const System.Reflection.BindingFlags Private = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var grid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
+        string Shot(string name) => Path.ChangeExtension(outPath, null) + $"-{name}.png";
+
+        var begin = typeof(MainWindow).GetMethod("BeginReorderPress", Private, [typeof(DependencyObject), typeof(Point)])!;
+        var moveTo = typeof(MainWindow).GetMethod("ReorderMoveTo", Private)!;
+        var release = typeof(MainWindow).GetMethod("ReorderRelease", Private)!;
+        var end = typeof(MainWindow).GetMethod("EndReorder", Private)!;
+
+        // The window's own mouse handlers read the real button, which is up, and
+        // capturing raises a move at once, so they would end every press. They
+        // only check the button and pass the point on, which this calls directly.
+        T Handler<T>(string name) where T : Delegate =>
+            (T)Delegate.CreateDelegate(typeof(T), main, typeof(MainWindow).GetMethod(name, Private)!);
+        grid.LostMouseCapture -= Handler<System.Windows.Input.MouseEventHandler>("TrackGrid_ReorderLostCapture");
+        grid.PreviewMouseMove -= Handler<System.Windows.Input.MouseEventHandler>("TrackGrid_ReorderMouseMove");
+        grid.PreviewMouseLeftButtonUp -= Handler<System.Windows.Input.MouseButtonEventHandler>("TrackGrid_ReorderMouseUp");
+
+        var store = (AudioFool.Core.Playlists.PlaylistStore)typeof(MainViewModel)
+            .GetField("_playlistStore", Private)!.GetValue(vm)!;
+        var picks = vm.Artists.Where((_, i) => i % 30 == 5).Take(8).Select(a => a.Albums[0].Tracks[0]).ToList();
+        var mix = store.Create("Reorder", DateTime.UtcNow.AddDays(-1));
+        store.Add(mix, picks.Take(4), DateTime.UtcNow.AddDays(-1));
+        mix.Entries.Add(new AudioFool.Core.Playlists.PlaylistEntry(@"Z:\Gone\missing.flac", "Nobody", "Nothing"));
+        store.Add(mix, picks.Skip(4), DateTime.UtcNow.AddDays(-1));
+        mix.ModifiedUtc = DateTime.UtcNow.AddDays(-1);
+        var letter = picks.Select((t, i) => (t.FilePath, (char)('A' + i))).ToDictionary(p => p.FilePath, p => p.Item2, StringComparer.OrdinalIgnoreCase);
+
+        string Saved() => string.Concat(mix.Entries.Select(e => letter.TryGetValue(e.FilePath, out var c) ? c : 'm'));
+        string Shown() => string.Concat(grid.Items.OfType<Track>().Select(t => letter.TryGetValue(t.FilePath, out var c) ? c : '?'));
+        string Selected() => string.Concat(grid.SelectedItems.OfType<Track>().Select(t => letter[t.FilePath]).Order());
+        string Numbers() => string.Join(",", Enumerable.Range(0, grid.Items.Count).Select(i =>
+            grid.ItemContainerGenerator.ContainerFromIndex(i) is System.Windows.Controls.DataGridRow r
+                ? Descendants<System.Windows.Controls.TextBlock>(r).FirstOrDefault()?.Text : "-"));
+
+        vm.IsPlaylistMode = true;
+        vm.SelectedPlaylist = vm.Playlists.First(p => ReferenceEquals(p.Playlist, mix));
+        Pump();
+        Settle(300);
+        Console.WriteLine($"start: saved {Saved()} shown {Shown()} #s {Numbers()} header '{vm.PlaylistHeaderTrackCount}' first in list '{vm.Playlists[0].Name}'");
+
+        System.Windows.Controls.DataGridRow Row(int i) => (System.Windows.Controls.DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(i);
+        Point At(int i, double fraction) => Row(i).TranslatePoint(new Point(200, Row(i).ActualHeight * fraction), grid);
+        DependencyObject TextIn(int i) => Descendants<System.Windows.Controls.TextBlock>(Row(i)).Skip(1).First();
+
+        void Select(params int[] rows)
+        {
+            grid.SelectedItems.Clear();
+            foreach (var i in rows)
+                grid.SelectedItems.Add(grid.Items[i]);
+            Pump();
+        }
+
+        void Drag(string label, int from, int toRow, double fraction, string? shot = null, bool cancel = false)
+        {
+            var kept = (bool)begin.Invoke(main, [TextIn(from), At(from, 0.5)])!;
+            var started = (bool)moveTo.Invoke(main, [At(from, 0.5) + new Vector(0, 1)])!;
+            var past = (bool)moveTo.Invoke(main, [At(from, 0.5) + new Vector(0, 12)])!;
+            moveTo.Invoke(main, [At(toRow, fraction)]);
+            Pump();
+            if (shot is not null)
+            {
+                var line = Descendants<System.Windows.Documents.AdornerLayer>(main).SelectMany(l => l.GetAdorners(grid) ?? []).OfType<DropLineAdorner>().FirstOrDefault();
+                Console.WriteLine($"  drop line: {(line is null ? "none" : "shown")}");
+                Save(main, Shot(shot), w, h, scale);
+            }
+
+            bool dropped;
+            if (cancel)
+            {
+                end.Invoke(main, null);
+                dropped = false;
+            }
+            else
+            {
+                dropped = (bool)release.Invoke(main, null)!;
+            }
+
+            Pump();
+            Settle(200);
+            Console.WriteLine($"{label}: press kept from grid={kept}, 1px started={started}, 12px started={past}, dropped={dropped} -> saved {Saved()} shown {Shown()} #s {Numbers()} selected {Selected()} current '{(grid.CurrentCell.Item is Track t ? letter[t.FilePath] : '-')}' focus={grid.IsKeyboardFocusWithin}");
+        }
+
+        // 1. One song (F, row 5) up to before B (upper half of row 1).
+        Select(5);
+        Drag("F before B", 5, 1, 0.25, shot: "line");
+
+        // 2. Two songs (rows 0 and 2) to the end: lower half of the last row.
+        Select(0, 2);
+        Drag("rows 0+2 to end", 0, grid.Items.Count - 1, 0.75);
+
+        // 3. A click (no movement) on a row of a multiple selection: it becomes the selection.
+        Select(1, 3);
+        var keptClick = (bool)begin.Invoke(main, [TextIn(3), At(3, 0.5)])!;
+        moveTo.Invoke(main, [At(3, 0.5) + new Vector(1, 1)]);
+        release.Invoke(main, null);
+        Pump();
+        Console.WriteLine($"click on a selected row: kept={keptClick} -> selected {Selected()} saved {Saved()}");
+
+        // 4. Esc halfway: nothing moves.
+        Select(4);
+        Drag("Esc", 4, 0, 0.25, cancel: true);
+
+        // 5. Onto itself: nothing moves, and the date stays.
+        var before = mix.ModifiedUtc;
+        Select(2);
+        Drag("onto itself", 2, 2, 0.25);
+        Select(2);
+        Drag("just below itself", 2, 3, 0.25);
+        Console.WriteLine($"  date unchanged: {mix.ModifiedUtc == before}");
+
+        // 6. Sorted by Song: no drag.
+        grid.Items.SortDescriptions.Add(new System.ComponentModel.SortDescription("DisplayTitle", System.ComponentModel.ListSortDirection.Ascending));
+        Pump();
+        Select(1);
+        Console.WriteLine($"sorted: press starts a drag = {(bool)begin.Invoke(main, [TextIn(1), At(1, 0.5)])!}, move = {(bool)moveTo.Invoke(main, [At(1, 0.5) + new Vector(0, 20)])!}");
+        release.Invoke(main, null);
+        grid.Items.SortDescriptions.Clear();
+        Pump();
+
+        // 7. The album view: no drag.
+        vm.IsPlaylistMode = false;
+        Pump();
+        Settle(200);
+        Select(1);
+        Console.WriteLine($"album view: press starts a drag = {(bool)begin.Invoke(main, [TextIn(1), At(1, 0.5)])!}");
+        release.Invoke(main, null);
+
+        var reloaded = AudioFool.Core.Playlists.PlaylistStore.Load(MainViewModel.PlaylistsPath, DateTime.UtcNow).Playlists.First(p => p.Name == "Reorder");
+        Console.WriteLine($"on disk: {string.Concat(reloaded.Entries.Select(e => letter.TryGetValue(e.FilePath, out var c) ? c : 'm'))}, modified today: {reloaded.ModifiedUtc.Date == DateTime.UtcNow.Date}, first in list '{vm.Playlists[0].Name}'");
         return 0;
     }
 
