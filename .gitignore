@@ -19,3 +19,7 @@ src/AudioFool/Resources/icon_preview.png
 
 # Word's lock file while a design doc is open in it (e.g. design/~$ssion-prompts.md).
 ~$*
+
+# ThemeLab's default render, written to whatever folder it runs from (--window tokens
+# writes its specimen there). The leading slash keeps it to the repo root.
+/shot.png
