@@ -154,7 +154,7 @@
     "windowButton": { "width": 46, "iconSize": 18, "strokeOn24Grid": 2.6 }
   },
   "artists": { "rowHeight": 42, "rowPaddingX": 10, "lineGap": 1, "playlistsToggle": { "size": 24, "iconSize": 16, "strokeOn24Grid": 2 } },
-  "albums": { "rowHeight": 64, "rowPaddingY": 4, "rowPaddingX": 8, "thumbSize": 56, "thumbGap": 12, "lineGap": 3, "rowGap": 0, "placeholderIconSize": 20 },
+  "albums": { "rowHeight": 64, "recentRowHeight": 82, "rowPaddingY": 4, "rowPaddingX": 8, "thumbSize": 56, "thumbGap": 12, "lineGap": 3, "rowGap": 0, "placeholderIconSize": 20 },
   "albumHeader": { "paddingY": 22, "paddingX": 24, "artSize": 144, "artGap": 24, "titleMinHeight": 39, "titleToDetailsGap": 8, "detailsLineGap": 3, "placeholderIconSize": 36 },
   "popup": { "toolTipPaddingX": 8, "toolTipPaddingY": 5, "toolTipMaxWidth": 260, "menuPaddingY": 3 },
   "dialog": {

@@ -586,19 +586,19 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Header text over the track list.</summary>
-    public string AlbumHeaderTitle => SelectedAlbum?.Album.Title ?? "";
+    public string AlbumHeaderTitle => HeaderAlbum?.Album.Title ?? "";
 
     /// <summary>
     /// The four stacked lines under the header title (spec 6.5): artist, year,
     /// "N tracks" and the duration. No disc count (the user's call).
     /// </summary>
-    public string AlbumHeaderArtist => SelectedAlbum?.Album.ArtistName ?? "";
+    public string AlbumHeaderArtist => HeaderAlbum?.Album.ArtistName ?? "";
 
     /// <summary>The full date (YYYY-MM-DD) when the files have one, else the year.</summary>
-    public string AlbumHeaderYear => SelectedAlbum?.Album.DateDisplay ?? "";
+    public string AlbumHeaderYear => HeaderAlbum?.Album.DateDisplay ?? "";
 
     /// <summary>"13 tracks", or "9 of 13 tracks" while a search or filter shows part of it.</summary>
-    public string AlbumHeaderTrackCount => SelectedAlbum is { } item
+    public string AlbumHeaderTrackCount => HeaderAlbum is { } item
         ? item.Album.TrackCountDisplayWithin(_folderFilteredLibrary.WholeAlbumOf(item.Album))
         : "";
 
@@ -607,7 +607,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// the spec's "1 hr 6 min" (the user's call).
     /// </summary>
     public string AlbumHeaderDuration =>
-        SelectedAlbum is { } album ? Display.Time(album.Album.TotalDuration) : "";
+        HeaderAlbum is { } album ? Display.Time(album.Album.TotalDuration) : "";
 
     // ---------------------------------------------------------------- startup
 
@@ -784,6 +784,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (!IsPlaylistMode)
             FillAlbumTracks(value);
 
+        RaiseAlbumHeaderChanged();
+        _ = LoadAlbumHeaderArtAsync(value);
+        QueueAlbumEditorSync();
+    }
+
+    /// <summary>The album header's lines, after <see cref="HeaderAlbum"/> may have changed.</summary>
+    private void RaiseAlbumHeaderChanged()
+    {
+        OnPropertyChanged(nameof(HeaderAlbum));
         OnPropertyChanged(nameof(ShowsAlbumHeader));
         OnPropertyChanged(nameof(ShowsEmptyState));
         OnPropertyChanged(nameof(AlbumHeaderTitle));
@@ -791,9 +800,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(AlbumHeaderYear));
         OnPropertyChanged(nameof(AlbumHeaderTrackCount));
         OnPropertyChanged(nameof(AlbumHeaderDuration));
-
-        _ = LoadAlbumHeaderArtAsync(value);
-        QueueAlbumEditorSync();
     }
 
     private void FillAlbumTracks(AlbumItemViewModel? album)
@@ -817,12 +823,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// the album has no cover, in which case there's nothing to open.
     /// </summary>
     public Task<BitmapSource?> GetSelectedAlbumFullArtAsync() =>
-        SelectedAlbum is { } item
+        HeaderAlbum is { } item
             ? _artService.GetFullAlbumArtAsync(item.Album)
             : Task.FromResult<BitmapSource?>(null);
 
     public string SelectedAlbumCaption =>
-        SelectedAlbum is { } item
+        HeaderAlbum is { } item
             ? $"{item.Album.ArtistName} - {item.Album.Title}"
             : "Album art";
 
@@ -839,16 +845,19 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private async Task LoadAlbumHeaderArtAsync(AlbumItemViewModel? item)
     {
+        // Only for the album the header describes: the Albums list's selection
+        // changes underneath while a playlist shows.
         if (item is null)
         {
-            SelectedAlbumArt = null;
+            if (HeaderAlbum is null)
+                SelectedAlbumArt = null;
             return;
         }
 
         var art = await _artService.GetAlbumArtAsync(item.Album, AlbumHeaderArtWidth);
 
         // The user may have clicked elsewhere while this was decoding.
-        if (ReferenceEquals(SelectedAlbum, item))
+        if (ReferenceEquals(HeaderAlbum, item))
             SelectedAlbumArt = art;
     }
 
@@ -1127,7 +1136,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     partial void OnIsScanningChanged(bool value) => RefreshEmptyState();
 
     private void RefreshEmptyState() =>
-        (EmptyStateTitle, EmptyStateDetail) = IsPlaylistMode
+        (EmptyStateTitle, EmptyStateDetail) = IsPlaylistMode && SelectedPlaylist is { IsRecentlyAdded: true }
+            ? RecentlyAdded.Empty
+            : IsPlaylistMode
             ? PlaylistText.Empty(SelectedPlaylist?.IsLiked == true, _shownResolved?.Missing ?? 0)
             : EmptyStateText.Describe(
             hasAnyTracks: _library.AllTracks.Count > 0,
@@ -2002,7 +2013,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (album is null)
             return;
 
-        SelectedAlbum = album;   // populates Tracks synchronously
+        // Both populate Tracks synchronously.
+        if (ShowsRecentAlbums && RecentAlbums.Contains(album))
+            SelectedRecentAlbum = album;
+        else
+            SelectedAlbum = album;
+
         PlayTrack(Tracks.FirstOrDefault());
     }
 

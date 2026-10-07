@@ -31,18 +31,58 @@ public sealed partial class MainViewModel
     /// <summary>The shown playlist as last resolved: what the header counts.</summary>
     private ResolvedPlaylist? _shownResolved;
 
-    /// <summary>Most recently modified first.</summary>
+    /// <summary>
+    /// Recently Added (the user's request, 2026-10-07): the songs that arrived in
+    /// the last 30 days, worked out from the ticked folders rather than saved.
+    /// One row for the whole session, so it stays selected across rebuilds.
+    /// </summary>
+    private readonly PlaylistItemViewModel _recentlyAdded =
+        new(new Playlist { Name = RecentlyAdded.Name }, isRecentlyAdded: true);
+
+    private IReadOnlyList<Album> _recentAlbumList = [];
+    private MusicLibrary? _recentLibrary;
+    private bool _fillingRecentAlbums;
+
+    /// <summary>Liked, then Recently Added (both pinned, the user's call), then the rest most recently modified first.</summary>
     public ObservableCollection<PlaylistItemViewModel> Playlists { get; } = [];
+
+    /// <summary>The Albums panel while Recently Added shows: its albums, newest addition first.</summary>
+    public ObservableCollection<AlbumItemViewModel> RecentAlbums { get; } = [];
+
+    /// <summary>
+    /// An album picked in Recently Added narrows the Songs panel to it, under the
+    /// album header; none picked shows every recent song under the playlist header.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsAlbumHeader))]
+    [NotifyPropertyChangedFor(nameof(ShowsPlaylistHeader))]
+    private AlbumItemViewModel? _selectedRecentAlbum;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowsAlbumHeader))]
     [NotifyPropertyChangedFor(nameof(ShowsPlaylistHeader))]
     [NotifyPropertyChangedFor(nameof(ShowsEmptyState))]
+    [NotifyPropertyChangedFor(nameof(ShowsRecentAlbums))]
+    [NotifyPropertyChangedFor(nameof(CanRemoveFromShownPlaylist))]
     private bool _isPlaylistMode;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowsPlaylistHeader))]
+    [NotifyPropertyChangedFor(nameof(ShowsRecentAlbums))]
+    [NotifyPropertyChangedFor(nameof(CanRemoveFromShownPlaylist))]
     private PlaylistItemViewModel? _selectedPlaylist;
+
+    /// <summary>Recently Added is showing, so the Albums panel lists its albums.</summary>
+    public bool ShowsRecentAlbums => IsPlaylistMode && SelectedPlaylist is { IsRecentlyAdded: true };
+
+    /// <summary>For the song menu's Remove from Playlist: not in Recently Added, which only the library changes.</summary>
+    public bool CanRemoveFromShownPlaylist => IsPlaylistMode && SelectedPlaylist is { IsEditable: true };
+
+    /// <summary>
+    /// The album the album header describes: the Albums list's, or in Recently
+    /// Added the one picked there (null while every recent song shows).
+    /// </summary>
+    public AlbumItemViewModel? HeaderAlbum => IsPlaylistMode ? SelectedRecentAlbum : SelectedAlbum;
 
     [ObservableProperty]
     private BitmapSource? _selectedPlaylistArt;
@@ -55,9 +95,9 @@ public sealed partial class MainViewModel
     [ObservableProperty]
     private IReadOnlyDictionary<string, int>? _playlistPositions;
 
-    public bool ShowsAlbumHeader => !IsPlaylistMode && SelectedAlbum is not null;
+    public bool ShowsAlbumHeader => HeaderAlbum is not null;
 
-    public bool ShowsPlaylistHeader => IsPlaylistMode && SelectedPlaylist is not null;
+    public bool ShowsPlaylistHeader => IsPlaylistMode && SelectedPlaylist is not null && SelectedRecentAlbum is null;
 
     /// <summary>No album chosen, or a playlist with nothing to show.</summary>
     public bool ShowsEmptyState => IsPlaylistMode ? Tracks.Count == 0 : SelectedAlbum is null;
@@ -65,7 +105,9 @@ public sealed partial class MainViewModel
     public string PlaylistHeaderTitle => SelectedPlaylist?.Name ?? "";
 
     public string PlaylistHeaderModified =>
-        SelectedPlaylist is { } item ? PlaylistText.Modified(item.Playlist.ModifiedUtc) : "";
+        SelectedPlaylist is { IsRecentlyAdded: true } ? RecentlyAdded.Window
+        : SelectedPlaylist is { } item ? PlaylistText.Modified(item.Playlist.ModifiedUtc)
+        : "";
 
     public string PlaylistHeaderTrackCount =>
         _shownResolved is { } shown ? PlaylistText.HeaderTrackCount(shown.Tracks.Count, shown.Missing) : "";
@@ -119,7 +161,13 @@ public sealed partial class MainViewModel
         if (changed)
             _playlistStore.Save();
 
-        var order = _playlistStore.ByRecent();
+        RefreshRecentAlbums();
+        counts[_recentlyAdded.Playlist] = _recentAlbumList.Sum(a => a.Tracks.Count);
+
+        // Liked first and Recently Added second, pinned (the user's call); the
+        // rest most recently modified first.
+        var liked = _playlistStore.Liked;
+        List<Playlist> order = [liked, _recentlyAdded.Playlist, .. _playlistStore.ByRecent().Where(p => p != liked)];
         for (var i = Playlists.Count - 1; i >= 0; i--)
         {
             if (!order.Contains(Playlists[i].Playlist))
@@ -139,7 +187,7 @@ public sealed partial class MainViewModel
             }
 
             if (at < 0)
-                Playlists.Insert(i, new PlaylistItemViewModel(order[i]));
+                Playlists.Insert(i, ReferenceEquals(order[i], _recentlyAdded.Playlist) ? _recentlyAdded : new PlaylistItemViewModel(order[i]));
             else if (at != i)
                 Playlists.Move(at, i);
 
@@ -151,14 +199,76 @@ public sealed partial class MainViewModel
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Works Recently Added out again when the ticked library is a new one (a
+    /// scan, a save, a folder ticked) or <paramref name="force"/> asks, as opening
+    /// the Playlists panel does so the 30 days are counted from now. Otherwise,
+    /// as after a like, the albums and the one picked are left alone. The pick
+    /// is kept by artist and title, or dropped back to every recent song.
+    /// </summary>
+    private void RefreshRecentAlbums(bool force = false)
+    {
+        if (!force && ReferenceEquals(_recentLibrary, _folderFilteredLibrary))
+            return;
+
+        _recentLibrary = _folderFilteredLibrary;
+        _recentAlbumList = RecentlyAdded.Albums(_folderFilteredLibrary, Now);
+
+        var picked = SelectedRecentAlbum?.Album;
+        _fillingRecentAlbums = true;
+        try
+        {
+            SelectedRecentAlbum = null;
+            RecentAlbums.Clear();
+            foreach (var album in _recentAlbumList)
+                RecentAlbums.Add(new AlbumItemViewModel(album, _artService, namesArtist: true));
+
+            if (picked is not null)
+            {
+                SelectedRecentAlbum = RecentAlbums.FirstOrDefault(a =>
+                    SortRules.NameComparer.Equals(a.Album.ArtistName, picked.ArtistName)
+                    && SortRules.NameComparer.Equals(a.Album.Title, picked.Title));
+            }
+        }
+        finally
+        {
+            _fillingRecentAlbums = false;
+        }
+    }
+
+    partial void OnSelectedRecentAlbumChanged(AlbumItemViewModel? value)
+    {
+        if (!_fillingRecentAlbums && ShowsRecentAlbums)
+            ShowPlaylist();
+
+        RaiseAlbumHeaderChanged();
+        _ = LoadAlbumHeaderArtAsync(value);
+    }
+
+    /// <summary>
+    /// Recently Added's row clicked while it already shows: back to every recent
+    /// song, from an album picked in the Albums panel.
+    /// </summary>
+    public void ShowAllRecentlyAdded()
+    {
+        if (ShowsRecentAlbums)
+            SelectedRecentAlbum = null;
+    }
+
     partial void OnIsPlaylistModeChanged(bool value)
     {
+        // Recently Added opens on every recent song, whichever album was picked before.
+        _fillingRecentAlbums = true;
+        SelectedRecentAlbum = null;
+        _fillingRecentAlbums = false;
+
         if (value)
         {
+            RefreshRecentAlbums(force: true);
             RefreshPlaylists();
 
-            // The most recently modified the first time (the user's call); after
-            // that, whichever was chosen last, while it still exists.
+            // Liked the first time (the top of the list); after that, whichever
+            // was chosen last, while it still exists.
             if (SelectedPlaylist is null || !Playlists.Contains(SelectedPlaylist))
                 SelectedPlaylist = Playlists.FirstOrDefault();
 
@@ -172,11 +282,17 @@ public sealed partial class MainViewModel
             FillAlbumTracks(SelectedAlbum);
         }
 
+        RaiseAlbumHeaderChanged();
+        _ = LoadAlbumHeaderArtAsync(HeaderAlbum);
         RefreshEmptyState();
     }
 
     partial void OnSelectedPlaylistChanged(PlaylistItemViewModel? value)
     {
+        _fillingRecentAlbums = true;
+        SelectedRecentAlbum = null;
+        _fillingRecentAlbums = false;
+
         if (IsPlaylistMode)
             ShowPlaylist();
     }
@@ -190,7 +306,14 @@ public sealed partial class MainViewModel
         TracksChanging?.Invoke(this, EventArgs.Empty);
         Tracks.Clear();
 
-        if (SelectedPlaylist is { } item)
+        if (SelectedPlaylist is { IsRecentlyAdded: true })
+        {
+            // The header counts every recent song; the rows are the album picked, or all of them.
+            _shownResolved = new ResolvedPlaylist(RecentlyAdded.Tracks(_recentAlbumList), 0, false);
+            foreach (var track in SelectedRecentAlbum?.Album.Tracks ?? _shownResolved.Tracks)
+                Tracks.Add(track);
+        }
+        else if (SelectedPlaylist is { } item)
         {
             _shownResolved = Resolver.Resolve(item.Playlist);
             foreach (var track in _shownResolved.Tracks)
@@ -213,7 +336,14 @@ public sealed partial class MainViewModel
     /// </summary>
     private void RefreshShownPlaylist()
     {
-        if (IsPlaylistMode && SelectedPlaylist is { } item)
+        if (IsPlaylistMode && SelectedPlaylist is { IsRecentlyAdded: true })
+        {
+            // No places: # shows the track number, since the songs run album by
+            // album in track order, and with no places nothing can be dragged.
+            _shownResolved = new ResolvedPlaylist(RecentlyAdded.Tracks(_recentAlbumList), 0, false);
+            PlaylistPositions = null;
+        }
+        else if (IsPlaylistMode && SelectedPlaylist is { } item)
         {
             _shownResolved = Resolver.Resolve(item.Playlist);
             var positions = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -291,7 +421,7 @@ public sealed partial class MainViewModel
     [RelayCommand]
     private void AddToPlaylist(PlaylistItemViewModel? target)
     {
-        if (target is null || MenuTracks() is not { Count: > 0 } tracks)
+        if (target is not { IsEditable: true } || MenuTracks() is not { Count: > 0 } tracks)
             return;
 
         var added = _playlistStore.Add(target.Playlist, tracks, Now);
@@ -334,7 +464,7 @@ public sealed partial class MainViewModel
     [RelayCommand]
     private void RemoveFromPlaylist()
     {
-        if (!IsPlaylistMode || SelectedPlaylist is not { } item || MenuTracks() is not { Count: > 0 } tracks)
+        if (!CanRemoveFromShownPlaylist || SelectedPlaylist is not { } item || MenuTracks() is not { Count: > 0 } tracks)
             return;
 
         var removed = _playlistStore.Remove(item.Playlist, tracks.Select(t => t.FilePath), Now);
@@ -426,7 +556,7 @@ public sealed partial class MainViewModel
     private void SetPlaylistPicture(PlaylistItemViewModel? item)
     {
         item ??= SelectedPlaylist;
-        if (item is null)
+        if (item is not { IsEditable: true })
             return;
 
         var dialog = new Microsoft.Win32.OpenFileDialog
@@ -464,7 +594,7 @@ public sealed partial class MainViewModel
     private void ClearPlaylistPicture(PlaylistItemViewModel? item)
     {
         item ??= SelectedPlaylist;
-        if (item is null)
+        if (item is not { IsEditable: true })
             return;
 
         _playlistStore.ClearPicture(item.Playlist, Now);
@@ -479,6 +609,7 @@ public sealed partial class MainViewModel
             return;
 
         SelectedPlaylist = item;
+        ShowAllRecentlyAdded();
         PlayTrack(Tracks.FirstOrDefault());
     }
 

@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-07 after the fortieth build session (commit `0f04c9c`, pushed). Read this alongside
+Updated 2026-10-07 after the forty-first build session (Recently Added, committed as "Recently Added playlist" and pushed). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1435,6 +1435,63 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   ~~Offered: re-probing when the default device changes~~ Done in session 37, with
   output following the device. (A tooltip saying why it is disabled was turned down
   in session 37, along with the chip's tooltip.)
+
+### Changes from session 41 (2026-10-07): Recently Added
+
+The user's request: a permanent playlist of what arrived in the last 30 days, using the
+Albums panel again, newest first in Albums and Songs. Planned and approved; their calls:
+**every recent song shows, and picking an album narrows to it**; **only the new songs** of
+a partly new album; **ticked folders only**; **Liked pinned first, Recently Added second**,
+the rest by Modified. **556 tests pass** (+10, `RecentlyAddedTests`). Installed; the
+installed build starts. Committed and pushed to `origin/main` as "Recently Added playlist". User-facing behaviour is
+in the README under *Likes and playlists*; spec 6.9.
+
+- **Core**: `AudioFool.Core/Playlists/RecentlyAdded.cs`, pure. `Albums(library, nowUtc)`
+  takes each album's tracks with `AddedUtc` ≥ now − 30 days (creation time, as session
+  21's sort; undated tracks are out), cut to those tracks (the library's own `Album` when
+  all are new, so `WholeAlbumOf` and "9 of 13" work), ordered by newest arrival, then
+  artist sort key, then title. Tracks keep disc/track order: a copy stamps files
+  milliseconds apart in its own order, so a time sort scrambles albums.
+- **Not in `playlists.json`.** `MainViewModel._recentlyAdded` is one
+  `PlaylistItemViewModel` for the session, around a stand-in `Playlist` that only
+  carries the name (`IsRecentlyAdded`, `IsEditable` false). `RefreshPlaylists` puts
+  Liked, it, then `ByRecent()` minus Liked. `RefreshRecentAlbums` recomputes from
+  `_folderFilteredLibrary` only when that is a new object (scan, save, folder tick) or
+  the Playlists panel opens (`force`), so a like doesn't rebuild the Albums panel; the
+  pick is kept by artist + title.
+- **Albums panel**: a second list, `RecentAlbumList` (`RecentAlbums` /
+  `SelectedRecentAlbum`, single select), visible on `ShowsRecentAlbums`. The album row's
+  `DataTemplate` moved to a window resource (`AlbumItemTemplate`), unchanged, so both
+  lists share it. `AlbumList`'s `SelectedAlbum` carries on underneath as before.
+- **Header**: `HeaderAlbum` (public) is `SelectedRecentAlbum` in playlist mode, else
+  `SelectedAlbum`. Every `AlbumHeader*`, `ShowsAlbumHeader`, the header art (loaded only
+  for `HeaderAlbum`), the full-size viewer and the art's right-click edit use it.
+  `ShowsPlaylistHeader` is off while an album is picked. `RaiseAlbumHeaderChanged` is
+  the one place the header's properties are raised.
+- **Read-only**: `PlaylistPositions` is null for it, so # shows (and edits) the track
+  number and `CanReorder` is false; `CanRemoveFromShownPlaylist` hides Remove from
+  Playlist; `PlaylistsMenuSource_Filter` keeps it out of Add to Playlist; Set Picture is
+  disabled and the commands refuse it. Double-click on it plays every recent song;
+  `PlayAlbum` on a recent album selects it there, not in `AlbumList`.
+- **Clicking Recently Added's row again** shows every song:
+  `PlaylistList_PreviewMouseLeftButtonDown` (not handled) calls `ShowAllRecentlyAdded`
+  when the row pressed is already the selected one.
+- **Verified** with ThemeLab **`--window recent`** (see `design/progress.md`, session
+  41): 1,204 songs in 106 albums on the shell's cache copy. **Not verified**: real clicks,
+  double-click to play, and the user's real `library.json` (the container gotcha).
+- **Album rows in Recently Added name the artist on their own line** (the user's two
+  requests: first the artist, then the year · tracks on a line below it). Title, artist,
+  "2026 · 12 tracks". `AlbumItemViewModel`'s `namesArtist` sets `ArtistLine`, a
+  `TextBlock` (`AlbumArtistText`, `AlbumMetaText` style, collapsed when null) in the shared
+  template. Three lines don't fit 64 px under a two-line title, so the user chose **taller
+  rows in this list only**: `RecentAlbumRow` with the new token `albums.recentRowHeight`.
+  The user picked 80 px; **measured** (ThemeLab `--window recent` prints each row's
+  `fit:`), a two-line title needs 73 px of a row's 72 px content box, so it is **82** (74
+  px room). The thumbnail stays 56, centred. The main window's normal render is **0 pixels
+  different**; `--window tokens` passes. No blue: the header has the artist line.
+- **Trap: `Set-Content -Encoding utf8` in Windows PowerShell 5.1 writes a BOM.** It did on
+  `theme-tokens.json`; stripped with `sed -i '1s/^\xEF\xBB\xBF//'`. Edit the JSON with the
+  Edit tool or sed instead.
 
 ### Session 40 at a glance (2026-10-07)
 
@@ -3467,6 +3524,7 @@ retag of the playing track reaches the scrobbler.
    the header art. See *Session 40 at a glance*. If big artists feel slow to open in
    Edit Artist Tags, or Ctrl+A bites, the fix is reading the detail fields off the UI
    thread (or a confirmation over some track count); not built, not offered yet.
+0. **Ask the user about Recently Added** in the running app (session 41): real clicks, and how the artist in its album rows reads.
 0. **Still open from sessions 38–39**: the playlists button's place in the ARTISTS
    header (the user wanted to judge it in the real app), and edge scrolling while
    dragging in a playlist (real drags confirmed, edge scrolling not yet tried). Ask once.

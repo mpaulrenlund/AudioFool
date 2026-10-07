@@ -14,9 +14,15 @@ public sealed partial class AlbumItemViewModel : ObservableObject
     /// <summary>Matches the thumbnail size in the album list template.</summary>
     private const int ThumbnailWidth = 96;
 
-    public AlbumItemViewModel(Album album, AlbumArtService artService)
+    /// <param name="namesArtist">
+    /// Adds a line with the artist under the title, for Recently Added, whose albums come
+    /// from many artists (the user's request, 2026-10-07). The Albums list holds
+    /// one artist's albums, so there it would repeat the selection.
+    /// </param>
+    public AlbumItemViewModel(Album album, AlbumArtService artService, bool namesArtist = false)
     {
         Album = album;
+        ArtistLine = namesArtist ? album.ArtistName : null;
 
         // Loaded here rather than when the row scrolls into view.
         //
@@ -34,6 +40,9 @@ public sealed partial class AlbumItemViewModel : ObservableObject
     public string Title => Album.Title;
 
     public string YearDisplay => Album.YearDisplay;
+
+    /// <summary>The artist, on its own line above the year in Recently Added; null elsewhere.</summary>
+    public string? ArtistLine { get; }
 
     public string TrackSummary =>
         Album.Tracks.Count == 1 ? "1 track" : $"{Album.Tracks.Count:N0} tracks";

@@ -332,8 +332,8 @@ to the end of the **Liked** playlist; click again to unlike it. A liked heart is
 pink.
 
 The small list button at the right of the **ARTISTS** header switches that panel to
-**PLAYLISTS**, most recently changed first; click it again, or click the PLAYLISTS
-label, to go back. While playlists
+**PLAYLISTS**: **Liked** first, **Recently Added** second, then the rest most recently
+changed first; click it again, or click the PLAYLISTS label, to go back. While playlists
 show, the Albums panel is empty and the song list shows the chosen playlist, in its
 order, under a header with its picture, name, when it was last changed, how many
 tracks and how long. **#** is the song's place in the playlist. Double-click a
@@ -352,6 +352,20 @@ playlist to play it from the top.
 - **Rename, delete or give a playlist a picture** by right-clicking it. Without a
   picture it shows the first song's cover. Liked can't be renamed or deleted.
 - Typing in the search box goes back to Artists: search covers the library.
+
+**Recently Added** holds every song that arrived on the drive in the last 30 days,
+going by each file's creation time (as the ARTISTS · RECENT sort does), from the ticked
+library folders. Nothing is saved for it: it's worked out again on every scan, tag save
+or folder tick, and each time the Playlists panel opens. Here the **Albums** panel is
+used again: it lists the albums with new songs, newest arrival first, each row naming
+its artist on a line under the title, with the year and track count below that. The song list
+starts with every recent song, album by album, newest album first, each in disc and track
+order, under a "Recently Added · Last 30 days" header. **Click an album** to narrow the
+list to it, under the usual album header ("9 of 13 tracks" when only part of it is new);
+click **Recently Added** again to see everything. It can't be renamed, deleted, given a
+picture, added to, removed from or reordered; **#** is the track number. A library copied
+to a new drive gets new creation times, so everything would read as recently added for
+30 days.
 
 Playlists live in `%LOCALAPPDATA%\AudioFool\playlists.json`, not in the music files,
 with chosen pictures copied beside it in `playlist-pictures\`. Each song is stored by

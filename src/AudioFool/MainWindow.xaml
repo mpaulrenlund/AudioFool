@@ -36,7 +36,8 @@
         <CollectionViewSource x:Key="RemoveFoldersSource"
                               Source="{Binding Data.FolderFilters, Source={StaticResource Proxy}}" />
         <CollectionViewSource x:Key="PlaylistsMenuSource"
-                              Source="{Binding Data.Playlists, Source={StaticResource Proxy}}" />
+                              Source="{Binding Data.Playlists, Source={StaticResource Proxy}}"
+                              Filter="PlaylistsMenuSource_Filter" />
         <fmt:IsCurrentTrackConverter x:Key="IsCurrentTrack" />
         <fmt:IsLikedConverter x:Key="IsLiked" />
         <fmt:TrackNumberOrPositionConverter x:Key="TrackNumberOrPosition" />
@@ -92,6 +93,13 @@
             </Setter>
         </Style>
 
+        <!-- Recently Added's album row: taller, for the artist's line under a
+             title that may wrap to two lines (the user's call). Every row in
+             that list is the same height; the thumbnail stays 56 px, centred. -->
+        <Style x:Key="RecentAlbumRow" TargetType="ListBoxItem" BasedOn="{StaticResource AlbumRow}">
+            <Setter Property="Height" Value="{theme:Token albums.recentRowHeight}" />
+        </Style>
+
         <!-- A playlist row: an artist row's size, and the playlist's own menu.
              Liked can't be renamed or deleted. -->
         <Style x:Key="PlaylistRow" TargetType="ListBoxItem" BasedOn="{StaticResource ArtistRow}">
@@ -112,6 +120,7 @@
                                   CommandParameter="{Binding}" />
                         <Separator />
                         <MenuItem Header="Set Picture…"
+                                  IsEnabled="{Binding IsEditable}"
                                   Command="{Binding Source={StaticResource Proxy}, Path=Data.SetPlaylistPictureCommand}"
                                   CommandParameter="{Binding}" />
                         <MenuItem Header="Use Automatic Picture"
@@ -156,6 +165,58 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <!-- An album row (6.4), shared by the Albums list and Recently Added's albums. -->
+        <DataTemplate x:Key="AlbumItemTemplate" DataType="{x:Type vm:AlbumItemViewModel}">
+            <!--
+                6.4: a 56 px thumbnail, then the title wrapped to two
+                lines at most and the year and track count (in Recently
+                Added, the artist on a line between them). The full
+                title shows on hover only when the clamp cut it off:
+                AlbumRow_ToolTipOpening cancels the tooltip otherwise.
+            -->
+            <Grid ToolTip="{Binding Title}"
+                  ToolTipService.InitialShowDelay="1000"
+                  Tag="{Binding ElementName=AlbumTitleText}"
+                  ToolTipOpening="AlbumRow_ToolTipOpening">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource AlbumThumb}">
+                    <Grid>
+                        <!-- No art: the spec has no placeholder, so the old
+                             note stays, at its old size, in the neutral-icon grey. -->
+                        <ui:SymbolIcon Symbol="MusicNote224"
+                                       FontSize="{theme:Token albums.placeholderIconSize}"
+                                       Foreground="{DynamicResource color.text.muted}"
+                                       Visibility="{Binding Thumbnail, Converter={StaticResource NullToVisible}}" />
+                        <Image Source="{Binding Thumbnail}"
+                               Stretch="UniformToFill"
+                               Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
+                    </Grid>
+                </Border>
+
+                <StackPanel Grid.Column="1"
+                            Margin="{theme:Thickness Left=albums.thumbGap}"
+                            VerticalAlignment="Center">
+                    <TextBlock x:Name="AlbumTitleText"
+                               Text="{Binding Title}"
+                               Style="{DynamicResource type.albumTitle}" />
+                    <!-- Recently Added only: the artist, its own line under the title. -->
+                    <TextBlock x:Name="AlbumArtistText"
+                               Text="{Binding ArtistLine}"
+                               Style="{StaticResource AlbumMetaText}"
+                               Visibility="{Binding ArtistLine, Converter={StaticResource NullToCollapsed}}" />
+                    <TextBlock Style="{StaticResource AlbumMetaText}">
+                        <Run Text="{Binding YearDisplay, Mode=OneWay}" />
+                        <Run Text="·" />
+                        <Run Text="{Binding TrackSummary, Mode=OneWay}" />
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
 
         <!-- ARTISTS and ALBUMS (6.2): small grey capitals, tracked 0.12 em. -->
         <Style x:Key="PanelHeaderLabel" TargetType="TextBlock" BasedOn="{StaticResource type.panelHeader}">
@@ -557,6 +618,7 @@
                          SelectedItem="{Binding SelectedPlaylist, Mode=TwoWay}"
                          SelectionChanged="BrowserList_SelectionChanged"
                          MouseDoubleClick="PlaylistList_MouseDoubleClick"
+                         PreviewMouseLeftButtonDown="PlaylistList_PreviewMouseLeftButtonDown"
                          BorderThickness="0"
                          Background="Transparent"
                          HorizontalContentAlignment="Stretch"
@@ -596,7 +658,9 @@
                 <HeaderedContentControl.Header>
                     <TextBlock Text="ALBUMS" Style="{StaticResource PanelHeaderLabel}" />
                 </HeaderedContentControl.Header>
-                <!-- Blank while the Artists panel shows playlists (the user's call). -->
+                <!-- Blank while the Artists panel shows playlists (the user's call),
+                     except for Recently Added, whose albums it lists. -->
+                <Grid>
                 <ListBox x:Name="AlbumList"
                          Visibility="{Binding IsPlaylistMode, Converter={StaticResource BoolToVisibility}, ConverterParameter=Inverse}"
                          SelectionMode="Extended"
@@ -610,58 +674,36 @@
                          Margin="{theme:Token layout.listPadding}"
                          FocusVisualStyle="{x:Null}"
                          ItemContainerStyle="{StaticResource AlbumRow}"
+                         ItemTemplate="{StaticResource AlbumItemTemplate}"
                          AutomationProperties.Name="Albums"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          ScrollViewer.VerticalScrollBarVisibility="Hidden"
                          VirtualizingPanel.IsVirtualizing="True"
-                         VirtualizingPanel.VirtualizationMode="Recycling">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate DataType="{x:Type vm:AlbumItemViewModel}">
-                            <!--
-                                6.4: a 56 px thumbnail, then the title wrapped to two
-                                lines at most and the year and track count. The full
-                                title shows on hover only when the clamp cut it off:
-                                AlbumRow_ToolTipOpening cancels the tooltip otherwise.
-                            -->
-                            <Grid ToolTip="{Binding Title}"
-                                  ToolTipService.InitialShowDelay="1000"
-                                  Tag="{Binding ElementName=AlbumTitleText}"
-                                  ToolTipOpening="AlbumRow_ToolTipOpening">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
+                         VirtualizingPanel.VirtualizationMode="Recycling" />
 
-                                <Border Grid.Column="0" Style="{StaticResource AlbumThumb}">
-                                    <Grid>
-                                        <!-- No art: the spec has no placeholder, so the old
-                                             note stays, at its old size, in the neutral-icon grey. -->
-                                        <ui:SymbolIcon Symbol="MusicNote224"
-                                                       FontSize="{theme:Token albums.placeholderIconSize}"
-                                                       Foreground="{DynamicResource color.text.muted}"
-                                                       Visibility="{Binding Thumbnail, Converter={StaticResource NullToVisible}}" />
-                                        <Image Source="{Binding Thumbnail}"
-                                               Stretch="UniformToFill"
-                                               Visibility="{Binding Thumbnail, Converter={StaticResource NullToCollapsed}}" />
-                                    </Grid>
-                                </Border>
-
-                                <StackPanel Grid.Column="1"
-                                            Margin="{theme:Thickness Left=albums.thumbGap}"
-                                            VerticalAlignment="Center">
-                                    <TextBlock x:Name="AlbumTitleText"
-                                               Text="{Binding Title}"
-                                               Style="{DynamicResource type.albumTitle}" />
-                                    <TextBlock Style="{StaticResource AlbumMetaText}">
-                                        <Run Text="{Binding YearDisplay, Mode=OneWay}" />
-                                        <Run Text="·" />
-                                        <Run Text="{Binding TrackSummary, Mode=OneWay}" />
-                                    </TextBlock>
-                                </StackPanel>
-                            </Grid>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                <!-- Recently Added's albums, newest addition first. Picking one
+                     narrows the Songs panel to it; clicking Recently Added's row
+                     again shows every recent song. One at a time: there is no
+                     several-album edit here. -->
+                <ListBox x:Name="RecentAlbumList"
+                         Visibility="{Binding ShowsRecentAlbums, Converter={StaticResource BoolToVisibility}}"
+                         ItemsSource="{Binding RecentAlbums}"
+                         SelectedItem="{Binding SelectedRecentAlbum, Mode=TwoWay}"
+                         SelectionChanged="BrowserList_SelectionChanged"
+                         MouseDoubleClick="AlbumList_MouseDoubleClick"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         HorizontalContentAlignment="Stretch"
+                         Margin="{theme:Token layout.listPadding}"
+                         FocusVisualStyle="{x:Null}"
+                         ItemContainerStyle="{StaticResource RecentAlbumRow}"
+                         ItemTemplate="{StaticResource AlbumItemTemplate}"
+                         AutomationProperties.Name="Recently added albums"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                         VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling" />
+                </Grid>
             </HeaderedContentControl>
 
             <GridSplitter Grid.Column="3"
@@ -764,6 +806,7 @@
                             <Border.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Set Picture…"
+                                              IsEnabled="{Binding Source={StaticResource Proxy}, Path=Data.SelectedPlaylist.IsEditable}"
                                               Command="{Binding Source={StaticResource Proxy}, Path=Data.SetPlaylistPictureCommand}"
                                               CommandParameter="{Binding Source={StaticResource Proxy}, Path=Data.SelectedPlaylist}" />
                                     <MenuItem Header="Use Automatic Picture"
@@ -917,7 +960,7 @@
                                                 </MenuItem.ItemsSource>
                                             </MenuItem>
                                             <MenuItem Header="Remove from Playlist"
-                                                      Visibility="{Binding Source={StaticResource Proxy}, Path=Data.IsPlaylistMode, Converter={StaticResource BoolToVisibility}}"
+                                                      Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanRemoveFromShownPlaylist, Converter={StaticResource BoolToVisibility}}"
                                                       Command="{Binding Source={StaticResource Proxy}, Path=Data.RemoveFromPlaylistCommand}" />
                                         </ContextMenu>
                                     </Setter.Value>

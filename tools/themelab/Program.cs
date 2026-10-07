@@ -290,6 +290,10 @@ internal static class Program
         {
             return RunReorder(main, vm, outPath, w, h, scale);
         }
+        else if (which == "recent")
+        {
+            return RunRecent(main, vm, outPath, w, h, scale);
+        }
         else if (which is "multiedit" or "albumeditor" or "trackeditor")
         {
             LoadMultiLibrary(vm);
@@ -2825,6 +2829,120 @@ internal static class Program
         prompt.Close();
 
         Console.WriteLine($"saved: {File.ReadAllText(MainViewModel.PlaylistsPath).Length} bytes in {MainViewModel.PlaylistsPath}");
+        return 0;
+    }
+
+    /// <summary>
+    /// --window recent: Recently Added over the real library (read-only; playlists
+    /// in a scratch file). Prints the Playlists order, the Albums panel, the rows
+    /// and both headers for every recent song, one album picked, Recently Added's
+    /// row clicked again, a like, Liked, and back to Artists; renders the first two.
+    /// </summary>
+    private static int RunRecent(MainWindow main, MainViewModel vm, string outPath, double w, double h, double scale)
+    {
+        LoadRealLibrary(vm);
+        Pump();
+        Settle(400);
+
+        var grid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
+        var albumList = (FrameworkElement)main.FindName("AlbumList");
+        var recentList = (System.Windows.Controls.ListBox)main.FindName("RecentAlbumList");
+        var playlistList = (System.Windows.Controls.ListBox)main.FindName("PlaylistList");
+        string Shot(string name) => Path.ChangeExtension(outPath, null) + $"-{name}.png";
+
+        void Rows(string label)
+        {
+            Pump();
+            Settle(200);
+            Console.WriteLine($"{label}: {grid.Items.Count} rows");
+            for (var i = 0; i < Math.Min(grid.Items.Count, 5); i++)
+            {
+                if (grid.ItemContainerGenerator.ContainerFromIndex(i) is not System.Windows.Controls.DataGridRow { Item: Track t } row)
+                    continue;
+                var number = Descendants<System.Windows.Controls.TextBlock>(row).FirstOrDefault()?.Text;
+                Console.WriteLine($"  #{number,-3} {t.GroupingArtist} / {t.Album} / '{t.DisplayTitle}' added {t.AddedUtc:yyyy-MM-dd HH:mm} canReorder={vm.CanReorder(t)}");
+            }
+        }
+
+        void State()
+        {
+            Console.WriteLine($"  playlist header={vm.ShowsPlaylistHeader} ('{vm.PlaylistHeaderTitle}' / '{vm.PlaylistHeaderModified}' / '{vm.PlaylistHeaderTrackCount}' / '{vm.PlaylistHeaderDuration}')");
+            Console.WriteLine($"  album header={vm.ShowsAlbumHeader} ('{vm.AlbumHeaderTitle}' / '{vm.AlbumHeaderArtist}' / '{vm.AlbumHeaderYear}' / '{vm.AlbumHeaderTrackCount}' / '{vm.AlbumHeaderDuration}') "
+                + $"art={(vm.SelectedAlbumArt is null ? "none" : "yes")} playlistArt={(vm.SelectedPlaylistArt is null ? "none" : "yes")}");
+            Console.WriteLine($"  panels: AlbumList {albumList.Visibility}, RecentAlbumList {recentList.Visibility} ({recentList.Items.Count} albums, picked '{vm.SelectedRecentAlbum?.Album}'), "
+                + $"empty={vm.ShowsEmptyState} ('{vm.EmptyStateTitle}'), remove-from-playlist={vm.CanRemoveFromShownPlaylist}");
+        }
+
+        vm.IsPlaylistMode = true;
+        Pump();
+        Console.WriteLine($"playlists: {string.Join(" | ", vm.Playlists.Select(p => $"{p.Name} ({p.TrackSummary}){(ReferenceEquals(p, vm.SelectedPlaylist) ? " *" : "")}"))}");
+
+        var menu = (System.Windows.Data.CollectionViewSource)main.FindResource("PlaylistsMenuSource");
+        Console.WriteLine($"Add to Playlist lists: {string.Join(" | ", menu.View.Cast<PlaylistItemViewModel>().Select(p => p.Name))}");
+
+        var recent = vm.Playlists.First(p => p.IsRecentlyAdded);
+        Console.WriteLine($"recently added row: rename/delete={recent.CanRenameOrDelete} editable={recent.IsEditable}");
+        vm.SelectedPlaylist = recent;
+        Pump();
+        Settle(500);
+        Rows("recently added, every song");
+        State();
+        foreach (var album in vm.RecentAlbums.Take(6))
+            Console.WriteLine($"  album row: {album.Album} | artist '{album.ArtistLine}' meta '{album.YearDisplay} · {album.TrackSummary}' newest {album.Album.Tracks.Max(t => t.AddedUtc):yyyy-MM-dd HH:mm}");
+        Save(main, Shot("all"), w, h, scale);
+
+        // Does each row's text fit? The stack's wanted height against the row's content box.
+        foreach (var album in vm.RecentAlbums.Take(10))
+        {
+            if (recentList.ItemContainerGenerator.ContainerFromItem(album) is not System.Windows.Controls.ListBoxItem item)
+                continue;
+            var stack = Descendants<System.Windows.Controls.StackPanel>(item).First();
+            stack.Measure(new Size(stack.ActualWidth, double.PositiveInfinity));
+            var title = (System.Windows.Controls.TextBlock)stack.Children[0];
+            var room = item.ActualHeight - item.Padding.Top - item.Padding.Bottom;
+            Console.WriteLine($"  fit: '{album.Title}' row {item.ActualHeight:0.#} room {room:0.#} text wants {stack.DesiredSize.Height:0.#} "
+                + $"(title {title.ActualHeight:0.#}, {stack.Children.Count} lines) thumb {Descendants<System.Windows.Controls.Border>(item).First(b => b.Height > 0 && b.Height < 100).ActualHeight:0.#}");
+        }
+
+        if (vm.RecentAlbums.Count > 1)
+        {
+            vm.SelectedRecentAlbum = vm.RecentAlbums[1];
+            Pump();
+            Settle(500);
+            Rows("second album picked");
+            State();
+            Save(main, Shot("album"), w, h, scale);
+
+            // A like leaves the pick and the rows alone.
+            vm.ToggleLikeCommand.Execute(vm.Tracks[0]);
+            Pump();
+            Console.WriteLine($"after a like: picked '{vm.SelectedRecentAlbum?.Album}', rows {grid.Items.Count}, liked {vm.LikedPaths.Contains(vm.Tracks[0].FilePath)}");
+            vm.ToggleLikeCommand.Execute(vm.Tracks[0]);
+
+            // Recently Added's row clicked again, as real input sends it (a tunnelling PreviewMouseDown).
+            var container = (System.Windows.Controls.ListBoxItem)playlistList.ItemContainerGenerator.ContainerFromItem(recent);
+            var text = Descendants<System.Windows.Controls.TextBlock>(container).First();
+            var press = new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left)
+            {
+                RoutedEvent = System.Windows.Input.Mouse.PreviewMouseDownEvent,
+                Source = text,
+            };
+            text.RaiseEvent(press);
+            Pump();
+            Rows($"after clicking Recently Added again (handled={press.Handled})");
+            State();
+        }
+
+        vm.SelectedPlaylist = vm.Playlists.First(p => p.IsLiked);
+        Pump();
+        Console.WriteLine("liked:");
+        State();
+
+        vm.IsPlaylistMode = false;
+        Pump();
+        Settle(400);
+        Console.WriteLine($"back to artists: album '{vm.SelectedAlbum?.Album}', rows {grid.Items.Count}");
+        State();
         return 0;
     }
 

@@ -373,6 +373,7 @@ public partial class MainWindow : FluentWindow
     {
         if (ArtistList.IsMouseOver) return ArtistList;
         if (AlbumList.IsMouseOver) return AlbumList;
+        if (RecentAlbumList.IsMouseOver) return RecentAlbumList;
         if (PlaylistList.IsMouseOver) return PlaylistList;
         return null;
     }
@@ -385,6 +386,9 @@ public partial class MainWindow : FluentWindow
                 a.SortKey.StartsWith(_typeAheadBuffer, StringComparison.OrdinalIgnoreCase));
         else if (_typeAheadTarget == AlbumList)
             match = _viewModel.Albums.FirstOrDefault(a =>
+                a.Title.StartsWith(_typeAheadBuffer, StringComparison.OrdinalIgnoreCase));
+        else if (_typeAheadTarget == RecentAlbumList)
+            match = _viewModel.RecentAlbums.FirstOrDefault(a =>
                 a.Title.StartsWith(_typeAheadBuffer, StringComparison.OrdinalIgnoreCase));
         else if (_typeAheadTarget == PlaylistList)
             match = _viewModel.Playlists.FirstOrDefault(p =>
@@ -493,7 +497,7 @@ public partial class MainWindow : FluentWindow
     private void AlbumArt_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
-        if (sender is UIElement { IsMouseOver: true } && _viewModel.SelectedAlbum is { } album)
+        if (sender is UIElement { IsMouseOver: true } && _viewModel.HeaderAlbum is { } album)
             _viewModel.EditAlbumTagsCommand.Execute(album);
     }
 
@@ -572,6 +576,26 @@ public partial class MainWindow : FluentWindow
             column.SortDirection = null;
         TrackGrid.Items.SortDescriptions.Clear();
     }
+
+    /// <summary>
+    /// A click on Recently Added's row while it already shows goes back to every
+    /// recent song from an album picked in the Albums panel. A click on any other
+    /// row selects it as usual, which does the same. Not handled, so the list
+    /// still focuses and selects as it would.
+    /// </summary>
+    private void PlaylistList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject source
+            && ItemsControl.ContainerFromElement(PlaylistList, source) is ListBoxItem { DataContext: PlaylistItemViewModel { IsRecentlyAdded: true } item }
+            && ReferenceEquals(_viewModel.SelectedPlaylist, item))
+        {
+            _viewModel.ShowAllRecentlyAdded();
+        }
+    }
+
+    /// <summary>Add to Playlist lists every playlist but Recently Added, which only the library fills.</summary>
+    private void PlaylistsMenuSource_Filter(object sender, System.Windows.Data.FilterEventArgs e) =>
+        e.Accepted = e.Item is PlaylistItemViewModel { IsEditable: true };
 
     private void PlaylistList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
@@ -792,7 +816,7 @@ public partial class MainWindow : FluentWindow
             _trackNumberCheckQueued = false;
 
             // In a playlist the number is the song's place, which reaches the count.
-            var wide = _viewModel.IsPlaylistMode
+            var wide = _viewModel.PlaylistPositions is not null
                 ? _viewModel.Tracks.Count >= 100
                 : _viewModel.Tracks.Any(t => t.TrackNumber >= 100);
             if (wide == _wideTrackNumbers)
@@ -941,8 +965,9 @@ public partial class MainWindow : FluentWindow
     private static extern uint GetDoubleClickTime();
 
     // In a playlist # shows the song's place there, not its track number, so it isn't edited.
+    // Recently Added has no places and shows track numbers, which edit as in an album.
     private InlineField? FieldFor(DataGridColumn? column) =>
-        column == TrackNumberColumn ? (_viewModel.IsPlaylistMode ? null : InlineField.TrackNumber)
+        column == TrackNumberColumn ? (_viewModel.PlaylistPositions is not null ? null : InlineField.TrackNumber)
         : column == SongColumn ? InlineField.Title
         : column == ArtistColumn ? InlineField.Artist
         : column == AlbumColumn ? InlineField.Album
