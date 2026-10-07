@@ -1502,9 +1502,9 @@ build starts. The parts below are newest first.
 | Part | What | Seen in the running app? |
 |---|---|---|
 | 1 | Artists and Albums multi-select; Edit Artist Tags / Edit Album Tags over several rows | **Yes**, the user confirmed selection and editing work |
-| 2 | Edit Album Tags is non-modal and follows the Albums list (Save / Don't Save / Cancel; Save stays open; Close) | Not yet reported |
-| 2b | Album header art: **left-click = full-size viewer, right-click = Edit Album Tags** (no menu) | Not yet reported |
-| 3 | The one-song Edit Tags window follows the Songs table the same way; its title names the song | Not yet reported |
+| 2 | Edit Album Tags is non-modal and follows the Albums list (Save / Don't Save / Cancel; Save stays open; Close) | **Yes**: the user confirmed it follows their clicks (2026-10-07) |
+| 2b | Album header art: **left-click = full-size viewer, right-click = Edit Album Tags** (no menu) | **Yes**: the user confirmed the right-click opens Edit Album Tags (2026-10-07) |
+| 3 | The one-song Edit Tags window follows the Songs table the same way; its title names the song | **Yes**: the user confirmed it follows their clicks (2026-10-07) |
 
 The user's calls, so they aren't re-asked: with several artists selected, Albums shows
 the first one picked; unsaved changes are asked about, not saved or dropped silently;
@@ -1512,9 +1512,9 @@ Save keeps the window open; the header art's left-click stays the viewer (an int
 build had it open the editor, and the user reversed that); the song name goes in the
 song window's title.
 
-**Ask the user** how parts 2, 2b and 3 behave with real clicks: switching albums and
-songs with the window open, the Save / Don't Save / Cancel prompt, right-click on the
-header art, and how the window sits beside the main window (focus, staying on top).
+**Confirmed by the user (2026-10-07)**: both tag windows follow their clicks, the
+Save / Don't Save / Cancel prompt works, and right-click on the header art opens Edit Album Tags.
+Not reported: how the window sits beside the main window (focus, staying on top); no complaints.
 
 **Known, not built**: Ctrl+A in Artists selects every artist, and Edit Artist Tags…
 would then read every file's detail fields on the UI thread before the dialog appears
@@ -3519,9 +3519,9 @@ retag of the playing track reaches the scrobbler.
    - **Watch the green.** At the darker greys it is 1.0–1.4:1, so the seek fill
      and the ▶ read by hue alone. If the user finds them faint, a thicker keyline
      or a bolder mark is the fix.
-0. **Ask the user about session 40's windows** with real clicks: the album and song tag
-   windows following the selection, the Save / Don't Save / Cancel prompt, right-click on
-   the header art. See *Session 40 at a glance*. If big artists feel slow to open in
+0. ~~**Ask the user about session 40's windows**~~ Asked 2026-10-07: both tag windows follow
+   clicks, the Save / Don't Save / Cancel prompt works, and the header-art right-click opens the editor.
+   Still not built: if big artists feel slow to open in
    Edit Artist Tags, or Ctrl+A bites, the fix is reading the detail fields off the UI
    thread (or a confirmation over some track count); not built, not offered yet.
 0. **Ask the user about Recently Added** in the running app (session 41): real clicks, and how the artist in its album rows reads.
