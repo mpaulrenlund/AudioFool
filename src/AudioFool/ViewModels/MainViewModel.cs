@@ -397,6 +397,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (value is not null)
             IsPlaylistMode = false;
 
+        RaiseQualityMenuChanged();
         ApplyToView(keepSelection: true);
         StatusText = DescribeStatus(default);
     }
@@ -1417,9 +1418,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// <summary>Where the results are kept; ThemeLab points it at a scratch file.</summary>
     public string QualityCachePath { get; set; } = QualityCache.DefaultPath;
 
-    /// <summary>Counted over what Statistics counts: the ticked folders, ignoring any search.</summary>
-    public QualityStatistics ComputeQualityStatistics() =>
-        QualityStatistics.Compute(_folderFilteredLibrary.AllTracks, QualityResults);
+    /// <summary>
+    /// Counted over what Statistics counts: the ticked folders, ignoring any
+    /// search. Less what the user has cleared, whose entries are first brought up
+    /// to date with a drive that came back under another letter.
+    /// </summary>
+    public QualityStatistics ComputeQualityStatistics()
+    {
+        var tracks = _folderFilteredLibrary.AllTracks;
+        Clearances.Repoint(tracks);
+        return QualityStatistics.Compute(tracks, QualityResults, Clearances);
+    }
 
     /// <summary>
     /// Checks every track in the ticked folders that hasn't been checked yet, in
@@ -1558,7 +1567,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // Done at startup already; the decoders it loads are what the analysis reads with.
         _runtime.Initialise();
 
-        new AnalysisWindow(new AnalysisViewModel(track), owner).Show();
+        new AnalysisWindow(new AnalysisViewModel(track, this), owner).Show();
     }
 
     [RelayCommand]

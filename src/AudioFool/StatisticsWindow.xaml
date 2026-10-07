@@ -246,6 +246,11 @@
                                               Tag="{DynamicResource color.status.lastFmOff}"
                                               Margin="0"
                                               Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}" />
+                                <!-- Cleared by you: grey, the File Types bar, since it isn't a problem (the user's call). -->
+                                <ItemsControl x:Name="QualityClearedList" ItemsSource="{Binding ClearedRows}"
+                                              Style="{StaticResource SectionList}"
+                                              Margin="0"
+                                              Visibility="{Binding HasClearedRows, Converter={StaticResource BoolToVisibility}}" />
                                 <Button x:Name="QualityCheckButton"
                                         Content="{Binding ButtonText}"
                                         Command="{Binding ToggleCommand}"

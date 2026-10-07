@@ -471,6 +471,30 @@ can be closed while it runs. The results are kept in
 files, and stopping (or quitting) keeps what was done. A result follows its file to a
 new drive letter; a retagged file is checked again. Only the ticked folders are checked.
 
+### Clearing a song you know is genuine
+
+The check is sometimes wrong: an early digital master filtered at 20 kHz reads as
+possibly transcoded, for example. To take a song out of a row:
+
+- **From the library.** Click the row in Statistics, then right-click a song, several
+  selected songs, or an album → **Not Fake 24-bit** (the wording follows the row: **Not
+  Fake Hi-Res**, **Not Transcoded**, **Not Upscaled**). An album clears only the songs the
+  row shows. They leave the list at once, and the status bar says how many are left.
+- **From Analyze.** The window has a button beside Close for each row the song is in.
+  Pressing it clears the song from that row and becomes **Put Back: Fake 24-bit**; a line
+  under the opinion says it's cleared. The opinion itself doesn't change.
+
+Clearing takes the song out of **that row only**: a song cleared from Fake 24-bit still
+shows under Fake hi-res. A row and its *possibly* twin count as one (both say the hi-res
+isn't real, for instance). Cleared songs are counted in a grey **Cleared by you** row
+under the others; click it, then right-click → **Put Back in Quality Check** to undo.
+
+Clearances are kept in `%LOCALAPPDATA%\AudioFool\quality-cleared.json`, apart from the
+check's results, so a retag (here or in Mp3tag) or a later change to the check's rules
+doesn't undo them. They follow a song to a new drive letter, as playlists do. A song
+replaced by a file of a different format (another bit depth, sample rate, or an MP3's
+bitrate) is no longer cleared. Nothing is written to the music files.
+
 ---
 
 ## Output modes

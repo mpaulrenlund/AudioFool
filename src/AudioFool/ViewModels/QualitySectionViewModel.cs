@@ -33,6 +33,7 @@ public sealed partial class QualitySectionViewModel : ObservableObject, IDisposa
         _stats = main.ComputeQualityStatistics();
         main.PropertyChanged += Main_PropertyChanged;
         main.QualityResultsChanged += Main_QualityResultsChanged;
+        main.QualityClearancesChanged += Main_QualityResultsChanged;
         Refresh();
     }
 
@@ -40,7 +41,19 @@ public sealed partial class QualitySectionViewModel : ObservableObject, IDisposa
     {
         _main.PropertyChanged -= Main_PropertyChanged;
         _main.QualityResultsChanged -= Main_QualityResultsChanged;
+        _main.QualityClearancesChanged -= Main_QualityResultsChanged;
     }
+
+    /// <summary>
+    /// "Cleared by you", under the problem rows in grey: it isn't a problem. One
+    /// row or none, as a list so it uses the same row template.
+    /// </summary>
+    [ObservableProperty]
+    private IReadOnlyList<BarRow> _clearedRows = [];
+
+    public bool HasClearedRows => ClearedRows.Count > 0;
+
+    partial void OnClearedRowsChanged(IReadOnlyList<BarRow> value) => OnPropertyChanged(nameof(HasClearedRows));
 
     /// <summary>One bar per problem; empty until something has been checked.</summary>
     [ObservableProperty]
@@ -84,6 +97,18 @@ public sealed partial class QualitySectionViewModel : ObservableObject, IDisposa
     private void Refresh()
     {
         Rows = _stats.Checked == 0 ? [] : [.. _stats.Gaps.Select(Row)];
+        ClearedRows = _stats.Cleared == 0 || _stats.ClearedFilter is null
+            ? []
+            :
+            [
+                new BarRow(QualityStatistics.ClearedLabel, Plural(_stats.Cleared),
+                    (double)_stats.Cleared / Math.Max(1, _stats.Checked),
+                    "Tracks you've said are genuine; right-click one to put it back")
+                {
+                    Filter = _stats.ClearedFilter,
+                    ToolTip = _stats.Cleared == 1 ? "Show this track in the library" : $"Show these {_stats.Cleared:N0} tracks in the library",
+                },
+            ];
         UpdateStatus();
     }
 

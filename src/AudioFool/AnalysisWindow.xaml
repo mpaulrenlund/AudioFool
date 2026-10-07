@@ -46,6 +46,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Text="{Binding TrackTitle}"
@@ -152,11 +153,18 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </StackPanel>
+
+            <!-- The user's word over the opinion: shown even when the analysis failed. -->
+            <TextBlock x:Name="ClearedNoteText" Grid.Row="4" Text="{Binding ClearedNote}"
+                       Style="{StaticResource Body}"
+                       Margin="{theme:Thickness Top=analysis.findingGap}"
+                       Visibility="{Binding ClearedNote, Converter={StaticResource NullToCollapsed}}" />
         </Grid>
 
         <Grid Grid.Row="2" Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop, Bottom=dialog.paddingBottom}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="FactsText" Grid.Column="0" Text="{Binding Facts}"
@@ -164,7 +172,22 @@
                        TextWrapping="Wrap"
                        VerticalAlignment="Center"
                        Margin="{theme:Thickness Right=dialog.buttonGap}" />
-            <Button x:Name="CloseButton" Grid.Column="1" Content="Close" IsCancel="True"
+            <!-- "Not Fake 24-bit" / "Put Back: Fake 24-bit", one per Quality Check row. -->
+            <ItemsControl x:Name="ClearButtons" Grid.Column="1" ItemsSource="{Binding ClearActions}" Focusable="False">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Content="{Binding Label}" Command="{Binding Command}"
+                                Style="{StaticResource theme.dialogButton}"
+                                Margin="{theme:Thickness Right=dialog.buttonGap}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button x:Name="CloseButton" Grid.Column="2" Content="Close" IsCancel="True"
                     Style="{StaticResource theme.dialogButton}"
                     Click="Close_Click" />
         </Grid>

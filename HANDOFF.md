@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-07 after the forty-first build session (Recently Added, committed as "Recently Added playlist" and pushed). Read this alongside
+Updated 2026-10-07 after the forty-second build session (clearing songs from Quality Check rows, committed as "Clear songs from Quality Check rows" and pushed). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1436,6 +1436,75 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   output following the device. (A tooltip saying why it is disabled was turned down
   in session 37, along with the chip's tooltip.)
 
+### Changes from session 42 (2026-10-07): clearing songs from Quality Check rows
+
+The user's request: say a flagged song is genuine (real 24-bit, real FLAC, real 320 kbps)
+so it leaves the Statistics Quality Check. Planned and approved; their calls: **clearing
+takes the song out of that row only**, an **Analyze button** as well as the menus, and a
+**grey** bar for the new row. **569 tests pass** (+13, `QualityClearanceTests`). Built and
+installed; the installed build starts (UIA found `SearchBox`, closed at once). Committed as "Clear
+songs from Quality Check rows" and pushed. User-facing behaviour is in the README under *Clearing a song you know
+is genuine*.
+
+The session started with two questions that ended in **no code**: a built-in converter
+(hi-res to 16-bit FLAC) was discussed, measured and **declined by the user**; don't
+suggest it again. The measurement: 199 GB of the 665 GB of FLAC on `D:\Music` is above
+CD quality, and converting it within its rate family would free about 98 GB. Padded fake
+24-bit files gain nothing, because FLAC already drops zero low bits.
+
+- **Core**: `AudioFool.Core/Analysis/QualityClearances.cs`. One `QualityClearance` per song
+  and row: path, grouping artist, album, the row's flag, and the format vouched for (kind,
+  bit depth, sample rate, plus bitrate for lossy files only, since a FLAC's bitrate moves
+  with its tags and art). `quality-cleared.json` beside `quality.json`, saved on every
+  change through a temp file; unreadable → moved aside, as playlists.json is.
+  - **Not in `QualityCache`, on purpose**: that is keyed by name + size + write time, so
+    any retag (AudioFool or Mp3tag) would lose a clearance, and it is discarded when
+    `CurrentVersion` is bumped. A clearance outlives both.
+  - **Found by path, else file name + artist + album** (as `PlaylistResolver`).
+    `Repoint(tracks)` rewrites entries whose own file isn't in the library to the copy
+    found under a new letter; an entry whose file is still there never moves, so the same
+    album on two ticked drives keeps both. `ComputeQualityStatistics` calls it.
+  - **A row and its "possibly" twin are one row** (`RowOf`): Analyze reads the whole file,
+    the check three slices, so the same song can be Upsampled in one and
+    PossiblyUpsampled in the other. Clearing either clears both. Fake 24-bit and Fake
+    hi-res stay separate, which was the point of "that row only".
+  - A format change voids a clearance (it's another file); `Clear` replaces such an entry.
+- **`QualityStatistics.Compute(tracks, cache, clearances)`**: each row leaves cleared
+  songs out, and its `TrackFilter` asks the clearances **again on every apply**, so a song
+  cleared while the row's filter is on leaves the view at once. `TrackFilter` gained
+  `QualityFlag` (which row it is) and `ShowsQualityClearances` ("Cleared by you"). New
+  `Cleared` count and `ClearedFilter`.
+- **Main window** (`MainViewModel.QualityClearances.cs`): `QualityClearHeader` ("Not Fake
+  24-bit", null when no quality row's filter is on or in playlist mode), `CanClearQuality`,
+  `CanPutBackQuality`, raised from `OnLibraryFilterChanged` and `OnIsPlaylistModeChanged`.
+  Song menu (after Analyze…) and album menu items bound to them; songs are `MenuTracks()`,
+  albums the right-clicked row or every selected one, **only the songs the filter shows**.
+  `AfterClearancesChanged` rebuilds the view and reports "Cleared 3 songs from Fake
+  24-bit. · 9 left: Fake 24-bit" (`WithFilterProgress`), then raises
+  `QualityClearancesChanged`. `CurrentCopyOf` swaps a stale `Track` (an Analyze window's,
+  after a retag) for the library's by path.
+- **Statistics**: `QualitySectionViewModel.ClearedRows`, one row or none, in its own
+  `ItemsControl` under the seven with the default `SectionList` bar (`color.slider.volumeFill`,
+  as File Types). Clicking it filters to the cleared songs; there the menus offer **Put
+  Back in Quality Check** (every row the song was cleared from).
+- **Analyze**: `AnalysisViewModel(track, main)` builds `ClearActions` from the window's
+  own flags, the check's saved flags and existing clearances, one button per row, left of
+  Close (`theme.dialogButton`, `dialog.buttonGap`): "Not Fake 24-bit" or "Put Back: Fake
+  24-bit". `ClearedNote` under the findings. It follows `QualityClearancesChanged` and
+  `QualityResultsChanged`; `Detach()` on close. No new tokens or colours anywhere.
+- **Verified** with ThemeLab's new **`--window clear --qualitycache <file> [--clearances
+  <file>]`** (real library read-only; check results from a 75 s real check in a scratch
+  file, 1,460 tracks, 55 flagged; clearances in scratch). It printed: the menu items hidden
+  with no filter; on "Likely transcoded lossless" (2 songs) both menus show "Not
+  Transcoded"; clearing *I Care Because You Do* (1 shown) then a song → 1, then 0 left,
+  the row "None" and "Cleared by you 2 tracks"; that row's filter shows Put Back and hides
+  Not…; Put Back → the row back to 1; playlist mode hides both; the Analyze window on *The
+  Waxen Pith* goes Not Transcoded → Put Back: Transcoded lossless with the note, and back.
+  Renders: Analyze (880 × 639, button 201 × 30 beside Close) and Statistics on magenta, 0
+  magenta. `--window tokens` passes. ThemeLab now always points `QualityClearancesPath` at
+  a scratch file. **Not verified**: real right-clicks, and the user's own `quality.json`
+  (the container gotcha), so the first real check of the rows is theirs.
+
 ### Changes from session 41 (2026-10-07): Recently Added
 
 The user's request: a permanent playlist of what arrived in the last 30 days, using the
@@ -2714,6 +2783,14 @@ covers. Work is on `main`, no branch, at the user's request.
 | `tests/AudioFool.Core.Tests/ThemeTokensTests.cs` | 27 tests: colour and shadow parsing, the path walk, reference checks, the shipped file. |
 | `tools/themelab/TokenSheet.cs` | `--window tokens`. |
 
+## New source files added in session 42
+
+| File | Purpose |
+|---|---|
+| `src/AudioFool.Core/Analysis/QualityClearances.cs` | Songs the user cleared from Quality Check rows, in `quality-cleared.json`: by path or name + artist + album, voided by a format change, `RowOf` pairing each "possibly" row with its row, menu and row wording. |
+| `src/AudioFool/ViewModels/MainViewModel.QualityClearances.cs` | The song and album menu commands, Clear / Put Back for the Analyze window, the status message, `QualityClearancesChanged`. |
+| `tests/AudioFool.Core.Tests/QualityClearanceTests.cs` | 13 tests: save and load, one row only, the possibly twin, retag, drive letter and repointing, format change, MP3 bitrate, Put Back, unreadable file, the rows and their live filters. |
+
 ## New source files added in session 40
 
 | File | Purpose |
@@ -3183,6 +3260,7 @@ ThemeLab.exe --window playlists --w 1720 --h 1080   # hearts, a playlist, Liked 
 ThemeLab.exe --window reorder --w 1720 --h 1080     # drag to reorder a playlist: moves, a block, Esc, no-ops, sorted; renders the drop line (scratch playlists file)
 ThemeLab.exe --window multiedit --w 1720 --h 1080   # several artists, then albums, selected and retagged on scratch files; renders <out>-artists.png / -albums.png
 ThemeLab.exe --window albumeditor --w 1720 --h 1080 # the album tag window following the list: move, Save / Don't Save / Cancel, rename, Close (scratch files); renders <out>-window.png / -prompt.png
+ThemeLab.exe --window clear --w 1720 --h 1080 --qualitycache scratch\quality.json [--clearances scratch\cleared.json]   # clear an album and a song from the first Quality Check row with songs, the menus, Put Back, the Analyze buttons; renders the Analyze window (make the cache first with --window stats --qualitycache ... --qualitycheck 1 --qualitystop 75)
 ThemeLab.exe --window trackeditor --w 1720 --h 1080 # the song tag window following the table, the same cases (scratch files)
 ```
 
@@ -3535,6 +3613,9 @@ retag of the playing track reaches the scrobbler.
    Edit Artist Tags, or Ctrl+A bites, the fix is reading the detail fields off the UI
    thread (or a confirmation over some track count); not built, not offered yet.
 0. ~~**Ask the user about Recently Added**~~ Asked 2026-10-07: picking albums, going back to every song, the taller rows and double-click to play all feel good to the user.
+0. **Ask the user about session 42's clearing** in the running app: the right-click
+   items under a Quality Check row, the Analyze button, the grey Cleared by you row.
+   Their real `quality.json` can't be read from the shell.
 0. **Still open from session 39**: edge scrolling while dragging in a playlist (real drags
    confirmed, edge scrolling not yet tried). Ask once. The playlists button's place is settled:
    the user says it's great (2026-10-07).

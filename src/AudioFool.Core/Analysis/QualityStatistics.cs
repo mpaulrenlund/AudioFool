@@ -16,9 +16,17 @@ public sealed record QualityGap(string Label, QualityFlag Flag, int Tracks, doub
 /// </summary>
 public sealed class QualityStatistics
 {
+    public const string ClearedLabel = "Cleared by you";
+
     public required int Total { get; init; }
     public required int Checked { get; init; }
     public required IReadOnlyList<QualityGap> Gaps { get; init; }
+
+    /// <summary>Songs the user has cleared from at least one row.</summary>
+    public int Cleared { get; init; }
+
+    /// <summary>Narrows the library to the cleared songs, so they can be put back.</summary>
+    public TrackFilter? ClearedFilter { get; init; }
 
     public int Unchecked => Total - Checked;
 
@@ -38,7 +46,15 @@ public sealed class QualityStatistics
         (QualityFlag.PossiblyReEncodedLossy, "Possibly upscaled MP3", "A little short; some older encoders cut there anyway"),
     ];
 
-    public static QualityStatistics Compute(IReadOnlyList<Track> tracks, QualityCache cache)
+    public static QualityStatistics Compute(IReadOnlyList<Track> tracks, QualityCache cache) =>
+        Compute(tracks, cache, null);
+
+    /// <summary>
+    /// The rows leave out what the user has cleared. Their filters ask
+    /// <paramref name="clearances"/> again each time they're applied, so a song
+    /// cleared while a row's filter is on leaves the library view at once.
+    /// </summary>
+    public static QualityStatistics Compute(IReadOnlyList<Track> tracks, QualityCache cache, QualityClearances? clearances)
     {
         var results = cache.For(tracks);
 
@@ -47,17 +63,33 @@ public sealed class QualityStatistics
             // By cache key, not by track: a rebuilt library has new Track objects
             // for the same files, and a retagged file gets a new key, so it drops
             // out of the filter until it is checked again.
-            var keys = results.Where(r => r.Value.Flags.Contains(row.Flag))
+            var keys = results.Where(r => r.Value.Flags.Contains(row.Flag)
+                                          && clearances?.IsCleared(r.Key, row.Flag) != true)
                 .Select(r => QualityCache.KeyOf(r.Key))
                 .ToHashSet(StringComparer.Ordinal);
 
             return new QualityGap(row.Label, row.Flag, keys.Count,
                 tracks.Count == 0 ? 0 : (double)keys.Count / tracks.Count, row.Note)
             {
-                Filter = new TrackFilter(row.Label, t => keys.Contains(QualityCache.KeyOf(t))),
+                Filter = new TrackFilter(row.Label,
+                    t => keys.Contains(QualityCache.KeyOf(t)) && clearances?.IsCleared(t, row.Flag) != true)
+                {
+                    QualityFlag = row.Flag,
+                },
             };
         }).ToList();
 
-        return new QualityStatistics { Total = tracks.Count, Checked = results.Count, Gaps = gaps };
+        var cleared = clearances is null ? 0 : tracks.Count(clearances.IsClearedFromAny);
+
+        return new QualityStatistics
+        {
+            Total = tracks.Count,
+            Checked = results.Count,
+            Gaps = gaps,
+            Cleared = cleared,
+            ClearedFilter = clearances is null
+                ? null
+                : new TrackFilter(ClearedLabel, clearances.IsClearedFromAny) { ShowsQualityClearances = true },
+        };
     }
 }

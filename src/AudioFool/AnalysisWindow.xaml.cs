@@ -51,6 +51,7 @@ public partial class AnalysisWindow : FluentWindow
     {
         _cancel.Cancel();
         _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+        _viewModel.Detach();
         base.OnClosed(e);
     }
 

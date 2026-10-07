@@ -88,6 +88,16 @@
                         <MenuItem Header="Edit Album Tags…"
                                   Command="{Binding Source={StaticResource Proxy}, Path=Data.EditSelectedAlbumsTagsCommand}"
                                   CommandParameter="{Binding}" />
+                        <!-- While a Quality Check row's filter is on: the album's songs
+                             it shows, out of that row ("Not Fake 24-bit"). -->
+                        <MenuItem Header="{Binding Source={StaticResource Proxy}, Path=Data.QualityClearHeader}"
+                                  Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanClearQuality, Converter={StaticResource BoolToVisibility}}"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.ClearQualityForAlbumsCommand}"
+                                  CommandParameter="{Binding}" />
+                        <MenuItem Header="Put Back in Quality Check"
+                                  Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanPutBackQuality, Converter={StaticResource BoolToVisibility}}"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.PutBackQualityForAlbumsCommand}"
+                                  CommandParameter="{Binding}" />
                     </ContextMenu>
                 </Setter.Value>
             </Setter>
@@ -937,6 +947,14 @@
                                             <MenuItem Header="Analyze…"
                                                       Command="{Binding Source={StaticResource Proxy}, Path=Data.AnalyzeTrackCommand}"
                                                       CommandParameter="{Binding}" />
+                                            <!-- While a Quality Check row's filter is on: the
+                                                 selected songs, out of that row. -->
+                                            <MenuItem Header="{Binding Source={StaticResource Proxy}, Path=Data.QualityClearHeader}"
+                                                      Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanClearQuality, Converter={StaticResource BoolToVisibility}}"
+                                                      Command="{Binding Source={StaticResource Proxy}, Path=Data.ClearQualityForSongsCommand}" />
+                                            <MenuItem Header="Put Back in Quality Check"
+                                                      Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanPutBackQuality, Converter={StaticResource BoolToVisibility}}"
+                                                      Command="{Binding Source={StaticResource Proxy}, Path=Data.PutBackQualityForSongsCommand}" />
                                             <Separator />
                                             <!-- The selected songs: the right-click keeps a
                                                  selection the row is in, as for Edit Tags. -->

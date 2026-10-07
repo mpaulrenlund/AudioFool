@@ -41,13 +41,13 @@ absolute path, and never let a missing folder be interpreted as a deleted librar
 
 Playback, DSD correctness and drive behaviour have all been verified by driving the real
 app or a headless probe against `AudioFool.Core` — not by reasoning about the code. Keep
-that standard. `dotnet test` covers the 556 unit tests over sorting, caching, search, path
+that standard. `dotnet test` covers the 569 unit tests over sorting, caching, search, path
 handling, the music-folder list, play order, reopening on the last-played song, the album header's full date, tag writing (including in-place grid edits and edits over several artists or albums), release dates, the album header's track count (including "9 of 13" for part of an album),
 library statistics (including albums whose tracks disagree), playlists and likes (saving, order, drag to reorder, finding songs again after a drive-letter change, keeping songs that are not found), Recently Added (the 30 days, album grouping and order), online cover-art parsing, saving embedded art as cover.jpg, Last.fm scrobbling, track-number spelling,
 saving files that playback holds open, reading the theme tokens, the output readout,
 mute, the status bar's library size, the empty Songs panel's wording, and the Analyze
 window's spectrum (FFT, spectrogram, bit counting) and quality opinion, and the library
-quality check (sampled reads, saved results, the Statistics rows), and the seekbar waveform's levels.
+quality check (sampled reads, saved results, the Statistics rows, clearing songs from a row), and the seekbar waveform's levels.
 
 
 ## Current work: PS1 theme

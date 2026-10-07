@@ -185,7 +185,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "analysis" or "waveform" or "device" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "analysis" or "clear" or "waveform" or "device" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -195,6 +195,10 @@ internal static class Program
         var runtime = new BassRuntime();
         var engine = new AudioEngine(runtime);
         var vm = new MainViewModel(engine, runtime, new AlbumArtService(), settings);
+
+        // Clearances go to --clearances <file> or a fresh scratch file, never the real quality-cleared.json.
+        vm.QualityClearancesPath = Arg(args, "--clearances")
+            ?? Path.Combine(Path.GetTempPath(), "ThemeLabClearances", Guid.NewGuid().ToString("N"), "quality-cleared.json");
 
         // Same order as App.OnStartup: theme first, then the window, because a
         // DynamicResource Style is resolved as the element initialises.
@@ -1930,6 +1934,158 @@ internal static class Program
                 Console.WriteLine($"  button '{b.Content}' at {p.X:0.#},{p.Y:0.#} size {b.ActualWidth:0.#}x{b.ActualHeight:0.#}");
             }
         }
+        else if (which == "clear")
+        {
+            // --window clear --qualitycache <file> [--clearances <file>]: clearing
+            // songs from Quality Check rows, over the real library (read-only) with
+            // the check's results and the clearances in scratch files. Picks the
+            // first row with songs, opens the song and album menus off-screen,
+            // clears an album then a song, puts one back from "Cleared by you",
+            // then the Analyze window's buttons on a flagged file (read, silently).
+            var qualityPath = Arg(args, "--qualitycache") ?? throw new ArgumentException("--window clear needs --qualitycache <file>");
+            LoadRealLibrary(vm);
+            vm.QualityCachePath = qualityPath;
+            runtime.Initialise();
+            main.UpdateLayout();
+
+            void Section(string title)
+            {
+                using var q = new QualitySectionViewModel(vm);
+                Console.WriteLine($"[{title}] {q.Summary}");
+                foreach (var r in q.Rows.Concat(q.ClearedRows)) Console.WriteLine($"    {r.Label,-30} {r.Value}");
+            }
+
+            void Menus(string when)
+            {
+                main.UpdateLayout();
+                Settle(200);
+                var songRow = FindAll<System.Windows.Controls.DataGridRow>(main).FirstOrDefault(r => r.ContextMenu is not null);
+                var albumRow = FindAll<System.Windows.Controls.ListBoxItem>(main)
+                    .FirstOrDefault(r => r.DataContext is AlbumItemViewModel && r.ContextMenu is not null && r.IsVisible);
+                foreach (var (name, row) in new (string, FrameworkElement?)[] { ("song", songRow), ("album", albumRow) })
+                {
+                    if (row?.ContextMenu is not { } menu)
+                    {
+                        Console.WriteLine($"  {when} {name} menu: none");
+                        continue;
+                    }
+
+                    menu.PlacementTarget = row;
+                    menu.IsOpen = true;
+                    Settle(200);
+                    var items = menu.Items.OfType<System.Windows.Controls.MenuItem>()
+                        .Select(m => $"'{m.Header}'{(m.Visibility == Visibility.Visible ? "" : " (hidden)")}{(m.Command?.CanExecute(m.CommandParameter) == false ? " (disabled)" : "")}");
+                    Console.WriteLine($"  {when} {name} menu: {string.Join(", ", items)}");
+                    menu.IsOpen = false;
+                }
+            }
+
+            Section("before");
+            Menus("no filter:");
+
+            using (var q = new QualitySectionViewModel(vm))
+            {
+                var row = q.Rows.FirstOrDefault(r => r.IsClickable)
+                    ?? throw new InvalidOperationException("no Quality Check row has songs; run a check first");
+                vm.ApplyStatisticsChoice(row);
+                Console.WriteLine($"filter on: '{vm.LibraryFilter}' flag={vm.LibraryFilter?.QualityFlag}  header='{vm.QualityClearHeader}' canClear={vm.CanClearQuality} canPutBack={vm.CanPutBackQuality}");
+                Console.WriteLine($"  status: {vm.StatusText}");
+            }
+            Menus("filtered:");
+
+            var album = vm.SelectedAlbum ?? throw new InvalidOperationException("no album selected under the filter");
+            var albumSongs = album.Album.Tracks.Count;
+            vm.ClearQualityForAlbumsCommand.Execute(album);
+            Console.WriteLine($"cleared album '{album.Title}' ({albumSongs} shown): {vm.StatusText}");
+            Console.WriteLine($"  album still listed: {vm.Albums.Any(a => a.Title == album.Title && a.Album.ArtistName == album.Album.ArtistName)}");
+
+            if (vm.Tracks.FirstOrDefault() is { } song)
+            {
+                vm.SelectedTracks = [song];
+                vm.ClearQualityForSongsCommand.Execute(null);
+                Console.WriteLine($"cleared song '{song.DisplayTitle}': {vm.StatusText}");
+                vm.ClearQualityForSongsCommand.Execute(null);
+                Console.WriteLine($"  again (stale selection): {vm.StatusText}");
+            }
+
+            Section("after clearing");
+
+            using (var q = new QualitySectionViewModel(vm))
+            {
+                var cleared = q.ClearedRows.Single();
+                vm.ApplyStatisticsChoice(cleared);
+                Console.WriteLine($"filter on: '{vm.LibraryFilter}' header='{vm.QualityClearHeader}' canClear={vm.CanClearQuality} canPutBack={vm.CanPutBackQuality}");
+                Console.WriteLine($"  status: {vm.StatusText}");
+            }
+            Menus("cleared:");
+
+            if (vm.Tracks.FirstOrDefault() is { } back)
+            {
+                vm.SelectedTracks = [back];
+                vm.PutBackQualityForSongsCommand.Execute(null);
+                Console.WriteLine($"put back '{back.DisplayTitle}': {vm.StatusText}");
+            }
+
+            Section("after put back");
+            Console.WriteLine($"clearances file: {vm.QualityClearancesPath}");
+            Console.WriteLine(File.Exists(vm.QualityClearancesPath) ? File.ReadAllText(vm.QualityClearancesPath) : "(none)");
+
+            // Playlist mode hides the items whatever the filter.
+            vm.IsPlaylistMode = true;
+            Console.WriteLine($"playlist mode: canClear={vm.CanClearQuality} canPutBack={vm.CanPutBackQuality}");
+            vm.IsPlaylistMode = false;
+
+            // The Analyze window on a song still flagged: a row's first song.
+            vm.LibraryFilter = null;
+            var stats = vm.ComputeQualityStatistics();
+            var flagged = stats.Gaps.Where(g => g.Tracks > 0)
+                .Select(g => g.Filter.Apply((AudioFool.Core.Library.LibraryCache.Load()?.Tracks ?? [])).FirstOrDefault(t => File.Exists(t.FilePath)))
+                .FirstOrDefault(t => t is not null);
+            if (flagged is null)
+            {
+                Console.WriteLine("analysis: no flagged song on the drive");
+            }
+            else
+            {
+                var analysisVm = new AnalysisViewModel(flagged, vm);
+                var dialog = new AnalysisWindow(analysisVm, main);
+                dialog.ApplyTemplate();
+                var run = analysisVm.RunAsync(CancellationToken.None);
+                while (!run.IsCompleted)
+                    Settle(50);
+
+                void Buttons(string when) => Console.WriteLine(
+                    $"analysis {when}: [{string.Join(", ", analysisVm.ClearActions.Select(a => a.Label))}] note='{analysisVm.ClearedNote}'");
+
+                Console.WriteLine($"analysis: {flagged.FilePath}");
+                Console.WriteLine($"  {analysisVm.Opinion?.Verdict}: {analysisVm.Opinion?.Headline}  check flags: {string.Join(",", vm.CheckedQualityFlags(flagged))}");
+                Buttons("before");
+                analysisVm.ClearActions[0].Command.Execute(null);
+                Buttons("after clearing");
+                Console.WriteLine($"  status: {vm.StatusText}");
+
+                var root = (FrameworkElement)dialog.Content;
+                var aw = Math.Ceiling(dialog.Width);
+                root.Measure(new Size(aw, double.PositiveInfinity));
+                var height = Math.Ceiling(root.DesiredSize.Height);
+                root.Arrange(new Rect(0, 0, aw, height));
+                root.UpdateLayout();
+                RaiseLoaded(Descendants<Wpf.Ui.Controls.TitleBar>(root).First());
+                Settle(400);
+                root.UpdateLayout();
+                Save(root, outPath, aw, height, scale);
+                Console.WriteLine($"  size {aw}x{height}");
+                foreach (var b in Descendants<System.Windows.Controls.Button>(root).Where(b => b.ActualWidth > 0 && b is not Wpf.Ui.Controls.TitleBarButton))
+                {
+                    var p = b.TranslatePoint(new Point(0, 0), root);
+                    Console.WriteLine($"  button '{b.Content}' at {p.X:0.#},{p.Y:0.#} size {b.ActualWidth:0.#}x{b.ActualHeight:0.#}");
+                }
+
+                analysisVm.ClearActions[0].Command.Execute(null);
+                Buttons("after put back");
+                dialog.Close();
+            }
+        }
         else if (which == "stats")
         {
             // The real library, read from the cache and never written back:
@@ -1983,6 +2139,7 @@ internal static class Program
             var statsVm = new StatisticsViewModel(stats, someFoldersHidden: Arg(args, "--hidden") is not null) { QualityCheck = quality };
             Console.WriteLine($"  [quality check] {quality.Summary}  button '{quality.ButtonText}' enabled={quality.CanToggle}");
             foreach (var r in quality.Rows) Console.WriteLine($"    {r.Label,-32} {r.Value,-30} clickable={r.IsClickable}");
+            foreach (var r in quality.ClearedRows) Console.WriteLine($"    {r.Label,-32} {r.Value,-30} clickable={r.IsClickable}  ({r.Detail})");
             foreach (var t in statsVm.Tiles) Console.WriteLine($"  tile  {t.Label,-10} {t.Value}");
             void Rows(string name, IEnumerable<BarRow> rows)
             {

@@ -346,6 +346,15 @@ public sealed class TrackFilter
 
     public string Description { get; }
 
+    /// <summary>
+    /// The Quality Check row this filter shows, so its songs can be cleared from
+    /// it; null for every other filter.
+    /// </summary>
+    public Analysis.QualityFlag? QualityFlag { get; init; }
+
+    /// <summary>The "Cleared by you" row: songs that can be put back.</summary>
+    public bool ShowsQualityClearances { get; init; }
+
     public IReadOnlyList<Track> Apply(IReadOnlyList<Track> tracks) => _apply(tracks);
 
     public override string ToString() => Description;

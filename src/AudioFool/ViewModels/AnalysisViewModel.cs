@@ -17,16 +17,86 @@ namespace AudioFool.ViewModels;
 public sealed partial class AnalysisViewModel : ObservableObject
 {
     private readonly QualityClaim _claim;
+    private readonly MainViewModel? _main;
 
-    public AnalysisViewModel(Track track)
+    /// <param name="main">
+    /// For the clear buttons: the library check's results and the user's
+    /// clearances. Without it (a ThemeLab render) there are no buttons.
+    /// </param>
+    public AnalysisViewModel(Track track, MainViewModel? main = null)
     {
         Track = track;
         _claim = QualityClaim.From(track);
+        _main = main;
 
         var artist = string.IsNullOrWhiteSpace(track.Artist) ? track.GroupingArtist : track.Artist;
         Subtitle = string.Join(" · ", new[] { artist, track.Album, _claim.Describe(), Display.Time(track.Duration) }
             .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+        if (main is not null)
+        {
+            main.QualityClearancesChanged += Main_QualityChanged;
+            main.QualityResultsChanged += Main_QualityChanged;
+            RefreshClearing();
+        }
     }
+
+    /// <summary>Called when the window closes, so the main window stops updating it.</summary>
+    public void Detach()
+    {
+        if (_main is null)
+            return;
+
+        _main.QualityClearancesChanged -= Main_QualityChanged;
+        _main.QualityResultsChanged -= Main_QualityChanged;
+    }
+
+    private void Main_QualityChanged(object? sender, EventArgs e) => RefreshClearing();
+
+    /// <summary>
+    /// One button per Quality Check row this song is in, by this window's
+    /// reading, the library check's, or a clearance already made: "Not Fake
+    /// 24-bit", or "Put Back: Fake 24-bit" once cleared.
+    /// </summary>
+    [ObservableProperty]
+    private IReadOnlyList<QualityClearAction> _clearActions = [];
+
+    /// <summary>"You cleared this from Fake 24-bit, ..."; null when it isn't cleared from anything.</summary>
+    [ObservableProperty]
+    private string? _clearedNote;
+
+    private void RefreshClearing()
+    {
+        if (_main is null)
+            return;
+
+        var cleared = _main.Clearances.RowsClearedFor(Track);
+        var rows = (Opinion?.Flags ?? [])
+            .Concat(_main.CheckedQualityFlags(Track))
+            .Select(QualityClearances.RowOf)
+            .Concat(cleared)
+            .Distinct()
+            .OrderBy(f => QualityStatistics.Rows.ToList().FindIndex(r => r.Flag == f))
+            .ToList();
+
+        ClearActions =
+        [
+            .. rows.Select(flag => cleared.Contains(flag)
+                ? new QualityClearAction($"Put Back: {QualityClearances.RowName(flag)}",
+                    () => _main.PutBackQuality([Track], flag))
+                : new QualityClearAction(QualityClearances.ClearLabel(flag),
+                    () => _main.ClearQuality([Track], flag))),
+        ];
+
+        ClearedNote = cleared.Count == 0
+            ? null
+            : $"You cleared this from {Join(cleared.Select(QualityClearances.RowName).ToList())}, so the Quality Check leaves it out there.";
+
+        static string Join(IReadOnlyList<string> names) =>
+            names.Count == 1 ? names[0] : string.Join(", ", names.Take(names.Count - 1)) + " and " + names[^1];
+    }
+
+    partial void OnOpinionChanged(Opinion? value) => RefreshClearing();
 
     public Track Track { get; }
 
@@ -131,4 +201,12 @@ public sealed partial class AnalysisViewModel : ObservableObject
 
         return string.Join(" · ", parts);
     }
+}
+
+/// <summary>One of the Analyze window's clear buttons.</summary>
+public sealed class QualityClearAction(string label, Action run)
+{
+    public string Label { get; } = label;
+
+    public System.Windows.Input.ICommand Command { get; } = new CommunityToolkit.Mvvm.Input.RelayCommand(run);
 }

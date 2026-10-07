@@ -257,6 +257,8 @@ public sealed partial class MainViewModel
 
     partial void OnIsPlaylistModeChanged(bool value)
     {
+        RaiseQualityMenuChanged();
+
         // Recently Added opens on every recent song, whichever album was picked before.
         _fillingRecentAlbums = true;
         SelectedRecentAlbum = null;
