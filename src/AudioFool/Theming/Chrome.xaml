@@ -271,7 +271,7 @@
                             <Viewbox x:Name="Triangle"
                                      Grid.Column="0"
                                      Width="{theme:Token songTable.numberCell.triangleSlot}"
-                                     Height="10"
+                                     Height="{theme:Token songTable.numberCell.triangleHeight}"
                                      VerticalAlignment="Center"
                                      Visibility="Collapsed">
                                 <Canvas Width="7.4" Height="10">

@@ -127,6 +127,7 @@
   },
   "layout": {
     "designSize": { "width": 1720, "height": 1080 },
+    "window": { "width": 1560, "height": 900, "minHeight": 560 },
     "titleBarHeight": 48,
     "playbackBarHeight": 104,
     "statusBarHeight": 36,
@@ -214,7 +215,7 @@
       { "id": "bitDepth", "width": 70, "align": "center" },
       { "id": "sampleRate", "width": 82, "align": "right" }
     ],
-    "numberCell": { "triangleSlot": 8, "gap": 3, "numberWidth": 16, "numberWidth3Digits": 23 },
+    "numberCell": { "triangleSlot": 8, "triangleHeight": 10, "gap": 3, "numberWidth": 16, "numberWidth3Digits": 23 },
     "editBox": { "borderWidth": 1, "paddingX": 1 }
   },
   "playbackBar": {
