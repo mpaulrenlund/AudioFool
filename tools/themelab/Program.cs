@@ -189,6 +189,9 @@ internal static class Program
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
+        // Playlists go to a scratch file, never the real playlists.json.
+        MainViewModel.PlaylistsPath = Path.Combine(Path.GetTempPath(), "ThemeLabPlaylists", Guid.NewGuid().ToString("N"), "playlists.json");
+
         var runtime = new BassRuntime();
         var engine = new AudioEngine(runtime);
         var vm = new MainViewModel(engine, runtime, new AlbumArtService(), settings);
@@ -278,6 +281,10 @@ internal static class Program
                     Settle(100);
                 }
             }
+        }
+        else if (which == "playlists")
+        {
+            return RunPlaylists(main, vm, outPath, w, h, scale);
         }
         else if (which is "edit" or "queue" or "clicks")
         {
@@ -2648,6 +2655,162 @@ internal static class Program
                 yield return deeper;
             }
         }
+    }
+
+    /// <summary>
+    /// --window playlists: the Like column and the Playlists panel on the real
+    /// library (read-only), with playlists in a scratch file (see PlaylistsPath).
+    /// Renders the album view with hearts, Road trip, Liked, Liked after an
+    /// unlike, an empty playlist and the name prompt, as out-*.png, printing
+    /// what each shows.
+    /// </summary>
+    private static int RunPlaylists(MainWindow main, MainViewModel vm, string outPath, double w, double h, double scale)
+    {
+        LoadRealLibrary(vm);
+        Pump();
+        Settle(400);
+
+        var grid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
+        string Shot(string name) => Path.ChangeExtension(outPath, null) + $"-{name}.png";
+
+        void Rows(string label)
+        {
+            Pump();
+            Settle(200);
+            Console.WriteLine($"{label}: {grid.Items.Count} rows");
+            for (var i = 0; i < Math.Min(grid.Items.Count, 6); i++)
+            {
+                if (grid.ItemContainerGenerator.ContainerFromIndex(i) is not System.Windows.Controls.DataGridRow row)
+                    continue;
+                var heart = Descendants<LikeToggle>(row).FirstOrDefault();
+                var number = Descendants<System.Windows.Controls.TextBlock>(row).FirstOrDefault()?.Text;
+                var at = heart?.TranslatePoint(new Point(0, 0), main);
+                Console.WriteLine($"  #{number,-3} '{(row.Item as Track)?.DisplayTitle}' liked={heart?.IsLiked} "
+                    + $"heart at {at?.X:0.#},{at?.Y:0.#} size {heart?.ActualWidth:0.#}x{heart?.ActualHeight:0.#} "
+                    + $"name='{(heart is null ? "" : System.Windows.Automation.AutomationProperties.GetName(heart))}'");
+            }
+        }
+
+        void Header()
+        {
+            Console.WriteLine($"  header: '{vm.PlaylistHeaderTitle}' / '{vm.PlaylistHeaderModified}' / '{vm.PlaylistHeaderTrackCount}' / "
+                + $"'{vm.PlaylistHeaderDuration}' art={(vm.SelectedPlaylistArt is null ? "none" : $"{vm.SelectedPlaylistArt.PixelWidth}px")} "
+                + $"albumHeader={vm.ShowsAlbumHeader} playlistHeader={vm.ShowsPlaylistHeader} empty={vm.ShowsEmptyState} "
+                + $"('{vm.EmptyStateTitle}' / '{vm.EmptyStateDetail}')");
+            Console.WriteLine($"  playlists: {string.Join(" | ", vm.Playlists.Select(p => $"{p.Name} ({p.TrackSummary}){(ReferenceEquals(p, vm.SelectedPlaylist) ? " *" : "")}"))}");
+        }
+
+        var logo = (FrameworkElement)main.FindName("LogoSlot");
+        var albumList = (FrameworkElement)main.FindName("AlbumList");
+        var artistLabel = (FrameworkElement)main.FindName("ArtistsHeaderLabel");
+        void Layout(string label) =>
+            Console.WriteLine($"  {label}: logo x {logo.TranslatePoint(new Point(0, 0), main).X:0.#}, ARTISTS label {artistLabel.ActualWidth:0.#} wide "
+                + $"(visible={artistLabel.IsVisible}), albums list {albumList.Visibility}");
+
+        // 1. Albums: like two songs through the command, a third by pressing its heart.
+        vm.ToggleLikeCommand.Execute(vm.Tracks[0]);
+        vm.ToggleLikeCommand.Execute(vm.Tracks[2]);
+        Pump();
+        Settle(200);
+        var selectedBefore = grid.SelectedIndex;
+        var thirdHeart = Descendants<LikeToggle>(grid.ItemContainerGenerator.ContainerFromIndex(1)).First();
+        var press = new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left)
+        {
+            // The tunnelling PreviewMouseDown, as real input sends it: WPF raises
+            // PreviewMouseLeftButtonDown from it on each element on the way down.
+            RoutedEvent = System.Windows.Input.Mouse.PreviewMouseDownEvent,
+            Source = thirdHeart,
+        };
+        var likedBefore = vm.LikedPaths.Count;
+        thirdHeart.RaiseEvent(press);
+        Console.WriteLine($"heart press: handled={press.Handled} liked {likedBefore} -> {vm.LikedPaths.Count}, heart DataContext {thirdHeart.DataContext?.GetType().Name}");
+        Rows($"album '{vm.SelectedAlbum?.Album.Title}' after liking rows 1-3 (row 2 by a heart press; selection {selectedBefore} -> {grid.SelectedIndex})");
+        Layout("albums");
+        Save(main, Shot("albums"), w, h, scale);
+
+        // 2. A playlist of songs from four artists, made through the store.
+        var store = (AudioFool.Core.Playlists.PlaylistStore)typeof(MainViewModel)
+            .GetField("_playlistStore", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(vm)!;
+        var picks = vm.Artists.Where((_, i) => i % 40 == 7).Take(4)
+            .Select(a => a.Albums[0].Tracks[0]).ToList();
+        var road = store.Create("Road trip", DateTime.UtcNow);
+        store.Add(road, picks, DateTime.UtcNow);
+        Console.WriteLine($"road trip: {string.Join(" | ", picks.Select(t => $"{t.Artist} - {t.DisplayTitle}"))}");
+
+        vm.IsPlaylistMode = true;
+        Rows("playlist mode, opened on");
+        Header();
+        Layout("playlists");
+        Save(main, Shot("roadtrip"), w, h, scale);
+
+        // Add the first two songs again: nothing goes in. Then remove row 2.
+        vm.SelectedTracks = [vm.Tracks[0], vm.Tracks[1]];
+        vm.AddToPlaylistCommand.Execute(vm.SelectedPlaylist);
+        Console.WriteLine($"  add again: '{vm.StatusText}'");
+        vm.SelectedTracks = [vm.Tracks[1]];
+        vm.RemoveFromPlaylistCommand.Execute(null);
+        Console.WriteLine($"  remove row 2: '{vm.StatusText}'");
+        Rows("road trip after removing row 2");
+        Header();
+
+        // 3. Liked, then an unlike: the row stays, with no place and an empty heart.
+        vm.SelectedPlaylist = vm.Playlists.First(p => p.IsLiked);
+        Rows("liked");
+        Header();
+        Save(main, Shot("liked"), w, h, scale);
+        vm.ToggleLikeCommand.Execute(vm.Tracks[0]);
+        Rows("liked after unliking row 1");
+        Header();
+        Save(main, Shot("liked-unliked"), w, h, scale);
+
+        // 4. An empty playlist.
+        var empty = store.Create("Empty one", DateTime.UtcNow);
+        typeof(MainViewModel).GetMethod("RefreshPlaylists", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(vm, null);
+        vm.SelectedPlaylist = vm.Playlists.First(p => ReferenceEquals(p.Playlist, empty));
+        Rows("empty playlist");
+        Header();
+        Save(main, Shot("empty"), w, h, scale);
+
+        // 5. Typing a search goes back to Artists, on the album it left.
+        vm.SearchQuery = "a";
+        Pump();
+        Console.WriteLine($"after typing a search: playlistMode={vm.IsPlaylistMode} album='{vm.SelectedAlbum?.Album.Title}' rows={grid.Items.Count}");
+        vm.SearchQuery = "";
+        Settle(400);
+
+        // 5b. Clicking the PLAYLISTS label goes back to Artists.
+        vm.IsPlaylistMode = true;
+        Pump();
+        var playlistsHeader = (System.Windows.Controls.Button)main.FindName("PlaylistsHeader");
+        var labelX = playlistsHeader.TranslatePoint(new Point(0, 0), main).X;
+        var artistsX = artistLabel.TranslatePoint(new Point(0, 0), main).X;
+        var headerPeer = new System.Windows.Automation.Peers.ButtonAutomationPeer(playlistsHeader);
+        ((System.Windows.Automation.Provider.IInvokeProvider)headerPeer.GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke)!).Invoke();
+        Pump();
+        Console.WriteLine($"PLAYLISTS label at x {labelX:0.#} (ARTISTS at {artistsX:0.#}), name '{System.Windows.Automation.AutomationProperties.GetName(playlistsHeader)}'; "
+            + $"after clicking it: playlistMode={vm.IsPlaylistMode} album='{vm.SelectedAlbum?.Album.Title}' rows={grid.Items.Count} logo x {logo.TranslatePoint(new Point(0, 0), main).X:0.#}");
+
+        // 6. The name prompt, with the error a taken name gives.
+        var prompt = (PromptWindow)Activator.CreateInstance(typeof(PromptWindow),
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null,
+            [main, "New Playlist", "", "Create", "Liked", (Func<string, string?>)(t => store.NameProblem(t))], null)!;
+        prompt.Left = -20000;
+        prompt.Top = -20000;
+        prompt.ShowActivated = false;
+        prompt.ShowInTaskbar = false;
+        prompt.Show();
+        Pump();
+        typeof(PromptWindow).GetMethod("Ok_Click", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(prompt, [null, new RoutedEventArgs()]);
+        Pump();
+        Settle(200);
+        Save(prompt, Shot("prompt"), prompt.ActualWidth, prompt.ActualHeight, scale);
+        Console.WriteLine($"prompt: {prompt.ActualWidth:0}x{prompt.ActualHeight:0}");
+        prompt.Close();
+
+        Console.WriteLine($"saved: {File.ReadAllText(MainViewModel.PlaylistsPath).Length} bytes in {MainViewModel.PlaylistsPath}");
+        return 0;
     }
 
     /// <summary>

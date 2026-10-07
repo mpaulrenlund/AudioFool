@@ -35,7 +35,11 @@
                               Source="{Binding Data.FolderFilters, Source={StaticResource Proxy}}" />
         <CollectionViewSource x:Key="RemoveFoldersSource"
                               Source="{Binding Data.FolderFilters, Source={StaticResource Proxy}}" />
+        <CollectionViewSource x:Key="PlaylistsMenuSource"
+                              Source="{Binding Data.Playlists, Source={StaticResource Proxy}}" />
         <fmt:IsCurrentTrackConverter x:Key="IsCurrentTrack" />
+        <fmt:IsLikedConverter x:Key="IsLiked" />
+        <fmt:TrackNumberOrPositionConverter x:Key="TrackNumberOrPosition" />
 
         <!--
             Artist and album rows. The look is theme.browserRowTemplate
@@ -70,6 +74,37 @@
                     <ContextMenu>
                         <MenuItem Header="Edit Album Tags…"
                                   Command="{Binding Source={StaticResource Proxy}, Path=Data.EditAlbumTagsCommand}"
+                                  CommandParameter="{Binding}" />
+                    </ContextMenu>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A playlist row: an artist row's size, and the playlist's own menu.
+             Liked can't be renamed or deleted. -->
+        <Style x:Key="PlaylistRow" TargetType="ListBoxItem" BasedOn="{StaticResource ArtistRow}">
+            <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+            <Setter Property="ContextMenu">
+                <Setter.Value>
+                    <ContextMenu>
+                        <MenuItem Header="New Playlist…"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.NewPlaylistCommand}" />
+                        <Separator />
+                        <MenuItem Header="Rename…"
+                                  IsEnabled="{Binding CanRenameOrDelete}"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.RenamePlaylistCommand}"
+                                  CommandParameter="{Binding}" />
+                        <MenuItem Header="Delete…"
+                                  IsEnabled="{Binding CanRenameOrDelete}"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.DeletePlaylistCommand}"
+                                  CommandParameter="{Binding}" />
+                        <Separator />
+                        <MenuItem Header="Set Picture…"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.SetPlaylistPictureCommand}"
+                                  CommandParameter="{Binding}" />
+                        <MenuItem Header="Use Automatic Picture"
+                                  IsEnabled="{Binding HasPicture}"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.ClearPlaylistPictureCommand}"
                                   CommandParameter="{Binding}" />
                     </ContextMenu>
                 </Setter.Value>
@@ -345,6 +380,7 @@
             <!-- artists -->
             <HeaderedContentControl x:Name="ArtistsPanel" Grid.Column="0" Style="{DynamicResource theme.panel}">
                 <HeaderedContentControl.Header>
+                  <Grid>
                     <!--
                         The header is the sort toggle: A-Z, or most recently added
                         first. Two fixed labels rather than one bound one, because
@@ -362,6 +398,7 @@
                             Style="{x:Null}"
                             Command="{Binding ToggleArtistSortCommand}"
                             ToolTip="{Binding ArtistSortTooltip}"
+                            Visibility="{Binding IsPlaylistMode, Converter={StaticResource BoolToVisibility}, ConverterParameter=InverseHidden}"
                             AutomationProperties.Name="Sort artists"
                             Cursor="Hand"
                             FocusVisualStyle="{x:Null}"
@@ -407,6 +444,59 @@
                             </Border>
                         </Grid>
                     </Button>
+
+                    <!--
+                        Playlists (the user's request, 2026-10-07). The sort header
+                        above is hidden, not collapsed, while this shows, so the
+                        logo keeps centring on the ARTISTS label it holds.
+                    -->
+                    <!-- Clicking PLAYLISTS goes back to Artists, as the button
+                         does (the user's call). Hover and keyboard focus underline
+                         it, as they do ARTISTS. -->
+                    <Button x:Name="PlaylistsHeader"
+                            Style="{x:Null}"
+                            Command="{Binding ShowArtistsCommand}"
+                            Visibility="{Binding IsPlaylistMode, Converter={StaticResource BoolToVisibility}}"
+                            AutomationProperties.Name="Show artists"
+                            Cursor="Hand"
+                            FocusVisualStyle="{x:Null}"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="Transparent">
+                                    <ContentPresenter />
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <Grid>
+                            <TextBlock Text="PLAYLISTS" Style="{StaticResource PanelHeaderLabel}" />
+                            <Border VerticalAlignment="Bottom"
+                                    Height="{theme:Token layout.panelBorder}"
+                                    Background="{DynamicResource color.text.muted}">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Hidden" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsMouseOver, ElementName=PlaylistsHeader}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsKeyboardFocused, ElementName=PlaylistsHeader}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                        </Grid>
+                    </Button>
+
+                    <ToggleButton x:Name="PlaylistsToggle"
+                                  Style="{DynamicResource theme.playlistsToggle}"
+                                  HorizontalAlignment="Right"
+                                  IsChecked="{Binding IsPlaylistMode, Mode=TwoWay}"
+                                  AutomationProperties.Name="Playlists" />
+                  </Grid>
                 </HeaderedContentControl.Header>
                 <!-- 6.3: 42 px rows, name over album count. Scrollbars hidden;
                      the wheel, trackpad and keyboard still scroll. The 6 px list
@@ -414,7 +504,9 @@
                      No focus outline on the list itself: inset by that margin, it
                      drew a dark box inside the panel after any key press. -->
 
+                <Grid>
                 <ListBox x:Name="ArtistList"
+                         Visibility="{Binding IsPlaylistMode, Converter={StaticResource BoolToVisibility}, ConverterParameter=Inverse}"
                          ItemsSource="{Binding Artists}"
                          SelectedItem="{Binding SelectedArtist, Mode=TwoWay}"
                          SelectionChanged="BrowserList_SelectionChanged"
@@ -442,6 +534,43 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+
+                <!-- Playlists, most recently modified first: an artist row's
+                     shape, the name over "N tracks". Right-click the empty
+                     space for New Playlist. -->
+                <ListBox x:Name="PlaylistList"
+                         Visibility="{Binding IsPlaylistMode, Converter={StaticResource BoolToVisibility}}"
+                         ItemsSource="{Binding Playlists}"
+                         SelectedItem="{Binding SelectedPlaylist, Mode=TwoWay}"
+                         SelectionChanged="BrowserList_SelectionChanged"
+                         MouseDoubleClick="PlaylistList_MouseDoubleClick"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         HorizontalContentAlignment="Stretch"
+                         Margin="{theme:Token layout.listPadding}"
+                         FocusVisualStyle="{x:Null}"
+                         ItemContainerStyle="{StaticResource PlaylistRow}"
+                         AutomationProperties.Name="Playlists"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Hidden">
+                    <ListBox.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="New Playlist…" Command="{Binding NewPlaylistCommand}" />
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:PlaylistItemViewModel}">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Name}"
+                                           Style="{DynamicResource type.artistName}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding TrackSummary}"
+                                           Style="{StaticResource ArtistCountText}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                </Grid>
             </HeaderedContentControl>
 
             <GridSplitter Grid.Column="1"
@@ -454,7 +583,9 @@
                 <HeaderedContentControl.Header>
                     <TextBlock Text="ALBUMS" Style="{StaticResource PanelHeaderLabel}" />
                 </HeaderedContentControl.Header>
+                <!-- Blank while the Artists panel shows playlists (the user's call). -->
                 <ListBox x:Name="AlbumList"
+                         Visibility="{Binding IsPlaylistMode, Converter={StaticResource BoolToVisibility}, ConverterParameter=Inverse}"
                          ItemsSource="{Binding Albums}"
                          SelectedItem="{Binding SelectedAlbum, Mode=TwoWay}"
                          SelectionChanged="BrowserList_SelectionChanged"
@@ -532,8 +663,9 @@
             <HeaderedContentControl Grid.Column="4" Style="{DynamicResource theme.panel.songs}">
                 <!-- 6.5: big album art, then the title and four stacked facts -->
                 <HeaderedContentControl.Header>
+                  <Grid>
                     <Grid Margin="{theme:Thickness X=albumHeader.paddingX, Y=albumHeader.paddingY}"
-                          Visibility="{Binding SelectedAlbum, Converter={StaticResource NullToCollapsed}}">
+                          Visibility="{Binding ShowsAlbumHeader, Converter={StaticResource BoolToVisibility}}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
@@ -594,6 +726,74 @@
                             </StackPanel>
                         </StackPanel>
                     </Grid>
+
+                    <!--
+                        A playlist's header (the user's request, 2026-10-07): the
+                        album header's layout, with its picture (one chosen, or the
+                        first song's cover), the name, then "Modified 2026-10-07",
+                        the track count and the duration in place of the artist,
+                        year, count and duration. No blue line: there's no artist.
+                    -->
+                    <Grid Margin="{theme:Thickness X=albumHeader.paddingX, Y=albumHeader.paddingY}"
+                          Visibility="{Binding ShowsPlaylistHeader, Converter={StaticResource BoolToVisibility}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border x:Name="PlaylistArt"
+                                Grid.Column="0"
+                                Width="{theme:Token albumHeader.artSize}"
+                                Height="{theme:Token albumHeader.artSize}"
+                                VerticalAlignment="Top"
+                                BorderBrush="{DynamicResource color.art.border}"
+                                BorderThickness="{theme:Thickness All=layout.panelBorder}"
+                                CornerRadius="{DynamicResource radius.art}"
+                                Effect="{DynamicResource shadow.headerArt}"
+                                SnapsToDevicePixels="True"
+                                Cursor="Hand"
+                                MouseLeftButtonDown="PlaylistArt_MouseLeftButtonDown">
+                            <Border.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Set Picture…"
+                                              Command="{Binding Source={StaticResource Proxy}, Path=Data.SetPlaylistPictureCommand}"
+                                              CommandParameter="{Binding Source={StaticResource Proxy}, Path=Data.SelectedPlaylist}" />
+                                    <MenuItem Header="Use Automatic Picture"
+                                              IsEnabled="{Binding Source={StaticResource Proxy}, Path=Data.SelectedPlaylist.HasPicture}"
+                                              Command="{Binding Source={StaticResource Proxy}, Path=Data.ClearPlaylistPictureCommand}"
+                                              CommandParameter="{Binding Source={StaticResource Proxy}, Path=Data.SelectedPlaylist}" />
+                                </ContextMenu>
+                            </Border.ContextMenu>
+                            <Grid Background="{DynamicResource color.panel.bg}">
+                                <ui:SymbolIcon Symbol="MusicNote224"
+                                               FontSize="{theme:Token albumHeader.placeholderIconSize}"
+                                               Foreground="{DynamicResource color.text.muted}"
+                                               Visibility="{Binding SelectedPlaylistArt, Converter={StaticResource NullToVisible}}" />
+                                <Image Source="{Binding SelectedPlaylistArt}" Stretch="UniformToFill"
+                                       Visibility="{Binding SelectedPlaylistArt, Converter={StaticResource NullToCollapsed}}" />
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Grid.Column="1"
+                                    Margin="{theme:Thickness Left=albumHeader.artGap}"
+                                    VerticalAlignment="Top">
+                            <TextBlock x:Name="PlaylistHeaderTitle"
+                                       Text="{Binding PlaylistHeaderTitle}"
+                                       Style="{DynamicResource type.headerTitle}"
+                                       MinHeight="{theme:Token albumHeader.titleMinHeight}" />
+                            <StackPanel Margin="{theme:Thickness Top=albumHeader.titleToDetailsGap}">
+                                <TextBlock Text="{Binding PlaylistHeaderModified}"
+                                           Style="{DynamicResource type.headerDetails}" />
+                                <TextBlock Text="{Binding PlaylistHeaderTrackCount}"
+                                           Style="{DynamicResource type.headerDetails}"
+                                           Margin="{theme:Thickness Top=albumHeader.detailsLineGap}" />
+                                <TextBlock Text="{Binding PlaylistHeaderDuration}"
+                                           Style="{DynamicResource type.headerDetails}"
+                                           Margin="{theme:Thickness Top=albumHeader.detailsLineGap}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                  </Grid>
                 </HeaderedContentControl.Header>
 
                 <Grid>
@@ -627,6 +827,7 @@
                               VirtualizingPanel.VirtualizationMode="Recycling"
                               PreviewMouseLeftButtonDown="TrackGrid_PreviewMouseLeftButtonDown"
                               MouseDoubleClick="TrackGrid_MouseDoubleClick"
+                              Sorting="TrackGrid_Sorting"
                               PreviewKeyDown="TrackGrid_PreviewKeyDown"
                               PreviewGotKeyboardFocus="TrackGrid_PreviewGotKeyboardFocus"
                               BeginningEdit="TrackGrid_BeginningEdit"
@@ -685,18 +886,50 @@
                                             <MenuItem Header="Analyze…"
                                                       Command="{Binding Source={StaticResource Proxy}, Path=Data.AnalyzeTrackCommand}"
                                                       CommandParameter="{Binding}" />
+                                            <Separator />
+                                            <!-- The selected songs: the right-click keeps a
+                                                 selection the row is in, as for Edit Tags. -->
+                                            <MenuItem Header="Add to Playlist">
+                                                <MenuItem.ItemContainerStyle>
+                                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                                        <Setter Property="Header" Value="{Binding Name}" />
+                                                        <Setter Property="Command" Value="{Binding Source={StaticResource Proxy}, Path=Data.AddToPlaylistCommand}" />
+                                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                                    </Style>
+                                                </MenuItem.ItemContainerStyle>
+                                                <MenuItem.ItemsSource>
+                                                    <CompositeCollection>
+                                                        <CollectionContainer Collection="{Binding Source={StaticResource PlaylistsMenuSource}}" />
+                                                        <Separator />
+                                                        <MenuItem Header="New Playlist…"
+                                                                  Style="{DynamicResource {x:Type MenuItem}}"
+                                                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.NewPlaylistCommand}"
+                                                                  CommandParameter="selection" />
+                                                    </CompositeCollection>
+                                                </MenuItem.ItemsSource>
+                                            </MenuItem>
+                                            <MenuItem Header="Remove from Playlist"
+                                                      Visibility="{Binding Source={StaticResource Proxy}, Path=Data.IsPlaylistMode, Converter={StaticResource BoolToVisibility}}"
+                                                      Command="{Binding Source={StaticResource Proxy}, Path=Data.RemoveFromPlaylistCommand}" />
                                         </ContextMenu>
                                     </Setter.Value>
                                 </Setter>
                             </Style>
                         </DataGrid.RowStyle>
                         <DataGrid.Columns>
-                            <!-- The # cell also carries the now-playing triangle. -->
+                            <!-- The # cell also carries the now-playing triangle. In a
+                                 playlist it shows the song's place there instead. -->
                             <local:InlineEditColumn x:Name="TrackNumberColumn" Header="#" DisplayIndex="0"
-                                                Binding="{Binding TrackNumber, Converter={StaticResource Number}, Mode=OneWay}"
                                                 SortMemberPath="TrackNumber"
                                                 CellStyle="{DynamicResource theme.songNumberCell}"
-                                                EditingElementStyle="{StaticResource theme.cellEditBox.number}" />
+                                                EditingElementStyle="{StaticResource theme.cellEditBox.number}">
+                                <local:InlineEditColumn.Binding>
+                                    <MultiBinding Converter="{StaticResource TrackNumberOrPosition}" Mode="OneWay">
+                                        <Binding />
+                                        <Binding Source="{StaticResource Proxy}" Path="Data.PlaylistPositions" />
+                                    </MultiBinding>
+                                </local:InlineEditColumn.Binding>
+                            </local:InlineEditColumn>
 
                             <local:InlineEditColumn x:Name="SongColumn" Header="SONG" DisplayIndex="1"
                                                 Binding="{Binding DisplayTitle, Mode=OneWay}"
@@ -732,13 +965,31 @@
                             <DataGridTextColumn x:Name="SampleRateColumn" IsReadOnly="True" Header="SAMPLE RATE" DisplayIndex="9"
                                                 Binding="{Binding SampleRate, Converter={StaticResource SampleRate}}"
                                                 SortMemberPath="SampleRate" />
+
+                            <!-- Like (the user's request, 2026-10-07): a heart, no header
+                                 label. A click likes or unlikes; see LikeToggle. -->
+                            <DataGridTemplateColumn x:Name="LikeColumn" Header="" DisplayIndex="10"
+                                                    IsReadOnly="True" CanUserSort="False" CanUserResize="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <local:LikeToggle Style="{DynamicResource theme.likeToggle}">
+                                            <local:LikeToggle.IsLiked>
+                                                <MultiBinding Converter="{StaticResource IsLiked}" Mode="OneWay">
+                                                    <Binding />
+                                                    <Binding Source="{StaticResource Proxy}" Path="Data.LikedPaths" />
+                                                </MultiBinding>
+                                            </local:LikeToggle.IsLiked>
+                                        </local:LikeToggle>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
 
                     <!-- Nothing chosen yet; the wording says why. -->
                     <Control Template="{StaticResource theme.emptyState}"
                              Focusable="False" IsTabStop="False" IsHitTestVisible="False"
-                             Visibility="{Binding SelectedAlbum, Converter={StaticResource NullToVisible}}" />
+                             Visibility="{Binding ShowsEmptyState, Converter={StaticResource BoolToVisibility}}" />
                 </Grid>
             </HeaderedContentControl>
         </Grid>

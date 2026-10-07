@@ -15,7 +15,7 @@ Companion files in this folder:
 ## 1. Design principles
 
 - **Light console gray throughout.** No dark title bar or dark playback bar. Surfaces are the light gray of the original PS1 console.
-- **Color has a job.** Teal means playback. Blue means artist names. Yellow and green mean off/on status. Shuffle blue and repeat red are the remaining nods to the controller's face buttons. Don't introduce color outside these roles.
+- **Color has a job.** Teal means playback. Blue means artist names. Yellow and green mean off/on status. Shuffle blue and repeat red are the remaining nods to the controller's face buttons, and Square pink marks a liked song (added 2026-10-07). Don't introduce color outside these roles.
 - **Squarer corners.** 4 px on surfaces, 3 px on row highlights. The round transport buttons are the deliberate exception (they echo controller face buttons).
 - **Quiet chrome, clear content.** Headers are small, gray, and uppercase. Selection is a light-mid gray, not a dark fill.
 
@@ -86,6 +86,7 @@ All colors live in the central theme (`theme-tokens.json`). Names below are the 
 | `accent.teal` | `#15786C` | Play/pause icon, seekbar fill, now-playing triangle, Last.fm dot, Bit-Perfect "on" dot, search focus ring |
 | `accent.tealText` | `#0C5A51` | Now-playing row text; keyboard focus ring |
 | `accent.blue` | `#00519A` | Artist names (album header and playback bar). Deeper version of PlayStation blue chosen for readability (≈4.7:1). |
+| `accent.like` | `#A8327F` | A liked song's heart in the Like column, filled. The PlayStation Square pink, deepened to stay visible (3.6:1 on a row, 3.1:1 selected, 3.4:1 now playing); the controller's own pink, about `#E5A1C7`, is 1.0–1.2:1 there. Added 2026-10-07 at the user's request. |
 
 ### States
 
@@ -140,7 +141,7 @@ All colors live in the central theme (`theme-tokens.json`). Names below are the 
 | `art.thumbBorder` | `#9C9995` | Album list thumbnails |
 | `art.thumbBorderSelected` | `#6E6B67` | Thumbnail border on the selected album |
 
-**Pink is not used anywhere.** (The pause button was pink in an earlier draft; it's now teal.)
+**Pink is used only for liked hearts** (`accent.like`, the user's call, 2026-10-07). Nothing else is pink. (The pause button was pink in an earlier draft; it's now teal.)
 
 ---
 
@@ -233,7 +234,7 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 
 ### 6.6 Song table
 
-**Columns (10), left to right**, with 12 px between columns:
+**Columns (11), left to right**, with 12 px between columns:
 
 | Column | Width | Align |
 |---|---|---|
@@ -247,6 +248,7 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 | Bitrate | 68 px | right |
 | Bit Depth | 70 px | center |
 | Sample Rate | 82 px | right |
+| Like | 16 px | center (no header label) |
 
 - Header row 32 px, 16 px horizontal padding (lines up with row content), 1 px `panel.divider` bottom border.
 - Rows 28 px, 8 px horizontal padding inside a list area with 6 px / 8 px padding.
@@ -268,6 +270,8 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 | Now playing + selected | `state.nowPlayingBg` | same as now playing |
 
 **Interaction:** single-click selects a row; **double-click plays** it. Prevent double-click from highlighting text.
+
+**Like column** (added 2026-10-07): a 14 px heart (`songTable.likeIcon`), centred, with no header label. Not liked: an outline in `control.iconOff`, `text.muted` on hover. Liked: filled `accent.like`. One click likes or unlikes, like a check box; the click doesn't select the row, and a double-click on the heart doesn't play. Liking adds the song to the end of the Liked playlist (6.9).
 
 ### 6.7 Playback bar (104 px)
 
@@ -316,6 +320,16 @@ Background `window.bg`, 12 px horizontal padding, 12 px text in `text.status`.
 **Right, 10 px apart:**
 - **Last.fm:** 26 px tall chip, 4 px radius, `status.chipBg`/`status.chipBorder`, 7 px `accent.teal` dot + "Last.fm".
 - **Bit-Perfect:** same chip, 7 px dot + "Bit-Perfect". **No "On"/"Off" text** — the dot shows state: `status.bitPerfectOff` when off, `status.bitPerfectOn` when on, with a faint `status.dotRing`. Screen readers should still announce on/off (toggle-button semantics).
+
+### 6.9 Playlists (added 2026-10-07)
+
+- **The button:** a 16 px list-and-note icon in a 24 px target (`artists.playlistsToggle`) at the right end of the ARTISTS header, `text.muted`, `text.primary` on hover and while on. No face. No tooltip (the user's call). It turns the Artists panel into the Playlists panel and back.
+- **Playlists panel:** the header reads PLAYLISTS (the ARTISTS label stays in place, hidden, so the logo doesn't move). Clicking PLAYLISTS also goes back to Artists; it underlines on hover and keyboard focus, as ARTISTS does. Rows are artist rows: the name, then "N tracks". Most recently modified first; the first time, that one is selected.
+- **Albums panel:** blank (header only) while playlists show.
+- **Header:** the album header's layout. The picture (one chosen, or the first song's cover), the name in the album-title style, then "Modified 2026-10-07", "N tracks" (plus " · N not found" when some aren't in the library), and the duration ("42:36"). No blue line.
+- **Song table:** the same columns. # is the song's place in the playlist and isn't edited in place; clicking # restores the playlist's order. A song unliked while Liked shows keeps its row (empty heart, no place) until the playlist is shown again.
+- **Liked** always exists and can't be renamed or deleted.
+- Typing a search goes back to Artists.
 
 ---
 

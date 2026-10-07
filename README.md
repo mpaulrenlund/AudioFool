@@ -325,6 +325,38 @@ repeat is set to the whole queue. It will not play the same track twice in a pas
 
 ---
 
+## Likes and playlists
+
+The last column of the song list is a heart. Click it to **like** a song, which adds it
+to the end of the **Liked** playlist; click again to unlike it. A liked heart is filled
+pink.
+
+The small list button at the right of the **ARTISTS** header switches that panel to
+**PLAYLISTS**, most recently changed first; click it again, or click the PLAYLISTS
+label, to go back. While playlists
+show, the Albums panel is empty and the song list shows the chosen playlist, in its
+order, under a header with its picture, name, when it was last changed, how many
+tracks and how long. **#** is the song's place in the playlist. Double-click a
+playlist to play it from the top.
+
+- **Add songs** by right-clicking them (one or a selection) and choosing **Add to
+  Playlist**, which also offers **New Playlist…**. A song already in a playlist isn't
+  added twice.
+- **Remove songs** with **Remove from Playlist** on the same menu, while a playlist
+  shows. The files are untouched.
+- **Rename, delete or give a playlist a picture** by right-clicking it. Without a
+  picture it shows the first song's cover. Liked can't be renamed or deleted.
+- Typing in the search box goes back to Artists: search covers the library.
+
+Playlists live in `%LOCALAPPDATA%\AudioFool\playlists.json`, not in the music files,
+with chosen pictures copied beside it in `playlist-pictures\`. Each song is stored by
+its path plus its artist and album, so a library drive that comes back under another
+letter is matched up again. **A song whose file can't be found stays in its playlist**
+and simply isn't shown (the header says how many are "not found"), so an unplugged
+drive never empties a playlist.
+
+---
+
 ## Last.fm scrobbling
 
 Logo menu → **Last.fm…** connects AudioFool to your Last.fm profile.

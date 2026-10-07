@@ -68,6 +68,14 @@ public partial class MainWindow : FluentWindow
         TrackGrid.LostKeyboardFocus += TrackGrid_LostKeyboardFocus;
         _viewModel.TracksChanging += OnTracksChanging;
         _viewModel.RevealTrackRequested += OnRevealTrackRequested;
+
+        // A playlist opens in its own order, and an album isn't left sorted as
+        // the playlist was.
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.IsPlaylistMode))
+                ClearSort();
+        };
     }
 
     /// <summary>
@@ -350,6 +358,7 @@ public partial class MainWindow : FluentWindow
     {
         if (ArtistList.IsMouseOver) return ArtistList;
         if (AlbumList.IsMouseOver) return AlbumList;
+        if (PlaylistList.IsMouseOver) return PlaylistList;
         return null;
     }
 
@@ -362,6 +371,9 @@ public partial class MainWindow : FluentWindow
         else if (_typeAheadTarget == AlbumList)
             match = _viewModel.Albums.FirstOrDefault(a =>
                 a.Title.StartsWith(_typeAheadBuffer, StringComparison.OrdinalIgnoreCase));
+        else if (_typeAheadTarget == PlaylistList)
+            match = _viewModel.Playlists.FirstOrDefault(p =>
+                p.Name.StartsWith(_typeAheadBuffer, StringComparison.OrdinalIgnoreCase));
 
         if (_typeAheadTarget is not { } list || match is null)
             return;
@@ -457,6 +469,12 @@ public partial class MainWindow : FluentWindow
         _ = ShowArtAsync(_viewModel.GetSelectedAlbumFullArtAsync(), _viewModel.SelectedAlbumCaption);
     }
 
+    private void PlaylistArt_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        _ = ShowArtAsync(_viewModel.GetSelectedPlaylistFullArtAsync(), _viewModel.SelectedPlaylistCaption);
+    }
+
     private void NowPlayingArt_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         e.Handled = true;
@@ -499,8 +517,41 @@ public partial class MainWindow : FluentWindow
         if (e.OriginalSource is not DependencyObject source)
             return;
 
+        // A double-click on a heart is two likes, not a play.
+        if (FindAncestor<LikeToggle>(source) is not null)
+            return;
+
         if (ItemsControl.ContainerFromElement(TrackGrid, source) is DataGridRow { Item: Track track })
             _viewModel.PlayTrackCommand.Execute(track);
+    }
+
+    /// <summary>
+    /// In a playlist, # is the song's place, which is the playlist's own order:
+    /// clicking it puts that order back rather than sorting by track number.
+    /// </summary>
+    private void TrackGrid_Sorting(object sender, DataGridSortingEventArgs e)
+    {
+        if (!_viewModel.IsPlaylistMode || e.Column != TrackNumberColumn)
+            return;
+
+        e.Handled = true;
+        ClearSort();
+    }
+
+    private void ClearSort()
+    {
+        foreach (var column in TrackGrid.Columns)
+            column.SortDirection = null;
+        TrackGrid.Items.SortDescriptions.Clear();
+    }
+
+    private void PlaylistList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is not DependencyObject source)
+            return;
+
+        if (ItemsControl.ContainerFromElement(PlaylistList, source) is ListBoxItem { DataContext: PlaylistItemViewModel playlist })
+            _viewModel.PlayPlaylistCommand.Execute(playlist);
     }
 
     /// <summary>
@@ -603,6 +654,7 @@ public partial class MainWindow : FluentWindow
         "bitrate" => BitrateColumn,
         "bitDepth" => BitDepthColumn,
         "sampleRate" => SampleRateColumn,
+        "like" => LikeColumn,
         _ => throw new InvalidOperationException($"songTable.columns has a column \"{id}\" the track grid does not."),
     };
 
@@ -711,7 +763,10 @@ public partial class MainWindow : FluentWindow
         {
             _trackNumberCheckQueued = false;
 
-            var wide = _viewModel.Tracks.Any(t => t.TrackNumber >= 100);
+            // In a playlist the number is the song's place, which reaches the count.
+            var wide = _viewModel.IsPlaylistMode
+                ? _viewModel.Tracks.Count >= 100
+                : _viewModel.Tracks.Any(t => t.TrackNumber >= 100);
             if (wide == _wideTrackNumbers)
                 return;
 
@@ -736,6 +791,17 @@ public partial class MainWindow : FluentWindow
     private void TrackGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _slowClickTimer.Stop();
+
+        // A heart likes or unlikes its song on the press, and the press goes no
+        // further: the cell would select its row on any press inside it, handled
+        // or not. Each click of a double-click toggles, like a check box.
+        if (e.OriginalSource is DependencyObject pressed
+            && FindAncestor<LikeToggle>(pressed) is { DataContext: Track liked })
+        {
+            _viewModel.ToggleLikeCommand.Execute(liked);
+            e.Handled = true;
+            return;
+        }
 
         if (e.ClickCount == 1 && e.OriginalSource is DependencyObject source)
             ArmSlowClick(source);
@@ -839,8 +905,9 @@ public partial class MainWindow : FluentWindow
     [DllImport("user32.dll")]
     private static extern uint GetDoubleClickTime();
 
+    // In a playlist # shows the song's place there, not its track number, so it isn't edited.
     private InlineField? FieldFor(DataGridColumn? column) =>
-        column == TrackNumberColumn ? InlineField.TrackNumber
+        column == TrackNumberColumn ? (_viewModel.IsPlaylistMode ? null : InlineField.TrackNumber)
         : column == SongColumn ? InlineField.Title
         : column == ArtistColumn ? InlineField.Artist
         : column == AlbumColumn ? InlineField.Album

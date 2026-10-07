@@ -1140,6 +1140,92 @@
         </Setter>
     </Style>
 
+    <!--
+        The Like column's heart (the user's request, 2026-10-07): an outline in
+        control.iconOff, the "off" grey of Shuffle and Repeat, darkening to
+        text.muted on hover; filled in accent.like, the PlayStation Square pink
+        deepened to about 3:1 on every row background, once liked. Not focusable
+        and not a button: MainWindow toggles it on the press (see LikeToggle).
+        The heart is drawn on the 24-unit grid like the other icons.
+    -->
+    <Style x:Key="theme.likeToggle" TargetType="local:LikeToggle">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="{DynamicResource color.control.iconOff}" />
+        <Setter Property="AutomationProperties.Name" Value="Like" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="local:LikeToggle">
+                    <Grid Background="Transparent">
+                        <Viewbox Width="{theme:Token songTable.likeIcon.size}"
+                                 Height="{theme:Token songTable.likeIcon.size}"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Canvas Width="24" Height="24">
+                                <Path x:Name="Heart"
+                                      Data="M 12,20.5 C 12,20.5 3,14.8 3,8.9 C 3,6 5.2,3.8 7.9,3.8 C 9.6,3.8 11.1,4.7 12,6.1 C 12.9,4.7 14.4,3.8 16.1,3.8 C 18.8,3.8 21,6 21,8.9 C 21,14.8 12,20.5 12,20.5 Z"
+                                      Fill="Transparent"
+                                      Stroke="{TemplateBinding Foreground}"
+                                      StrokeThickness="{theme:Token songTable.likeIcon.strokeOn24Grid}"
+                                      StrokeLineJoin="Round" />
+                            </Canvas>
+                        </Viewbox>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Heart" Property="Stroke" Value="{DynamicResource color.text.muted}" />
+                        </Trigger>
+                        <Trigger Property="IsLiked" Value="True">
+                            <Setter TargetName="Heart" Property="Stroke" Value="{DynamicResource color.accent.like}" />
+                            <Setter TargetName="Heart" Property="Fill" Value="{DynamicResource color.accent.like}" />
+                            <Setter Property="AutomationProperties.Name" Value="Unlike" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        The playlists button at the right of the ARTISTS header: a list with a
+        note, 16 px in a 24 px target, in text.muted like the header label,
+        text.primary on hover and while the panel shows playlists. No face.
+    -->
+    <Style x:Key="theme.playlistsToggle" TargetType="ToggleButton">
+        <Setter Property="Width" Value="{theme:Token artists.playlistsToggle.size}" />
+        <Setter Property="Height" Value="{theme:Token artists.playlistsToggle.size}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.text.muted}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource theme.focusRing.chip}" />
+        <Setter Property="theme:ClickFocus.Skip" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Grid Background="Transparent">
+                        <Viewbox Width="{theme:Token artists.playlistsToggle.iconSize}"
+                                 Height="{theme:Token artists.playlistsToggle.iconSize}">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M 3,6 H 15 M 3,11 H 15 M 3,16 H 10 M 19,17 V 4.5"
+                                      Stroke="{TemplateBinding Foreground}"
+                                      StrokeThickness="{theme:Token artists.playlistsToggle.strokeOn24Grid}"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                <Ellipse Canvas.Left="14.6" Canvas.Top="14.8" Width="4.4" Height="4.4"
+                                         Fill="{TemplateBinding Foreground}" />
+                            </Canvas>
+                        </Viewbox>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- The played portion: a rounded bar in the slider's Foreground, from the
          visible track's start to the handle's centre. -->
     <Style x:Key="theme.sliderFill" TargetType="RepeatButton">

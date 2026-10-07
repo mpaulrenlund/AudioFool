@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-06 after the thirty-sixth build session. Read this alongside
+Updated 2026-10-07 after the thirty-eighth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1435,6 +1435,87 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   output following the device. (A tooltip saying why it is disabled was turned down
   in session 37, along with the chip's tooltip.)
 
+### Changes from session 38 (2026-10-07): likes and playlists
+
+The user asked for a Like column and playlists, and approved a plan first (their calls
+are in `design/progress.md` under Decisions; spec 6.6 and the new 6.9 describe the
+result). **529 tests pass** (515 + 14 in `PlaylistTests`). Installed; the installed build
+starts. Committed and pushed to `origin/main` as "Likes and playlists".
+
+**What the user sees**
+
+- An 11th song-table column, **Like**: a heart per row, no header label. Click to like
+  (adds to the end of **Liked**) or unlike. Liked hearts are `color.accent.like`
+  `#A8327F`, PlayStation Square pink deepened to about 3:1 on the row greys: the one
+  pink in the app, by the user's choice.
+- A small **playlists button** at the right end of the ARTISTS header. It turns the
+  Artists panel into PLAYLISTS (most recently modified first, name over "N tracks");
+  Albums goes blank; the Songs panel shows the playlist under a header like the
+  album's: picture, name, "Modified 2026-10-07", "N tracks", "42:36". **The user wants
+  to judge the button's place in the running app** ("We'll see after it's installed"). After trying it they had
+  its tooltip ("Show artists" / "Show playlists") removed; don't add one back. They also
+  asked for the PLAYLISTS label itself to go back to Artists (`PlaylistsHeader`,
+  `ShowArtistsCommand`), underlined on hover like ARTISTS.
+- Song right-click: **Add to Playlist ▸** (every playlist, then New Playlist…) and, in a
+  playlist, **Remove from Playlist**. Playlist right-click: New Playlist…, Rename…,
+  Delete… (Liked can't be renamed or deleted), Set Picture…, Use Automatic Picture. The
+  header picture has the last two as well, and opens in the art viewer on click.
+  Double-click a playlist to play it from the top.
+- In a playlist, # is the song's place there (not editable; clicking # restores the
+  playlist's order). Unliking while Liked shows leaves the row (empty heart, no place)
+  until Liked is shown again. Typing a search goes back to Artists, as do a Statistics
+  filter and clicking the now-playing text.
+
+**How it works**
+
+- **`AudioFool.Core/Playlists/`**: `Playlist` and `PlaylistEntry` (path, artist,
+  album); `PlaylistStore` saves `%LOCALAPPDATA%\AudioFool\playlists.json` on every
+  change (temp file then move, like the scrobble queue), copies chosen pictures into
+  `playlist-pictures\`, and moves an unreadable file aside as
+  `playlists.unreadable-<time>.json` rather than saving over it. `PlaylistResolver`
+  finds entries in a library by path, then (after a drive-letter change) by file name
+  within the same artist and album, as `MusicLibrary.Locate` does for the last-played
+  song, and re-points the entry. **An entry whose file isn't found is never removed**;
+  only Remove or an unlike takes a song out. `PlaylistText` has the header wording.
+- **Nothing is written to the music files** (the user's tag minimalism).
+- Songs are found in the **whole library, ticked folders or not**: a playlist is an
+  explicit choice.
+- **`MainViewModel.Playlists.cs`** (a new partial file): `IsPlaylistMode`,
+  `Playlists`, `SelectedPlaylist`, `LikedPaths` (a new set on each change, so every
+  heart's binding re-reads it), `PlaylistPositions` (the # column's MultiBinding,
+  `TrackNumberOrPositionConverter`), the commands, and the header. The album
+  selection carries on underneath while a playlist shows: `OnSelectedAlbumChanged`
+  doesn't touch `Tracks` in playlist mode, and leaving puts the album's songs back.
+  `ApplyToView` ends with `OnLibraryViewRebuilt`, which resolves every playlist again
+  (a scan or a tag save makes new `Track` objects).
+- **The heart isn't a button.** `LikeToggle` is a bare control;
+  `TrackGrid_PreviewMouseLeftButtonDown` toggles the like and marks the press handled.
+  A button wouldn't do: `DataGridCell` selects its row on any `MouseLeftButtonDown`,
+  handled or not (its class handler has `handledEventsToo` and only checks `Handled` on
+  its already-selected branch). Handling the *preview* works because WPF's
+  `MouseDevice` doesn't raise `MouseDown` at all after a handled `PreviewMouseDown`
+  (both read in the dotnet/wpf source this session). A double-click on a heart is two
+  toggles and doesn't play.
+- **`PromptWindow`** names a playlist or confirms a delete, from the Last.fm dialog's
+  parts. It needs `MinWidth`/`MinHeight` set: WPF-UI's window style otherwise pads it
+  to 460 × 320.
+- `BoolToVisibilityConverter` gained `ConverterParameter=InverseHidden`: the ARTISTS
+  sort header is *hidden*, not collapsed, in playlist mode, because the logo centres on
+  its label (measured: logo x 31 in both modes).
+
+**Verified**
+
+- ThemeLab **`--window playlists`** (playlists in a scratch file: ThemeLab now always
+  sets `MainViewModel.PlaylistsPath` before building a view model, so no mode touches the
+  real `playlists.json`). See the session note in `design/progress.md` for the numbers.
+- **Trap: a synthetic `PreviewMouseLeftButtonDown` never reaches an ancestor.** WPF
+  raises the Left/Right button events as *direct* events, element by element, from the
+  tunnelling `Mouse.PreviewMouseDownEvent`. Raised on the heart, it hit only the heart.
+  Raise `Mouse.PreviewMouseDownEvent` instead to get what real input does.
+- **Not verified**: a real click leaving the selection alone, hover, the menus opened,
+  the picture picker, and anything in the user's real `playlists.json`. **Ask the user**
+  to try them, and what they think of the button's place.
+
 ### Changes from session 37 (2026-10-06): saving to the playing track, 600 px covers, darker now-playing row
 
 - **Cover search shows covers from 600 × 600** (was 1,000). `OnlineArtSearch.MinimumSize`;
@@ -2649,7 +2730,7 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 # ValuePattern.SetValue(...) to type; SelectionItemPattern.Select() to pick a row.
 ```
 
-Named elements available to query: `SearchBox`, `ArtistList`, `AlbumList`, `TrackGrid`,
+Named elements available to query: `SearchBox`, `ArtistList`, `AlbumList`, `TrackGrid`, `PlaylistsToggle`, `PlaylistList`,
 `NowPlayingTitle`, `PositionText`, `DurationText`.
 
 **Screenshots:** use `PrintWindow` with flag `2` (`PW_RENDERFULLCONTENT`), and call
@@ -2782,6 +2863,7 @@ ThemeLab.exe --tabwalk 0 --keys "Tab,Tab,Tab,Tab,Down" --tabfrom SearchBox   # a
 ThemeLab.exe --logohover 1                  # logo item highlighted; prints its tooltip and its template's background triggers
 ThemeLab.exe --window seek --file "D:\Music\...\long.flac"   # click the seek bar's track mid-play (silent); prints the position trace, "no bounce" or "BOUNCED"
 ThemeLab.exe --window waveform --file "D:\Music\...\x.flac" --at 0.4 [--noglide 1]   # seekbar waveform: read time, 2 s glide trace, window + 3x seekbar render (plays silently)
+ThemeLab.exe --window playlists --w 1720 --h 1080   # hearts, a playlist, Liked before/after an unlike, an empty playlist, the name prompt (scratch playlists file)
 ```
 
 **Seek-bar clicks seek on mouse-down** (2026-10-01). The bar is two-way bound to the

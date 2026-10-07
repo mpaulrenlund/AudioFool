@@ -11,6 +11,7 @@ using AudioFool.Core.Art;
 using AudioFool.Core.Library;
 using AudioFool.Core.Models;
 using AudioFool.Core.Playback;
+using AudioFool.Core.Playlists;
 using AudioFool.Core.Scrobbling;
 using AudioFool.Core.Settings;
 using AudioFool.Formatting;
@@ -104,6 +105,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (!folders.SequenceEqual(settings.MusicFolders, StringComparer.Ordinal))
             SaveFolderSettings();
+
+        InitialisePlaylists();
     }
 
     private void SaveFolderSettings()
@@ -338,6 +341,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             OnPropertyChanged(nameof(IsSearching));
 
+            // Search is of the library, so typing goes back to Artists.
+            if (IsSearching)
+                IsPlaylistMode = false;
+
             _searchDebounce.Stop();
             _searchDebounce.Start();
         }
@@ -387,6 +394,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     partial void OnLibraryFilterChanged(TrackFilter? value)
     {
+        if (value is not null)
+            IsPlaylistMode = false;
+
         ApplyToView(keepSelection: true);
         StatusText = DescribeStatus(default);
     }
@@ -401,6 +411,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// </summary>
     public void ShowArtist(string name)
     {
+        IsPlaylistMode = false;
         LibraryFilter = null;
 
         if (!Artists.Any(a => SortRules.NameComparer.Equals(a.Name, name)) && IsSearching)
@@ -768,15 +779,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     partial void OnSelectedAlbumChanged(AlbumItemViewModel? value)
     {
-        TracksChanging?.Invoke(this, EventArgs.Empty);
-        Tracks.Clear();
+        // While a playlist is shown the songs are the playlist's; the album
+        // selection carries on underneath, for when the panel goes back to Artists.
+        if (!IsPlaylistMode)
+            FillAlbumTracks(value);
 
-        if (value is not null)
-        {
-            foreach (var track in value.Album.Tracks)
-                Tracks.Add(track);
-        }
-
+        OnPropertyChanged(nameof(ShowsAlbumHeader));
+        OnPropertyChanged(nameof(ShowsEmptyState));
         OnPropertyChanged(nameof(AlbumHeaderTitle));
         OnPropertyChanged(nameof(AlbumHeaderArtist));
         OnPropertyChanged(nameof(AlbumHeaderYear));
@@ -784,6 +793,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(AlbumHeaderDuration));
 
         _ = LoadAlbumHeaderArtAsync(value);
+    }
+
+    private void FillAlbumTracks(AlbumItemViewModel? album)
+    {
+        TracksChanging?.Invoke(this, EventArgs.Empty);
+        Tracks.Clear();
+
+        if (album is not null)
+        {
+            foreach (var track in album.Album.Tracks)
+                Tracks.Add(track);
+        }
+
+        OnPropertyChanged(nameof(ShowsEmptyState));
     }
 
     // ------------------------------------------------------------- art viewer
@@ -1089,6 +1112,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         MatchedTrackCount = matched.Count;
         OnPropertyChanged(nameof(HasNoSearchResults));
+        OnLibraryViewRebuilt();
         RefreshEmptyState();
     }
 
@@ -1102,7 +1126,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     partial void OnIsScanningChanged(bool value) => RefreshEmptyState();
 
     private void RefreshEmptyState() =>
-        (EmptyStateTitle, EmptyStateDetail) = EmptyStateText.Describe(
+        (EmptyStateTitle, EmptyStateDetail) = IsPlaylistMode
+            ? PlaylistText.Empty(SelectedPlaylist?.IsLiked == true, _shownResolved?.Missing ?? 0)
+            : EmptyStateText.Describe(
             hasAnyTracks: _library.AllTracks.Count > 0,
             hasTickedTracks: _folderFilteredLibrary.AllTracks.Count > 0,
             isNarrowed: IsSearching || LibraryFilter is not null,
@@ -1114,6 +1140,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         if (NowPlaying is not { } track)
             return;
+
+        IsPlaylistMode = false;
 
         var artist = Artists.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Name, track.GroupingArtist));
         if (artist is null)

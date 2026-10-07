@@ -1,0 +1,68 @@
+<ui:FluentWindow x:Class="AudioFool.PromptWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:theme="clr-namespace:AudioFool.Theming"
+                 Icon="/Resources/AudioFool.ico"
+                 Width="{theme:Token prompt.width}" SizeToContent="Height"
+                 MinWidth="{theme:Token prompt.width}" MinHeight="0"
+                 ResizeMode="NoResize"
+                 WindowStartupLocation="Manual"
+                 WindowBackdropType="None"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowCornerPreference="Round">
+
+    <!--
+        A name for a playlist (New Playlist, Rename), or a yes/no (Delete). The
+        Last.fm dialog's parts: the shared title bar, body text in tableCell, a
+        dialog text box, light buttons with the primary one semibold, and an
+        uncoloured error line.
+    -->
+    <ui:FluentWindow.Resources>
+        <Style x:Key="Body" TargetType="TextBlock" BasedOn="{StaticResource type.tableCell}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextTrimming" Value="None" />
+        </Style>
+    </ui:FluentWindow.Resources>
+
+    <Grid Background="{DynamicResource color.window.bg}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0"
+                     Style="{DynamicResource theme.dialogTitleBar}"
+                     Header="{DynamicResource theme.dialogTitle}"
+                     ShowMinimize="False" ShowMaximize="False" />
+
+        <StackPanel Grid.Row="1" Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop}">
+            <TextBlock x:Name="MessageText" Style="{StaticResource Body}" />
+
+            <TextBox x:Name="NameBox"
+                     Style="{StaticResource theme.dialogTextBox}"
+                     AutomationProperties.Name="Name"
+                     TextChanged="NameBox_TextChanged" />
+
+            <TextBlock x:Name="ErrorText"
+                       Style="{StaticResource Body}"
+                       Margin="{theme:Thickness Top=dialog.fieldGap}"
+                       Foreground="{DynamicResource color.text.heading}"
+                       FontWeight="{DynamicResource dialog.emphasisWeight.fontWeight}"
+                       Visibility="Collapsed" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal" HorizontalAlignment="Right"
+                    Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop, Bottom=dialog.paddingBottom}">
+            <Button x:Name="OkButton"
+                    Style="{StaticResource theme.dialogButton.primary}"
+                    Margin="{theme:Thickness Right=dialog.buttonGap}"
+                    IsDefault="True"
+                    Click="Ok_Click" />
+            <Button x:Name="CancelButton" Content="Cancel" IsCancel="True"
+                    Style="{StaticResource theme.dialogButton}" />
+        </StackPanel>
+    </Grid>
+</ui:FluentWindow>

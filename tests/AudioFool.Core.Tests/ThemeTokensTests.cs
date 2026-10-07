@@ -139,7 +139,7 @@ public class ThemeTokensTests
 
         // 48, plus control.faceHover and status.lastFmOff, scanTrack and scanFill (session 4),
         // plus the spectrogram's six levels and marker (the Analyze window).
-        Assert.Equal(59, t.Colors.Count);
+        Assert.Equal(60, t.Colors.Count);
         // 19, plus statValue (dialogs, Statistics).
         Assert.Equal(20, t.TextStyles.Count);
         Assert.Equal(8, t.Shadows.Count);

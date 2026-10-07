@@ -31,7 +31,8 @@
     "accent": {
       "teal": "#15786C",
       "tealText": "#0C5A51",
-      "blue": "#00519A"
+      "blue": "#00519A",
+      "like": "#A8327F"
     },
     "state": {
       "selectionBg": "#BAB7B2",
@@ -152,7 +153,7 @@
     "search": { "height": 30, "paddingX": 12, "iconSize": 16, "iconGap": 10, "iconStrokeOn24Grid": 2, "focusRingWidth": 2, "rightEdge": "Albums panel right outer edge" },
     "windowButton": { "width": 46, "iconSize": 18, "strokeOn24Grid": 2.6 }
   },
-  "artists": { "rowHeight": 42, "rowPaddingX": 10, "lineGap": 1 },
+  "artists": { "rowHeight": 42, "rowPaddingX": 10, "lineGap": 1, "playlistsToggle": { "size": 24, "iconSize": 16, "strokeOn24Grid": 2 } },
   "albums": { "rowHeight": 64, "rowPaddingY": 4, "rowPaddingX": 8, "thumbSize": 56, "thumbGap": 12, "lineGap": 3, "rowGap": 0, "placeholderIconSize": 20 },
   "albumHeader": { "paddingY": 22, "paddingX": 24, "artSize": 144, "artGap": 24, "titleMinHeight": 39, "titleToDetailsGap": 8, "detailsLineGap": 3, "placeholderIconSize": 36 },
   "popup": { "toolTipPaddingX": 8, "toolTipPaddingY": 5, "toolTipMaxWidth": 260, "menuPaddingY": 3 },
@@ -192,6 +193,7 @@
     "headerGap": 2, "sectionGap": 14, "findingGap": 6, "progressWidth": 240,
     "legendStepDb": 20, "timeLabelSpacing": 110, "freqLabelSpacing": 50
   },
+  "prompt": { "width": 400 },
   "artViewer": { "minSize": 280, "screenMargin": 80, "captionPaddingTop": 10, "captionPaddingBottom": 12 },
   "emptyState": { "squareSize": 31, "squareStroke": 1, "squareToTitleGap": 22, "titleToSublineGap": 4 },
   "songTable": {
@@ -213,10 +215,12 @@
       { "id": "kind", "width": 40, "align": "left" },
       { "id": "bitrate", "width": 68, "align": "right" },
       { "id": "bitDepth", "width": 70, "align": "center" },
-      { "id": "sampleRate", "width": 82, "align": "right" }
+      { "id": "sampleRate", "width": 82, "align": "right" },
+      { "id": "like", "width": 16, "align": "center" }
     ],
     "numberCell": { "triangleSlot": 8, "triangleHeight": 10, "gap": 3, "numberWidth": 16, "numberWidth3Digits": 23 },
-    "editBox": { "borderWidth": 1, "paddingX": 1 }
+    "editBox": { "borderWidth": 1, "paddingX": 1 },
+    "likeIcon": { "size": 14, "strokeOn24Grid": 2 }
   },
   "playbackBar": {
     "paddingX": 24,
