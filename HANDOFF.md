@@ -1477,8 +1477,8 @@ in the README under *Likes and playlists*; spec 6.9.
   `PlaylistList_PreviewMouseLeftButtonDown` (not handled) calls `ShowAllRecentlyAdded`
   when the row pressed is already the selected one.
 - **Verified** with ThemeLab **`--window recent`** (see `design/progress.md`, session
-  41): 1,204 songs in 106 albums on the shell's cache copy. **Not verified**: real clicks,
-  and the user's real `library.json` (the container gotcha).
+  41): 1,204 songs in 106 albums on the shell's cache copy. **The user confirmed real clicks feel good (2026-10-07).** Not verified:
+  the counts against the user's real `library.json` (the container gotcha).
 - **Album rows in Recently Added name the artist on their own line** (the user's two
   requests: first the artist, then the year · tracks on a line below it). Title, artist,
   "2026 · 12 tracks". `AlbumItemViewModel`'s `namesArtist` sets `ArtistLine`, a
@@ -1498,7 +1498,7 @@ in the README under *Likes and playlists*; spec 6.9.
   `PlayAlbum` already picked the recent album. Verified with `--window recent`, silently
   (volume 0): double-clicking *Back to the Future* picks it (9 rows) and plays its first
   song, "Intro". The same run against the old handler picked nothing and played nothing,
-  matching the user's report.
+  matching the user's report. **Confirmed by the user in the running app (2026-10-07).**
 - **Trap: `Control.MouseDoubleClickEvent` is a direct event.** Raised on a row it never
   reaches the list's handler, so a lab test "passes" by doing nothing. Raise it on the
   `ListBox` with `Source` set to the row's text, as WPF does.
@@ -1750,7 +1750,7 @@ starts. Committed and pushed to `origin/main` as "Likes and playlists".
   Artists panel into PLAYLISTS (most recently modified first, name over "N tracks");
   Albums goes blank; the Songs panel shows the playlist under a header like the
   album's: picture, name, "Modified 2026-10-07", "N tracks", "42:36". **The user wants
-  to judge the button's place in the running app** ("We'll see after it's installed"). After trying it they had
+  to judge the button's place in the running app** ("We'll see after it's installed"); **settled 2026-10-07: "playlists button is great".** After trying it they had
   its tooltip ("Show artists" / "Show playlists") removed; don't add one back. They also
   asked for the PLAYLISTS label itself to go back to Artists (`PlaylistsHeader`,
   `ShowArtistsCommand`), underlined on hover like ARTISTS.
@@ -3534,10 +3534,10 @@ retag of the playing track reaches the scrobbler.
    Still not built: if big artists feel slow to open in
    Edit Artist Tags, or Ctrl+A bites, the fix is reading the detail fields off the UI
    thread (or a confirmation over some track count); not built, not offered yet.
-0. **Ask the user about Recently Added** in the running app (session 41): real clicks, and how the artist in its album rows reads.
-0. **Still open from sessions 38–39**: the playlists button's place in the ARTISTS
-   header (the user wanted to judge it in the real app), and edge scrolling while
-   dragging in a playlist (real drags confirmed, edge scrolling not yet tried). Ask once.
+0. ~~**Ask the user about Recently Added**~~ Asked 2026-10-07: picking albums, going back to every song, the taller rows and double-click to play all feel good to the user.
+0. **Still open from session 39**: edge scrolling while dragging in a playlist (real drags
+   confirmed, edge scrolling not yet tried). Ask once. The playlists button's place is settled:
+   the user says it's great (2026-10-07).
 0. ~~**Ask the user how in-place editing feels in the running app**~~ Asked
    2026-10-06: the user says it works great.
 0. ~~**A new cover on the playing album skips the playing and next tracks**~~ Done in
