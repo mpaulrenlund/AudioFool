@@ -66,6 +66,12 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
     private readonly object _releaseGate = new();
 
+    // Files a save is writing, and files a stream is being opened on (a file can
+    // be opened twice at once: the playing track and, on repeat, the next).
+    // Both are guarded by _gate, which is also what waits on them.
+    private readonly HashSet<string> _writing = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _opening = [];
+
     public AudioEngine(BassRuntime runtime)
     {
         _runtime = runtime;
@@ -158,34 +164,99 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     }
 
     /// <summary>
-    /// Closes <paramref name="path"/>'s streams for the length of
-    /// <paramref name="write"/> - a tag save that resizes the file - and then
-    /// reopens them on the rewritten file.
+    /// Makes a tag save to <paramref name="path"/>. No stream opens the file
+    /// until the save is done: one that would (Next onto the track, the next
+    /// track opened ahead) waits for it, so it never reads a half-written file.
+    /// A save waits in turn for an open already under way, so that
+    /// <see cref="HoldsFile"/> is the truth when it is asked.
     /// <para>
-    /// The playing track stops (paused stays paused), and comes back at the
-    /// position it was at, faded in so it doesn't click. Nothing is announced:
-    /// to the rest of the app it is the same play of the same track, so the
-    /// scrobbler and the waveform carry on. The next track's stream is only
-    /// ahead of time, so dropping and reopening it is silent; if the playing
-    /// track ends before the save does, the handover waits for it.
-    /// </para>
-    /// <para>
-    /// If anything else starts playing meanwhile, that wins and nothing is
-    /// reopened.
+    /// If a stream holds the file and <paramref name="needsRelease"/> says the
+    /// save would move the audio under it, the streams are closed for the save
+    /// and reopened on the rewritten file. The playing track stops (paused
+    /// stays paused), and comes back at the position it was at, faded in so it
+    /// doesn't click. Nothing is announced: to the rest of the app it is the
+    /// same play of the same track, so the scrobbler and the waveform carry on.
+    /// The next track's stream is only ahead of time, so dropping and reopening
+    /// it is silent; if the playing track ends before the save does, the
+    /// handover waits for it. If anything else starts playing meanwhile, that
+    /// wins and nothing is reopened.
     /// </para>
     /// </summary>
-    public T WhileReleased<T>(string path, Func<T> write)
+    public T Saving<T>(string path, Func<bool> needsRelease, Func<T> save)
     {
         lock (_releaseGate)
         {
-            var released = Release(file => string.Equals(file, path, StringComparison.OrdinalIgnoreCase), closeDevice: false);
+            bool held;
+            lock (_gate)
+            {
+                while (_opening.Contains(path, StringComparer.OrdinalIgnoreCase))
+                    Monitor.Wait(_gate);
+                _writing.Add(path);
+                held = HoldsFile(path);
+            }
+
             try
             {
-                return write();
+                if (!held || !needsRelease())
+                    return save();
+
+                var released = Release(file => string.Equals(file, path, StringComparison.OrdinalIgnoreCase), closeDevice: false);
+                try
+                {
+                    return save();
+                }
+                finally
+                {
+                    // Before reopening: Reacquire opens this very file.
+                    EndWriting(path);
+                    Reacquire(released);
+                }
             }
             finally
             {
-                Reacquire(released);
+                EndWriting(path);
+            }
+        }
+    }
+
+    /// <summary>
+    /// <see cref="Saving{T}"/> with the stream let go whenever the file is held:
+    /// for a write the caller already knows would disturb it.
+    /// </summary>
+    public T WhileReleased<T>(string path, Func<T> write) => Saving(path, () => true, write);
+
+    private void EndWriting(string path)
+    {
+        lock (_gate)
+        {
+            if (_writing.Remove(path))
+                Monitor.PulseAll(_gate);
+        }
+    }
+
+    /// <summary>
+    /// <see cref="CreateDecodeStream"/>, held off while a save is writing the
+    /// file, and marked as opening so a save waits for it in turn.
+    /// </summary>
+    private int OpenStream(string path)
+    {
+        lock (_gate)
+        {
+            while (_writing.Contains(path))
+                Monitor.Wait(_gate);
+            _opening.Add(path);
+        }
+
+        try
+        {
+            return CreateDecodeStream(path);
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                _opening.Remove(path);
+                Monitor.PulseAll(_gate);
             }
         }
     }
@@ -282,7 +353,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         if (current is not null)
         {
             var track = current.Queue[current.Index];
-            var stream = CreateDecodeStream(track.FilePath);
+            var stream = OpenStream(track.FilePath);
 
             lock (_gate)
             {
@@ -515,7 +586,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         // Build the stream before touching engine state, so a bad file leaves
         // whatever is currently playing undisturbed.
         var track = queue[startIndex];
-        var stream = CreateDecodeStream(track.FilePath);
+        var stream = OpenStream(track.FilePath);
         if (stream == 0)
             return false;
 
@@ -852,7 +923,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             }
 
             // File I/O outside the lock.
-            var stream = CreateDecodeStream(path);
+            var stream = OpenStream(path);
             if (stream == 0)
                 return;
 

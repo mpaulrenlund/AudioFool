@@ -32,13 +32,18 @@ public class TagWriteSharingTests
     {
         private FileStream? _held = HoldLikePlayback(path);
 
+        public List<string> Saved { get; } = [];
         public List<string> Released { get; } = [];
         public long? SizeWhileReleased { get; private set; }
 
         public bool HoldsFile(string p) => _held is not null && p == path;
 
-        public T WhileReleased<T>(string p, Func<T> write)
+        public T Saving<T>(string p, Func<bool> needsRelease, Func<T> write)
         {
+            Saved.Add(p);
+            if (!HoldsFile(p) || !needsRelease())
+                return write();
+
             Released.Add(p);
             _held!.Dispose();
             _held = null;
@@ -91,6 +96,7 @@ public class TagWriteSharingTests
         {
             result = TagWriter.WriteSelectedTrackTags(track, SmallEdit, playback);
             Assert.Empty(playback.Released);
+            Assert.Equal([file.Path], playback.Saved);
         }
 
         Assert.True(result.Success, result.ErrorMessage);
@@ -112,12 +118,14 @@ public class TagWriteSharingTests
         {
             result = TagWriter.WriteSelectedTrackTags(track, LargeEdit, playback);
             Assert.Equal([file.Path], playback.Released);
+            Assert.Equal([file.Path], playback.Saved);
             Assert.True(playback.SizeWhileReleased > size);
         }
 
         Assert.True(result.Success, result.ErrorMessage);
         Assert.Equal(300_000, TagReader.ReadDetails(file.Path)!.Comment.Length);
-        Assert.Empty(Directory.GetFiles(Path.GetTempPath(), "AudioFool-trial-*"));
+        // Only this test's own copy: other runs (the app, a parallel test run) make theirs in the same folder.
+        Assert.Empty(Directory.GetFiles(Path.GetTempPath(), $"{TagWriter.TrialPrefix}*-{Path.GetFileName(file.Path)}"));
     }
 
     [Fact]
@@ -152,6 +160,29 @@ public class TagWriteSharingTests
 
         Assert.True(result.Success, result.ErrorMessage);
         Assert.True(new FileInfo(file.Path).Length > size);
+        Assert.Equal(300_000, TagReader.ReadDetails(file.Path)!.Comment.Length);
+    }
+
+    /// <summary>
+    /// A file playback isn't holding is still saved through it, so that playback
+    /// can keep it from being opened mid-save; nothing is tried or released.
+    /// </summary>
+    [Fact]
+    public void A_save_to_a_file_playback_does_not_hold_still_goes_through_playback()
+    {
+        using var file = new TempAudioFile("sample.flac");
+        using var other = new TempAudioFile("sample.mp3");
+        var track = TagReader.Read(file.Path);
+
+        TagWriteResult result;
+        using (var playback = new FakePlayback(other.Path))
+        {
+            result = TagWriter.WriteSelectedTrackTags(track, LargeEdit, playback);
+            Assert.Equal([file.Path], playback.Saved);
+            Assert.Empty(playback.Released);
+        }
+
+        Assert.True(result.Success, result.ErrorMessage);
         Assert.Equal(300_000, TagReader.ReadDetails(file.Path)!.Comment.Length);
     }
 }

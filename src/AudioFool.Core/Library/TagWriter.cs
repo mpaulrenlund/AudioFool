@@ -27,6 +27,9 @@ public sealed record FolderArtWriteResult(bool Success, string? ErrorMessage, st
 /// </summary>
 public static class TagWriter
 {
+    /// <summary>How a trial save's scratch copy in %TEMP% is named: this, a GUID, then the file's own name.</summary>
+    public const string TrialPrefix = "AudioFool-trial-";
+
     /// <summary>Applies a single-track edit, optionally replacing the embedded art.</summary>
     /// <param name="holder">
     /// Playback, which may have the file open. A save that would resize such a
@@ -255,31 +258,35 @@ public static class TagWriter
     /// So for a file playback holds (<paramref name="holder"/>), the save is
     /// tried on a scratch copy first. One that keeps the size is made with the
     /// stream still reading; one that changes it is made while playback lets go
-    /// of the file, which costs the playing track a short gap.
+    /// of the file, which costs the playing track a short gap. Either way the
+    /// holder keeps the file from being opened until the save is done.
     /// </para>
     /// </summary>
     private static (bool Success, string? ErrorMessage) SaveTags(string path, Action<TagLib.File> applyFields,
                                                                  ArtPayload? art, IFileHolder? holder)
     {
-        if (holder?.HoldsFile(path) == true)
-        {
-            var (resized, error) = TrialSave(path, applyFields, art);
-            if (error is not null)
-                return (false, error);
-            if (resized)
-                return holder.WhileReleased(path, () => Save(path, applyFields, art));
-        }
+        if (holder is null)
+            return Save(path, applyFields, art);
 
-        return Save(path, applyFields, art);
+        string? trialError = null;
+        return holder.Saving(path,
+            needsRelease: () =>
+            {
+                var (resized, error) = TrialSave(path, applyFields, art);
+                trialError = error;
+                return resized && error is null;
+            },
+            save: () => trialError is not null ? (false, trialError) : Save(path, applyFields, art));
     }
 
     /// <summary>
     /// Makes the save on a scratch copy and reports whether it changed the size.
-    /// The copy keeps the extension, which is how TagLib picks the format.
+    /// The copy keeps the extension, which is how TagLib picks the format, and
+    /// carries the file's name, so a leftover can be traced to its file.
     /// </summary>
     private static (bool Resized, string? Error) TrialSave(string path, Action<TagLib.File> applyFields, ArtPayload? art)
     {
-        var trial = Path.Combine(Path.GetTempPath(), $"AudioFool-trial-{Guid.NewGuid():N}{Path.GetExtension(path)}");
+        var trial = Path.Combine(Path.GetTempPath(), TrialPrefix + $"{Guid.NewGuid():N}-{Path.GetFileName(path)}");
         try
         {
             File.Copy(path, trial);

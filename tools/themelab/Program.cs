@@ -2981,12 +2981,26 @@ internal static class Program
 
         public bool HoldsFile(string path) => engine.HoldsFile(path);
 
-        public T WhileReleased<T>(string path, Func<T> write)
+        public T Saving<T>(string path, Func<bool> needsRelease, Func<T> save)
         {
-            var at = engine.Position;
-            var clock = System.Diagnostics.Stopwatch.StartNew();
-            var result = engine.WhileReleased(path, write);
-            Released = (at, clock.ElapsedMilliseconds);
+            // Timed from the moment the engine is told to let go: the trial save
+            // before it runs with the track still playing.
+            TimeSpan at = default;
+            System.Diagnostics.Stopwatch? clock = null;
+            var result = engine.Saving(path,
+                () =>
+                {
+                    var release = needsRelease();
+                    if (release)
+                    {
+                        at = engine.Position;
+                        clock = System.Diagnostics.Stopwatch.StartNew();
+                    }
+                    return release;
+                },
+                save);
+            if (clock is not null)
+                Released = (at, clock.ElapsedMilliseconds);
             return result;
         }
     }
@@ -3131,6 +3145,40 @@ internal static class Program
             + $"{(handedOver && engine.State == PlaybackState.Playing ? "OK" : "WRONG")}");
         engine.Stop();
         Settle(200);
+
+        // Jumping onto a track while a save is writing it: the open waits for the
+        // save. The save runs on a worker, stretched to 600 ms, as a real one would
+        // run beside the UI thread; the jump is made from the UI thread.
+        void JumpDuringSave(string label, string file, int index, bool release)
+        {
+            vm.PlayTrackCommand.Execute(Row("01"));
+            Until(() => engine.HoldsFile(two));
+            var path = Row(file).FilePath;
+            var started = new ManualResetEventSlim();
+            long savedAt = 0;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var save = Task.Run(() => engine.Saving(path, () => release, () =>
+            {
+                started.Set();
+                Thread.Sleep(600);
+                savedAt = clock.ElapsedMilliseconds;
+                return 0;
+            }));
+            started.Wait();
+            var jumpedFrom = clock.ElapsedMilliseconds;
+            var played = engine.JumpTo(index);
+            var openedAt = clock.ElapsedMilliseconds;
+            save.Wait();
+            var arrived = WaitFor(file);
+            var ok = played && arrived && openedAt >= savedAt && engine.State == PlaybackState.Playing && engine.HoldsFile(path);
+            Log($"{label}: jump at {jumpedFrom} ms, save done at {savedAt} ms, jump returned at {openedAt} ms, "
+                + $"now '{Path.GetFileName(vm.NowPlaying?.FilePath)}' {engine.State} {(ok ? "OK" : "WRONG")}");
+            engine.Stop();
+            Settle(200);
+        }
+
+        JumpDuringSave("next onto a track being saved", "03", 2, release: false);
+        JumpDuringSave("next onto the opened-ahead track while it is let go", "02", 1, release: true);
 
         // --long "a.flac;b.mp3;c.dsf": real tracks, long enough to save while
         // playing. Each is copied into the scratch folder first; only the copy

@@ -1469,6 +1469,26 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
     unchanged device returns false and leaves the rates alone. **Not verified: a real
     switch of the default device** (it is a Windows setting, so it is the user's to make),
     exclusive mode, Bluetooth.
+- **The flaky test, found: two, one a real bug.** 60 sequential runs: 0 failures. 64 runs
+  8 at a time (load, as when the quality check runs): 3 failures.
+  - **`QualityScanner` could throw at the end of a check**: the loop checked
+    `threads.Any(IsAlive)`, then `threads.First(IsAlive)`; the last worker finishing
+    in between made `First` throw, losing the final save and the summary. Now
+    `FirstOrDefault(...)?.Join`. Caught as `QualityCheckTests.The_scanner_checks_each_track_once...`.
+  - **`TagWriteSharingTests` checked all of %TEMP% for trial copies**, so another run's
+    (the app's, ThemeLab's, a parallel test run's) failed it. Trial copies are now
+    named `TagWriter.TrialPrefix` + GUID + the file's own name, and the test looks only
+    for its own file's.
+  - After both: 64 parallel runs, 0 failures. **515 tests.**
+- **ThemeLab's intermittent Tab walk no longer reproduces**: 24 of 24 complete cycles
+  (8 idle, 16 under the parallel test load), against about 1 in 4 turning back after
+  Mute in session 5. Not bisected; some later change (Repeat/Shuffle moved after Next,
+  `ClickFocus`, the slider work) presumably fixed it. Treat it as closed; if it comes
+  back, note the run.
+- **The D: drive was unplugged mid-session** (the default output also moved from the
+  Topping DAC to "Realtek XU", so probably a dock). The `--long` checks were rerun on a
+  60 s generated WAV in the session scratchpad: released for 5 ms, back at the same
+  position; `--window device` all OK (switch 273 ms on the Realtek device).
 - **A save that resizes the playing or next track goes through now** (the user's call,
   reversing session 19's refusal). The usual trigger is a new cover in Edit Album Tags
   while the album plays: before, those two tracks were named as failed.
@@ -1488,8 +1508,21 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   - Anything that starts playing during the save wins (`PlayCore` clears the release
     state; `Reacquire` checks the queue reference and index). If the rewritten file won't
     open, playback stops.
-  - Still not handled (unchanged from session 19): a stream opened *during* a resizing
-    save, e.g. pressing Next onto the track being saved.
+  - ~~Still not handled: a stream opened *during* a resizing save~~ Fixed later in
+    session 37: `IFileHolder` is now one call, **`Saving(path, needsRelease, save)`**, and
+    `TagWriter` makes *every* save through it, held or not. The engine marks the path
+    as being written (`_writing`), and `OpenStream` (used by `PlayCore`, `PrefetchAfter`
+    and `Reacquire` instead of `CreateDecodeStream`) waits on `_gate` until it's done.
+    The other way round, a save waits for an open already under way (`_opening`)
+    before asking `HoldsFile`, so that answer is true. The release path ends the
+    writing mark before `Reacquire`, which opens the same file. All saves are
+    serialised by `_releaseGate`. `WhileReleased(path, write)` stays as
+    `Saving(path, () => true, write)` for ThemeLab. Verified with ThemeLab
+    `--window queue`: a save stretched to 600 ms on a worker, and Next from the UI
+    thread onto that track (once not held, once the opened-ahead track while let go):
+    the jump returns at 603–605 ms, after the save (600–601 ms), and plays the track.
+    A UI-thread Next can therefore block for as long as a save takes (34–66 ms
+    measured above); only if it lands on the track being saved.
   - **Verified**: `TagWriteSharingTests` reworked (a resizing save to a held file is made
     inside the release; a same-size one isn't released; a failed trial isn't released).
     **514 tests**. ThemeLab `--window queue` against the real engine: paused resize keeps
@@ -3103,8 +3136,8 @@ retag of the playing track reaches the scrobbler.
    ~~TAK/DTS playback~~: **dropped by the user (2026-10-06). Don't build or suggest them.**
 4. ~~**Show the full date in the album header?**~~ Done in session 33. The Albums list
    subtitle still shows only the year.
-4c. **The flaky test** seen once in session 35 (1 failure in 8 runs, not identified). If
-   it shows again, note which test it is.
+4c. ~~**The flaky test**~~ Found and fixed in session 37 (a `QualityScanner` race and a
+   test that looked at all of %TEMP%).
 5. MilkDrop 3 / projectM visualisation. Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll` — source only).
    Proposed next step: spike build of `libprojectM.dll`. No implementation started.
