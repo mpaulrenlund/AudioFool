@@ -1466,9 +1466,9 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
     same position, plays on; the next track opened ahead again; paused stays paused at
     the same position and resumes; stopped closes the connection and the next play
     works; the view model's handler reports the device. `ReprobeDefaultDevice()` on an
-    unchanged device returns false and leaves the rates alone. **Not verified: a real
-    switch of the default device** (it is a Windows setting, so it is the user's to make),
-    exclusive mode, Bluetooth.
+    unchanged device returns false and leaves the rates alone. **Confirmed by the user
+    (2026-10-07)** in Bit-Perfect (exclusive) mode in the running app. Not yet reported:
+    a switch in shared mode, Bluetooth (Bit-Perfect should grey out).
 - **The flaky test, found: two, one a real bug.** 60 sequential runs: 0 failures. 64 runs
   8 at a time (load, as when the quality check runs): 3 failures.
   - **`QualityScanner` could throw at the end of a check**: the loop checked
@@ -1532,7 +1532,9 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
     `--longcomment N` sets its length): FLAC released for 34–39 ms, MP3 66 ms, DSF 37 ms
     (with a 3 MB comment; 300 KB fitted the DSF in place), each back at the same position
     and playing on. Shared mode only: exclusive mode can't be silenced, so it wasn't run.
-    Not verified: listening to the gap, exclusive mode, DoP.
+  - **Confirmed by the user (2026-10-07)**: a new cover saved while the album plays works
+    in the running app, the gap is fine to listen to, and it works in Bit-Perfect
+    (exclusive) mode too. Not yet tried: DoP.
 
 ### Changes from session 36 (2026-10-06): a waveform in the seekbar
 
