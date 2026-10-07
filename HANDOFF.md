@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-07 after the fortieth build session. Read this alongside
+Updated 2026-10-07 after the fortieth build session (commit `0f04c9c`, pushed). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1436,6 +1436,39 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   output following the device. (A tooltip saying why it is disabled was turned down
   in session 37, along with the chip's tooltip.)
 
+### Session 40 at a glance (2026-10-07)
+
+Four requests, one commit: **`0f04c9c`** "Multi-select tag edits; tag windows follow
+the selection", **pushed to `origin/main`**. **546 tests pass.** Installed; the installed
+build starts. The parts below are newest first.
+
+| Part | What | Seen in the running app? |
+|---|---|---|
+| 1 | Artists and Albums multi-select; Edit Artist Tags / Edit Album Tags over several rows | **Yes**, the user confirmed selection and editing work |
+| 2 | Edit Album Tags is non-modal and follows the Albums list (Save / Don't Save / Cancel; Save stays open; Close) | Not yet reported |
+| 2b | Album header art: **left-click = full-size viewer, right-click = Edit Album Tags** (no menu) | Not yet reported |
+| 3 | The one-song Edit Tags window follows the Songs table the same way; its title names the song | Not yet reported |
+
+The user's calls, so they aren't re-asked: with several artists selected, Albums shows
+the first one picked; unsaved changes are asked about, not saved or dropped silently;
+Save keeps the window open; the header art's left-click stays the viewer (an interim
+build had it open the editor, and the user reversed that); the song name goes in the
+song window's title.
+
+**Ask the user** how parts 2, 2b and 3 behave with real clicks: switching albums and
+songs with the window open, the Save / Don't Save / Cancel prompt, right-click on the
+header art, and how the window sits beside the main window (focus, staying on top).
+
+**Known, not built**: Ctrl+A in Artists selects every artist, and Edit Artist Tags…
+would then read every file's detail fields on the UI thread before the dialog appears
+(about 3 ms a track). No guard. The tag windows have no Escape binding.
+
+**Trap: a push can fail with `remote rejected ... (Internal Server Error)` on
+GitHub's side** while githubstatus.com says everything is operational. It happened
+three times in a row here (16:53–16:56 UTC), with no rulesets or branch protection on
+the repo; a later retry went through unchanged. The commit is safe locally ("ahead 1");
+wait and push again rather than changing anything.
+
 ### Changes from session 40, part 3 (2026-10-07): the song tag window follows the Songs table
 
 The user's request, the album window's twin: with Edit Tags open on a song, click
@@ -2614,6 +2647,19 @@ covers. Work is on `main`, no branch, at the user's request.
 | `tests/AudioFool.Core.Tests/ThemeTokensTests.cs` | 27 tests: colour and shadow parsing, the path walk, reference checks, the shipped file. |
 | `tools/themelab/TokenSheet.cs` | `--window tokens`. |
 
+## New source files added in session 40
+
+| File | Purpose |
+|---|---|
+| `src/AudioFool.Core/Library/TagSelection.cs` | Several Artists or Albums rows → every track of those whole artists/albums (each once, row order) and the dialog title's "3 artists, 214 tracks". |
+| `src/AudioFool/ViewModels/MainViewModel.AlbumEditor.cs` | The non-modal Edit Album Tags window: following the Albums list, asking about unsaved changes, Save that stays open. Also the `ShowAlbumEditorWindow` / `AskSaveChanges` seams ThemeLab replaces. |
+| `src/AudioFool/ViewModels/MainViewModel.TrackEditor.cs` | The same for the one-song Edit Tags window and the Songs table. |
+| `tests/AudioFool.Core.Tests/TagSelectionTests.cs` | 7 tests: whole artists and albums, searched views, duplicates, row order, wording, `AlbumHolding`. |
+
+Also new: `MusicLibrary.WholeArtistOf` / `AlbumHolding`, `PromptWindow.AskSaveChanges`
+(a Don't Save button) and `UnsavedChoice`, `TagEditWindow.FollowsSelection` /
+`SaveRequested` / `SetViewModel`, `TagEditViewModel.HasChanges`.
+
 ## New source files added in session 34
 
 | File | Purpose |
@@ -2851,6 +2897,11 @@ from `Track`. `TagWriter.ApplyDetails` writes "" as null, which removes the fram
 `WithAlbumTags` applies the count and disc edits, and since session 12 the release
 date, to the in-memory `Track` too, so neither the Disc column nor the album order
 shows stale values until the next scan.
+
+**Since session 40 the album and one-song dialogs are not modal**: they follow the
+Albums list and Songs table (`MainViewModel.AlbumEditor.cs` / `TrackEditor.cs`), and
+every save looks the tracks up again by path before writing, because the library can
+change while the window is open. Only the several-tracks dialog is still modal.
 
 The first `ContextMenu` in the app: track rows get "Edit Tags…" wired to `EditTrackTagsCommand`;
 album rows get "Edit Album Tags…" wired to `EditAlbumTagsCommand`. `DataGrid` rows don't
@@ -3411,6 +3462,14 @@ retag of the playing track reaches the scrobbler.
    - **Watch the green.** At the darker greys it is 1.0–1.4:1, so the seek fill
      and the ▶ read by hue alone. If the user finds them faint, a thicker keyline
      or a bolder mark is the fix.
+0. **Ask the user about session 40's windows** with real clicks: the album and song tag
+   windows following the selection, the Save / Don't Save / Cancel prompt, right-click on
+   the header art. See *Session 40 at a glance*. If big artists feel slow to open in
+   Edit Artist Tags, or Ctrl+A bites, the fix is reading the detail fields off the UI
+   thread (or a confirmation over some track count); not built, not offered yet.
+0. **Still open from sessions 38–39**: the playlists button's place in the ARTISTS
+   header (the user wanted to judge it in the real app), and edge scrolling while
+   dragging in a playlist (real drags confirmed, edge scrolling not yet tried). Ask once.
 0. ~~**Ask the user how in-place editing feels in the running app**~~ Asked
    2026-10-06: the user says it works great.
 0. ~~**A new cover on the playing album skips the playing and next tracks**~~ Done in
