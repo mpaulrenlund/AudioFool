@@ -296,7 +296,7 @@
                        Margin="{theme:Thickness Right=dialog.buttonGap}" />
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button Content="Cancel" Click="Cancel_Click"
+                <Button x:Name="CancelButton" Content="Cancel" Click="Cancel_Click"
                         Style="{StaticResource theme.dialogButton}"
                         Margin="{theme:Thickness Right=dialog.buttonGap}" />
                 <Button Content="Save" IsEnabled="{Binding CanSave}" Click="Save_Click"

@@ -62,6 +62,27 @@ public partial class PromptWindow : FluentWindow
     public static bool Confirm(Window owner, string title, string message, string okLabel) =>
         new PromptWindow(owner, title, message, okLabel, null, null).ShowDialog() == true;
 
+    /// <summary>
+    /// Save, Don't Save or Cancel, for changes about to be left behind. Save is
+    /// the default button; Escape cancels.
+    /// </summary>
+    public static UnsavedChoice AskSaveChanges(Window owner, string title, string message)
+    {
+        var window = new PromptWindow(owner, title, message, "Save", null, null);
+        window.DiscardButton.Visibility = Visibility.Visible;
+        return window.ShowDialog() == true
+            ? window._discarded ? UnsavedChoice.Discard : UnsavedChoice.Save
+            : UnsavedChoice.Cancel;
+    }
+
+    private bool _discarded;
+
+    private void Discard_Click(object sender, RoutedEventArgs e)
+    {
+        _discarded = true;
+        DialogResult = true;
+    }
+
     private void NameBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) =>
         ErrorText.Visibility = Visibility.Collapsed;
 
@@ -88,4 +109,12 @@ public partial class PromptWindow : FluentWindow
         Left = Math.Clamp(centreX - (Width / 2), work.Left, Math.Max(work.Left, work.Right - Width));
         Top = Math.Clamp(centreY - (ActualHeight / 2), work.Top, Math.Max(work.Top, work.Bottom - ActualHeight));
     }
+}
+
+/// <summary>What <see cref="PromptWindow.AskSaveChanges"/> was answered with.</summary>
+public enum UnsavedChoice
+{
+    Save,
+    Discard,
+    Cancel,
 }

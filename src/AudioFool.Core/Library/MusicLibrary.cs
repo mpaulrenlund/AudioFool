@@ -14,6 +14,7 @@ public sealed class MusicLibrary
     public int AlbumCount => Artists.Sum(a => a.Albums.Count);
 
     private Dictionary<string, Album>? _albumByPath;
+    private Dictionary<string, ArtistGroup>? _artistByPath;
 
     /// <summary>
     /// Finds where a remembered track sits in the artist tree. By path first; if
@@ -59,11 +60,12 @@ public sealed class MusicLibrary
     /// can settle on different spellings of a name. <paramref name="shown"/>
     /// itself when this library doesn't have it.
     /// </summary>
-    public Album WholeAlbumOf(Album shown)
-    {
-        if (shown.Tracks.Count == 0)
-            return shown;
+    public Album WholeAlbumOf(Album shown) =>
+        shown.Tracks.Count > 0 && AlbumHolding(shown.Tracks[0].FilePath) is { } whole ? whole : shown;
 
+    /// <summary>The album in this library that holds the file at <paramref name="path"/>; null if none.</summary>
+    public Album? AlbumHolding(string path)
+    {
         if (_albumByPath is null)
         {
             var byPath = new Dictionary<string, Album>(StringComparer.OrdinalIgnoreCase);
@@ -73,7 +75,28 @@ public sealed class MusicLibrary
             _albumByPath = byPath;
         }
 
-        return _albumByPath.TryGetValue(shown.Tracks[0].FilePath, out var whole) ? whole : shown;
+        return _albumByPath.GetValueOrDefault(path);
+    }
+
+    /// <summary>
+    /// As <see cref="WholeAlbumOf"/>, for an artist: the artist in this library
+    /// that holds <paramref name="shown"/>'s first track, with all its albums.
+    /// </summary>
+    public ArtistGroup WholeArtistOf(ArtistGroup shown)
+    {
+        if (shown.Albums.FirstOrDefault(a => a.Tracks.Count > 0) is not { } album)
+            return shown;
+
+        if (_artistByPath is null)
+        {
+            var byPath = new Dictionary<string, ArtistGroup>(StringComparer.OrdinalIgnoreCase);
+            foreach (var artist in Artists)
+                foreach (var track in artist.Albums.SelectMany(a => a.Tracks))
+                    byPath.TryAdd(track.FilePath, artist);
+            _artistByPath = byPath;
+        }
+
+        return _artistByPath.TryGetValue(album.Tracks[0].FilePath, out var whole) ? whole : shown;
     }
 }
 

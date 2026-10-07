@@ -8,15 +8,22 @@ namespace AudioFool;
 /// Edits a single track's tags, or a whole album's shared tags and art, depending
 /// on which <see cref="TagEditViewModel"/> constructor built the view model.
 /// <para>
-/// Shown modally (<c>ShowDialog</c>), unlike the inert <see cref="ArtWindow"/> -
-/// this window triggers a real write to disk, and modal display makes it
-/// structurally impossible for a second edit dialog or a background rescan to
-/// race the same file while this one is still open.
+/// The several-tracks edit is shown modally (<c>ShowDialog</c>): it writes to
+/// disk, and modal display keeps a second edit or a rescan from racing the same
+/// files while it is open.
+/// </para>
+/// <para>
+/// The album and single-song edits are not (<see cref="FollowsSelection"/>): each
+/// is shown beside the main window and follows the Albums list or the Songs
+/// table, so the user can walk through albums or songs with it open. Its owner
+/// (<see cref="MainViewModel"/>) gives it a new view model for each one, asks
+/// before leaving unsaved changes behind, and looks the tracks up again when
+/// Save is pressed, since the library may have changed underneath it.
 /// </para>
 /// </summary>
 public partial class TagEditWindow : FluentWindow
 {
-    private readonly TagEditViewModel _viewModel;
+    private TagEditViewModel _viewModel;
 
     public TagEditWindow(TagEditViewModel viewModel, Window owner)
     {
@@ -30,6 +37,33 @@ public partial class TagEditWindow : FluentWindow
 
         // Height depends on SizeToContent, so position once layout has run.
         Loaded += (_, _) => CenterOverOwner(owner);
+    }
+
+    /// <summary>
+    /// The album edit, shown with <c>Show</c>: Save raises <see cref="SaveRequested"/>
+    /// and keeps the window open, and the other button closes it.
+    /// </summary>
+    public bool FollowsSelection
+    {
+        get;
+        init
+        {
+            field = value;
+            CancelButton.Content = value ? "Close" : "Cancel";
+        }
+    }
+
+    /// <summary>Save was pressed on a <see cref="FollowsSelection"/> window with nothing invalid.</summary>
+    public event EventHandler? SaveRequested;
+
+    public TagEditViewModel ViewModel => _viewModel;
+
+    /// <summary>Shows another album (or the same one, read again) in place.</summary>
+    public void SetViewModel(TagEditViewModel viewModel)
+    {
+        _viewModel = viewModel;
+        DataContext = viewModel;
+        Title = viewModel.WindowTitle;
     }
 
     private void CenterOverOwner(Window owner)
@@ -48,10 +82,19 @@ public partial class TagEditWindow : FluentWindow
         if (!_viewModel.CanSave)
             return;
 
-        DialogResult = true;
+        if (FollowsSelection)
+            SaveRequested?.Invoke(this, EventArgs.Empty);
+        else
+            DialogResult = true;
     }
 
-    private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
+    private void Cancel_Click(object sender, RoutedEventArgs e)
+    {
+        if (FollowsSelection)
+            Close();
+        else
+            DialogResult = false;
+    }
 
     private void SearchInternet_Click(object sender, RoutedEventArgs e)
     {

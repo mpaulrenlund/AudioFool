@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-07 after the thirty-ninth build session. Read this alongside
+Updated 2026-10-07 after the fortieth build session. Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -99,8 +99,9 @@ Everything below is implemented **and verified working**, not merely written:
 - Artist → Album → Song browsing. Leading "The" ignored when sorting artists, albums
   oldest-first, tracks by disc then track number.
 - 11-column track grid (see below), sortable by header click.
-- Album art: embedded, falling back to a cover file beside the audio. Double-click
-  either the large or the now-playing art for a full-size viewer.
+- Album art: embedded, falling back to a cover file beside the audio. Click the
+  large header art or the now-playing art for a full-size viewer; right-click the
+  header art for Edit Album Tags (session 40).
 - Search across artists / albums / songs from one box, 180 ms debounce. Search bar
   widened to 406 px, aligned with the Albums panel right edge.
 - Gapless playback (BASSmix mixer plus a mixtime sync).
@@ -1434,6 +1435,150 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   ~~Offered: re-probing when the default device changes~~ Done in session 37, with
   output following the device. (A tooltip saying why it is disabled was turned down
   in session 37, along with the chip's tooltip.)
+
+### Changes from session 40, part 3 (2026-10-07): the song tag window follows the Songs table
+
+The user's request, the album window's twin: with Edit Tags open on a song, click
+another song and the window switches to it. The album window's rules were reused
+(Save / Don't Save / Cancel, Save stays open, Close). 546 tests; installed; the
+installed build starts.
+
+- **`MainViewModel.TrackEditor.cs`** (new), shaped like `AlbumEditor.cs`. The one-song
+  window is no longer modal; **the several-tracks dialog still is.** `EditTrackTags` on
+  a row of a multiple selection opens that, as before.
+- **It moves only when exactly one row is selected** and it is another song.
+  `SelectedTracks`' setter (fed by the grid's `SelectionChanged`) and
+  `OnLibraryViewRebuilt` queue `SyncTrackEditorAsync`. A Ctrl-click to a second row, a
+  new album with nothing selected yet, or a save that moves the song off the table leaves
+  the window where it is. Same song retagged underneath (an F2 edit, a rescan) reloads
+  unless something is typed. Cancel re-selects the shown song via `RevealTrackRequested`.
+- **`ApplyTrackEditAsync` now writes from `LibraryCopyOf(track)`**, for the same reason
+  the album save re-fetches.
+- `TagEditViewModel.HasChanges` covers Title and Track # too, and the track constructor
+  records its starting values.
+- **Verified** with ThemeLab **`--window trackeditor`** (new; the scratch library; the
+  real grid's selection drives it): open; move with nothing typed; Cancel (table goes
+  back, text kept); Don't Save; Save (file written); the window's Save on a title (stays
+  open, row kept); a second row Ctrl-selected (stays); an F2 retitle underneath (reloads);
+  a Save that moves the song to another album (window stays on it); another album with
+  nothing selected (stays); Edit Tags on a row (same window moves); Close. Files re-read.
+  `--window albumeditor` still passes.
+- **The title names the song**: "Edit Track Tags - <DisplayTitle>" (the user's request),
+  so the file name for an untitled song; long ones end in "…" (`theme.dialogTitle`).
+  `--window trackeditor` prints it following each move and save.
+- **Not verified**: real clicks.
+
+### Changes from session 40, part 2 (2026-10-07): the album tag window follows the Albums list
+
+The user's request: with Edit Album Tags open, click another album and have the window
+switch to it. Their calls: **unsaved changes are asked about** (Save / Don't Save /
+Cancel), and **Save keeps the window open**. **546 tests pass** (+1, `AlbumHolding`).
+Installed; the installed build starts. README: *Walking through albums*.
+
+- **The album window is no longer modal** (`MainViewModel.AlbumEditor.cs`, new). The
+  track and several-tracks dialogs still are. `TagEditWindow.FollowsSelection` makes Save
+  raise `SaveRequested` instead of setting `DialogResult` (which throws on a non-modal
+  window), and turns Cancel into **Close**. `SetViewModel` swaps in a fresh
+  `TagEditViewModel` per album; the window keeps its place. One window at most: Edit
+  Album Tags while it is open activates it and moves it to that album.
+- **Following**: `OnSelectedAlbumChanged` and `OnLibraryViewRebuilt` queue
+  `SyncAlbumEditorAsync` at Background priority, coalesced, because a rebuild passes
+  through the artist's first album before the kept one. It moves to the whole album of
+  `SelectedAlbum` (not in playlist mode); "same album" is "holds the shown album's first
+  file". On the same album whose tracks changed underneath (a grid edit, a rescan) it
+  reloads, unless something is typed.
+- **Asking**: `TagEditViewModel.HasChanges` (album mode: any of the four always-written
+  fields differ from their prefill, a detail/number change or clear, Remove Leading Zeros,
+  or a new cover; Save Embedded Art doesn't count, it already wrote). `PromptWindow.AskSaveChanges`
+  adds a **Don't Save** button. Save with invalid boxes counts as Cancel (the footer
+  shows why). Cancel puts the list back on the shown album (`SelectWhereTrackFiles`); if
+  it can't (a search hides it), that target is remembered (`_albumEditorDeclined`) so the
+  question doesn't loop.
+- **Saving** goes through `FinishAlbumDialogAsync`, which now **always re-fetches the
+  album by path before writing**: the window may have been open across other saves or a
+  rescan, and the album dialog writes Artist / Album Artist / Album / Year album-wide, so
+  stale copies would undo them. The window's own Save passes `followTracks`
+  (`ApplyAlbumEditAsync` → `FollowEditedTracks`), so a renamed album keeps the list (and
+  the window) on it; a save on leaving does not follow, so the list stays on the album
+  clicked. While saving or asking, `_albumEditorBusy` stops the window following.
+- **Seams for ThemeLab**: `MainViewModel.ShowAlbumEditorWindow` and `AskSaveChanges`
+  (static delegates, real behaviour by default).
+- **Verified** with ThemeLab **`--window albumeditor`** (new; `--window multiedit`'s
+  scratch library; the window shown off-screen and unactivated, answers scripted): open;
+  move with nothing typed (no question); Genre typed + Cancel (stays, list back, text
+  kept); Don't Save (file untouched); Save (file written, window on the new album);
+  rename through the window's Save (stays open, list follows to the new name); another
+  artist (its first album); Edit Album Tags again (still one window); a grid title edit
+  underneath (window reloads); playlist mode (window stays); Close. Every file re-read.
+  Renders of the window ("Close" / "Save") and the three-button prompt checked.
+  `--window multiedit` still gives the same results.
+- **Not verified**: real clicks with the window open, its focus and Z-order beside the
+  main window, and Escape (the window has no Escape binding; Close or ✕).
+- **The album header's art: left-click views, right-click edits** (later the same day,
+  the user's final call, after briefly having left-click open the editor). Left-click
+  opens the full-size viewer as before (`AlbumArt_MouseLeftButtonDown`). **Right-click
+  opens Edit Album Tags straight away, with no menu**: the art's `ContextMenu` is gone,
+  and `AlbumArt_MouseRightButtonUp` (on release, only with the pointer still over the
+  art) runs `EditAlbumTagsCommand` for `SelectedAlbum`. The album row's menu is
+  unchanged. ThemeLab `--artmenu 1` now finds the playlist header picture's menu, the
+  only art with one. Not exercised: the right-click needs the real pointer over the art
+  (`IsMouseOver`). 546 tests; installed; the installed build starts.
+
+### Changes from session 40 (2026-10-07): tag edits over several artists or albums
+
+The user's request: select the artist rows an album is split across and set Artist and
+Album Artist to the same thing, or select albums with stray names and give them one.
+Planned and approved; their one call was that **with several artists selected, Albums
+shows the first one picked**, not every selected artist's albums. **545 tests pass**
+(539 + 6 in `TagSelectionTests`). Installed; the installed build starts (UIA found
+`SearchBox`, closed at once). User-facing behaviour is in the README under *Editing
+several artists or albums at once*.
+
+- **No new dialog.** It is session 13's several-tracks dialog (`TagEditViewModel(IReadOnlyList<Track>, scope)`,
+  keep-unless-changed on every field, no art), fed every track of the picked rows. The
+  title names the scope: "Edit Tags - 3 artists, 214 tracks".
+- **Core**: `TagSelection.ForArtists` / `ForAlbums` (`AudioFool.Core/Library/TagSelection.cs`)
+  turn shown rows into whole artists and albums (`MusicLibrary.WholeArtistOf`, new, by
+  path like `WholeAlbumOf`), each track once, in row order, plus the title's wording.
+  Looked up in `_folderFilteredLibrary`, so a search never narrows the edit (session 32's
+  rule) but unticked folders still do.
+- **Lists**: `ArtistList` and `AlbumList` are `SelectionMode="Extended"`. `SelectedItem`
+  stays two-way bound and is the *first* selected row, which is what drives the panels
+  to the right; a Ctrl-click leaves it alone. Any programmatic `SelectedItem` set (type-ahead,
+  a rebuild, `ShowArtist`) collapses to one row. `BrowserList_SelectionChanged` mirrors
+  `SelectedItems` into `MainViewModel.SelectedArtists` / `SelectedAlbums` (as
+  `SelectedTracks`), and **no longer scrolls unless `SelectedItem` is among the added
+  items**: a Ctrl-click otherwise fired its scroll-to-the-first-row, pulling the list away
+  from the row just clicked. Right-click on an unselected row selects only it: that is
+  ListBox's own Extended-mode behaviour (`NotifyListItemClicked`), no handler needed.
+- **Menus**: artist rows gained **Edit Artist Tags…** (`EditArtistTagsCommand`; one
+  artist or all selected). The album row's item now runs `EditSelectedAlbumsTagsCommand`,
+  which opens the album dialog for one album and the several-tracks dialog for several;
+  **a right-click on the header art (a menu until later in session 40) runs `EditAlbumTagsCommand`**, always its own album. The
+  gathering is in `ArtistsSelection` / `AlbumsSelection` so ThemeLab can call it without
+  the modal.
+- **The selection follows the tracks** (`FollowEditedTracks`, only for these two paths).
+  The rebuild keeps the selection by name, so merging away the selected artist or album
+  used to land on the top of the list. If the selected artist or album name is gone
+  after the save, it selects the artist and album the first edited track now files
+  under. A surviving selection is left alone, and so is one a search hides.
+- **Verified** with ThemeLab **`--window multiedit`** (new): scratch copies of the
+  fixtures with "Lab Album" split across *Lab Band*, *Lab Band feat. Guest* and *Lab
+  Band & Friend*, plus *Lab Album (Disc 2)* and *Lab Album [Bonus]*. Selects three
+  artists through `SelectedItems` (as Ctrl-click), checks the mirror and that Albums shows
+  the first, opens the view model ("3 artists, 6 tracks"; Artist and Album "Varies"),
+  saves Artist and Album Artist through the app's own `ApplySelectedTracksEditAsync`:
+  one artist with 3 albums, selection followed to *Lab Band / Lab Album*. Then two albums
+  ("2 albums, 2 tracks"), Album "Lab Album": one 6-track album, followed. The menu on an
+  unselected row (or with one album selected) gives one artist / the album dialog. Every
+  file re-read: only the typed fields changed; *Other Band* untouched. Renders of both
+  selections checked, 0 magenta. `library.json` restored, settings hash unchanged.
+- **Confirmed by the user (2026-10-07)**: selecting several artists or albums works in
+  the running app.
+- **Not verified**: how long the dialog takes to open for a big artist. It reads every file's detail fields on
+  the UI thread, as the album dialog does (about 3 ms a track off the SSD, so roughly 1.5 s
+  for 500 tracks). **Ctrl+A in Artists selects every artist**, and Edit Artist Tags… would
+  then read the whole library before the dialog appears; nothing guards against that.
 
 ### Changes from session 39 (2026-10-07): drag to reorder in a playlist
 
@@ -2783,7 +2928,7 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 # ValuePattern.SetValue(...) to type; SelectionItemPattern.Select() to pick a row.
 ```
 
-Named elements available to query: `SearchBox`, `ArtistList`, `AlbumList`, `TrackGrid`, `PlaylistsToggle`, `PlaylistList`,
+Named elements available to query: `SearchBox`, `ArtistList`, `AlbumList` (both multi-select since session 40), `TrackGrid`, `PlaylistsToggle`, `PlaylistList`,
 `NowPlayingTitle`, `PositionText`, `DurationText`.
 
 **Screenshots:** use `PrintWindow` with flag `2` (`PW_RENDERFULLCONTENT`), and call
@@ -2918,6 +3063,9 @@ ThemeLab.exe --window seek --file "D:\Music\...\long.flac"   # click the seek ba
 ThemeLab.exe --window waveform --file "D:\Music\...\x.flac" --at 0.4 [--noglide 1]   # seekbar waveform: read time, 2 s glide trace, window + 3x seekbar render (plays silently)
 ThemeLab.exe --window playlists --w 1720 --h 1080   # hearts, a playlist, Liked before/after an unlike, an empty playlist, the name prompt (scratch playlists file)
 ThemeLab.exe --window reorder --w 1720 --h 1080     # drag to reorder a playlist: moves, a block, Esc, no-ops, sorted; renders the drop line (scratch playlists file)
+ThemeLab.exe --window multiedit --w 1720 --h 1080   # several artists, then albums, selected and retagged on scratch files; renders <out>-artists.png / -albums.png
+ThemeLab.exe --window albumeditor --w 1720 --h 1080 # the album tag window following the list: move, Save / Don't Save / Cancel, rename, Close (scratch files); renders <out>-window.png / -prompt.png
+ThemeLab.exe --window trackeditor --w 1720 --h 1080 # the song tag window following the table, the same cases (scratch files)
 ```
 
 **Seek-bar clicks seek on mouse-down** (2026-10-01). The bar is two-way bound to the

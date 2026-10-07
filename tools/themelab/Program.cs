@@ -290,6 +290,10 @@ internal static class Program
         {
             return RunReorder(main, vm, outPath, w, h, scale);
         }
+        else if (which is "multiedit" or "albumeditor" or "trackeditor")
+        {
+            LoadMultiLibrary(vm);
+        }
         else if (which is "edit" or "queue" or "clicks")
         {
             LoadTempLibrary(vm);
@@ -1004,15 +1008,16 @@ internal static class Program
             }
         }
 
-        // --artmenu: does right-clicking the album header art offer Edit Album Tags
-        // for the selected album? Opens the menu off-screen and reads its bindings.
+        // --artmenu 1: opens the first hand-cursor art with a context menu off-screen
+        // and prints its items. Since session 40 that is the playlist header picture:
+        // the album header art has no menu (a right-click opens Edit Album Tags).
         if (Arg(args, "--artmenu") is not null)
         {
             var art = FindAll<System.Windows.Controls.Border>(main)
                 .FirstOrDefault(b => b.ContextMenu is not null && b.Cursor == System.Windows.Input.Cursors.Hand);
             if (art?.ContextMenu is not { } menu)
             {
-                Console.WriteLine("artmenu: no context menu on the header art");
+                Console.WriteLine("artmenu: no context menu on the header art (none since session 40: a right-click opens Edit Album Tags itself)");
             }
             else
             {
@@ -1266,7 +1271,7 @@ internal static class Program
             return 0;
         }
 
-        if (which is "edit" or "queue" or "clicks")
+        if (which is "edit" or "queue" or "clicks" or "multiedit" or "albumeditor" or "trackeditor")
         {
             // Each save persists the library, and LibraryCache.CachePath is the
             // real library.json - so it is put back byte for byte afterwards.
@@ -1277,7 +1282,13 @@ internal static class Program
                 File.Copy(cachePath, backup, overwrite: true);
             try
             {
-                if (which == "clicks")
+                if (which == "trackeditor")
+                    RunTrackEditor(main, vm);
+                else if (which == "albumeditor")
+                    RunAlbumEditor(main, vm, outPath, scale);
+                else if (which == "multiedit")
+                    RunMultiEdit(main, vm, outPath, w, h, scale);
+                else if (which == "clicks")
                     RunClicks(main, vm);
                 else if (which == "queue")
                     RunQueueEdit(vm, engine);
@@ -2985,6 +2996,413 @@ internal static class Program
     /// Main backs it up first and restores it afterwards, then deletes the copies.
     /// </summary>
     private static string? _scratchDir;
+
+    /// <summary>
+    /// --window multiedit's library: one album split across three artist rows,
+    /// and the same band's album under two stray names, as scratch copies of the
+    /// test fixtures. No album artist, so each track files under its artist.
+    /// </summary>
+    private static void LoadMultiLibrary(MainViewModel vm)
+    {
+        var fixtures = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+            @"..\..\..\..\..\..\tests\AudioFool.Core.Tests\TestData"));
+        var dir = Path.Combine(Path.GetTempPath(), "themelab-multi-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(dir);
+        _scratchDir = dir;
+
+        (string Title, string Artist, string Album, int Number, string Ext)[] songs =
+        [
+            ("One", "Lab Band", "Lab Album", 1, ".flac"),
+            ("Two", "Lab Band", "Lab Album", 2, ".flac"),
+            ("Three", "Lab Band feat. Guest", "Lab Album", 3, ".flac"),
+            ("Four", "Lab Band & Friend", "Lab Album", 4, ".mp3"),
+            ("Five", "Lab Band", "Lab Album (Disc 2)", 5, ".flac"),
+            ("Six", "Lab Band", "Lab Album [Bonus]", 6, ".mp3"),
+            ("Seven", "Other Band", "Other Album", 1, ".flac"),
+        ];
+
+        var tracks = new List<Track>();
+        foreach (var song in songs)
+        {
+            var path = Path.Combine(dir, $"{song.Number:00} {song.Title}{song.Ext}");
+            File.Copy(Path.Combine(fixtures, "sample" + song.Ext), path);
+            var seeded = AudioFool.Core.Library.TagWriter.WriteTrackTags(
+                AudioFool.Core.Library.TagReader.Read(path),
+                new AudioFool.Core.Library.TrackTagEdit(song.Title, song.Artist, "", song.Album, 2020, song.Number, 6, 1, 1),
+                art: null, folderArtPath: null);
+            tracks.Add(seeded.UpdatedTrack!);
+        }
+
+        typeof(MainViewModel)
+            .GetMethod("ApplyLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(vm, [AudioFool.Core.Library.LibraryScanner.Build(tracks), false]);
+        Console.WriteLine($"library: {tracks.Count} scratch tracks in {dir}");
+    }
+
+    /// <summary>
+    /// --window multiedit: several artists, then several albums, picked in the
+    /// real lists as Ctrl-click would, edited through the several-tracks dialog's
+    /// view model and the app's own save, on the scratch library above. Prints
+    /// what the view model saw of each selection, the dialog's title and boxes,
+    /// the files afterwards, and where the selection lands. The modal dialog
+    /// itself is never shown: its view model is built as the command builds it.
+    /// </summary>
+    private static void RunMultiEdit(MainWindow main, MainViewModel vm, string outPath, double w, double h, double scale)
+    {
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var artistList = (System.Windows.Controls.ListBox)main.FindName("ArtistList");
+        var albumList = (System.Windows.Controls.ListBox)main.FindName("AlbumList");
+        void Log(string s) => Console.WriteLine(s);
+        string Names<T>(IEnumerable<T> items, Func<T, string> name) => string.Join(" | ", items.Select(name));
+        string State() => $"selected artist '{vm.SelectedArtist?.Name}', albums [{Names(vm.Albums, a => a.Title)}], "
+            + $"selected album '{vm.SelectedAlbum?.Title}', songs [{Names(vm.Tracks, t => t.Title)}]";
+        ArtistGroup Artist(string name) => vm.Artists.First(a => a.Name == name);
+        AlbumItemViewModel Album(string title) => vm.Albums.First(a => a.Title == title);
+
+        void SaveEdit(TagEditViewModel edit, IReadOnlyList<Track> tracks)
+        {
+            var before = vm.StatusText;
+            var task = (Task)typeof(MainViewModel).GetMethod("ApplySelectedTracksEditAsync", flags)!
+                .Invoke(vm, [tracks, edit.BuildTracksEdit(), true])!;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (!task.IsCompleted && clock.ElapsedMilliseconds < 10000)
+                Settle(50);
+            Settle(300);
+            Log($"  status: {vm.StatusText}");
+        }
+
+        TagEditViewModel Open(AudioFool.Core.Library.TagSelection selection)
+        {
+            var edit = new TagEditViewModel(selection.Tracks, selection.Description);
+            Log($"  dialog: '{edit.WindowTitle}'");
+            Log($"    tracks: {Names(selection.Tracks, t => $"{t.Title} ({t.Artist} / {t.Album})")}");
+            Log($"    artist '{edit.Artist}' [{edit.ArtistPlaceholder}]  album artist '{edit.AlbumArtist}' [{edit.AlbumArtistPlaceholder}]");
+            Log($"    album '{edit.AlbumTitle}' [{edit.AlbumTitlePlaceholder}]  year '{edit.Year}' [{edit.YearPlaceholder}]  art shown={edit.ShowsArt}");
+            return edit;
+        }
+
+        Settle(300);
+        Log($"artists: {Names(vm.Artists, a => a.Name)}");
+
+        // 1. Several artists: a click, then two Ctrl-clicks.
+        artistList.SelectedItem = Artist("Lab Band feat. Guest");
+        Settle(100);
+        artistList.SelectedItems.Add(Artist("Lab Band & Friend"));
+        artistList.SelectedItems.Add(Artist("Lab Band"));
+        Settle(200);
+        Log($"artists picked: list {artistList.SelectedItems.Count}, view model [{Names(vm.SelectedArtists, a => a.Name)}]");
+        Log($"  {State()}");
+        Save(main, Path.ChangeExtension(outPath, null) + "-artists.png", w, h, scale);
+
+        var artistsSelection = (AudioFool.Core.Library.TagSelection)typeof(MainViewModel).GetMethod("ArtistsSelection", flags)!
+            .Invoke(vm, [Artist("Lab Band & Friend")])!;
+        var artistEdit = Open(artistsSelection);
+        var single = (AudioFool.Core.Library.TagSelection)typeof(MainViewModel).GetMethod("ArtistsSelection", flags)!
+            .Invoke(vm, [Artist("Other Band")])!;
+        Log($"  an unselected row's menu edits only it: '{single.Description}'");
+
+        artistEdit.Artist = "Lab Band";
+        artistEdit.AlbumArtist = "Lab Band";
+        Log("save: artist and album artist 'Lab Band'");
+        SaveEdit(artistEdit, artistsSelection.Tracks);
+        Log($"  artists now: {Names(vm.Artists, a => $"{a.Name} ({a.AlbumSummary})")}");
+        Log($"  {State()}");
+
+        // 2. Several albums of the merged artist.
+        albumList.SelectedItem = Album("Lab Album (Disc 2)");
+        Settle(100);
+        albumList.SelectedItems.Add(Album("Lab Album [Bonus]"));
+        Settle(200);
+        Log($"albums picked: list {albumList.SelectedItems.Count}, view model [{Names(vm.SelectedAlbums, a => a.Title)}]");
+        Log($"  {State()}");
+        Save(main, Path.ChangeExtension(outPath, null) + "-albums.png", w, h, scale);
+
+        AudioFool.Core.Library.TagSelection? Albums(string title) =>
+            (AudioFool.Core.Library.TagSelection?)typeof(MainViewModel).GetMethod("AlbumsSelection", flags)!.Invoke(vm, [Album(title)]);
+        Log($"  menu on an unselected album opens the one-album dialog: {Albums("Lab Album") is null}");
+        var albumsSelection = Albums("Lab Album [Bonus]")!;
+        var albumEdit = Open(albumsSelection);
+        albumEdit.AlbumTitle = "Lab Album";
+        Log("save: album 'Lab Album'");
+        SaveEdit(albumEdit, albumsSelection.Tracks);
+        Log($"  {State()}");
+
+        albumList.SelectedItem = vm.Albums.First();
+        Settle(100);
+        Log($"menu with one album selected opens the one-album dialog: {Albums(vm.Albums.First().Title) is null}");
+
+        Log("files:");
+        foreach (var file in Directory.EnumerateFiles(_scratchDir!).Order())
+        {
+            var t = AudioFool.Core.Library.TagReader.Read(file);
+            Log($"  {Path.GetFileName(file)}: '{t.Title}' / '{t.Artist}' / '{t.AlbumArtist}' / '{t.Album}' #{t.TrackNumber}/{t.TrackCount} disc {t.DiscNumber}/{t.DiscCount} year {t.Year}");
+        }
+        Save(main, outPath, w, h, scale);
+    }
+
+    /// <summary>
+    /// --window albumeditor: the Edit Album Tags window following the Albums list,
+    /// on --window multiedit's scratch library. The window is shown off-screen and
+    /// never activated, and the Save / Don't Save question is answered from a
+    /// script (both through MainViewModel's seams), so nothing reaches the desktop.
+    /// Prints what the window shows after each step and what reached the files.
+    /// </summary>
+    private static void RunAlbumEditor(MainWindow main, MainViewModel vm, string outPath, double scale)
+    {
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        void Log(string s) => Console.WriteLine(s);
+
+        static void OffScreen(Window w)
+        {
+            w.ShowActivated = false;
+            w.ShowInTaskbar = false;
+            // After the window's own Loaded handler, which centres it over its owner
+            // and clamps that onto a monitor, and before anything is drawn.
+            w.Loaded += (_, _) => { w.Left = -20000; w.Top = -20000; };
+        }
+
+        MainViewModel.ShowAlbumEditorWindow = w => { OffScreen(w); w.Show(); };
+        var answers = new Queue<UnsavedChoice>();
+        MainViewModel.AskSaveChanges = (_, title, message) =>
+        {
+            var answer = answers.Dequeue();
+            Log($"  asked: '{title}' / '{message}' -> {answer}");
+            return answer;
+        };
+
+        TagEditWindow? Editor() => (TagEditWindow?)typeof(MainViewModel).GetField("_albumEditor", flags)!.GetValue(vm);
+        int Windows() => Application.Current.Windows.OfType<TagEditWindow>().Count(w => w.IsVisible);
+        void Wait(int ms = 600)
+        {
+            Settle(ms);
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (vm.StatusText.StartsWith("Saving") && clock.ElapsedMilliseconds < 5000)
+                Settle(50);
+            Settle(300);
+        }
+        void State(string step)
+        {
+            var e = Editor();
+            Log($"{step}");
+            Log($"  list: '{vm.SelectedArtist?.Name}' / '{vm.SelectedAlbum?.Title}'   windows open: {Windows()}");
+            Log(e is null
+                ? "  window: closed"
+                : $"  window: '{e.Title}' album '{e.ViewModel.AlbumTitle}' genre '{e.ViewModel.Genre}' changes={e.ViewModel.HasChanges} "
+                  + $"close button '{((System.Windows.Controls.Button)e.FindName("CancelButton")).Content}'");
+        }
+        AlbumItemViewModel Album(string title) => vm.Albums.First(a => a.Title == title);
+        string Genre(string file) => AudioFool.Core.Library.TagReader.ReadDetails(Path.Combine(_scratchDir!, file))?.Genre ?? "?";
+
+        Settle(300);
+        vm.SelectedArtist = vm.Artists.First(a => a.Name == "Lab Band");
+        vm.SelectedAlbum = Album("Lab Album");
+        Settle(200);
+
+        vm.EditAlbumTagsCommand.Execute(vm.SelectedAlbum);
+        Wait();
+        State("1. opened from the album row");
+
+        vm.SelectedAlbum = Album("Lab Album (Disc 2)");
+        Wait();
+        State("2. another album clicked, nothing typed (no question)");
+
+        Editor()!.ViewModel.Genre = "Rock";
+        answers.Enqueue(UnsavedChoice.Cancel);
+        vm.SelectedAlbum = Album("Lab Album [Bonus]");
+        Wait();
+        State("3. Genre typed, another album clicked, Cancel");
+
+        answers.Enqueue(UnsavedChoice.Discard);
+        vm.SelectedAlbum = Album("Lab Album [Bonus]");
+        Wait();
+        State("4. clicked again, Don't Save");
+        Log($"  file 05 Five.flac genre '{Genre("05 Five.flac")}' (expect empty)");
+
+        Editor()!.ViewModel.Genre = "Jazz";
+        answers.Enqueue(UnsavedChoice.Save);
+        vm.SelectedAlbum = Album("Lab Album");
+        Wait();
+        State("5. Genre typed, another album clicked, Save");
+        Log($"  file 06 Six.mp3 genre '{Genre("06 Six.mp3")}' (expect Jazz)");
+
+        Editor()!.ViewModel.AlbumTitle = "Lab Album Renamed";
+        typeof(TagEditWindow).GetMethod("Save_Click", flags)!.Invoke(Editor(), [null, new RoutedEventArgs()]);
+        Wait(1000);
+        State("6. renamed with the window's Save: stays open, list follows");
+        Log($"  albums: {string.Join(" | ", vm.Albums.Select(a => $"{a.Title} ({a.Album.Tracks.Count})"))}");
+
+        vm.SelectedArtist = vm.Artists.First(a => a.Name == "Other Band");
+        Wait();
+        State("7. another artist clicked: the window takes its first album");
+
+        vm.EditAlbumTagsCommand.Execute(vm.SelectedAlbum);
+        Wait();
+        State("8. Edit Album Tags again: the same window, not a second");
+
+        var seven = vm.Tracks.First();
+        _ = vm.ApplyInlineEditAsync(seven, AudioFool.Core.Library.InlineField.Title, "Seven B");
+        Wait();
+        var shown = (Album)typeof(MainViewModel).GetField("_albumEditorAlbum", flags)!.GetValue(vm)!;
+        Log($"9. a title edited in the grid underneath: the window's album now holds '{shown.Tracks[0].Title}' (expect Seven B)");
+
+        vm.IsPlaylistMode = true;
+        Wait();
+        State("10. playlists shown: the window stays");
+        vm.IsPlaylistMode = false;
+        Wait();
+
+        var editor = Editor()!;
+        Save(editor, Path.ChangeExtension(outPath, null) + "-window.png", editor.ActualWidth, editor.ActualHeight, scale);
+
+        var prompt = (PromptWindow)Activator.CreateInstance(typeof(PromptWindow), flags, null,
+            [editor, "Unsaved Changes", "Save your changes to Lab Album [Bonus] before editing Lab Album?", "Save", null, null], null)!;
+        ((UIElement)prompt.FindName("DiscardButton")).Visibility = Visibility.Visible;
+        OffScreen(prompt);
+        prompt.Show();
+        Settle(300);
+        Save(prompt, Path.ChangeExtension(outPath, null) + "-prompt.png", prompt.ActualWidth, prompt.ActualHeight, scale);
+        Log($"prompt: {prompt.ActualWidth:0}x{prompt.ActualHeight:0}");
+        prompt.Close();
+
+        typeof(TagEditWindow).GetMethod("Cancel_Click", flags)!.Invoke(editor, [null, new RoutedEventArgs()]);
+        Wait();
+        State("11. Close");
+        Log($"unused answers: {answers.Count}");
+
+        Log("files:");
+        foreach (var file in Directory.EnumerateFiles(_scratchDir!).Order())
+        {
+            var t = AudioFool.Core.Library.TagReader.Read(file);
+            Log($"  {Path.GetFileName(file)}: '{t.Title}' / '{t.Artist}' / '{t.Album}' genre '{Genre(Path.GetFileName(file))}'");
+        }
+    }
+
+    /// <summary>
+    /// --window trackeditor: the one-song Edit Tags window following the Songs
+    /// table, on --window multiedit's scratch library, shown off-screen and never
+    /// activated, with the Save / Don't Save question answered from a script.
+    /// Rows are selected through the real grid, so the window's own
+    /// SelectionChanged handler feeds the view model, as a click would.
+    /// </summary>
+    private static void RunTrackEditor(MainWindow main, MainViewModel vm)
+    {
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var grid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
+        void Log(string s) => Console.WriteLine(s);
+
+        MainViewModel.ShowAlbumEditorWindow = w =>
+        {
+            w.ShowActivated = false;
+            w.ShowInTaskbar = false;
+            w.Loaded += (_, _) => { w.Left = -20000; w.Top = -20000; };
+            w.Show();
+        };
+        var answers = new Queue<UnsavedChoice>();
+        MainViewModel.AskSaveChanges = (_, title, message) =>
+        {
+            var answer = answers.Dequeue();
+            Log($"  asked: '{message}' -> {answer}");
+            return answer;
+        };
+
+        TagEditWindow? Editor() => (TagEditWindow?)typeof(MainViewModel).GetField("_trackEditor", flags)!.GetValue(vm);
+        void Wait(int ms = 600)
+        {
+            Settle(ms);
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (vm.StatusText.StartsWith("Saving") && clock.ElapsedMilliseconds < 5000)
+                Settle(50);
+            Settle(300);
+        }
+        void Select(string title)
+        {
+            grid.SelectedItems.Clear();
+            grid.SelectedItem = vm.Tracks.First(t => t.Title == title);
+            Wait();
+        }
+        void State(string step)
+        {
+            var e = Editor();
+            Log(step);
+            Log($"  table: [{string.Join(" | ", vm.Tracks.Select(t => t.Title))}] selected [{string.Join(" | ", grid.SelectedItems.OfType<Track>().Select(t => t.Title))}]   windows open: "
+                + Application.Current.Windows.OfType<TagEditWindow>().Count(w => w.IsVisible));
+            Log(e is null
+                ? "  window: closed"
+                : $"  window: '{e.Title}' title '{e.ViewModel.Title}' album '{e.ViewModel.AlbumTitle}' genre '{e.ViewModel.Genre}' changes={e.ViewModel.HasChanges} "
+                  + $"button '{((System.Windows.Controls.Button)e.FindName("CancelButton")).Content}'");
+        }
+        string File(string name)
+        {
+            var path = Path.Combine(_scratchDir!, name);
+            var t = AudioFool.Core.Library.TagReader.Read(path);
+            return $"'{t.Title}' / '{t.Album}' genre '{AudioFool.Core.Library.TagReader.ReadDetails(path)?.Genre}'";
+        }
+
+        Settle(300);
+        vm.SelectedArtist = vm.Artists.First(a => a.Name == "Lab Band");
+        vm.SelectedAlbum = vm.Albums.First(a => a.Title == "Lab Album");
+        Wait();
+        Select("One");
+        vm.EditTrackTagsCommand.Execute(vm.Tracks.First(t => t.Title == "One"));
+        Wait();
+        State("1. opened on One");
+
+        Select("Two");
+        State("2. Two clicked, nothing typed (no question)");
+
+        Editor()!.ViewModel.Genre = "Pop";
+        answers.Enqueue(UnsavedChoice.Cancel);
+        Select("One");
+        State("3. Genre typed, One clicked, Cancel (the table goes back to Two)");
+
+        answers.Enqueue(UnsavedChoice.Discard);
+        Select("One");
+        State("4. One clicked again, Don't Save");
+        Log($"  file 02: {File("02 Two.flac")} (expect no genre)");
+
+        Editor()!.ViewModel.Genre = "Pop";
+        answers.Enqueue(UnsavedChoice.Save);
+        Select("Two");
+        State("5. Genre typed on One, Two clicked, Save");
+        Log($"  file 01: {File("01 One.flac")} (expect Pop)");
+
+        Editor()!.ViewModel.Title = "Two Renamed";
+        typeof(TagEditWindow).GetMethod("Save_Click", flags)!.Invoke(Editor(), [null, new RoutedEventArgs()]);
+        Wait(1000);
+        State("6. retitled with the window's Save: stays open, row kept");
+
+        grid.SelectedItems.Add(vm.Tracks.First(t => t.Title == "One"));
+        Wait();
+        State("7. One Ctrl-clicked too: two rows, the window stays");
+
+        Select("Two Renamed");
+        _ = vm.ApplyInlineEditAsync(vm.Tracks.First(t => t.Title == "Two Renamed"), AudioFool.Core.Library.InlineField.Title, "Two Again");
+        Wait();
+        State("8. retitled in the grid underneath: the window reads it again");
+
+        Editor()!.ViewModel.AlbumTitle = "Elsewhere";
+        typeof(TagEditWindow).GetMethod("Save_Click", flags)!.Invoke(Editor(), [null, new RoutedEventArgs()]);
+        Wait(1000);
+        State("9. moved to another album with the window's Save: it leaves the table, the window stays on it");
+
+        vm.SelectedAlbum = vm.Albums.First(a => a.Title == "Lab Album (Disc 2)");
+        Wait();
+        State("10. another album: nothing selected yet, the window stays");
+
+        vm.EditTrackTagsCommand.Execute(vm.Tracks.First());
+        Wait();
+        State("11. Edit Tags on a row: the same window moves");
+
+        typeof(TagEditWindow).GetMethod("Cancel_Click", flags)!.Invoke(Editor(), [null, new RoutedEventArgs()]);
+        Wait();
+        State("12. Close");
+        Log($"unused answers: {answers.Count}");
+        foreach (var file in Directory.EnumerateFiles(_scratchDir!).Order())
+            Log($"  {Path.GetFileName(file)}: {File(Path.GetFileName(file))}");
+    }
 
     private static void LoadTempLibrary(MainViewModel vm)
     {

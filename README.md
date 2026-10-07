@@ -596,13 +596,39 @@ track number shows nothing. The track and disc totals are still read and kept, a
 editable in the tag dialog (right-click a track → Edit Tags…); the grid simply doesn't
 show them. Clicking the header sorts numerically, so 2 comes before 10.
 
-**Editing tags.** Right-click a track for *Edit Tags…*, or an album - in the Albums
-list or its large cover art above the tracks - for *Edit Album Tags…*. Both edit publisher, composer, conductor, genre and comments as well as the
+**Editing tags.** Right-click a track for *Edit Tags…*, or an album in the Albums
+list for *Edit Album Tags…*. Right-clicking the large cover art above the tracks opens
+*Edit Album Tags…* straight away; a left-click on it opens the full-size cover. Both edit publisher, composer, conductor, genre and comments as well as the
 basics; separate several composers or genres with a semicolon. The album dialog also
 sets the track count and disc number for every track. Any field the tracks disagree on
 starts empty and marked *Varies*, and is left alone unless you type into it. So editing
 an album's genre never flattens each track's own comment. To strip a tag, press the ✕
 beside it; in the album dialog that clears it on every track, even where they differed.
+
+**Walking through albums.** *Edit Album Tags…* stays open beside the main window and
+follows the Albums list: click another album (or another artist, or use the arrow keys)
+and the window shows that album instead. If you've typed something you haven't saved,
+it asks first: **Save** writes it to the album you were on, **Don't Save** drops it,
+**Cancel** stays put. **Save** keeps the window open on the album, read again from the
+files, and if you renamed the album the lists move with it. **Close** shuts it.
+
+*Edit Tags…* on a single song works the same way with the Songs table: click another
+song and the window shows it, with the same question about unsaved changes. It moves
+only when one song is selected, so Ctrl-clicking a second row leaves it alone. The
+dialog for several selected songs still blocks the main window while open.
+
+**Editing several artists or albums at once.** The Artists and Albums lists take
+Ctrl-click and Shift-click, like the song table. Right-click one of the selected artists
+for *Edit Artist Tags…*, or one of the selected albums for *Edit Album Tags…*: one
+dialog covers every track of them all (whole artists and albums, even while a search
+shows only part of one), titled with what it covers, "3 artists, 214 tracks". Every
+box is filled only when all the tracks agree, and only the boxes you change are
+written. So selecting the three artist rows an album is split across and typing the
+same Artist and Album Artist merges them; selecting "Album" and "Album (Disc 2)" and
+typing one Album name merges those. After saving, the lists move to wherever the tracks
+now file. With several selected, the panels to the right keep showing the first one
+picked. A single artist works too; a single album opens the usual album dialog, with
+its cover art.
 
 **Release dates.** The Year box takes a year (`2026`), a month (`2026-10`) or a full
 date (`2026-10-02`), always year-month-day. A file that already carries a full date

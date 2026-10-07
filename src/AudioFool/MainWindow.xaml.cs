@@ -331,7 +331,21 @@ public partial class MainWindow : FluentWindow
     /// </summary>
     private void BrowserList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        // Artists and Albums take several rows (Ctrl/Shift-click) for a tag edit;
+        // the view model sees them as DataGrid rows are seen, since SelectedItems
+        // cannot be bound.
+        if (sender == ArtistList)
+            _viewModel.SelectedArtists = ArtistList.SelectedItems.OfType<ArtistGroup>().ToList();
+        else if (sender == AlbumList)
+            _viewModel.SelectedAlbums = AlbumList.SelectedItems.OfType<AlbumItemViewModel>().ToList();
+
         if (sender is not ListBox list || list.SelectedItem is null)
+            return;
+
+        // A Ctrl- or Shift-click adds rows but leaves SelectedItem (the first) as
+        // it was, so there is nothing to bring into view, and scrolling to it
+        // would pull the list away from the row just clicked.
+        if (!e.AddedItems.Contains(list.SelectedItem))
             return;
 
         // Deferred: during a rebuild the item's container may not exist yet, and
@@ -468,6 +482,19 @@ public partial class MainWindow : FluentWindow
     {
         e.Handled = true;
         _ = ShowArtAsync(_viewModel.GetSelectedAlbumFullArtAsync(), _viewModel.SelectedAlbumCaption);
+    }
+
+    /// <summary>
+    /// A right-click on the album header's art opens Edit Album Tags for the album
+    /// straight away, with no menu (the user's call). On release, as a context menu
+    /// opens, so the new window isn't opened under a press still going to the main
+    /// window.
+    /// </summary>
+    private void AlbumArt_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is UIElement { IsMouseOver: true } && _viewModel.SelectedAlbum is { } album)
+            _viewModel.EditAlbumTagsCommand.Execute(album);
     }
 
     private void PlaylistArt_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

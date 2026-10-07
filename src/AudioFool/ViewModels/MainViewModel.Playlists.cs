@@ -238,6 +238,8 @@ public sealed partial class MainViewModel
     {
         RefreshPlaylists();
         ShowPlaylist();
+        QueueAlbumEditorSync();
+        QueueTrackEditorSync();
     }
 
     /// <summary>After a playlist changed: its row, the order, the hearts, and the Songs panel if it's showing.</summary>

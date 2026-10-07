@@ -793,6 +793,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(AlbumHeaderDuration));
 
         _ = LoadAlbumHeaderArtAsync(value);
+        QueueAlbumEditorSync();
     }
 
     private void FillAlbumTracks(AlbumItemViewModel? album)
@@ -1506,7 +1507,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// DataGrid's SelectedItems cannot be bound. "Edit Tags..." edits all of them
     /// when the row it was opened on is one of several selected.
     /// </summary>
-    public IReadOnlyList<Track> SelectedTracks { get; set; } = [];
+    public IReadOnlyList<Track> SelectedTracks
+    {
+        get;
+        set
+        {
+            field = value;
+            QueueTrackEditorSync();
+        }
+    } = [];
 
     [RelayCommand]
     private void EditTrackTags(Track? track)
@@ -1520,13 +1529,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var editVm = new TagEditViewModel(track);
-        var window = new TagEditWindow(editVm, owner);
-
-        if (window.ShowDialog() != true)
-            return;
-
-        _ = ApplyTrackEditAsync(track, editVm.BuildTrackEdit());
+        // Not modal: the window stays open and follows the Songs table
+        // (MainViewModel.TrackEditor.cs).
+        ShowTrackEditor(track, owner);
     }
 
     /// <summary>
@@ -1557,29 +1562,30 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // Editing just the shown tracks is a grid selection plus Edit Tags.
         var album = _folderFilteredLibrary.WholeAlbumOf(item.Album);
 
-        var editVm = new TagEditViewModel(album, _artService, new OnlineArtSearch(_settings.FanartTvApiKey));
-        var window = new TagEditWindow(editVm, owner);
-
-        var saved = window.ShowDialog() == true;
-
-        // "Save Embedded Art" writes its files at once, so this runs on Cancel too.
-        _ = FinishAlbumDialogAsync(album, editVm, saved);
+        // Not modal: the window stays open and follows the Albums list
+        // (MainViewModel.AlbumEditor.cs).
+        ShowAlbumEditor(album, owner);
     }
 
-    private async Task FinishAlbumDialogAsync(Album album, TagEditViewModel editVm, bool saved)
+    /// <summary>
+    /// Leaves an album's tag window behind, saved or not. "Save Embedded Art"
+    /// writes its files at once, so this runs without a save too.
+    /// </summary>
+    private async Task FinishAlbumDialogAsync(Album album, TagEditViewModel editVm, bool saved,
+        bool followTracks = false)
     {
         await editVm.ArtExtraction;
 
         if (editVm.SavedCovers.Count > 0)
-        {
             await AdoptFolderCoversAsync(album, editVm.SavedCovers);
-            // The tracks just changed; Save must work from their new copies, or it
-            // would write the old (empty) folder-art path back over the new one.
-            album = _folderFilteredLibrary.WholeAlbumOf(album);
-        }
+
+        // Save works from the album's tracks as they are now. Covers adopted just
+        // above, or a save or rescan while the window was open, would otherwise
+        // be written back over with the copies the window was opened with.
+        album = _folderFilteredLibrary.WholeAlbumOf(album);
 
         if (saved)
-            await ApplyAlbumEditAsync(album, editVm.BuildAlbumEdit(), editVm.PickedArtPayload());
+            await ApplyAlbumEditAsync(album, editVm.BuildAlbumEdit(), editVm.PickedArtPayload(), followTracks);
     }
 
     /// <summary>
@@ -1607,22 +1613,88 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         await PersistLibraryAsync();
     }
 
-    private void EditSelectedTracksTags(IReadOnlyList<Track> tracks, Window owner)
+    /// <summary>
+    /// The rows selected in the Artists and Albums lists, kept in step by the
+    /// window as <see cref="SelectedTracks"/> is. Their first is
+    /// <see cref="SelectedArtist"/> / <see cref="SelectedAlbum"/>, which is what
+    /// the panels to the right show.
+    /// </summary>
+    public IReadOnlyList<ArtistGroup> SelectedArtists { get; set; } = [];
+    public IReadOnlyList<AlbumItemViewModel> SelectedAlbums { get; set; } = [];
+
+    /// <summary>
+    /// An artist row's "Edit Artist Tags...": every track of that artist, or of
+    /// every selected artist when it is one of several. The tracks' own fields
+    /// are kept unless changed, as for songs picked in the grid.
+    /// </summary>
+    [RelayCommand]
+    private void EditArtistTags(ArtistGroup? artist)
     {
-        var editVm = new TagEditViewModel(tracks);
+        if (artist is null || Application.Current.MainWindow is not { } owner)
+            return;
+
+        var selection = ArtistsSelection(artist);
+        EditSelectedTracksTags(selection.Tracks, owner, selection.Description, followTracks: true);
+    }
+
+    /// <summary>The tracks "Edit Artist Tags..." on <paramref name="artist"/>'s row edits.</summary>
+    private TagSelection ArtistsSelection(ArtistGroup artist)
+    {
+        IReadOnlyList<ArtistGroup> picked = SelectedArtists.Count > 1 && SelectedArtists.Contains(artist)
+            ? SelectedArtists.ToList()
+            : [artist];
+        return TagSelection.ForArtists(_folderFilteredLibrary, picked);
+    }
+
+    /// <summary>
+    /// The tracks "Edit Album Tags..." on <paramref name="item"/>'s row edits when
+    /// it is one of several selected albums; null for the one-album dialog.
+    /// </summary>
+    private TagSelection? AlbumsSelection(AlbumItemViewModel item) =>
+        SelectedAlbums.Count > 1 && SelectedAlbums.Contains(item)
+            ? TagSelection.ForAlbums(_folderFilteredLibrary, SelectedAlbums.Select(a => a.Album).ToList())
+            : null;
+
+    /// <summary>
+    /// An album row's "Edit Album Tags...": the album dialog for one album, or
+    /// the several-tracks dialog over every selected album when the row is one
+    /// of several. A right-click on the header art always edits just its own album.
+    /// </summary>
+    [RelayCommand]
+    private void EditSelectedAlbumsTags(AlbumItemViewModel? item)
+    {
+        if (item is null || Application.Current.MainWindow is not { } owner)
+            return;
+
+        if (AlbumsSelection(item) is not { } selection)
+        {
+            EditAlbumTags(item);
+            return;
+        }
+
+        EditSelectedTracksTags(selection.Tracks, owner, selection.Description, followTracks: true);
+    }
+
+    private void EditSelectedTracksTags(IReadOnlyList<Track> tracks, Window owner,
+        string? scope = null, bool followTracks = false)
+    {
+        var editVm = new TagEditViewModel(tracks, scope);
         var window = new TagEditWindow(editVm, owner);
 
         if (window.ShowDialog() != true)
             return;
 
-        _ = ApplySelectedTracksEditAsync(tracks, editVm.BuildTracksEdit());
+        _ = ApplySelectedTracksEditAsync(tracks, editVm.BuildTracksEdit(), followTracks);
     }
 
     /// <summary>
     /// As <see cref="ApplyAlbumEditAsync"/>, less the art: every successful write
-    /// is kept, and the failures are named.
+    /// is kept, and the failures are named. With <paramref name="followTracks"/>,
+    /// a save that renames the selected artist or album selects wherever the
+    /// tracks went (<see cref="FollowEditedTracks"/>).
     /// </summary>
-    private async Task ApplySelectedTracksEditAsync(IReadOnlyList<Track> tracks, TracksTagEdit edit)
+    private async Task ApplySelectedTracksEditAsync(IReadOnlyList<Track> tracks, TracksTagEdit edit,
+        bool followTracks = false)
     {
         StatusText = $"Saving tags for {tracks.Count} track(s)...";
 
@@ -1645,7 +1717,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (updated.Count > 0)
         {
+            var artistBefore = SelectedArtist?.Name;
+            var albumBefore = SelectedAlbum?.Album.Title;
+
             ReplaceTracksInLibrary(updated.ToDictionary(t => t.FilePath, StringComparer.OrdinalIgnoreCase));
+
+            if (followTracks)
+                FollowEditedTracks(updated[0], artistBefore, albumBefore);
+
             await PersistLibraryAsync();
         }
 
@@ -1655,8 +1734,40 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
               $"{failed.Count} failed ({string.Join(", ", failed.Select(f => f.FileName))}: {failed[0].Error}).";
     }
 
+    /// <summary>
+    /// After an edit from the Artists or Albums list. The rebuild keeps the
+    /// selection by name, so renaming the selected artist or album (the point
+    /// of merging them) would drop it back to the top of the list. Then this
+    /// selects the artist and album <paramref name="first"/>, the first edited
+    /// track, now files under. A selection that survived is left alone, and so
+    /// is one a search now hides.
+    /// </summary>
+    private void FollowEditedTracks(Track first, string? artistBefore, string? albumBefore)
+    {
+        var artistKept = artistBefore is not null && SelectedArtist is { } artist
+                         && SortRules.NameComparer.Equals(artist.Name, artistBefore);
+        var albumKept = albumBefore is not null && SelectedAlbum is { } album
+                        && SortRules.NameComparer.Equals(album.Album.Title, albumBefore);
+        if (!(artistKept && albumKept))
+            SelectWhereTrackFiles(first);
+    }
+
+    /// <summary>Selects the artist and album <paramref name="track"/> files under, when the lists show them.</summary>
+    private void SelectWhereTrackFiles(Track track)
+    {
+        if (Artists.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Name, track.GroupingArtist)) is not { } target)
+            return;
+
+        SelectedArtist = target;
+        if (Albums.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Album.Title, track.Album)) is { } targetAlbum)
+            SelectedAlbum = targetAlbum;
+    }
+
     private async Task ApplyTrackEditAsync(Track track, TrackTagEdit edit)
     {
+        // The song window may have been open across a grid edit or a rescan; the
+        // library's copy carries anything (the folder art path) the edit doesn't set.
+        track = LibraryCopyOf(track);
         StatusText = "Saving tags...";
 
         var result = await Task.Run(() =>
@@ -1683,7 +1794,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// and the failures are named individually rather than reported as one opaque
     /// "batch failed" message.
     /// </summary>
-    private async Task ApplyAlbumEditAsync(Album album, AlbumTagEdit edit, ArtPayload? art)
+    private async Task ApplyAlbumEditAsync(Album album, AlbumTagEdit edit, ArtPayload? art, bool followTracks = false)
     {
         StatusText = $"Saving tags for {album.Tracks.Count} track(s)...";
 
@@ -1730,7 +1841,16 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (updated.Count > 0)
         {
+            var artistBefore = SelectedArtist?.Name;
+            var albumBefore = SelectedAlbum?.Album.Title;
+
             ReplaceTracksInLibrary(updated.ToDictionary(t => t.FilePath, StringComparer.OrdinalIgnoreCase));
+
+            // The album tag window's own Save: a rename moves the lists with it,
+            // or they would land elsewhere and take the open window along.
+            if (followTracks)
+                FollowEditedTracks(updated[0], artistBefore, albumBefore);
+
             await PersistLibraryAsync();
         }
 

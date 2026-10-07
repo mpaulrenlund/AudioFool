@@ -61,6 +61,12 @@
                     Margin="{theme:Thickness Right=dialog.buttonGap}"
                     IsDefault="True"
                     Click="Ok_Click" />
+            <!-- Only for AskSaveChanges: Save, Don't Save, Cancel. -->
+            <Button x:Name="DiscardButton" Content="Don't Save"
+                    Style="{StaticResource theme.dialogButton}"
+                    Margin="{theme:Thickness Right=dialog.buttonGap}"
+                    Visibility="Collapsed"
+                    Click="Discard_Click" />
             <Button x:Name="CancelButton" Content="Cancel" IsCancel="True"
                     Style="{StaticResource theme.dialogButton}" />
         </StackPanel>

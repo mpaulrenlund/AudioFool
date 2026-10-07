@@ -43,8 +43,8 @@
 
         <!--
             Artist and album rows. The look is theme.browserRowTemplate
-            (Theming/Chrome.xaml); the sizes are here per list, and the album row
-            also carries a context menu whose command is bound through the proxy
+            (Theming/Chrome.xaml); the sizes are here per list, and the artist and
+            album rows also carry context menus whose commands are bound through the proxy
             above, which a dictionary cannot reach.
         -->
         <Style x:Key="BrowserRow" TargetType="ListBoxItem">
@@ -60,6 +60,18 @@
         <Style x:Key="ArtistRow" TargetType="ListBoxItem" BasedOn="{StaticResource BrowserRow}">
             <Setter Property="Height" Value="{theme:Token artists.rowHeight}" />
             <Setter Property="Padding" Value="{theme:Thickness X=artists.rowPaddingX}" />
+            <!-- Every track of the artist, or of every selected artist when the
+                 row is one of several. A right-click on an unselected row selects
+                 just that row first (ListBox's own Extended-mode behaviour). -->
+            <Setter Property="ContextMenu">
+                <Setter.Value>
+                    <ContextMenu>
+                        <MenuItem Header="Edit Artist Tags…"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.EditArtistTagsCommand}"
+                                  CommandParameter="{Binding}" />
+                    </ContextMenu>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="AlbumRow" TargetType="ListBoxItem" BasedOn="{StaticResource BrowserRow}">
@@ -73,7 +85,7 @@
                 <Setter.Value>
                     <ContextMenu>
                         <MenuItem Header="Edit Album Tags…"
-                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.EditAlbumTagsCommand}"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.EditSelectedAlbumsTagsCommand}"
                                   CommandParameter="{Binding}" />
                     </ContextMenu>
                 </Setter.Value>
@@ -507,6 +519,7 @@
                 <Grid>
                 <ListBox x:Name="ArtistList"
                          Visibility="{Binding IsPlaylistMode, Converter={StaticResource BoolToVisibility}, ConverterParameter=Inverse}"
+                         SelectionMode="Extended"
                          ItemsSource="{Binding Artists}"
                          SelectedItem="{Binding SelectedArtist, Mode=TwoWay}"
                          SelectionChanged="BrowserList_SelectionChanged"
@@ -586,6 +599,7 @@
                 <!-- Blank while the Artists panel shows playlists (the user's call). -->
                 <ListBox x:Name="AlbumList"
                          Visibility="{Binding IsPlaylistMode, Converter={StaticResource BoolToVisibility}, ConverterParameter=Inverse}"
+                         SelectionMode="Extended"
                          ItemsSource="{Binding Albums}"
                          SelectedItem="{Binding SelectedAlbum, Mode=TwoWay}"
                          SelectionChanged="BrowserList_SelectionChanged"
@@ -681,14 +695,8 @@
                                 Effect="{DynamicResource shadow.headerArt}"
                                 SnapsToDevicePixels="True"
                                 Cursor="Hand"
-                                MouseLeftButtonDown="AlbumArt_MouseLeftButtonDown">
-                            <Border.ContextMenu>
-                                <ContextMenu>
-                                    <MenuItem Header="Edit Album Tags…"
-                                              Command="{Binding Source={StaticResource Proxy}, Path=Data.EditAlbumTagsCommand}"
-                                              CommandParameter="{Binding Source={StaticResource Proxy}, Path=Data.SelectedAlbum}" />
-                                </ContextMenu>
-                            </Border.ContextMenu>
+                                MouseLeftButtonDown="AlbumArt_MouseLeftButtonDown"
+                                MouseRightButtonUp="AlbumArt_MouseRightButtonUp">
                             <!-- Panel grey under the art, so an album with no cover
                                  shows the placeholder note on the panel colour. -->
                             <Grid Background="{DynamicResource color.panel.bg}">

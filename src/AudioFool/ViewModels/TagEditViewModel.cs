@@ -168,7 +168,7 @@ public sealed partial class TagEditViewModel : ObservableObject
     public TagEditViewModel(Track track)
     {
         IsAlbumMode = false;
-        WindowTitle = "Edit Track Tags";
+        WindowTitle = $"Edit Track Tags - {track.DisplayTitle}";
 
         Title = track.Title;
         Artist = track.Artist;
@@ -194,6 +194,13 @@ public sealed partial class TagEditViewModel : ObservableObject
             Year = details.Date;
 
         RememberInitialDetails();
+        // Not for Save, which writes every field: only so HasChanges can tell.
+        _initial[nameof(Title)] = Title;
+        _initial[nameof(Artist)] = Artist;
+        _initial[nameof(AlbumArtist)] = AlbumArtist;
+        _initial[nameof(AlbumTitle)] = AlbumTitle;
+        _initial[nameof(Year)] = Year;
+        _initial[nameof(TrackNumber)] = TrackNumber;
     }
 
     /// <summary>
@@ -245,6 +252,12 @@ public sealed partial class TagEditViewModel : ObservableObject
             Year = date;
 
         RememberInitialDetails();
+        // Not for Save, which writes these four album-wide regardless: only so
+        // HasChanges can tell whether anything was typed.
+        _initial[nameof(Artist)] = Artist;
+        _initial[nameof(AlbumArtist)] = AlbumArtist;
+        _initial[nameof(AlbumTitle)] = AlbumTitle;
+        _initial[nameof(Year)] = Year;
 
         _artStartDirectory = first is null ? null : Path.GetDirectoryName(first.FilePath);
 
@@ -255,13 +268,14 @@ public sealed partial class TagEditViewModel : ObservableObject
     /// Tracks picked in the grid. Every field pre-fills only when all of them
     /// agree, and Save writes only what was changed, so picking disc 1 of a set
     /// and typing a disc number touches the disc number and nothing else.
-    /// Reading the detail fields opens every selected file.
+    /// Reading the detail fields opens every selected file. <paramref name="scope"/>
+    /// names what was picked, for the title ("3 artists, 214 tracks").
     /// </summary>
-    public TagEditViewModel(IReadOnlyList<Track> tracks)
+    public TagEditViewModel(IReadOnlyList<Track> tracks, string? scope = null)
     {
         IsAlbumMode = true;
         IsSelectionMode = true;
-        WindowTitle = $"Edit Tags - {tracks.Count} tracks";
+        WindowTitle = $"Edit Tags - {scope ?? $"{tracks.Count} tracks"}";
 
         const string varies = "Varies by track - kept unless changed";
         Artist = Shared(tracks.Select(t => t.Artist), varies, out var artistHint);
@@ -661,6 +675,25 @@ public sealed partial class TagEditViewModel : ObservableObject
             Date = date,
         };
     }
+
+    /// <summary>
+    /// Album and track dialogs: whether anything differs from what the boxes
+    /// started with - typed text, a cleared field, Remove Leading Zeros, or a new
+    /// cover. "Save Embedded Art" isn't counted: it wrote its files when pressed.
+    /// Asked before the window moves on to another album or track.
+    /// </summary>
+    public bool HasChanges =>
+        Typed(nameof(Title), Title) || Typed(nameof(TrackNumber), TrackNumber)
+        || Typed(nameof(Artist), Artist) || Typed(nameof(AlbumArtist), AlbumArtist)
+        || Typed(nameof(AlbumTitle), AlbumTitle) || Typed(nameof(Year), Year)
+        || BuildDetailsEdit() != TagDetailsEdit.None
+        || NumberIfChanged(nameof(TrackCount), TrackCount) is not null
+        || NumberIfChanged(nameof(DiscNumber), DiscNumber) is not null
+        || NumberIfChanged(nameof(DiscCount), DiscCount) is not null
+        || RemovesLeadingZeros || PickedArtFilePath is not null || _downloadedArt is not null;
+
+    private bool Typed(string name, string value) =>
+        !string.Equals(value.Trim(), _initial.GetValueOrDefault(name, "").Trim(), StringComparison.Ordinal);
 
     public AlbumTagEdit BuildAlbumEdit()
     {
