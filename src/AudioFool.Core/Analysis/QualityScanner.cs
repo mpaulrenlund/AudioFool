@@ -96,7 +96,8 @@ public static class QualityScanner
             var lastSave = DateTime.UtcNow;
             while (threads.Any(t => t.IsAlive))
             {
-                threads.First(t => t.IsAlive).Join(ReportEvery);
+                // The last worker can finish between the check above and this one.
+                threads.FirstOrDefault(t => t.IsAlive)?.Join(ReportEvery);
                 progress?.Report(new QualityScanProgress(Volatile.Read(ref done), todo.Count, Volatile.Read(ref flagged)));
 
                 if (save is not null && DateTime.UtcNow - lastSave >= SaveEvery)
