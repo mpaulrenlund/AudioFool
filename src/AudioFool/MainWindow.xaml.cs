@@ -632,7 +632,10 @@ public partial class MainWindow : FluentWindow
         if (e.OriginalSource is not DependencyObject source)
             return;
 
-        if (ItemsControl.ContainerFromElement(AlbumList, source) is ListBoxItem { DataContext: AlbumItemViewModel album })
+        // Shared by the Albums list and Recently Added's albums: the row is
+        // looked up in whichever list was double-clicked.
+        if (sender is ListBox list
+            && ItemsControl.ContainerFromElement(list, source) is ListBoxItem { DataContext: AlbumItemViewModel album })
             _viewModel.PlayAlbumCommand.Execute(album);
     }
 

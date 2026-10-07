@@ -2933,6 +2933,32 @@ internal static class Program
             State();
         }
 
+        // Double-click an album row (silently): its first song plays, and the album is picked.
+        if (vm.RecentAlbums.Count > 2)
+        {
+            vm.Volume = 0;
+            var target = vm.RecentAlbums[2];
+            recentList.ScrollIntoView(target);
+            Pump();
+            var row = (System.Windows.Controls.ListBoxItem)recentList.ItemContainerGenerator.ContainerFromItem(target);
+            var title = Descendants<System.Windows.Controls.TextBlock>(row).First();
+            var click = new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount, System.Windows.Input.MouseButton.Left)
+            {
+                RoutedEvent = System.Windows.Controls.Control.MouseDoubleClickEvent,
+                Source = title,
+            };
+            recentList.RaiseEvent(click);   // a direct event: WPF raises it on the list, the source the row's text
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (vm.NowPlaying is null && clock.ElapsedMilliseconds < 5000)
+                Settle(20);
+            Settle(300);
+            var first = target.Album.Tracks[0];
+            Console.WriteLine($"double-click '{target.Album}': picked '{vm.SelectedRecentAlbum?.Album}', rows {grid.Items.Count}, "
+                + $"playing '{vm.NowPlaying?.DisplayTitle}' (first is '{first.DisplayTitle}', same={ReferenceEquals(vm.NowPlaying, first)}), isPlaying={vm.IsPlaying}");
+            typeof(MainViewModel).GetMethod("Stop", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(vm, null);
+            Settle(100);
+        }
+
         vm.SelectedPlaylist = vm.Playlists.First(p => p.IsLiked);
         Pump();
         Console.WriteLine("liked:");

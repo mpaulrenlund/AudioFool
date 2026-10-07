@@ -1478,7 +1478,7 @@ in the README under *Likes and playlists*; spec 6.9.
   when the row pressed is already the selected one.
 - **Verified** with ThemeLab **`--window recent`** (see `design/progress.md`, session
   41): 1,204 songs in 106 albums on the shell's cache copy. **Not verified**: real clicks,
-  double-click to play, and the user's real `library.json` (the container gotcha).
+  and the user's real `library.json` (the container gotcha).
 - **Album rows in Recently Added name the artist on their own line** (the user's two
   requests: first the artist, then the year · tracks on a line below it). Title, artist,
   "2026 · 12 tracks". `AlbumItemViewModel`'s `namesArtist` sets `ArtistLine`, a
@@ -1492,6 +1492,16 @@ in the README under *Likes and playlists*; spec 6.9.
 - **Trap: `Set-Content -Encoding utf8` in Windows PowerShell 5.1 writes a BOM.** It did on
   `theme-tokens.json`; stripped with `sed -i '1s/^\xEF\xBB\xBF//'`. Edit the JSON with the
   Edit tool or sed instead.
+- **Fixed after the user found it: double-clicking an album in Recently Added didn't
+  play.** `AlbumList_MouseDoubleClick` is shared by both album lists but looked the row up
+  in `AlbumList` only, so a recent row was never found. It now looks in the `sender` list;
+  `PlayAlbum` already picked the recent album. Verified with `--window recent`, silently
+  (volume 0): double-clicking *Back to the Future* picks it (9 rows) and plays its first
+  song, "Intro". The same run against the old handler picked nothing and played nothing,
+  matching the user's report.
+- **Trap: `Control.MouseDoubleClickEvent` is a direct event.** Raised on a row it never
+  reaches the list's handler, so a lab test "passes" by doing nothing. Raise it on the
+  `ListBox` with `Source` set to the row's text, as WPF does.
 
 ### Session 40 at a glance (2026-10-07)
 
