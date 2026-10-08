@@ -40,7 +40,7 @@ public sealed class CoverStatistics
                 continue;
 
             checkedCount++;
-            if (finding.HasExtras)
+            if (finding.HasExtras && CoverCleaner.CanClean(track.FilePath))
             {
                 found.Add(track);
                 freeable += finding.Freeable;

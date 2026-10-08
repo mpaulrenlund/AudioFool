@@ -70,6 +70,13 @@
                         <MenuItem Header="Edit Artist Tags…"
                                   Command="{Binding Source={StaticResource Proxy}, Path=Data.EditArtistTagsCommand}"
                                   CommandParameter="{Binding}" />
+                        <!-- While the Extra covers row's filter is on: the songs it shows
+                             of this artist (or every selected one). Ctrl+A does the library.
+                             While a run goes: Stop Keeping Best Covers. -->
+                        <MenuItem Header="{Binding Source={StaticResource Proxy}, Path=Data.KeepBestCoverHeader}"
+                                  Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanKeepBestCover, Converter={StaticResource BoolToVisibility}}"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.KeepBestCoverForArtistsCommand}"
+                                  CommandParameter="{Binding}" />
                     </ContextMenu>
                 </Setter.Value>
             </Setter>
@@ -100,7 +107,7 @@
                                   CommandParameter="{Binding}" />
                         <!-- While the Extra covers row's filter is on: the album's songs it
                              shows (or every selected album's) keep only their best cover. -->
-                        <MenuItem Header="Keep Best Cover"
+                        <MenuItem Header="{Binding Source={StaticResource Proxy}, Path=Data.KeepBestCoverHeader}"
                                   Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanKeepBestCover, Converter={StaticResource BoolToVisibility}}"
                                   Command="{Binding Source={StaticResource Proxy}, Path=Data.KeepBestCoverForAlbumsCommand}"
                                   CommandParameter="{Binding}" />

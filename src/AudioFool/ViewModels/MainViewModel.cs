@@ -243,12 +243,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(ProgressFraction))]
     private double _scanFraction;
 
-    /// <summary>The status bar's progress bar: a library scan, else a quality check, else a cover check.</summary>
-    public bool ShowsProgress => IsScanning || IsCheckingQuality || IsCheckingCovers;
+    /// <summary>The status bar's progress bar: a library scan, else a quality check, a cover check, or Keep Best Cover.</summary>
+    public bool ShowsProgress => IsScanning || IsCheckingQuality || IsCheckingCovers || IsKeepingCovers;
 
     public double ProgressFraction => IsScanning ? ScanFraction
-        : IsCheckingQuality ? (QualityProgress.Total == 0 ? 0 : (double)QualityProgress.Done / QualityProgress.Total)
-        : CoverProgress.Total == 0 ? 0 : (double)CoverProgress.Done / CoverProgress.Total;
+        : IsCheckingQuality ? Fraction(QualityProgress.Done, QualityProgress.Total)
+        : IsCheckingCovers ? Fraction(CoverProgress.Done, CoverProgress.Total)
+        : Fraction(KeepProgress.Done, KeepProgress.Total);
+
+    private static double Fraction(int done, int total) => total == 0 ? 0 : (double)done / total;
 
     [ObservableProperty]
     private string _statusText = "Ready";
@@ -2305,6 +2308,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _coverCts?.Cancel();
         _qualityScan?.Wait(TimeSpan.FromSeconds(3));
         _coverScan?.Wait(TimeSpan.FromSeconds(3));
+
+        // Keep Best Cover finishes the song in hand (each is checked and swapped
+        // in whole, so stopping mid-song can't damage it). The library is read
+        // again at the next start for any song done since its last save.
+        _keepCts?.Cancel();
 
         // BASS is shut down after this, so a waveform read mustn't be mid-file.
         // It stops within one 16k-sample read of being cancelled.

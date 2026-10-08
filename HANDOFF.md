@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-08 after the forty-fourth build session (duplicate embedded covers: the best one is shown, `e11c97c`; then Statistics → EXTRA COVERS and the album menu's Keep Best Cover, which rewrites songs with only the best cover and cuts the padding, committed as "Keep Best Cover: remove extra embedded covers"). Read this alongside
+Updated 2026-10-08 after the forty-fourth build session (duplicate embedded covers: the best one is shown, `e11c97c`; then Statistics → EXTRA COVERS and Keep Best Cover on the album and artist menus, which rewrites songs with only the best cover and cuts the padding; run over the whole library, ~9 GB freed; last commit "Keep Best Cover: whole library, byte-level rewrite"). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1527,6 +1527,47 @@ User-facing behaviour is in the README under *Extra covers*.
   check → row → filter → album menu → Keep Best Cover → files before and after;
   library.json backed up and restored). `--window stats --covercache <file>` renders
   the section. ThemeLab always points `CoverCachePath` at a scratch file.
+
+**Part 3: the whole library, and what it found.** 608 tests pass (+4). Committed as
+"Keep Best Cover: whole library, byte-level rewrite".
+
+- **Artist menu + stop.** Albums shows one artist at a time, so Ctrl+A there was never
+  the whole library (I had told the user it was; wrong). `KeepBestCoverForArtistsCommand`
+  on the artist row (Ctrl+A in Artists under the filter = everything). One run at a
+  time, folder by folder (`CleanFolder` then that folder's cover.jpg), progress in the
+  status bar and its bar (`IsKeepingCovers`, `KeepProgress`), and every 30 s
+  (`KeepCommitEvery`) the songs done are re-read, put into the library, covers.json and
+  library.json saved. While a run goes, both menus' item reads **Stop Keeping Best
+  Covers** (`KeepBestCoverHeader`; no status-bar button, to add no new UI element).
+  Closing the app cancels; the song in hand finishes (each is swapped in whole).
+- **The user's run**: 11,407 songs, 8.4 GB freed, 145 cover.jpg saved, **329 skipped**
+  by the check (originals untouched). A read-only sweep sorted them:
+  - Buckethead, Van Halen MP3s: **two ID3v2 tags back to back**. TagLib reads and
+    rewrites only the first; a scratch test grew a file by 316 KB, a copy of the cover
+    left in the second tag, and the old check (TagLib's pictures) missed it.
+  - The Advantage, Metallica Woodstock, James Egbert, Black Mages MP3s: an **APE tag
+    at the end**, re-rendered by TagLib; the audio hash counted it as audio.
+  - Shpongle, Tesseract, John Connearn FLACs: two 8–10 MB covers plus ~9 MB padding.
+    Dropping one wants a PADDING block over FLAC's 24-bit (16 MB) length; **TagLib
+    writes it wrapped**, leaving zeros before the audio. The check caught it.
+  - Rush *Snakes & Arrows Live*: FLACs with an **ID3v2 tag before "fLaC"**.
+  - Pink Floyd R2R: 9 DSF. Now out of the row (`CoverCleaner.CanClean`: FLAC, MP3).
+- **The fix: no TagLib writes.** `TagPadding.TryShrink(source, target, keepOnlyPicture)`
+  walks every ID3v2 tag at the front (records each frame) and a FLAC's blocks after
+  them, keeps the first APIC/PIC frame or PICTURE block whose image bytes equal the best
+  cover and drops every other picture, copies everything else byte for byte, and cuts
+  padding to the reserve (a tag's padding never grows). A picture frame with format
+  flags (compressed, encrypted...) makes it refuse. TagLib remains only as the fallback
+  when covers sit in a Xiph comment or APE tag (it clears the APE tag's). `TagLayout`
+  now also gives `Pictures` (counted in the bytes, every tag) and `Id3Tags`.
+  **`Verify`** now requires exactly one picture across the bytes plus Xiph and APE,
+  hashes the audio less a trailing ID3v1 and APEv2 tag, and compares those as tags
+  (APE items other than cover art, rendered).
+- **Verified**: copies of 2 songs from each of the 21 remaining folders, 42 of 42
+  cleaned and checked (114 MB); the user's second run: 320 songs, 564 MB, 0 left.
+  **Final sweep of D:\Music (read-only)**: 26,860 songs, every FLAC and MP3 has one
+  picture, only the 9 DSF have more, 0 working files, 0 unreadable; 724.38 → 723.82 GB.
+  About **9 GB freed in all**.
 
 ### Changes from session 43 (2026-10-08): scan memory
 
@@ -3775,9 +3816,8 @@ retag of the playing track reaches the scrobbler.
 0. ~~**A new cover on the playing album skips the playing and next tracks**~~ Done in
    session 37: the engine lets go of the file for the save and reopens it at its
    position.
-0. **Extra covers (session 44)**: built and confirmed on two albums. The user may run Keep
-   Best Cover over the rest (Ctrl+A under the filter); if any songs come back "skipped",
-   the status bar names the first and why. Not handled: formats other than FLAC and MP3.
+0. **Extra covers (session 44)**: done over the whole library and swept; nothing open.
+   Not handled: formats other than FLAC and MP3 (9 DSF keep their extra covers).
 1. A visible, editable queue view — now the most conspicuous missing player feature.
 2. ~~Library-wide tag stripping~~, ~~recovering dates lost to pre-session-12 saves
    from MusicBrainz~~, ~~resuming playback on launch~~, ~~a Last.fm Love button~~ and

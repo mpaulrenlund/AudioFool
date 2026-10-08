@@ -70,10 +70,21 @@ public static class CoverCleaner
         }
     }
 
+    /// <summary>
+    /// FLAC and MP3, the formats <see cref="TagPadding"/> can lay out and so check.
+    /// Others (DSF, say) are left out of the check's row, since nothing can be done.
+    /// </summary>
+    public static bool CanClean(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() is ".flac" or ".mp3";
+
     /// <param name="holder">Playback, which may hold the file open; it lets go for the swap and picks up where it was.</param>
     public static CoverCleanResult Clean(string path, IFileHolder? holder = null)
     {
+        if (!CanClean(path))
+            return Failed(path, "only FLAC and MP3 files can be cleaned");
+
         TagLib.IPicture best;
+        bool coversElsewhere;
         try
         {
             using var file = TagLib.File.Create(path);
@@ -81,6 +92,7 @@ public static class CoverCleaner
             if (pictures.Length <= 1 || TagReader.BestCover(pictures) is not { } found)
                 return new CoverCleanResult(path, CoverCleanOutcome.NothingToDo, 0, false, null);
             best = found;
+            coversElsewhere = PicturesOutsideBlocksAndFrames(file) > 0;
         }
         catch (Exception ex) when (ex is TagLib.UnsupportedFormatException or TagLib.CorruptFileException
                                      or IOException or UnauthorizedAccessException or NotSupportedException)
@@ -90,11 +102,16 @@ public static class CoverCleaner
 
         // The whole file is replaced, so a stream reading it must always let go.
         return holder is null
-            ? CleanCore(path, best)
-            : holder.Saving(path, needsRelease: () => true, save: () => CleanCore(path, best));
+            ? CleanCore(path, best, coversElsewhere)
+            : holder.Saving(path, needsRelease: () => true, save: () => CleanCore(path, best, coversElsewhere));
     }
 
-    private static CoverCleanResult CleanCore(string path, TagLib.IPicture best)
+    /// <summary>Covers in a Xiph comment or an APE tag, which <see cref="TagPadding"/> doesn't touch.</summary>
+    private static int PicturesOutsideBlocksAndFrames(TagLib.File file) =>
+        new[] { TagLib.TagTypes.Xiph, TagLib.TagTypes.Ape }
+            .Sum(t => file.TagTypes.HasFlag(t) ? file.GetTag(t, false)?.Pictures.Length ?? 0 : 0);
+
+    private static CoverCleanResult CleanCore(string path, TagLib.IPicture best, bool coversElsewhere)
     {
         var directory = Path.GetDirectoryName(path)!;
         var stem = Path.Combine(directory, TempPrefix + Guid.NewGuid().ToString("N"));
@@ -103,24 +120,43 @@ public static class CoverCleaner
         try
         {
             var before = new FileInfo(path).Length;
-            File.Copy(path, copy);
+            string result;
+            bool didShrink;
 
-            using (var file = OpenAs(copy, path))
+            // Covers held as FLAC PICTURE blocks or ID3v2 APIC frames: the extra ones
+            // are left out as the file is rewritten, in one pass, without TagLib,
+            // which can't be trusted here (see TagPadding). TagLib is the fallback,
+            // for covers held elsewhere (a Xiph comment, an APE tag); Verify counts
+            // the pictures in every tag either way.
+            if (!coversElsewhere && TagPadding.TryShrink(path, shrunk, keepOnlyPicture: best.Data.Data))
             {
-                file.Tag.Pictures =
-                [
-                    new TagLib.Picture(new TagLib.ByteVector(best.Data.Data))
-                    {
-                        Type = best.Type,
-                        MimeType = best.MimeType,
-                        Description = best.Description,
-                    },
-                ];
-                file.Save();
+                result = shrunk;
+                didShrink = true;
             }
+            else
+            {
+                File.Copy(path, copy);
+                using (var file = OpenAs(copy, path))
+                {
+                    file.Tag.Pictures =
+                    [
+                        new TagLib.Picture(new TagLib.ByteVector(best.Data.Data))
+                        {
+                            Type = best.Type,
+                            MimeType = best.MimeType,
+                            Description = best.Description,
+                        },
+                    ];
+                    // Setting the pictures fills every tag that can hold one; an APE
+                    // tag at the end of an MP3 would keep a second copy.
+                    if (file.GetTag(TagLib.TagTypes.Ape, false) is TagLib.Ape.Tag ape)
+                        ape.Pictures = [];
+                    file.Save();
+                }
 
-            var didShrink = TagPadding.TryShrink(copy, shrunk);
-            var result = didShrink ? shrunk : copy;
+                didShrink = TagPadding.TryShrink(copy, shrunk);
+                result = didShrink ? shrunk : copy;
+            }
 
             if (Verify(path, result, best.Data.Data) is { } problem)
                 return Failed(path, problem);
@@ -151,7 +187,11 @@ public static class CoverCleaner
 
         using var a = TagLib.File.Create(original);
         using var b = OpenAs(result, original);
-        if (b.Tag.Pictures is not [var kept] || !kept.Data.Data.AsSpan().SequenceEqual(bestCover))
+        // Counted twice over: in the bytes (PICTURE blocks, and APIC frames in every
+        // ID3v2 tag, where TagLib may see only the first tag), and in each tag TagLib
+        // reads (which adds a Xiph comment's and an APE tag's). Exactly one, the best.
+        if (after.Pictures + PicturesOutsideBlocksAndFrames(b) != 1
+            || AllPictures(b) is not [var kept] || !kept.Data.Data.AsSpan().SequenceEqual(bestCover))
             return "the cover left wasn't the best one";
         if (!TagsMatch(a, b))
             return "the tags didn't read back the same";
@@ -186,11 +226,24 @@ public static class CoverCleaner
                 return false;
         }
 
-        // Left out of the audio comparison, since TagLib renders it afresh on every save.
+        // These two are left out of the audio comparison, since TagLib renders
+        // them afresh on every save. An APE tag's covers are meant to go.
         if (a.GetTag(TagLib.TagTypes.Id3v1, false) is TagLib.Id3v1.Tag va
             && (b.GetTag(TagLib.TagTypes.Id3v1, false) is not TagLib.Id3v1.Tag vb
                 || !va.Render().Data.AsSpan().SequenceEqual(vb.Render().Data)))
             return false;
+
+        if (a.GetTag(TagLib.TagTypes.Ape, false) is TagLib.Ape.Tag apeA)
+        {
+            if (b.GetTag(TagLib.TagTypes.Ape, false) is not TagLib.Ape.Tag apeB)
+                return false;
+            static bool IsCover(string key) => key.StartsWith("Cover Art", StringComparison.OrdinalIgnoreCase);
+            var keys = apeA.Where(k => !IsCover(k)).Order(StringComparer.Ordinal).ToList();
+            if (!keys.SequenceEqual(apeB.Where(k => !IsCover(k)).Order(StringComparer.Ordinal)))
+                return false;
+            if (keys.Any(k => !apeA.GetItem(k).Render().Data.AsSpan().SequenceEqual(apeB.GetItem(k).Render().Data)))
+                return false;
+        }
 
         var ta = a.Tag;
         var tb = b.Tag;
@@ -209,7 +262,25 @@ public static class CoverCleaner
         TagLib.File.Create(path, "taglib/" + Path.GetExtension(formatOf).TrimStart('.').ToLowerInvariant(),
                            TagLib.ReadStyle.Average);
 
-    /// <summary>From where the tags end to the end of the file, less an ID3v1 tag there (compared as a tag).</summary>
+    /// <summary>The pictures in each of the file's tags: FLAC blocks, Xiph, ID3v2, APE.</summary>
+    private static List<TagLib.IPicture> AllPictures(TagLib.File file)
+    {
+        var pictures = new List<TagLib.IPicture>();
+        foreach (var type in Enum.GetValues<TagLib.TagTypes>())
+        {
+            if (type is not TagLib.TagTypes.None and not TagLib.TagTypes.AllTags
+                && System.Numerics.BitOperations.PopCount((uint)type) == 1
+                && file.TagTypes.HasFlag(type) && file.GetTag(type, false) is { } tag)
+                pictures.AddRange(tag.Pictures);
+        }
+
+        return pictures;
+    }
+
+    /// <summary>
+    /// From where the tags end to the end of the file, less an ID3v1 tag and an
+    /// APE tag there (those are compared as tags).
+    /// </summary>
     private static byte[] AudioHash(string path, long start)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
@@ -221,6 +292,22 @@ public static class CoverCleaner
             stream.ReadExactly(tag);
             if (tag is [(byte)'T', (byte)'A', (byte)'G'])
                 end -= 128;
+        }
+
+        // APEv2: a 32-byte footer whose size covers the items and the footer, plus a 32-byte header if flagged.
+        if (end - start >= 32)
+        {
+            var footer = new byte[32];
+            stream.Position = end - 32;
+            stream.ReadExactly(footer);
+            if (footer.AsSpan(0, 8).SequenceEqual("APETAGEX"u8))
+            {
+                var size = BitConverter.ToUInt32(footer, 12);
+                var hasHeader = (footer[23] & 0x80) != 0;
+                var tagStart = end - size - (hasHeader ? 32 : 0);
+                if (tagStart >= start)
+                    end = tagStart;
+            }
         }
 
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);

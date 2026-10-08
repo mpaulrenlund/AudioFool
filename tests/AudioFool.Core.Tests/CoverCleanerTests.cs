@@ -255,6 +255,86 @@ public class CoverCleanerTests
         Assert.False(TagPadding.TryShrink(file.Path, file.Path + ".x"));
     }
 
+    /// <summary>An ID3v2.3 tag holding one picture, as TagLib renders it, header and padding included.</summary>
+    private static byte[] Id3Tag(byte[]? picture, string? title = null)
+    {
+        var tag = new TagLib.Id3v2.Tag { Version = 3 };
+        if (title is not null)
+            tag.Title = title;
+        if (picture is not null)
+            tag.Pictures = [Picture(picture)];
+        return tag.Render().Data;
+    }
+
+    private static int PicturesInBytes(string path) => TagPadding.Read(path)!.Pictures;
+
+    // Buckethead's and Van Halen's MP3s: two ID3v2 tags back to back. TagLib reads
+    // and rewrites only the first, which left a copy of the cover in the second and
+    // grew the file. Here the second holds one too: every copy but the best goes.
+    [Fact]
+    public void Two_id3_tags_at_the_front_end_with_one_cover_between_them()
+    {
+        using var file = WithThreeCovers("sample.mp3");
+        var bytes = File.ReadAllBytes(file.Path);
+        var audio = (int)TagPadding.Read(file.Path)!.AudioStart;
+        File.WriteAllBytes(file.Path, [.. bytes[..audio], .. Id3Tag(Small, "Second"), .. bytes[audio..]]);
+        Assert.Equal((2, 4), (TagPadding.Read(file.Path)!.Id3Tags, PicturesInBytes(file.Path)));
+        var before = new FileInfo(file.Path).Length;
+
+        var result = CoverCleaner.Clean(file.Path);
+
+        Assert.Equal(CoverCleanOutcome.Cleaned, result.Outcome);
+        Assert.True(new FileInfo(file.Path).Length < before);
+        Assert.Equal(1, PicturesInBytes(file.Path));
+        Assert.Equal(2, TagPadding.Read(file.Path)!.Id3Tags);
+    }
+
+    // Rush's FLACs: an ID3v2 tag before "fLaC". It is kept as it was.
+    [Fact]
+    public void A_flac_with_an_id3_tag_in_front_keeps_it()
+    {
+        using var file = WithThreeCovers("sample.flac");
+        var front = Id3Tag(null, "In Front");
+        File.WriteAllBytes(file.Path, [.. front, .. File.ReadAllBytes(file.Path)]);
+
+        var result = CoverCleaner.Clean(file.Path);
+
+        Assert.Equal(CoverCleanOutcome.Cleaned, result.Outcome);
+        Assert.Equal(1, PicturesInBytes(file.Path));
+        Assert.Equal(front, File.ReadAllBytes(file.Path)[..front.Length]);
+        using var reread = TagLib.File.Create(file.Path);
+        Assert.Equal(Large, Assert.Single(reread.Tag.Pictures).Data.Data);
+    }
+
+    // The Advantage's MP3s: an APE tag at the end, which TagLib re-renders. It is
+    // compared as a tag, not as audio, and left as it was.
+    [Fact]
+    public void An_ape_tag_at_the_end_is_kept()
+    {
+        using var file = WithThreeCovers("sample.mp3");
+        using (var tagged = TagLib.File.Create(file.Path))
+        {
+            ((TagLib.Ape.Tag)tagged.GetTag(TagLib.TagTypes.Ape, true)).Title = "APE Title";
+            tagged.Save();
+        }
+
+        var result = CoverCleaner.Clean(file.Path);
+
+        Assert.Equal(CoverCleanOutcome.Cleaned, result.Outcome);
+        using var reread = TagLib.File.Create(file.Path);
+        Assert.Equal("APE Title", ((TagLib.Ape.Tag)reread.GetTag(TagLib.TagTypes.Ape, false)).Title);
+        Assert.Equal(1, PicturesInBytes(file.Path));
+    }
+
+    [Fact]
+    public void Only_flac_and_mp3_are_cleaned()
+    {
+        Assert.True(CoverCleaner.CanClean(@"D:\a.FLAC"));
+        Assert.True(CoverCleaner.CanClean(@"D:\a.mp3"));
+        Assert.False(CoverCleaner.CanClean(@"D:\a.dsf"));
+        Assert.Equal(CoverCleanOutcome.Failed, CoverCleaner.Clean(@"D:\no such file.dsf").Outcome);
+    }
+
     /// <summary>Holds the file as BASS does, and lets go only inside Saving.</summary>
     private sealed class HoldingPlayback(string path) : IFileHolder, IDisposable
     {

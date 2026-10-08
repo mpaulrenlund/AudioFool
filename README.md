@@ -509,18 +509,23 @@ take.
   (later checks read only new or changed files). The **Extra covers** row says how many
   albums and tracks and how much space would be freed.
 - **Clean them.** Click the row, then right-click an album in the Albums list (not the
-  header picture) → **Keep Best Cover**. It acts on that album's songs the row shows, or
-  every selected album's. Each song keeps only its best cover, and the empty room the
-  others leave is cut to 5 KB, so a later small tag edit still doesn't rewrite the file.
-  Then each folder gets `cover.jpg` from the kept cover, unless it already has one at
-  least as big. The status bar says how many songs were done and how much was freed.
+  header picture) or an artist in the Artists list → **Keep Best Cover**. It acts on the
+  songs the row shows of that album or artist, or of every selected one: **Ctrl+A in
+  Artists does the whole library**. Each song keeps only its best cover, and the empty
+  room the others leave is cut to 5 KB, so a later small tag edit still doesn't rewrite
+  the file. Then each folder gets `cover.jpg` from the kept cover, unless it already has
+  one at least as big. Progress is in the status bar; every 30 seconds the songs done
+  leave the list and are saved. **To stop**, right-click an artist or album → **Stop
+  Keeping Best Covers**: the song in hand is finished, and a second run picks up the rest.
 
-The original file is never edited. Each song is rebuilt as a new copy beside it and
-checked before it replaces the original: the music must match byte for byte, every tag
-must read back the same, and the one cover left must be the best one. Anything that
-doesn't check out is left as it was and named in the status bar. The file keeps its
-creation date, so Recently Added is unaffected. A song that is playing is let go for a
-moment and picks up where it was (a short gap). FLAC and MP3 only.
+The original file is never edited. Each song is rebuilt as a new copy beside it, with
+every byte copied as it was except the extra pictures and the padding, and checked
+before it replaces the original: the music must match byte for byte, every tag must read
+back the same, and exactly one cover, the best, must be left in all of the file's tags.
+Anything that doesn't check out is left as it was and named in the status bar. The file
+keeps its creation date, so Recently Added is unaffected. A song that is playing is let
+go for a moment and picks up where it was (a short gap). FLAC and MP3 only; other
+formats aren't listed.
 
 ---
 

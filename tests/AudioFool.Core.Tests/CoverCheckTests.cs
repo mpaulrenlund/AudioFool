@@ -33,14 +33,14 @@ public class CoverCheckTests
             exists: path => path.StartsWith(@"D:\"));
 
     [Fact]
-    public void The_row_counts_tracks_albums_and_space_with_extra_covers()
+    public async Task The_row_counts_tracks_albums_and_space_with_extra_covers()
     {
         Track[] tracks =
         [
             Song(@"D:\a.flac", "One"), Song(@"D:\b.flac", "Two"), Song(@"D:\c.flac", "Two"), Song(@"D:\d.flac", "Three"),
         ];
         var cache = CoverCache.Empty();
-        var summary = Run(tracks, cache).Result;
+        var summary = await Run(tracks, cache);
 
         Assert.Equal((4, 2), (summary.Checked, summary.Found));
         var stats = CoverStatistics.Compute(tracks, cache);
@@ -50,43 +50,43 @@ public class CoverCheckTests
     }
 
     [Fact]
-    public void A_checked_track_is_not_read_again_until_it_changes()
+    public async Task A_checked_track_is_not_read_again_until_it_changes()
     {
         var a = Song(@"D:\a.flac");
         var cache = CoverCache.Empty();
-        Run([a], cache).Wait();
+        await Run([a], cache);
 
         var read = new List<string>();
-        Run([a], cache, read).Wait();
+        await Run([a], cache, read);
         Assert.Empty(read);
 
         // Cleaned: a new size, so the old result no longer applies and it is read again.
         var cleaned = Song(@"D:\a.flac", size: 900);
         Assert.Empty(CoverStatistics.Compute([cleaned], CoverCache.Load("no such file")).Filter?.Apply([cleaned]) ?? []);
-        Run([cleaned], cache, read).Wait();
+        await Run([cleaned], cache, read);
         Assert.Equal([@"D:\a.flac"], read);
     }
 
     [Fact]
-    public void A_missing_file_is_not_recorded()
+    public async Task A_missing_file_is_not_recorded()
     {
         var gone = Song(@"E:\gone.flac");
         var cache = CoverCache.Empty();
 
-        var summary = Run([gone], cache).Result;
+        var summary = await Run([gone], cache);
 
         Assert.Equal(1, summary.Missing);
         Assert.False(cache.TryGet(gone, out _));
     }
 
     [Fact]
-    public void Results_survive_a_save_and_a_new_drive_letter()
+    public async Task Results_survive_a_save_and_a_new_drive_letter()
     {
         var path = Path.Combine(Path.GetTempPath(), $"AudioFool-covers-{Guid.NewGuid():N}.json");
         try
         {
             var cache = CoverCache.Empty();
-            Run([Song(@"D:\a.flac")], cache).Wait();
+            await Run([Song(@"D:\a.flac")], cache);
             cache.Save(path);
 
             var loaded = CoverCache.Load(path);
@@ -100,11 +100,11 @@ public class CoverCheckTests
     }
 
     [Fact]
-    public void No_extra_covers_means_no_filter()
+    public async Task No_extra_covers_means_no_filter()
     {
         var c = Song(@"D:\c.flac");
         var cache = CoverCache.Empty();
-        Run([c], cache).Wait();
+        await Run([c], cache);
 
         var stats = CoverStatistics.Compute([c], cache);
 

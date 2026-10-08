@@ -3320,28 +3320,33 @@ internal static class Program
     /// (--album, read only), so Keep Best Cover rewrites the copies and never
     /// the music drive. Deleted afterwards with the other scratch folders.
     /// </summary>
-    private static void LoadCoversLibrary(MainViewModel vm, string album)
+    private static void LoadCoversLibrary(MainViewModel vm, string albums)
     {
         var dir = Path.Combine(Path.GetTempPath(), "themelab-covers-" + Guid.NewGuid().ToString("N")[..8]);
-        var albumDir = Path.Combine(dir, Path.GetFileName(album));
-        Directory.CreateDirectory(albumDir);
         _scratchDir = dir;
+        var tracks = new List<Track>();
 
-        foreach (var file in Directory.GetFiles(album))
+        // --album "a;b": several folders, each copied to a folder of its own.
+        foreach (var album in albums.Split(';', StringSplitOptions.RemoveEmptyEntries))
         {
-            var copy = Path.Combine(albumDir, Path.GetFileName(file));
-            File.Copy(file, copy);
-            File.SetCreationTimeUtc(copy, File.GetCreationTimeUtc(file));
+            var albumDir = Path.Combine(dir, Path.GetFileName(Path.GetDirectoryName(album))!, Path.GetFileName(album));
+            Directory.CreateDirectory(albumDir);
+            foreach (var file in Directory.GetFiles(album))
+            {
+                var copy = Path.Combine(albumDir, Path.GetFileName(file));
+                File.Copy(file, copy);
+                File.SetCreationTimeUtc(copy, File.GetCreationTimeUtc(file));
+            }
+
+            tracks.AddRange(Directory.GetFiles(albumDir)
+                .Where(f => AudioFool.Core.Library.AudioFormats.IsSupported(f))
+                .Select(f => AudioFool.Core.Library.TagReader.Read(f)));
         }
 
-        var tracks = Directory.GetFiles(albumDir)
-            .Where(f => AudioFool.Core.Library.AudioFormats.IsSupported(f))
-            .Select(f => AudioFool.Core.Library.TagReader.Read(f))
-            .ToList();
         typeof(MainViewModel)
             .GetMethod("ApplyLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(vm, [AudioFool.Core.Library.LibraryScanner.Build(tracks), false]);
-        Console.WriteLine($"library: {tracks.Count} scratch copies of {album} in {albumDir}");
+        Console.WriteLine($"library: {tracks.Count} scratch copies of {albums} in {dir}");
     }
 
     /// <summary>
@@ -3353,21 +3358,52 @@ internal static class Program
     private static void RunCovers(MainWindow main, MainViewModel vm)
     {
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
-        var files = Directory.GetFiles(Path.Combine(_scratchDir!, Directory.GetDirectories(_scratchDir!).Select(Path.GetFileName).Single()!));
+        var albumDirs = Directory.GetDirectories(_scratchDir!, "*", SearchOption.AllDirectories)
+            .Where(d => Directory.GetFiles(d).Length > 0).Order().ToList();
 
         void Files(string when)
         {
             Console.WriteLine($"[{when}]");
-            foreach (var f in files.Where(f => AudioFool.Core.Library.AudioFormats.IsSupported(f)))
+            foreach (var albumDir in albumDirs)
             {
-                var finding = AudioFool.Core.Art.CoverCleaner.Survey(f);
-                Console.WriteLine($"  {Path.GetFileName(f),-50} {new FileInfo(f).Length,12:N0} B  pictures {finding?.Pictures}  "
-                    + $"padding {AudioFool.Core.Library.TagPadding.Read(f)?.Padding:N0}  created {File.GetCreationTimeUtc(f):u}");
+                Console.WriteLine($"  {Path.GetFileName(Path.GetDirectoryName(albumDir))} / {Path.GetFileName(albumDir)}");
+                foreach (var f in Directory.GetFiles(albumDir).Where(f => AudioFool.Core.Library.AudioFormats.IsSupported(f)).Order())
+                {
+                    var finding = AudioFool.Core.Art.CoverCleaner.Survey(f);
+                    Console.WriteLine($"    {Path.GetFileName(f),-48} {new FileInfo(f).Length,12:N0} B  pictures {finding?.Pictures}  "
+                        + $"padding {AudioFool.Core.Library.TagPadding.Read(f)?.Padding:N0}  created {File.GetCreationTimeUtc(f):u}");
+                }
+                var cover = Path.Combine(albumDir, "cover.jpg");
+                Console.WriteLine(File.Exists(cover)
+                    ? $"    cover.jpg {new FileInfo(cover).Length:N0} B {AudioFool.Core.Art.ImageInfo.Read(File.ReadAllBytes(cover))?.SizeText}"
+                    : "    cover.jpg: none");
             }
-            var cover = Path.Combine(Path.GetDirectoryName(files[0])!, "cover.jpg");
-            Console.WriteLine(File.Exists(cover)
-                ? $"  cover.jpg {new FileInfo(cover).Length:N0} B {AudioFool.Core.Art.ImageInfo.Read(File.ReadAllBytes(cover))?.SizeText}"
-                : "  cover.jpg: none");
+        }
+
+        // Runs Keep Best Cover from the artist menu over every artist, as Ctrl+A
+        // then the menu would; with stopAfter, chooses the menu again (now "Stop
+        // Keeping Best Covers") once that many songs are done.
+        void KeepAll(string when, int? stopAfter = null)
+        {
+            vm.SelectedArtists = [.. vm.Artists];
+            Console.WriteLine($"{when}: {vm.Artists.Count} artists selected, menu '{vm.KeepBestCoverHeader}' visible={vm.CanKeepBestCover}");
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            vm.KeepBestCoverForArtistsCommand.Execute(vm.Artists[0]);
+            Settle(50);
+            Console.WriteLine($"  running: menu '{vm.KeepBestCoverHeader}' visible={vm.CanKeepBestCover} progress shown={vm.ShowsProgress}");
+            while (vm.IsKeepingCovers)
+            {
+                if (stopAfter is { } n && vm.KeepProgress.Done >= n)
+                {
+                    vm.KeepBestCoverForArtistsCommand.Execute(vm.Artists.FirstOrDefault());
+                    Console.WriteLine($"  stop chosen at {vm.KeepProgress.Done} of {vm.KeepProgress.Total}");
+                    stopAfter = null;
+                }
+                Settle(50);
+            }
+            Settle(300);
+            Console.WriteLine($"  done in {clock.Elapsed.TotalSeconds:0.0} s: {vm.StatusText}");
+            Console.WriteLine($"  menu now '{vm.KeepBestCoverHeader}', artists left under the filter: {vm.Artists.Count}, progress shown={vm.ShowsProgress}");
         }
 
         void Section(string when)
@@ -3418,15 +3454,19 @@ internal static class Program
         Console.WriteLine($"filter on: '{vm.LibraryFilter}' canKeep={vm.CanKeepBestCover}  status: {vm.StatusText}");
         AlbumMenu("filtered:");
 
-        var album = vm.SelectedAlbum ?? throw new InvalidOperationException("no album selected under the filter");
-        var clock = System.Diagnostics.Stopwatch.StartNew();
-        var task = vm.KeepBestCoverForAlbumsCommand.ExecuteAsync(album);
-        while (!task.IsCompleted)
-            Settle(100);
-        task.GetAwaiter().GetResult();
-        Settle(300);
-        Console.WriteLine($"keep best cover on '{album.Title}' in {clock.Elapsed.TotalSeconds:0.0} s: {vm.StatusText}");
-        Console.WriteLine($"  albums still listed under the filter: {vm.Albums.Count}");
+        // --stopafter N: stop the first run after N songs, then run again for the rest.
+        if (Arg(Environment.GetCommandLineArgs(), "--stopafter") is { } stop)
+        {
+            KeepAll("first run", int.Parse(stop, CultureInfo.InvariantCulture));
+            Section("after stopping");
+            Files("after stopping");
+            KeepAll("second run");
+        }
+        else
+        {
+            KeepAll("run");
+        }
+
         Section("after keeping");
         Files("after");
         Console.WriteLine($"leftover working files: {Directory.GetFiles(_scratchDir!, ".audiofool-cover-*", SearchOption.AllDirectories).Length}");

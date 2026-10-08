@@ -138,7 +138,7 @@ public static class CoverScanner
                     var finding = survey(track.FilePath);
                     if (finding is null)
                         Interlocked.Increment(ref unreadable);
-                    else if (finding.HasExtras)
+                    else if (finding.HasExtras && CoverCleaner.CanClean(track.FilePath))
                         Interlocked.Increment(ref found);
 
                     cache.Set(track, finding ?? new CoverFinding(0, 0));
