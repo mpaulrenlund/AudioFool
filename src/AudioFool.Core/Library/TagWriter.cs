@@ -13,6 +13,12 @@ public sealed record TagWriteResult
     public string? ErrorMessage { get; init; }
     public Track? UpdatedTrack { get; init; }
 
+    /// <summary>
+    /// A saved file whose new cover couldn't be made its only picture, and why: the
+    /// tags and cover were written, but an older copy or the room it took is still there.
+    /// </summary>
+    public string? CoverWarning { get; init; }
+
     public static TagWriteResult Ok(Track updated) => new() { Success = true, UpdatedTrack = updated };
     public static TagWriteResult Fail(string message) => new() { Success = false, ErrorMessage = message };
 }
@@ -54,7 +60,8 @@ public static class TagWriter
         if (!save.Success)
             return TagWriteResult.Fail(save.ErrorMessage!);
 
-        return TagWriteResult.Ok(track.WithTags(edit, FileStamp.For(track.FilePath), folderArtPath));
+        var warning = TidyCover(track.FilePath, art, holder);
+        return TagWriteResult.Ok(track.WithTags(edit, FileStamp.For(track.FilePath), folderArtPath)) with { CoverWarning = warning };
     }
 
     /// <summary>
@@ -87,7 +94,23 @@ public static class TagWriter
         if (!save.Success)
             return TagWriteResult.Fail(save.ErrorMessage!);
 
-        return TagWriteResult.Ok(track.WithAlbumTags(edit, FileStamp.For(track.FilePath), folderArtPath));
+        var warning = TidyCover(track.FilePath, art, holder);
+        return TagWriteResult.Ok(track.WithAlbumTags(edit, FileStamp.For(track.FilePath), folderArtPath)) with { CoverWarning = warning };
+    }
+
+    /// <summary>
+    /// After a save that wrote a new cover: makes it the file's only picture and
+    /// cuts the room the old one left (<see cref="Art.CoverCleaner.KeepOnly"/>), so
+    /// a cover change never leaves two copies behind (the user's call). Null when
+    /// that worked or wasn't needed; otherwise why not. The save itself stands.
+    /// </summary>
+    private static string? TidyCover(string path, ArtPayload? art, IFileHolder? holder)
+    {
+        if (art is null)
+            return null;
+
+        var tidy = Art.CoverCleaner.KeepOnly(path, art.Bytes, holder);
+        return tidy.Outcome == Art.CoverCleanOutcome.Failed ? tidy.Error : null;
     }
 
     /// <summary>

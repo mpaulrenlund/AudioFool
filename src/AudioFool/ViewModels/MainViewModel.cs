@@ -1843,6 +1843,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             }
         }
 
+        var coverWarnings = new List<(string FileName, string Warning)>();
         var (updated, failed) = await Task.Run(() =>
         {
             var okTracks = new List<Track>();
@@ -1860,6 +1861,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                     okTracks.Add(writeResult.UpdatedTrack!);
                 else
                     badTracks.Add((Path.GetFileName(track.FilePath), writeResult.ErrorMessage ?? "unknown error"));
+                if (writeResult.CoverWarning is { } warning)
+                    coverWarnings.Add((Path.GetFileName(track.FilePath), warning));
+            }
+
+            // A new cover leaves each song with that one picture; recorded, so the
+            // Extra covers row needn't read them again.
+            if (art is not null && okTracks.Count > 0)
+            {
+                foreach (var track in okTracks)
+                {
+                    if (CoverCleaner.Survey(track.FilePath) is { } finding)
+                        CoverResults.Set(track, finding);
+                }
+                CoverResults.Save(CoverCachePath);
             }
 
             return (okTracks, badTracks);
@@ -1892,6 +1907,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (folderArtFailed)
             StatusText += "  Folder cover file couldn't be updated.";
+
+        if (coverWarnings.Count > 0)
+            StatusText += $"  {Songs(coverWarnings.Count)} kept an older cover copy, left as saved "
+                + $"({coverWarnings[0].FileName}: {coverWarnings[0].Warning}).";
     }
 
 

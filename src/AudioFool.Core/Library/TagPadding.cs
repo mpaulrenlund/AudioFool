@@ -8,7 +8,8 @@ namespace AudioFool.Core.Library;
 /// <param name="Padding">The empty room inside the tags, in bytes, headers included.</param>
 /// <param name="Pictures">FLAC PICTURE blocks and ID3v2 APIC/PIC frames, in every tag at the front.</param>
 /// <param name="Id3Tags">How many ID3v2 tags sit back to back at the front.</param>
-public sealed record TagLayout(long AudioStart, long Padding, int Pictures, int Id3Tags);
+/// <param name="HasSpareRoom">Some tag holds more padding than <see cref="TagPadding.Reserve"/>, so a rewrite would free space.</param>
+public sealed record TagLayout(long AudioStart, long Padding, int Pictures, int Id3Tags, bool HasSpareRoom);
 
 /// <summary>
 /// Rewrites a file with its tags' padding cut to <see cref="Reserve"/>, and can
@@ -58,7 +59,9 @@ public static class TagPadding
         Parse(stream) is { } layout
             ? new TagLayout(layout.AudioStart, layout.Padding,
                 layout.Id3.Sum(t => t.Frames.Count(f => f.IsPicture)) + (layout.Flac?.Count(b => b.Type == FlacPicture) ?? 0),
-                layout.Id3.Count)
+                layout.Id3.Count,
+                layout.Id3.Any(t => t.End - t.FramesEnd > Reserve)
+                || (layout.Flac?.Where(b => b.Type == FlacPadding).Sum(b => 4L + b.Length) ?? 0) > 4 + Reserve)
             : null;
 
     /// <summary>

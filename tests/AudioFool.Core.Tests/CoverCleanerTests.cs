@@ -326,6 +326,105 @@ public class CoverCleanerTests
         Assert.Equal(1, PicturesInBytes(file.Path));
     }
 
+    /// <summary>Edit Album Tags' Save with a new cover, as the app makes it.</summary>
+    private static TagWriteResult SaveNewCover(string path, byte[] cover)
+    {
+        var track = TagReader.Read(path);
+        return TagWriter.WriteAlbumTrackTags(track,
+            new AlbumTagEdit(track.Artist ?? "", track.AlbumArtist ?? "", track.Album ?? "", track.Year),
+            new ArtPayload(cover, "image/png"), folderArtPath: null);
+    }
+
+    private static int ApePictures(string path)
+    {
+        using var file = TagLib.File.Create(path);
+        return file.GetTag(TagLib.TagTypes.Ape, false)?.Pictures.Length ?? 0;
+    }
+
+    // A smaller cover in place of a big one: the file gets smaller, not padded.
+    [Theory]
+    [InlineData("sample.flac")]
+    [InlineData("sample.mp3")]
+    public void A_new_cover_replaces_the_old_and_its_room(string fixture)
+    {
+        using var file = new TempAudioFile(fixture);
+        using (var tagged = TagLib.File.Create(file.Path))
+        {
+            tagged.Tag.Pictures = [Picture(Large)];
+            tagged.Save();
+        }
+        var before = new FileInfo(file.Path).Length;
+        var cover = Png(600, 600, 10_000);
+
+        var result = SaveNewCover(file.Path, cover);
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Null(result.CoverWarning);
+        Assert.Equal(1, PicturesInBytes(file.Path));
+        Assert.False(TagPadding.Read(file.Path)!.HasSpareRoom);
+        Assert.True(new FileInfo(file.Path).Length < before - 100_000);
+        using var reread = TagLib.File.Create(file.Path);
+        Assert.Equal(cover, Assert.Single(reread.Tag.Pictures).Data.Data);
+        // The track carries the file's size after the tidy, so the next scan doesn't re-read it.
+        Assert.Equal(new FileInfo(file.Path).Length, result.UpdatedTrack!.FileSize);
+    }
+
+    // The Advantage's MP3s: TagLib puts a new cover in the APE tag too.
+    [Fact]
+    public void A_new_cover_on_an_mp3_with_an_ape_tag_is_held_once()
+    {
+        using var file = new TempAudioFile("sample.mp3");
+        using (var tagged = TagLib.File.Create(file.Path))
+        {
+            ((TagLib.Ape.Tag)tagged.GetTag(TagLib.TagTypes.Ape, true)).Title = "APE Title";
+            tagged.Save();
+        }
+
+        var result = SaveNewCover(file.Path, Large);
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Null(result.CoverWarning);
+        Assert.Equal((1, 0), (PicturesInBytes(file.Path), ApePictures(file.Path)));
+    }
+
+    // Buckethead's MP3s: TagLib writes the new cover to the first ID3v2 tag and
+    // leaves the old one in the second.
+    [Fact]
+    public void A_new_cover_on_an_mp3_with_two_id3_tags_is_held_once()
+    {
+        using var file = new TempAudioFile("sample.mp3");
+        using (var tagged = TagLib.File.Create(file.Path))
+        {
+            tagged.Tag.Title = "First";
+            tagged.Save();
+        }
+        var bytes = File.ReadAllBytes(file.Path);
+        var audio = (int)TagPadding.Read(file.Path)!.AudioStart;
+        File.WriteAllBytes(file.Path, [.. bytes[..audio], .. Id3Tag(Small, "Second"), .. bytes[audio..]]);
+
+        var result = SaveNewCover(file.Path, Large);
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Null(result.CoverWarning);
+        Assert.Equal(1, PicturesInBytes(file.Path));
+        using var reread = TagLib.File.Create(file.Path);
+        Assert.Equal(Large, Assert.Single(reread.Tag.Pictures).Data.Data);
+    }
+
+    // Saving tags without a new cover doesn't rewrite the file.
+    [Fact]
+    public void A_save_without_a_new_cover_leaves_the_covers_alone()
+    {
+        using var file = WithThreeCovers("sample.flac");
+        var track = TagReader.Read(file.Path);
+
+        var result = TagWriter.WriteAlbumTrackTags(track,
+            new AlbumTagEdit("Artist", "Artist", "Album", 2020), art: null, folderArtPath: null);
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Equal(3, PicturesInBytes(file.Path));
+    }
+
     [Fact]
     public void Only_flac_and_mp3_are_cleaned()
     {

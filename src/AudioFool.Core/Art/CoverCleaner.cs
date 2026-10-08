@@ -106,6 +106,50 @@ public static class CoverCleaner
             : holder.Saving(path, needsRelease: () => true, save: () => CleanCore(path, best, coversElsewhere));
     }
 
+    /// <summary>
+    /// After a new cover is saved (Edit Album Tags' Choose Image or Search
+    /// Internet): makes <paramref name="cover"/> the file's only picture and cuts the
+    /// padding the old one left. TagLib's save alone leaves both behind on some
+    /// files: an MP3 with an APE tag gets the cover in that tag too, one with two
+    /// ID3v2 tags keeps the old cover in the second, and every file keeps the old
+    /// cover's room as padding (measured on copies of the library's files).
+    /// <para>
+    /// NothingToDo, writing nothing, when the file already holds just that cover and
+    /// no spare room, isn't FLAC or MP3, or doesn't hold the cover at all. Otherwise
+    /// as <see cref="Clean"/>: a rewritten copy, checked, then swapped in.
+    /// </para>
+    /// </summary>
+    public static CoverCleanResult KeepOnly(string path, byte[] cover, IFileHolder? holder = null)
+    {
+        if (!CanClean(path) || TagPadding.Read(path) is not { } layout)
+            return new CoverCleanResult(path, CoverCleanOutcome.NothingToDo, 0, false, null);
+
+        TagLib.IPicture keep;
+        bool coversElsewhere;
+        try
+        {
+            using var file = TagLib.File.Create(path);
+            if (Array.Find(file.Tag.Pictures, p => p.Data.Data.AsSpan().SequenceEqual(cover)) is not { } found)
+                return new CoverCleanResult(path, CoverCleanOutcome.NothingToDo, 0, false, null);
+
+            var elsewhere = PicturesOutsideBlocksAndFrames(file);
+            if (layout.Pictures + elsewhere <= 1 && !layout.HasSpareRoom)
+                return new CoverCleanResult(path, CoverCleanOutcome.NothingToDo, 0, false, null);
+
+            keep = found;
+            coversElsewhere = elsewhere > 0;
+        }
+        catch (Exception ex) when (ex is TagLib.UnsupportedFormatException or TagLib.CorruptFileException
+                                     or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return Failed(path, Describe(path, ex));
+        }
+
+        return holder is null
+            ? CleanCore(path, keep, coversElsewhere)
+            : holder.Saving(path, needsRelease: () => true, save: () => CleanCore(path, keep, coversElsewhere));
+    }
+
     /// <summary>Covers in a Xiph comment or an APE tag, which <see cref="TagPadding"/> doesn't touch.</summary>
     private static int PicturesOutsideBlocksAndFrames(TagLib.File file) =>
         new[] { TagLib.TagTypes.Xiph, TagLib.TagTypes.Ape }

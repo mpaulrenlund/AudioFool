@@ -715,6 +715,15 @@ claims. Covers by the album's artist are shown, exact title matches first, then 
 first; anything by other artists is hidden. Double-click one to use it. Like a picked
 file, it is only written when you press Save.
 
+**A new cover is the only cover.** When Save writes a new cover (from *Choose Image…* or
+*Search Internet…*), each song is then left with that one picture and no room held for
+the old one, so the file shrinks when the new cover is smaller. A plain save leaves some
+files with two copies otherwise: an MP3 with an APE tag gets the cover in that tag too,
+and one with two ID3 tags keeps the old cover in the second. This is the same rewrite and
+check as *Keep Best Cover* (below), and only happens when a file needs it; a save that
+doesn't change the cover is as before. A song that fails the check keeps what Save wrote,
+and the status bar says so.
+
 **When a file carries several covers.** Many files hold the cover two or three times,
 sometimes at different sizes. AudioFool shows the best one wherever it is stored: a front
 cover over other pictures (such as a band photo), then the most pixels, then a JPEG over

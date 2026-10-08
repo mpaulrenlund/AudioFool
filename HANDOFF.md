@@ -1569,6 +1569,28 @@ User-facing behaviour is in the README under *Extra covers*.
   picture, only the 9 DSF have more, 0 working files, 0 unreadable; 724.38 → 723.82 GB.
   About **9 GB freed in all**.
 
+**Part 4: a new cover is the only cover.** The user asked whether Edit Album Tags'
+three buttons should leave one embedded cover. Measured on copies first: Save Embedded
+Art never touches embedded art (cover.jpg only), so it is unchanged. Choose Image /
+Search Internet → Save (`TagWriter.Save` setting `Tag.Pictures`) leaves one cover on a
+plain file but **two** on an MP3 with an APE tag (TagLib fills the APE tag too) and on
+one with two ID3v2 tags (the old cover stays in the second), and always leaves the old
+cover's room as padding. The user's call: tidy after the save, **with** the padding cut.
+613 tests pass (+5).
+
+- `CoverCleaner.KeepOnly(path, cover, holder)`: NothingToDo unless the file holds that
+  cover and has more than one picture (bytes + Xiph + APE) or spare room
+  (`TagLayout.HasSpareRoom`); otherwise `CleanCore` keeping that picture.
+- `TagWriter.WriteTrackTags` / `WriteAlbumTrackTags`: after a save with art,
+  `TidyCover` runs it before the file is stamped, so the track's size and write time are
+  the tidied file's. A tidy that fails leaves the save as written and comes back as
+  `TagWriteResult.CoverWarning`; `ApplyAlbumEditAsync` reports "N songs kept an older
+  cover copy" and records the saved songs' survey in covers.json.
+- A playing song is let go twice (the save, then the tidy): two short gaps.
+- Verified on copies of real files (plain FLAC and MP3, The Advantage's APE MP3,
+  Buckethead's two-tag MP3, Rush's FLAC with an ID3 tag in front): one picture, the new
+  one, padding within the reserve, smaller files, creation dates kept, no warnings.
+
 ### Changes from session 43 (2026-10-08): scan memory
 
 The user picked "profile the post-scan memory" from the suggested next steps. **571 tests
