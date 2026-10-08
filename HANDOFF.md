@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-08 after the forty-fourth build session (duplicate embedded covers: the best one is shown, `e11c97c`; then Statistics → EXTRA COVERS and Keep Best Cover on the album and artist menus, which rewrites songs with only the best cover and cuts the padding; run over the whole library, ~9 GB freed; last commit "Keep Best Cover: whole library, byte-level rewrite"). Read this alongside
+Updated 2026-10-08 after the forty-fourth build session (embedded covers, four commits, all pushed: the best of several is shown, `e11c97c`; Statistics → EXTRA COVERS and Keep Best Cover, `6b1172f`; the whole library and a byte-level rewrite, `8a6249f`, run by the user over D:\Music, ~9 GB freed, every FLAC and MP3 now holds one cover; a new cover from Edit Album Tags is the only cover, `5bfdc6b`. Nothing open). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1438,9 +1438,24 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
 
 ### Changes from session 44 (2026-10-08): the best of several embedded covers
 
-The user noticed files with duplicate embedded art, some showing the worse copy. **583
-tests pass** (+12, `BestCoverTests`). Installed; the user checked Arch Echo and
-Banjo-Kazooie in the running app and asked for the commit.
+The user noticed files with duplicate embedded art, some showing the worse copy. The
+session ran in four parts, each installed, confirmed by the user in the running app,
+committed and pushed; **613 tests pass** at the end. **At a glance**:
+
+| Part | Commit | What |
+|---|---|---|
+| 1 | `e11c97c` | The best of several embedded covers is shown (`TagReader.BestCover`). |
+| 2 | `6b1172f` | Statistics → EXTRA COVERS check; album menu **Keep Best Cover**. |
+| 3 | `8a6249f` | Artist menu (Ctrl+A = whole library), stop, byte-level rewrite; run over D:\Music. |
+| 4 | `5bfdc6b` | A new cover saved in Edit Album Tags is the file's only cover, padding cut. |
+
+The library state after part 3: every FLAC and MP3 on D:\Music holds exactly one
+embedded cover (swept read-only); only 9 DSF files (Pink Floyd R2R) keep extras, since
+DSF isn't handled. About 9 GB freed. A backup of D:\Music was made by the user before
+anything was written.
+
+**Part 1** (`e11c97c`): **583 tests pass** (+12, `BestCoverTests`). The user checked
+Arch Echo and Banjo-Kazooie in the running app.
 
 - **Measured first** (read-only probe over every 20th track of `D:\Music`, 1,343 files,
   27 s): 45% of files carry more than one picture (598; byte-identical copies in 311),
@@ -1474,9 +1489,11 @@ Banjo-Kazooie in the running app and asked for the commit.
     padding. Space comes back only by also shrinking the padding, which means rewriting
     the whole file. The user decided on a `cover.jpg` for each cleaned album (yes).
 
-**Part 2: Extra covers and Keep Best Cover.** The user's calls: shrink the files too
-(option 2 of two), **5 KB** of padding left, a `cover.jpg` per cleaned folder, no
-whole-library button (Ctrl+A in Albums under the filter does it). **604 tests pass**
+**Part 2: Extra covers and Keep Best Cover** (`6b1172f`). The user's calls: shrink the
+files too (option 2 of two), **5 KB** of padding left, a `cover.jpg` per cleaned folder
+(an existing one replaced only by a bigger picture), no whole-library button (I said
+Ctrl+A in Albums would do it; it can't, see part 3). The `TagPadding` and `Verify`
+details below were superseded in part 3. **604 tests pass**
 (+21: `CoverCleanerTests`, `CoverCheckTests`). Installed; **the user ran it on Arch Echo
 (2017) and on Final Pitch while a Final Pitch song played**: small audio gap, playback
 carried on, covers look right. Both albums checked on D: afterwards (read-only probe):
@@ -1528,8 +1545,7 @@ User-facing behaviour is in the README under *Extra covers*.
   library.json backed up and restored). `--window stats --covercache <file>` renders
   the section. ThemeLab always points `CoverCachePath` at a scratch file.
 
-**Part 3: the whole library, and what it found.** 608 tests pass (+4). Committed as
-"Keep Best Cover: whole library, byte-level rewrite".
+**Part 3: the whole library, and what it found** (`8a6249f`). 608 tests pass (+4).
 
 - **Artist menu + stop.** Albums shows one artist at a time, so Ctrl+A there was never
   the whole library (I had told the user it was; wrong). `KeepBestCoverForArtistsCommand`
@@ -1569,7 +1585,7 @@ User-facing behaviour is in the README under *Extra covers*.
   picture, only the 9 DSF have more, 0 working files, 0 unreadable; 724.38 → 723.82 GB.
   About **9 GB freed in all**.
 
-**Part 4: a new cover is the only cover.** The user asked whether Edit Album Tags'
+**Part 4: a new cover is the only cover** (`5bfdc6b`). The user asked whether Edit Album Tags'
 three buttons should leave one embedded cover. Measured on copies first: Save Embedded
 Art never touches embedded art (cover.jpg only), so it is unchanged. Choose Image /
 Search Internet → Save (`TagWriter.Save` setting `Tag.Pictures`) leaves one cover on a
@@ -1590,6 +1606,20 @@ cover's room as padding. The user's call: tidy after the save, **with** the padd
 - Verified on copies of real files (plain FLAC and MP3, The Advantage's APE MP3,
   Buckethead's two-tag MP3, Rush's FLAC with an ID3 tag in front): one picture, the new
   one, padding within the reserve, smaller files, creation dates kept, no warnings.
+- **Confirmed by the user**: a new cover (1400×1400 JPEG) saved to The Advantage (26
+  MP3s with APE tags). Checked on D: afterwards: one cover in every song, none in the APE
+  tags, the same cover in all 26, no spare room, creation dates and titles unchanged,
+  `Cover.jpg` updated, no working files.
+
+**How to check the library's covers again** (the probes were in the session scratchpad
+and won't survive; each is ~30 lines). A console app referencing `AudioFool.Core`,
+read-only: for every `AudioFormats.IsSupported` file under `D:\Music`, `CoverCleaner.Survey`
+(TagLib's view) and `TagPadding.Read` (`Pictures` counts every tag in the bytes,
+`HasSpareRoom`); list folders still with `HasExtras`, and count files starting
+`CoverCleaner.TempPrefix` (leftover working files; there should be none). 4 threads
+read the library in about a minute. To diagnose a song the cleaner skips, clean a copy
+in scratch and print `CoverCleanResult.Error`, then compare the original's and the
+result's bytes from `AudioStart`.
 
 ### Changes from session 43 (2026-10-08): scan memory
 
@@ -2997,6 +3027,20 @@ covers. Work is on `main`, no branch, at the user's request.
 | `tests/AudioFool.Core.Tests/ThemeTokensTests.cs` | 27 tests: colour and shadow parsing, the path walk, reference checks, the shipped file. |
 | `tools/themelab/TokenSheet.cs` | `--window tokens`. |
 
+## New source files added in session 44
+
+| File | Purpose |
+|---|---|
+| `src/AudioFool.Core/Library/TagPadding.cs` | Reads a FLAC's or MP3's layout from the bytes (ID3v2 tags at the front, FLAC blocks, padding, picture count) and rewrites it with extra pictures dropped and padding cut to 5 KB, every other byte as it was. |
+| `src/AudioFool.Core/Art/CoverCleaner.cs` | `Survey`, `Clean` (Keep Best Cover), `KeepOnly` (after a new cover is saved), `Verify` (audio byte for byte, tags, exactly one picture), `CanClean`; the copy-check-`File.Replace` swap. |
+| `src/AudioFool.Core/Art/CoverCache.cs` | `CoverCache` (`covers.json`) and `CoverScanner`, the background check. |
+| `src/AudioFool.Core/Art/CoverStatistics.cs` | The Extra covers row: tracks, albums, space to free, the filter. |
+| `src/AudioFool/ViewModels/MainViewModel.Covers.cs` | The check, Keep Best Cover from the artist and album menus (folder by folder, saved every 30 s, stoppable), the status messages. |
+| `src/AudioFool/ViewModels/CoverSectionViewModel.cs` | The EXTRA COVERS section of Statistics. |
+| `tests/AudioFool.Core.Tests/BestCoverTests.cs` | 12 tests: which of several covers is shown. |
+| `tests/AudioFool.Core.Tests/CoverCleanerTests.cs` | Cleaning, the check catching broken copies, two ID3 tags, an ID3 tag before a FLAC, APE tags, held files, a new cover being the only one. |
+| `tests/AudioFool.Core.Tests/CoverCheckTests.cs` | The check, its cache and the row. |
+
 ## New source files added in session 42
 
 | File | Purpose |
@@ -3770,6 +3814,28 @@ off-screen window, so focus rings can be reviewed.
 - **`library.json` can list files that no longer exist.** It still held 2 m4a and
   10 wav files deleted since the last full scan. Before picking a sample file from
   the cache, check that it exists (`Test-Path -LiteralPath`).
+- **TagLib never makes a file smaller.** Removing or shrinking a cover leaves its room
+  as padding. Only `TagPadding.TryShrink` gives space back.
+- **TagLib mishandles pictures on some real files** (session 44, all found on
+  D:\Music; don't use `Tag.Pictures =` to remove covers, use `TagPadding`):
+  - An MP3 with **two ID3v2 tags back to back** (Buckethead, Van Halen): TagLib reads
+    and writes only the first, so a cover in the second survives, unseen by TagLib.
+  - An MP3 with an **APE tag**: setting `Tag.Pictures` writes the cover into the APE
+    tag too, a second copy.
+  - A FLAC whose **padding would pass 16 MB** (FLAC's 24-bit block length; Shpongle,
+    Tesseract): TagLib writes the padding block's length wrapped, and the file has
+    zeros before its audio.
+  - Count pictures with `TagLayout.Pictures` (the bytes, every tag), not TagLib's
+    combined tag, which shows only the first tag holding any.
+- **`File.Replace` keeps the replaced file's creation date** (checked on D:'s NTFS).
+  Recently Added and the artist sort read it, so any whole-file rewrite must swap in
+  through `File.Replace`, never delete-and-move. `[IO.File]::Replace` from PowerShell
+  5.1 needs `[NullString]::Value` for the backup path, not `$null`.
+- **The sandbox blocks `rm` of a relative glob after `cd`** (`cd $D; rm -f files/*`).
+  Use a fresh scratch folder instead of clearing one.
+- **A file's audio region can end in tags.** An MP3 may end with an APEv2 tag and an
+  ID3v1 tag, which TagLib re-renders on save; compare them as tags, not as audio
+  (`CoverCleaner.AudioHash`).
 
 ---
 
