@@ -200,6 +200,10 @@ internal static class Program
         vm.QualityClearancesPath = Arg(args, "--clearances")
             ?? Path.Combine(Path.GetTempPath(), "ThemeLabClearances", Guid.NewGuid().ToString("N"), "quality-cleared.json");
 
+        // Cover check results go to --covercache <file> or a fresh scratch file, never the real covers.json.
+        vm.CoverCachePath = Arg(args, "--covercache")
+            ?? Path.Combine(Path.GetTempPath(), "ThemeLabCovers", Guid.NewGuid().ToString("N"), "covers.json");
+
         // Same order as App.OnStartup: theme first, then the window, because a
         // DynamicResource Style is resolved as the element initialises.
         ThemeService.Apply();
@@ -301,6 +305,10 @@ internal static class Program
         else if (which is "multiedit" or "albumeditor" or "trackeditor")
         {
             LoadMultiLibrary(vm);
+        }
+        else if (which == "covers")
+        {
+            LoadCoversLibrary(vm, Arg(args, "--album") ?? @"D:\Music\Arch Echo\[2017] Arch Echo");
         }
         else if (which is "edit" or "queue" or "clicks")
         {
@@ -1279,7 +1287,7 @@ internal static class Program
             return 0;
         }
 
-        if (which is "edit" or "queue" or "clicks" or "multiedit" or "albumeditor" or "trackeditor")
+        if (which is "edit" or "queue" or "clicks" or "multiedit" or "albumeditor" or "trackeditor" or "covers")
         {
             // Each save persists the library, and LibraryCache.CachePath is the
             // real library.json - so it is put back byte for byte afterwards.
@@ -1290,7 +1298,9 @@ internal static class Program
                 File.Copy(cachePath, backup, overwrite: true);
             try
             {
-                if (which == "trackeditor")
+                if (which == "covers")
+                    RunCovers(main, vm);
+                else if (which == "trackeditor")
                     RunTrackEditor(main, vm);
                 else if (which == "albumeditor")
                     RunAlbumEditor(main, vm, outPath, scale);
@@ -2135,8 +2145,15 @@ internal static class Program
                 }
             }
 
+            // --covercache <file>: the cover section with results from that file.
+            if (Arg(args, "--covercache") is not null && Arg(args, "--qualitycache") is null)
+                LoadRealLibrary(vm);
+
             var quality = new QualitySectionViewModel(vm);
-            var statsVm = new StatisticsViewModel(stats, someFoldersHidden: Arg(args, "--hidden") is not null) { QualityCheck = quality };
+            var covers = new CoverSectionViewModel(vm);
+            var statsVm = new StatisticsViewModel(stats, someFoldersHidden: Arg(args, "--hidden") is not null) { QualityCheck = quality, CoverCheck = covers };
+            Console.WriteLine($"  [extra covers] {covers.Summary}  button '{covers.ButtonText}' enabled={covers.CanToggle}");
+            foreach (var r in covers.Rows) Console.WriteLine($"    {r.Label,-32} {r.Value,-30} clickable={r.IsClickable}  ({r.Detail})");
             Console.WriteLine($"  [quality check] {quality.Summary}  button '{quality.ButtonText}' enabled={quality.CanToggle}");
             foreach (var r in quality.Rows) Console.WriteLine($"    {r.Label,-32} {r.Value,-30} clickable={r.IsClickable}");
             foreach (var r in quality.ClearedRows) Console.WriteLine($"    {r.Label,-32} {r.Value,-30} clickable={r.IsClickable}  ({r.Detail})");
@@ -3297,6 +3314,123 @@ internal static class Program
     /// Main backs it up first and restores it afterwards, then deletes the copies.
     /// </summary>
     private static string? _scratchDir;
+
+    /// <summary>
+    /// --window covers' library: a scratch copy of one real album folder
+    /// (--album, read only), so Keep Best Cover rewrites the copies and never
+    /// the music drive. Deleted afterwards with the other scratch folders.
+    /// </summary>
+    private static void LoadCoversLibrary(MainViewModel vm, string album)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "themelab-covers-" + Guid.NewGuid().ToString("N")[..8]);
+        var albumDir = Path.Combine(dir, Path.GetFileName(album));
+        Directory.CreateDirectory(albumDir);
+        _scratchDir = dir;
+
+        foreach (var file in Directory.GetFiles(album))
+        {
+            var copy = Path.Combine(albumDir, Path.GetFileName(file));
+            File.Copy(file, copy);
+            File.SetCreationTimeUtc(copy, File.GetCreationTimeUtc(file));
+        }
+
+        var tracks = Directory.GetFiles(albumDir)
+            .Where(f => AudioFool.Core.Library.AudioFormats.IsSupported(f))
+            .Select(f => AudioFool.Core.Library.TagReader.Read(f))
+            .ToList();
+        typeof(MainViewModel)
+            .GetMethod("ApplyLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(vm, [AudioFool.Core.Library.LibraryScanner.Build(tracks), false]);
+        Console.WriteLine($"library: {tracks.Count} scratch copies of {album} in {albumDir}");
+    }
+
+    /// <summary>
+    /// --window covers: the cover check, the Extra covers row, its filter, the
+    /// album menu and Keep Best Cover, through the app's own code on the scratch
+    /// album above. Prints each file's pictures, size and creation date before
+    /// and after, and the folder's cover.jpg. Nothing is shown on screen.
+    /// </summary>
+    private static void RunCovers(MainWindow main, MainViewModel vm)
+    {
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        var files = Directory.GetFiles(Path.Combine(_scratchDir!, Directory.GetDirectories(_scratchDir!).Select(Path.GetFileName).Single()!));
+
+        void Files(string when)
+        {
+            Console.WriteLine($"[{when}]");
+            foreach (var f in files.Where(f => AudioFool.Core.Library.AudioFormats.IsSupported(f)))
+            {
+                var finding = AudioFool.Core.Art.CoverCleaner.Survey(f);
+                Console.WriteLine($"  {Path.GetFileName(f),-50} {new FileInfo(f).Length,12:N0} B  pictures {finding?.Pictures}  "
+                    + $"padding {AudioFool.Core.Library.TagPadding.Read(f)?.Padding:N0}  created {File.GetCreationTimeUtc(f):u}");
+            }
+            var cover = Path.Combine(Path.GetDirectoryName(files[0])!, "cover.jpg");
+            Console.WriteLine(File.Exists(cover)
+                ? $"  cover.jpg {new FileInfo(cover).Length:N0} B {AudioFool.Core.Art.ImageInfo.Read(File.ReadAllBytes(cover))?.SizeText}"
+                : "  cover.jpg: none");
+        }
+
+        void Section(string when)
+        {
+            using var s = new CoverSectionViewModel(vm);
+            Console.WriteLine($"[{when}] {s.Summary}  button '{s.ButtonText}' enabled={s.CanToggle}");
+            foreach (var r in s.Rows) Console.WriteLine($"    {r.Label,-14} {r.Value,-46} clickable={r.IsClickable}  ({r.Detail})");
+        }
+
+        void AlbumMenu(string when)
+        {
+            main.UpdateLayout();
+            Settle(200);
+            var row = FindAll<System.Windows.Controls.ListBoxItem>(main)
+                .FirstOrDefault(r => r.DataContext is AlbumItemViewModel && r.ContextMenu is not null && r.IsVisible);
+            if (row?.ContextMenu is not { } menu)
+            {
+                Console.WriteLine($"  {when} album menu: none");
+                return;
+            }
+
+            menu.PlacementTarget = row;
+            menu.IsOpen = true;
+            Settle(200);
+            var items = menu.Items.OfType<System.Windows.Controls.MenuItem>()
+                .Select(m => $"'{m.Header}'{(m.Visibility == Visibility.Visible ? "" : " (hidden)")}");
+            Console.WriteLine($"  {when} album menu: {string.Join(", ", items)}");
+            menu.IsOpen = false;
+        }
+
+        Files("before");
+        Section("before the check");
+        vm.StartCoverCheck();
+        Settle(300);
+        while (vm.IsCheckingCovers)
+            Settle(200);
+        Settle(300);
+        Console.WriteLine($"check: '{vm.StatusText}'");
+        Section("after the check");
+        AlbumMenu("no filter:");
+
+        using (var s = new CoverSectionViewModel(vm))
+        {
+            var row = s.Rows.FirstOrDefault(r => r.IsClickable)
+                ?? throw new InvalidOperationException("no extra covers found in this album");
+            vm.ApplyStatisticsChoice(row);
+        }
+        Console.WriteLine($"filter on: '{vm.LibraryFilter}' canKeep={vm.CanKeepBestCover}  status: {vm.StatusText}");
+        AlbumMenu("filtered:");
+
+        var album = vm.SelectedAlbum ?? throw new InvalidOperationException("no album selected under the filter");
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var task = vm.KeepBestCoverForAlbumsCommand.ExecuteAsync(album);
+        while (!task.IsCompleted)
+            Settle(100);
+        task.GetAwaiter().GetResult();
+        Settle(300);
+        Console.WriteLine($"keep best cover on '{album.Title}' in {clock.Elapsed.TotalSeconds:0.0} s: {vm.StatusText}");
+        Console.WriteLine($"  albums still listed under the filter: {vm.Albums.Count}");
+        Section("after keeping");
+        Files("after");
+        Console.WriteLine($"leftover working files: {Directory.GetFiles(_scratchDir!, ".audiofool-cover-*", SearchOption.AllDirectories).Length}");
+    }
 
     /// <summary>
     /// --window multiedit's library: one album split across three artist rows,

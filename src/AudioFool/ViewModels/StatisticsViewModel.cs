@@ -93,6 +93,9 @@ public sealed class StatisticsViewModel
     /// <summary>The library check's section, which updates while a check runs.</summary>
     public QualitySectionViewModel? QualityCheck { get; init; }
 
+    /// <summary>The cover check's section, which updates while a check runs or songs are cleaned.</summary>
+    public CoverSectionViewModel? CoverCheck { get; init; }
+
     /// <summary>The row the window was closed by clicking, if any.</summary>
     public BarRow? Chosen { get; set; }
 

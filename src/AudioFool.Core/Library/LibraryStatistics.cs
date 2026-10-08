@@ -355,6 +355,9 @@ public sealed class TrackFilter
     /// <summary>The "Cleared by you" row: songs that can be put back.</summary>
     public bool ShowsQualityClearances { get; init; }
 
+    /// <summary>The cover check's "Extra covers" row: albums whose best cover can be kept.</summary>
+    public bool ShowsExtraCovers { get; init; }
+
     public IReadOnlyList<Track> Apply(IReadOnlyList<Track> tracks) => _apply(tracks);
 
     public override string ToString() => Description;

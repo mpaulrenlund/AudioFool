@@ -36,7 +36,7 @@ public sealed record FolderExtract(
 /// <para>
 /// Each folder is handled on its own, so a multi-disc set kept as "Disc 1/" and
 /// "Disc 2/" gets a cover in each. Within a folder the picture with the most pixels
-/// wins (the larger file breaks a tie), which is the highest quality on offer.
+/// wins, then a JPEG over a PNG (the user's call), then the larger file.
 /// A JPEG is written as the exact bytes found in the tag: nothing is decoded or
 /// re-encoded, so nothing is compressed. A PNG is the one exception, since the
 /// file is to be a JPEG: it goes through <c>pngToJpeg</c>, which the caller
@@ -119,8 +119,11 @@ public static class EmbeddedArtExtractor
 
     private static long Pixels(ImageInfo info) => (long)info.Width * info.Height;
 
+    /// <summary>As <see cref="TagReader.BestCover"/>: most pixels, then a JPEG over a PNG, then the larger file.</summary>
     private static bool Better(ImageInfo info, int bytes, ImageInfo bestInfo, int bestBytes) =>
-        Pixels(info) > Pixels(bestInfo) || (Pixels(info) == Pixels(bestInfo) && bytes > bestBytes);
+        Pixels(info) != Pixels(bestInfo) ? Pixels(info) > Pixels(bestInfo)
+        : info.Format != bestInfo.Format ? info.Format == ImageFormat.Jpeg
+        : bytes > bestBytes;
 
     /// <summary>One or two sentences for the dialog's message line.</summary>
     public static string Describe(IReadOnlyList<FolderExtract> results)

@@ -243,11 +243,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(ProgressFraction))]
     private double _scanFraction;
 
-    /// <summary>The status bar's progress bar: a library scan, else a quality check.</summary>
-    public bool ShowsProgress => IsScanning || IsCheckingQuality;
+    /// <summary>The status bar's progress bar: a library scan, else a quality check, else a cover check.</summary>
+    public bool ShowsProgress => IsScanning || IsCheckingQuality || IsCheckingCovers;
 
     public double ProgressFraction => IsScanning ? ScanFraction
-        : QualityProgress.Total == 0 ? 0 : (double)QualityProgress.Done / QualityProgress.Total;
+        : IsCheckingQuality ? (QualityProgress.Total == 0 ? 0 : (double)QualityProgress.Done / QualityProgress.Total)
+        : CoverProgress.Total == 0 ? 0 : (double)CoverProgress.Done / CoverProgress.Total;
 
     [ObservableProperty]
     private string _statusText = "Ready";
@@ -1394,9 +1395,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var stats = LibraryStatistics.Compute(_folderFilteredLibrary);
         var someHidden = FolderFilters.Any(f => !f.IsEnabled);
 
-        // The quality section is live: a check running behind the window updates it.
+        // The quality and cover sections are live: a check running behind the window updates them.
         using var quality = new QualitySectionViewModel(this);
-        var statsVm = new StatisticsViewModel(stats, someHidden) { QualityCheck = quality };
+        using var covers = new CoverSectionViewModel(this);
+        var statsVm = new StatisticsViewModel(stats, someHidden) { QualityCheck = quality, CoverCheck = covers };
         if (new StatisticsWindow(statsVm, owner).ShowDialog() == true && statsVm.Chosen is { } row)
             ApplyStatisticsChoice(row);
     }
@@ -2300,7 +2302,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // Each thread finishes the file it's on (well under a second), then the
         // results are saved; wait for that rather than lose the last 30 seconds.
         _qualityCts?.Cancel();
+        _coverCts?.Cancel();
         _qualityScan?.Wait(TimeSpan.FromSeconds(3));
+        _coverScan?.Wait(TimeSpan.FromSeconds(3));
 
         // BASS is shut down after this, so a waveform read mustn't be mid-file.
         // It stops within one 16k-sample read of being cancelled.

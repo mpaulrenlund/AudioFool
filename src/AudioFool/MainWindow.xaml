@@ -98,6 +98,12 @@
                                   Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanPutBackQuality, Converter={StaticResource BoolToVisibility}}"
                                   Command="{Binding Source={StaticResource Proxy}, Path=Data.PutBackQualityForAlbumsCommand}"
                                   CommandParameter="{Binding}" />
+                        <!-- While the Extra covers row's filter is on: the album's songs it
+                             shows (or every selected album's) keep only their best cover. -->
+                        <MenuItem Header="Keep Best Cover"
+                                  Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanKeepBestCover, Converter={StaticResource BoolToVisibility}}"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.KeepBestCoverForAlbumsCommand}"
+                                  CommandParameter="{Binding}" />
                     </ContextMenu>
                 </Setter.Value>
             </Setter>

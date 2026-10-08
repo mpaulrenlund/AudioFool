@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-08 after the forty-fourth build session (duplicate embedded covers: the best one is shown; committed as "Show the best of several embedded covers"; a cleanup tool is planned, not built). Read this alongside
+Updated 2026-10-08 after the forty-fourth build session (duplicate embedded covers: the best one is shown, `e11c97c`; then Statistics → EXTRA COVERS and the album menu's Keep Best Cover, which rewrites songs with only the best cover and cuts the padding, committed as "Keep Best Cover: remove extra embedded covers"). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1458,7 +1458,7 @@ Banjo-Kazooie in the running app and asked for the commit.
   e.g. Arch Echo (2017) 1000² → 1280², Astrix *Eye to Eye* 1,933 KB PNG → 1,040 KB JPEG of
   the same size. None shows less than the largest except Sithu Aye *10 Years – Remixes*,
   whose 3000² pictures are typed LeadArtist/Artist (band photos), correctly passed over.
-- **Part 2, not built, waiting on the user** (they are backing up `D:\Music` first): a
+- **Part 2 is built: see *Part 2* below.** The plan as it stood (the user backed up `D:\Music` first): a
   "Duplicate covers" check in Statistics, like the Quality Check, listing albums with extra
   covers and a per-album **Keep the best cover** (BestCover's rule) that rewrites the files
   through `TagWriter`. No whole-library button. Open questions put to the user: the rule
@@ -1467,6 +1467,66 @@ Banjo-Kazooie in the running app and asked for the commit.
   leaves the space as padding (then no space comes back without trimming it); and, for
   FLAC, whether the duplicates are two PICTURE blocks or one block plus a Vorbis
   `METADATA_BLOCK_PICTURE`, and that setting `Tag.Pictures` removes both. Test on copies.
+  - **Checked (scratch copies, `TagWriter.WriteTrackTags` with the best cover)**: the
+    FLAC duplicates are separate PICTURE blocks, and the save leaves one. But **no file
+    got smaller**: two FLACs and an MP3 kept their exact size; the freed space became
+    PADDING (Bad Omens: 98 → 155 KB, its 57 KB copy; Segovia: 344 → 685 KB, its 341 KB copy) or ID3v2
+    padding. Space comes back only by also shrinking the padding, which means rewriting
+    the whole file. The user decided on a `cover.jpg` for each cleaned album (yes).
+
+**Part 2: Extra covers and Keep Best Cover.** The user's calls: shrink the files too
+(option 2 of two), **5 KB** of padding left, a `cover.jpg` per cleaned folder, no
+whole-library button (Ctrl+A in Albums under the filter does it). **604 tests pass**
+(+21: `CoverCleanerTests`, `CoverCheckTests`). Installed; **the user ran it on Arch Echo
+(2017) and on Final Pitch while a Final Pitch song played**: small audio gap, playback
+carried on, covers look right. Both albums checked on D: afterwards (read-only probe):
+one picture, 5,124 B padding, creation dates unchanged, tags and durations as before,
+no working files left. Committed as "Keep Best Cover: remove extra embedded covers".
+User-facing behaviour is in the README under *Extra covers*.
+
+- **Core**:
+  - `Library/TagPadding.cs`: `Read(path)` → `TagLayout(AudioStart, Padding)` for FLAC
+    (metadata blocks after "fLaC") and ID3v2.2–2.4 (frames walked to the padding, which
+    must be all zeros). `TryShrink(source, target)` writes the tags byte for byte less
+    the padding, `Reserve` (5,120 B) of new padding, then the rest of the file byte for
+    byte. Refuses (null / false) a FLAC with ID3 in front, an ID3v2 tag that is
+    unsynchronised or has an extended header, footer or experimental flag, frames that
+    don't walk, or padding already ≤ the reserve.
+  - `Art/CoverCleaner.cs`: `Survey(path)` → `CoverFinding(Pictures, Freeable)` (extra
+    picture bytes + padding − reserve). `Clean(path, holder)`: copy to
+    `.audiofool-cover-<guid>.part` beside the file (not an audio extension, so a scan
+    never picks one up; TagLib is told the format with `"taglib/" + ext`), set `Pictures`
+    to the best (type, MIME and description kept), `TryShrink` to `.shrunk.part`,
+    **`Verify`**, then `File.Replace` (keeps the creation date; checked on D:'s NTFS).
+    Always through `holder.Saving(path, needsRelease: () => true, ...)`: the file is
+    replaced, so playback must let go. `Verify`: audio hashed from each file's
+    `AudioStart` to the end less a trailing ID3v1 (that is compared as a tag, since TagLib
+    re-renders it); one picture equal to the best; Xiph fields, ID3v2 frames other than
+    APIC (rendered bytes), ID3v1 and the main fields equal, same duration.
+  - `Art/CoverCache.cs`: `CoverCache` (`covers.json`, keyed by `QualityCache.KeyOf`),
+    `CoverScanner` (as `QualityScanner`: 4 below-normal threads, saved every 30 s, a
+    missing file not recorded). `Art/CoverStatistics.cs`: the one row and its filter
+    (`TrackFilter.ShowsExtraCovers`).
+  - `EmbeddedArtExtractor.Better` now matches `BestCover` (JPEG over PNG at equal pixels).
+- **App**: `MainViewModel.Covers.cs` (check start/stop, `CoverResultsChanged`,
+  `CanKeepBestCover`, `KeepBestCoverForAlbumsCommand`: cleans `AlbumMenuTracks`, then
+  `ExtractToFolders` on the cleaned paths, re-reads them with `TagReader.Read`, records
+  their new survey so they stay checked, invalidates the albums' art, persists).
+  `CoverSectionViewModel`; the EXTRA COVERS section in `StatisticsWindow.xaml` under
+  QUALITY CHECK (yellow bar, `theme.dialogButton`, no new tokens); the album row menu's
+  **Keep Best Cover** (album list only: the header art's right-click opens Edit Album
+  Tags directly, which the user tried first). Status bar progress covers the check;
+  shutdown waits for its last save.
+- **Measured**: the whole library, read-only, in 68 s (393 tracks/s, 4 threads):
+  11,785 tracks, ~980 albums, **8.96 GB** freeable, more than the 4.6 GB sampled earlier
+  because many files already carried large padding. Arch Echo (2017): 1.4 s, 8.8 MB, as
+  estimated. The section's estimate uses 300 tracks/s.
+- **Verified**: unit tests (including copies broken on purpose: one audio byte, a tag,
+  the wrong cover kept), five real songs as scratch copies, and ThemeLab's new
+  **`--window covers [--album <folder>]`** (a scratch copy of a real album, read only;
+  check → row → filter → album menu → Keep Best Cover → files before and after;
+  library.json backed up and restored). `--window stats --covercache <file>` renders
+  the section. ThemeLab always points `CoverCachePath` at a scratch file.
 
 ### Changes from session 43 (2026-10-08): scan memory
 
@@ -3715,9 +3775,9 @@ retag of the playing track reaches the scrobbler.
 0. ~~**A new cover on the playing album skips the playing and next tracks**~~ Done in
    session 37: the engine lets go of the file for the save and reopens it at its
    position.
-0. **Duplicate covers cleanup (part 2 of session 44)**: agreed in outline, waiting for
-   the user's backup of `D:\Music` and go-ahead. See session 44 for the plan and the
-   two FLAC checks to make first.
+0. **Extra covers (session 44)**: built and confirmed on two albums. The user may run Keep
+   Best Cover over the rest (Ctrl+A under the filter); if any songs come back "skipped",
+   the status bar names the first and why. Not handled: formats other than FLAC and MP3.
 1. A visible, editable queue view — now the most conspicuous missing player feature.
 2. ~~Library-wide tag stripping~~, ~~recovering dates lost to pre-session-12 saves
    from MusicBrainz~~, ~~resuming playback on launch~~, ~~a Last.fm Love button~~ and

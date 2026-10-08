@@ -259,6 +259,34 @@
                                         Margin="{theme:Thickness Bottom=statistics.sectionPaddingY}" />
                             </StackPanel>
                         </HeaderedContentControl>
+
+                        <!--
+                            Songs carrying the cover more than once. Live, as the Quality
+                            Check is, and built the same way. Yellow: something to fix.
+                        -->
+                        <HeaderedContentControl Style="{StaticResource Section}"
+                                                Visibility="{Binding CoverCheck, Converter={StaticResource NullToCollapsed}}">
+                            <HeaderedContentControl.Header>
+                                <TextBlock Text="EXTRA COVERS" Style="{StaticResource SectionHeader}" />
+                            </HeaderedContentControl.Header>
+                            <StackPanel DataContext="{Binding CoverCheck}"
+                                        Margin="{theme:Thickness X=layout.panelHeaderPaddingX, Y=statistics.sectionPaddingY}">
+                                <TextBlock x:Name="CoverSummary" Text="{Binding Summary}"
+                                           Style="{StaticResource Body}"
+                                           Margin="{theme:Thickness Bottom=statistics.summaryGap}" />
+                                <ItemsControl x:Name="CoverCheckList" ItemsSource="{Binding Rows}"
+                                              Style="{StaticResource SectionList}"
+                                              Tag="{DynamicResource color.status.lastFmOff}"
+                                              Margin="0"
+                                              Visibility="{Binding HasRows, Converter={StaticResource BoolToVisibility}}" />
+                                <Button x:Name="CoverCheckButton"
+                                        Content="{Binding ButtonText}"
+                                        Command="{Binding ToggleCommand}"
+                                        Style="{StaticResource theme.dialogButton}"
+                                        HorizontalAlignment="Left"
+                                        Margin="{theme:Thickness Bottom=statistics.sectionPaddingY}" />
+                            </StackPanel>
+                        </HeaderedContentControl>
                     </StackPanel>
 
                     <StackPanel Grid.Column="2">

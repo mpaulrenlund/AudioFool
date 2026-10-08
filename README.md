@@ -497,6 +497,33 @@ bitrate) is no longer cleared. Nothing is written to the music files.
 
 ---
 
+## Extra covers
+
+Many files carry the cover two or three times. AudioFool always shows the best one (see
+*When a file carries several covers* below); this removes the others and the space they
+take.
+
+- **Find them.** Statistics → **EXTRA COVERS** → **Check covers**. It reads the pictures
+  in every track, about a minute and a half for 27,000 tracks off a USB SSD, while you
+  keep listening, and remembers what it found in `%LOCALAPPDATA%\AudioFool\covers.json`
+  (later checks read only new or changed files). The **Extra covers** row says how many
+  albums and tracks and how much space would be freed.
+- **Clean them.** Click the row, then right-click an album in the Albums list (not the
+  header picture) → **Keep Best Cover**. It acts on that album's songs the row shows, or
+  every selected album's. Each song keeps only its best cover, and the empty room the
+  others leave is cut to 5 KB, so a later small tag edit still doesn't rewrite the file.
+  Then each folder gets `cover.jpg` from the kept cover, unless it already has one at
+  least as big. The status bar says how many songs were done and how much was freed.
+
+The original file is never edited. Each song is rebuilt as a new copy beside it and
+checked before it replaces the original: the music must match byte for byte, every tag
+must read back the same, and the one cover left must be the best one. Anything that
+doesn't check out is left as it was and named in the status bar. The file keeps its
+creation date, so Recently Added is unaffected. A song that is playing is let go for a
+moment and picks up where it was (a short gap). FLAC and MP3 only.
+
+---
+
 ## Output modes
 
 The **Bit-Perfect** switch in the bottom-right of the status bar chooses how audio
@@ -688,13 +715,15 @@ sometimes at different sizes. AudioFool shows the best one wherever it is stored
 cover over other pictures (such as a band photo), then the most pixels, then a JPEG over
 a PNG of the same size, then the larger file. The same choice is used everywhere the
 embedded cover is: the album header, the full-size viewer, the tag editor and *Save
-Embedded Art*. Nothing is written to the files.
+Embedded Art*. Nothing is written to the files; to remove the extra copies, see
+*Extra covers* above.
 
 **Saving the embedded art as a file.** *Edit Album Tags…* also has **Save Embedded
 Art**, under *Choose Image…*. It takes the cover embedded in the album's files and writes
 it as `cover.jpg` in the same folder (in each folder, for an album kept as "Disc 1",
 "Disc 2"…). It acts at once; you don't need to press Save, and no tags change. If the
-tracks in a folder carry different pictures, the one with the most pixels is used. A JPEG
+tracks in a folder carry different pictures, the one with the most pixels is used (a JPEG
+over a PNG of the same size). A JPEG
 is copied byte for byte, so nothing is compressed. A PNG has to become a JPEG to be
 `cover.jpg`: that is the one case where the picture is re-encoded, at quality 100 with
 full-resolution colour, with any transparency set against white. An existing `cover.jpg`
