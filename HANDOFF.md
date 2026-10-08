@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-07 after the forty-second build session (clearing songs from Quality Check rows, committed as "Clear songs from Quality Check rows" and pushed). Read this alongside
+Updated 2026-10-08 after the forty-third build session (scan memory: MP3 covers skipped while reading tags, and the GC hands the emptied space back after a scan). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1436,6 +1436,40 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   output following the device. (A tooltip saying why it is disabled was turned down
   in session 37, along with the chip's tooltip.)
 
+### Changes from session 43 (2026-10-08): scan memory
+
+The user picked "profile the post-scan memory" from the suggested next steps. **571 tests
+pass** (+2). Built and installed; the user opened it from their shortcut.
+
+- **Measured, not guessed.** Headless probes against `AudioFool.Core` (scratchpad
+  `memprobe`), `dotnet-gcdump` on the running app (installed as a global tool with the
+  user's OK; it forces one full GC), and a `VirtualQueryEx` walk of the running app's
+  address space (scratchpad `vmprobe`; the 64 GB reservation is the GC heap).
+  - **The library is small**: 26,861 tracks are ~20 MB loaded, the artist tree 0.8 MB,
+    the folder-filtered second tree 0.8 MB. About 8 MB of that is duplicate strings
+    (Kind, Artist, Album, FolderArtPath); not worth interning.
+  - **The tag reads were the cost.** TagLib's default read loads the cover: about 6×
+    its size in buffers per FLAC and 4× per MP3. Reading 293 changed files allocated
+    2.4 GB, and the GC kept 281–743 MB committed afterwards with 23 MB live.
+    `GC.Collect(..., Forced, compacting: true)` freed the objects but did not hand the
+    space back.
+- **Fix 1**: `TagReader.Read` opens with `ReadStyle.Average | ReadStyle.PictureLazy`.
+  An MP3 with a 2 MB cover: 8.2 MB allocated → 29 KB. **TagLib ignores it for FLAC**
+  (12.3 MB per file either way), and FLAC is 72% of the library. New test
+  `Read_with_embedded_art_reads_every_field` (FLAC and MP3).
+- **Fix 2**: `ReclaimScanMemory` uses `GCCollectionMode.Aggressive`. Headless: 743 MB
+  committed → 22 MB; process private 772 → 38 MB.
+- **In the running app**, four to five minutes after launch, playing: before, 868 MB
+  working set / 782 MB private, GC committed 425 MB; after, 608 / ~490 MB, GC committed
+  227 MB. The rest is steady state, not scan leftovers: the GC's working budget,
+  ~260 MB mapped and ~440 MB image (DLLs, fonts) that every WPF app has, and ~220 MB
+  of other native memory (WPF, BASS, decoded art; the art cache is capped at 64 MB).
+  Peak working set during the startup check was still 978 MB: the FLAC cover churn.
+- **Not done** (see *Suggested next steps*): a FLAC reader that skips PICTURE blocks,
+  and GC tuning. The `dotnet-gcdump` report's "GC Heap bytes" header (184–210 MB) is
+  larger than its listed objects (38–43 MB) because on .NET 10 it uses lossy buffering
+  and drops objects; trust the listed types for shape, not the total.
+
 ### Changes from session 42 (2026-10-07): clearing songs from Quality Check rows
 
 The user's request: say a flagged song is genuine (real 24-bit, real FLAC, real 320 kbps)
@@ -2680,8 +2714,8 @@ covers. Work is on `main`, no branch, at the user's request.
   libVLC fallback; `AudioEngine.CreateDecodeStream` is the single seam for that.
 - No playlists or queue view. Shuffle and repeat are done (session 5); what is still
   missing is a visible, editable queue.
-- Memory sits around 400–900 MB after a cold scan. A post-scan GC compaction runs. Never
-  profiled.
+- Memory was profiled in session 43 (see there). Still left: FLAC tag reads load the cover
+  (TagLib ignores PictureLazy for FLAC), so a big scan still peaks high before the reclaim.
 - The seek bar reads ~200 ms ahead of what you hear (decode position versus device
   buffer). Invisible in practice.
 
@@ -3635,6 +3669,6 @@ retag of the playing track reaches the scrobbler.
 5. MilkDrop 3 / projectM visualisation. Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll` — source only).
    Proposed next step: spike build of `libprojectM.dll`. No implementation started.
-6. Profile the post-scan memory.
+6. ~~Profile the post-scan memory~~ Done in session 43. Left, not offered: a FLAC metadata reader that skips PICTURE blocks (lowers the scan peak), and GC tuning (GCConserveMemory) for the steady state.
 8. Code signing would remove the SmartScreen warning on first launch, but is rarely worth
    the cost for a personal build.

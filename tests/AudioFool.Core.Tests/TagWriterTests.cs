@@ -96,6 +96,35 @@ public class TagWriterTests
         Assert.Equal(bytes, reread);
     }
 
+    // The scan reads tags without loading pictures; a file with a cover must
+    // still give every field, and the cover must still be there to read.
+    [Theory]
+    [InlineData("sample.flac")]
+    [InlineData("sample.mp3")]
+    public void Read_with_embedded_art_reads_every_field(string fixture)
+    {
+        using var file = new TempAudioFile(fixture);
+        var bytes = File.ReadAllBytes(System.IO.Path.Combine(AppContext.BaseDirectory, "TestData", "cover.jpg"));
+        var written = TagWriter.WriteTrackTags(
+            TagReader.Read(file.Path), SampleTrackEdit(), new ArtPayload(bytes, "image/jpeg"), folderArtPath: null);
+        Assert.True(written.Success, written.ErrorMessage);
+
+        var reread = TagReader.Read(file.Path);
+
+        Assert.Equal("New Title", reread.Title);
+        Assert.Equal("New Artist", reread.Artist);
+        Assert.Equal("New Album Artist", reread.AlbumArtist);
+        Assert.Equal("New Album", reread.Album);
+        Assert.Equal(1999, reread.Year);
+        Assert.Equal(7, reread.TrackNumber);
+        Assert.Equal(12, reread.TrackCount);
+        Assert.Equal(2, reread.DiscNumber);
+        Assert.Equal(3, reread.DiscCount);
+        Assert.True(reread.Duration > TimeSpan.Zero);
+        Assert.NotNull(reread.SampleRate);
+        Assert.Equal(bytes, TagReader.ReadEmbeddedArt(file.Path));
+    }
+
     [Fact]
     public void WriteAlbumTrackTags_leaves_title_and_track_number_untouched()
     {

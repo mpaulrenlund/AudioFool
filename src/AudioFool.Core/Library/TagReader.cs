@@ -24,7 +24,11 @@ public static class TagReader
         TagLib.File? file = null;
         try
         {
-            file = TagLib.File.Create(path);
+            // PictureLazy: a scan never looks at the cover, and reading it costs
+            // several times its size in buffers per file. TagLib honours this for
+            // ID3v2 (an MP3 with a 2 MB cover: 8 MB allocated -> 17 KB); its FLAC
+            // reader loads the picture block regardless.
+            file = TagLib.File.Create(path, TagLib.ReadStyle.Average | TagLib.ReadStyle.PictureLazy);
         }
         catch (Exception ex) when (ex is TagLib.UnsupportedFormatException
                                      or TagLib.CorruptFileException

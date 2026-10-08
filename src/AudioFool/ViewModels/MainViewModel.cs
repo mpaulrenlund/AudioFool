@@ -1241,11 +1241,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// short-lived buffers, and the app goes idle immediately afterwards. Handing
     /// that memory back stops a large library from parking on a half-gigabyte
     /// working set for the rest of the session.
+    /// <para>
+    /// Aggressive, not Forced: a forced compacting collection frees the objects
+    /// but the GC keeps the emptied space committed. Measured after reading 293
+    /// changed files: 23 MB live, 743 MB still committed after Forced, 22 MB
+    /// after Aggressive.
+    /// </para>
     /// </summary>
     private static void ReclaimScanMemory() => _ = Task.Run(() =>
     {
         GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-        GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: true);
+        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     });
 
     [RelayCommand]
