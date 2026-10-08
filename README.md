@@ -683,6 +683,13 @@ claims. Covers by the album's artist are shown, exact title matches first, then 
 first; anything by other artists is hidden. Double-click one to use it. Like a picked
 file, it is only written when you press Save.
 
+**When a file carries several covers.** Many files hold the cover two or three times,
+sometimes at different sizes. AudioFool shows the best one wherever it is stored: a front
+cover over other pictures (such as a band photo), then the most pixels, then a JPEG over
+a PNG of the same size, then the larger file. The same choice is used everywhere the
+embedded cover is: the album header, the full-size viewer, the tag editor and *Save
+Embedded Art*. Nothing is written to the files.
+
 **Saving the embedded art as a file.** *Edit Album Tags…* also has **Save Embedded
 Art**, under *Choose Image…*. It takes the cover embedded in the album's files and writes
 it as `cover.jpg` in the same folder (in each folder, for an album kept as "Disc 1",

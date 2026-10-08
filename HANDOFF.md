@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-08 after the forty-third build session (scan memory: MP3 covers skipped while reading tags, and the GC hands the emptied space back after a scan; committed as "Reduce memory after a library scan" (`8a609fb`) and pushed). Read this alongside
+Updated 2026-10-08 after the forty-fourth build session (duplicate embedded covers: the best one is shown; committed as "Show the best of several embedded covers"; a cleanup tool is planned, not built). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1435,6 +1435,38 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   ~~Offered: re-probing when the default device changes~~ Done in session 37, with
   output following the device. (A tooltip saying why it is disabled was turned down
   in session 37, along with the chip's tooltip.)
+
+### Changes from session 44 (2026-10-08): the best of several embedded covers
+
+The user noticed files with duplicate embedded art, some showing the worse copy. **583
+tests pass** (+12, `BestCoverTests`). Installed; the user checked Arch Echo and
+Banjo-Kazooie in the running app and asked for the commit.
+
+- **Measured first** (read-only probe over every 20th track of `D:\Music`, 1,343 files,
+  27 s): 45% of files carry more than one picture (598; byte-identical copies in 311),
+  nearly all typed FrontCover, FLAC and MP3 alike. Embedded art is ~23.7 GB library-wide;
+  the copies beyond the best one ~4.6 GB (under 1% of the library).
+- **The old rule** in `TagReader.ReadEmbeddedArt` took the first FrontCover, whatever its
+  size. **Now `TagReader.BestCover(pictures)`**: front covers if any (else all), then most
+  pixels (`ImageInfo.Read`; unreadable = 0), then **JPEG over PNG at the same pixels**
+  (the user's call: they had saved JPEG copies of PNG covers to save space; Banjo-Kazooie
+  2017 Remaster holds an 800×800 JPEG at 142 KB and the same as PNG at 1,030 KB), then
+  more bytes, then the first. Every embedded-art reader goes through `ReadEmbeddedArt`
+  (`AlbumArtService`, `EmbeddedArtExtractor`, `TagEditViewModel`), so one change covers
+  header, viewer, editor and Save Embedded Art.
+- **Verified on the real sample**: 59 files show a different cover (~1,200 library-wide),
+  e.g. Arch Echo (2017) 1000² → 1280², Astrix *Eye to Eye* 1,933 KB PNG → 1,040 KB JPEG of
+  the same size. None shows less than the largest except Sithu Aye *10 Years – Remixes*,
+  whose 3000² pictures are typed LeadArtist/Artist (band photos), correctly passed over.
+- **Part 2, not built, waiting on the user** (they are backing up `D:\Music` first): a
+  "Duplicate covers" check in Statistics, like the Quality Check, listing albums with extra
+  covers and a per-album **Keep the best cover** (BestCover's rule) that rewrites the files
+  through `TagWriter`. No whole-library button. Open questions put to the user: the rule
+  (settled now: BestCover's) and whether a cleaned album also gets a `cover.jpg`.
+  **Check before building**: whether TagLib shrinks a FLAC when a picture is removed or
+  leaves the space as padding (then no space comes back without trimming it); and, for
+  FLAC, whether the duplicates are two PICTURE blocks or one block plus a Vorbis
+  `METADATA_BLOCK_PICTURE`, and that setting `Tag.Pictures` removes both. Test on copies.
 
 ### Changes from session 43 (2026-10-08): scan memory
 
@@ -3683,6 +3715,9 @@ retag of the playing track reaches the scrobbler.
 0. ~~**A new cover on the playing album skips the playing and next tracks**~~ Done in
    session 37: the engine lets go of the file for the save and reopens it at its
    position.
+0. **Duplicate covers cleanup (part 2 of session 44)**: agreed in outline, waiting for
+   the user's backup of `D:\Music` and go-ahead. See session 44 for the plan and the
+   two FLAC checks to make first.
 1. A visible, editable queue view — now the most conspicuous missing player feature.
 2. ~~Library-wide tag stripping~~, ~~recovering dates lost to pre-session-12 saves
    from MusicBrainz~~, ~~resuming playback on launch~~, ~~a Last.fm Love button~~ and

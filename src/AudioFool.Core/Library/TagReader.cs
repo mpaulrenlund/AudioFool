@@ -213,17 +213,7 @@ public static class TagReader
         try
         {
             using var file = TagLib.File.Create(path);
-            var pictures = file.Tag.Pictures;
-            if (pictures.Length == 0)
-                return null;
-
-            // Prefer an explicit front cover if the file distinguishes them.
-            var picture =
-                Array.Find(pictures, p => p.Type == TagLib.PictureType.FrontCover)
-                ?? pictures[0];
-
-            var data = picture.Data?.Data;
-            return data is { Length: > 0 } ? data : null;
+            return BestCover(file.Tag.Pictures)?.Data?.Data;
         }
         catch (Exception ex) when (ex is TagLib.UnsupportedFormatException
                                      or TagLib.CorruptFileException
@@ -233,6 +223,44 @@ public static class TagReader
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// The picture to show when a file carries several. Many files hold two or three
+    /// copies of the cover, sometimes at different sizes, and the order says nothing
+    /// about which is better. Front covers win if there are any; among them the most
+    /// pixels, then a JPEG over a PNG (the user's call: a PNG of the same picture is
+    /// several times the size and looks no different), then the most bytes (the same
+    /// JPEG saved at a higher quality), then the first. A picture whose size can't be
+    /// read counts as 0 pixels, so a readable cover beats it. Null when none has any data.
+    /// </summary>
+    public static TagLib.IPicture? BestCover(IReadOnlyList<TagLib.IPicture> pictures)
+    {
+        var withData = pictures.Where(p => p.Data is { Count: > 0 }).ToList();
+        var fronts = withData.Where(p => p.Type == TagLib.PictureType.FrontCover).ToList();
+        var candidates = fronts.Count > 0 ? fronts : withData;
+
+        TagLib.IPicture? best = null;
+        (long Pixels, bool Jpeg, int Bytes) bestRank = (-1, false, -1);
+        foreach (var picture in candidates)
+        {
+            var info = Art.ImageInfo.Read(picture.Data.Data);
+            var rank = (Pixels: info is null ? 0L : (long)info.Width * info.Height,
+                        Jpeg: info?.Format == Art.ImageFormat.Jpeg,
+                        Bytes: picture.Data.Count);
+            if (Beats(rank, bestRank))
+            {
+                best = picture;
+                bestRank = rank;
+            }
+        }
+
+        return best;
+
+        static bool Beats((long Pixels, bool Jpeg, int Bytes) a, (long Pixels, bool Jpeg, int Bytes) b) =>
+            a.Pixels != b.Pixels ? a.Pixels > b.Pixels
+            : a.Jpeg != b.Jpeg ? a.Jpeg
+            : a.Bytes > b.Bytes;
     }
 
     /// <summary>Looks for cover.jpg / folder.jpg / etc. in the file's own directory.</summary>
