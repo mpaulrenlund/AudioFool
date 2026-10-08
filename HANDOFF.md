@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-08 after the forty-third build session (scan memory: MP3 covers skipped while reading tags, and the GC hands the emptied space back after a scan). Read this alongside
+Updated 2026-10-08 after the forty-third build session (scan memory: MP3 covers skipped while reading tags, and the GC hands the emptied space back after a scan; committed as "Reduce memory after a library scan" (`8a609fb`) and pushed). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1439,7 +1439,8 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
 ### Changes from session 43 (2026-10-08): scan memory
 
 The user picked "profile the post-scan memory" from the suggested next steps. **571 tests
-pass** (+2). Built and installed; the user opened it from their shortcut.
+pass** (+2). Built and installed; the user opened it from their shortcut. Committed as
+"Reduce memory after a library scan" (`8a609fb`) and pushed.
 
 - **Measured, not guessed.** Headless probes against `AudioFool.Core` (scratchpad
   `memprobe`), `dotnet-gcdump` on the running app (installed as a global tool with the
@@ -1469,6 +1470,30 @@ pass** (+2). Built and installed; the user opened it from their shortcut.
   and GC tuning. The `dotnet-gcdump` report's "GC Heap bytes" header (184–210 MB) is
   larger than its listed objects (38–43 MB) because on .NET 10 it uses lossy buffering
   and drops objects; trust the listed types for shape, not the total.
+- **The user wants plain explanations of findings like this** (they asked what the
+  issue was after the first technical summary). Lead with what the app needs versus
+  what it held, an everyday analogy, then the fix; keep GC terms out of the answer.
+
+**How to measure the running app's memory next time.** `dotnet-gcdump` stays installed
+(the user's call, 2026-10-08). None of this touches the window, the mouse or focus.
+
+- Totals: `Get-Process AudioFool` (`WorkingSet64`, `PrivateMemorySize64`,
+  `PeakWorkingSet64`). Note the uptime and whether a scan read files: right after
+  launch the peak includes the startup change check.
+- Global .NET tools are not on PATH in a fresh shell. Prefix with
+  `$env:PATH = "C:\Program Files\dotnet;$env:USERPROFILE\.dotnet\tools;$env:PATH"`.
+- Snapshot: `dotnet-gcdump collect -p <pid> -o <scratchpad>\x.gcdump`, then
+  `dotnet-gcdump report <file>`. It forces one full blocking GC; playback carried on
+  both times. **In the report, the first column is one object's size, not the type's
+  total**: multiply by the count, except for the "(Bytes > N)" bucket rows, which are
+  totals already. Ask the user before attaching: it pauses their app briefly.
+- GC committed versus native: the scratchpad `vmprobe` (a `VirtualQueryEx` walk; the
+  64 GB private reservation is the GC heap, its committed size is the GC's). It is in
+  the session scratchpad, so it won't survive; it is ~50 lines to rewrite.
+- Headless: a console app referencing `AudioFool.Core`, calling `LibraryCache.Load`,
+  `LibraryScanner.Build` and `LibraryScanner.ScanAsync` against the real folders
+  (read-only; it never saves), printing `GC.GetGCMemoryInfo().TotalCommittedBytes`.
+  This is how the 293-file churn and the Forced-versus-Aggressive difference were found.
 
 ### Changes from session 42 (2026-10-07): clearing songs from Quality Check rows
 
