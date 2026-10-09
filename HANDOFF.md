@@ -3893,9 +3893,8 @@ retag of the playing track reaches the scrobbler.
    Edit Artist Tags, or Ctrl+A bites, the fix is reading the detail fields off the UI
    thread (or a confirmation over some track count); not built, not offered yet.
 0. ~~**Ask the user about Recently Added**~~ Asked 2026-10-07: picking albums, going back to every song, the taller rows and double-click to play all feel good to the user.
-0. **Ask the user about session 42's clearing** in the running app: the right-click
-   items under a Quality Check row, the Analyze button, the grey Cleared by you row.
-   Their real `quality.json` can't be read from the shell.
+0. ~~**Ask the user about session 42's clearing**~~ Asked 2026-10-08: the user says
+   clearing songs from Quality Check rows works well.
 0. **Still open from session 39**: edge scrolling while dragging in a playlist (real drags
    confirmed, edge scrolling not yet tried). Ask once. The playlists button's place is settled:
    the user says it's great (2026-10-07).
