@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-12 after the forty-sixth session (**Bit-Perfect never starts playback**: toggling it while paused no longer plays; installed, not committed). Session 45 before it (no code changes: **AudioFool 0.3.0 released**, tag `v0.3.0` on `9c17008`, and installed; the user confirmed Quality Check clearing; the seek bar's ~200 ms lead discussed and left alone. Nothing open). Session 44 before it: embedded covers, the best of several shown, Keep Best Cover run over the whole library (~9 GB freed). Read this alongside
+Updated 2026-10-12 after the forty-sixth session (**Bit-Perfect never starts playback**: toggling it while paused no longer plays; installed, committed and pushed). Session 45 before it (no code changes: **AudioFool 0.3.0 released**, tag `v0.3.0` on `9c17008`, and installed; the user confirmed Quality Check clearing; the seek bar's ~200 ms lead discussed and left alone. Nothing open). Session 44 before it: embedded covers, the best of several shown, Keep Best Cover run over the whole library (~9 GB freed). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
