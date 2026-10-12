@@ -274,7 +274,27 @@ These only apply when AudioFool has focus:
 | **F5** | Rescan the library |
 | **Enter** | Play the selected track |
 | **F2** | Edit the selected track's #, Song, Artist or Album in place (the cell you last clicked). A second single click on the selected row does the same. **Enter** saves, **Escape** cancels |
-| **Escape** | Close the album-art viewer |
+| **Escape** | Close the album-art viewer (so does Ctrl+D); in the search box, leave it and keep the search (the × clears it) |
+| **Space** | Play / pause |
+| **Ctrl+S** | Shuffle on / off |
+| **Ctrl+E** | Next repeat setting (off → whole queue → this track) |
+| **Ctrl+Left / Ctrl+Right** | Previous / next track |
+| **Ctrl+Up / Ctrl+Down** | Volume up / down by 5% (unmutes; nothing in Bit-Perfect, where the volume is fixed) |
+| **Ctrl+M** | Mute / unmute |
+| **Ctrl+L** | Like / unlike the playing song |
+| **Ctrl+J** | Jump to the playing song in the lists |
+| **Ctrl+F** | Go to the search box |
+| **Ctrl+B** | Bit-Perfect on / off |
+| **Ctrl+R** | Rescan the library (as F5) |
+| **Ctrl+W** | Statistics |
+| **Ctrl+Q** | Analyze the selected song, or the playing one if no song is selected |
+| **Ctrl+D** | Album-art viewer for the playing album, or the selected album if nothing is playing; Ctrl+D again closes it |
+
+Space is left to the text while you type in the search box or edit a cell, and to
+the name while you type to jump in Artists or Albums ("pink floyd"); otherwise it is
+always play/pause, even on a focused button. While a song-table cell is being edited
+the Ctrl shortcuts are off (Enter saves, as before), and in the search box the
+Ctrl+arrows move by word as usual. Holding a key acts once, except the volume.
 
 ### Taskbar controls
 

@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-12 after the forty-sixth session (**Bit-Perfect never starts playback**: toggling it while paused no longer plays; installed, committed and pushed). Session 45 before it (no code changes: **AudioFool 0.3.0 released**, tag `v0.3.0` on `9c17008`, and installed; the user confirmed Quality Check clearing; the seek bar's ~200 ms lead discussed and left alone. Nothing open). Session 44 before it: embedded covers, the best of several shown, Keep Best Cover run over the whole library (~9 GB freed). Read this alongside
+Updated 2026-10-12 after the forty-sixth session (**Bit-Perfect never starts playback**, and **keyboard shortcuts**: Space and fifteen Ctrl keys, see part 2; and **Escape or a click leaves the search box**, part 3; **Ctrl+D closes the art viewer**, part 4; **Statistics: Top Artists out, a shortcut guide in**, part 5; **another app jumping in front after closing a tag window**, likely fixed, part 6; **Statistics without tooltips or footer hint**, part 7; installed, not yet tried with the real keyboard). Session 45 before it (no code changes: **AudioFool 0.3.0 released**, tag `v0.3.0` on `9c17008`, and installed; the user confirmed Quality Check clearing; the seek bar's ~200 ms lead discussed and left alone. Nothing open). Session 44 before it: embedded covers, the best of several shown, Keep Best Cover run over the whole library (~9 GB freed). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -342,7 +342,7 @@ track change.
 - **It counts what the status bar counts**: `_folderFilteredLibrary`, i.e. enabled
   folders only and ignoring any active search. When a folder is unchecked, a caution
   line at the top says so.
-- **Top artists come from the artist tree**, not a fresh grouping, so names and counts
+- ~~Top artists~~ (section removed in session 46) **Top artists came from the artist tree**, not a fresh grouping, so names and counts
   are exactly the sidebar's (album artist, falling back to track artist). Bars are
   drawn against the leader rather than the whole library — five artists holding 1–2%
   each would otherwise all be slivers.
@@ -1463,6 +1463,117 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   ~~Offered: re-probing when the default device changes~~ Done in session 37, with
   output following the device. (A tooltip saying why it is disabled was turned down
   in session 37, along with the chip's tooltip.)
+
+### Changes from session 46, part 7 (2026-10-12): Statistics without tooltips or footer hint
+
+- **The user's ask**: no "Click a row to show those tracks in the library." beside Close,
+  and **no tooltips anywhere in Statistics** ("they aren't needed and make the page
+  messy"). The rows' `ToolTip` binding, `BarRow.ToolTip`, every `ToolTip =` in
+  `StatisticsViewModel`, `QualitySectionViewModel` and `CoverSectionViewModel`, and
+  `ShowTracks` are gone. Rows still click, and their accessible names are unchanged.
+  Don't add tooltips back to this window.
+- **Verified**: ThemeLab `--window stats --w 900` now counts every element with a tooltip:
+  **0**. The render shows Close alone at the bottom right. Installed.
+
+### Changes from session 46, part 6 (2026-10-12): another app jumping in front after closing a tag window
+
+- **The user's report**: closing the tag window sometimes brought another application to
+  the front instead of AudioFool. Not reproduced: that needs real windows taking the
+  foreground, which is off limits on the user's machine.
+- **Likely cause, the well-known WPF one**: as a window closes, Windows picks the next to
+  activate, and WPF can drop the owner link before it does, so the pick falls to
+  whatever is next on the desktop ("sometimes": it depends on what else is open).
+- **Fix, the usual remedy**: `Services/OwnerActivation.Attach(window)`. While the closing
+  window is still active, its owner is activated first. Called in the constructors of
+  the three non-modal windows: `TagEditWindow` (song and album edits), `AnalysisWindow`,
+  `ArtWindow`. Skipped while modal (`ComponentDispatcher.IsThreadModal`): WPF's
+  `ShowDialog` already re-activates the window that was active before, and the owner is
+  still disabled at Closing. Skipped when the closing window isn't active, so a window
+  closed while the user is in another app doesn't pull AudioFool forward.
+- **Trap found on the way: a class handler on `Loaded` never fires for a `Window`
+  either** (session 5 found it for `MenuItem`). The first version hooked every window
+  that way; ThemeLab showed it never attached.
+- **Verified**: ThemeLab `--shortcuts 1`, section 5: the three windows, built and never
+  shown, carry the Closing handler. **Not verified**: that the right window comes to the
+  front. That needs the user: close a tag window a few times and see whether another
+  app still jumps in front. If it does, the next suspect is WPF-UI's title-bar close
+  button. Installed.
+
+### Changes from session 46, part 5 (2026-10-12): Statistics, Top Artists out, a shortcut guide in
+
+- **TOP ARTISTS BY TRACKS removed** (the user's ask), with everything only it used:
+  `LibraryStatistics.TopArtists` and `ArtistStat`, `Compute`'s `topArtistCount`, two tests
+  (**611 tests now**), `BarRow.ArtistName`, `MainViewModel.ShowArtist`, the artist branch
+  of `ApplyStatisticsChoice`. The footer no longer mentions artists.
+- **KEYBOARD SHORTCUTS** section under TRACKS BY DECADE (the user's ask; layout and content
+  were the user's picks: key column plus description, every shortcut, grouped). The list
+  is `ViewModels/ShortcutGuide.cs`, **the one place to update** alongside
+  `MainWindow.Shortcuts.cs` and README when a shortcut changes. FROM ANY APP (F9–F11) only
+  while `GlobalHotkeys` is on. Design notes in `design/progress.md` Decisions.
+- **Verified**: ThemeLab `--window stats --w 900` (real library; `--nohotkeys 1` hides the
+  last group) rendered and looked at: Top Artists gone, the guide's keys in one aligned
+  column, the long Ctrl+D line wraps under its description. The left column is now
+  shorter than the right; the window scrolls as before. Installed.
+
+### Changes from session 46, part 4 (2026-10-12): Ctrl+D closes the art viewer
+
+- **The user's ask**: with the viewer open, Ctrl+D closes it. The viewer takes focus
+  when it opens, so both ends handle it: `ArtWindow.ClosesOn` (Escape, or Ctrl+D that is
+  not a repeat, so a held Ctrl+D only opens it), and the main window's `Shortcut.Art`
+  closes `_artWindow` when one is open instead of replacing it.
+- **Verified** in ThemeLab `--shortcuts 1`, section 3b: Ctrl+D from the main window
+  closes a viewer that is never shown (nothing appears on screen); `ClosesOn` for Ctrl+D,
+  held Ctrl+D, Escape, plain D and Ctrl+Shift+D. All OK. Opening a viewer in the probe
+  was not done (it would show a window). Not tried with the real keyboard. Installed.
+
+### Changes from session 46, part 3 (2026-10-12): leaving the search box
+
+- **The user's ask**: Escape, or a click outside the search box, takes the cursor out.
+  Asked what Escape should do with the text (it used to clear it): **leave the box and
+  keep the search** (the user's pick). The × still clears; Ctrl+F then Delete does too.
+  The old `KeyBinding` and `ClearSearchCommand` are gone.
+- `MainWindow.SearchFocus.cs`: focus goes back to where it was before the box (recorded
+  on `GotKeyboardFocus`), else the selected song's cell (so Space, arrows and F2 carry
+  on), else the song table. A click: a window `PreviewMouseDown` outside the box checks
+  after the click is handled (`BeginInvoke`) and moves focus out only if the box still
+  has it, so a click on a list or the table focuses that as normal, and a click on a
+  header, the art or a transport button (which skip focus) leaves too.
+- **Verified** in ThemeLab `--shortcuts 1`, section 4: Escape back to a song cell and to
+  the Shuffle button, with nothing recorded to the selected song; search text and query
+  kept; a click in the box stays, a click on the ARTISTS label or Shuffle leaves. All OK.
+  Not tried with the real keyboard and mouse. Installed.
+
+### Changes from session 46, part 2 (2026-10-12): keyboard shortcuts
+
+- **The user's list**: Space play/pause, Ctrl+W Statistics, Ctrl+Q Analyze (the selected
+  song, the focused one of several, else the playing one), Ctrl+D art viewer (the playing
+  album, else the selected album: the user's call), Ctrl+S Shuffle, Ctrl+R rescan (F5
+  stays), Ctrl+E next Repeat, Ctrl+B Bit-Perfect. **Plus the ones I suggested, all
+  accepted**: Ctrl+F search box, Ctrl+L like the playing song, Ctrl+M mute,
+  Ctrl+Left/Right previous/next, Ctrl+Up/Down volume ±5% (unmutes, as the slider does;
+  nothing in exclusive mode; `MainViewModel.StepVolume`), Ctrl+J jump to the playing song.
+- `MainWindow.Shortcuts.cs`: one window `PreviewKeyDown`. `ResolveShortcut(key, modifiers,
+  focused)` decides, `HandleShortcut` runs it; modifiers and focus are parameters so
+  ThemeLab can drive it. Rules, discussed with the user first:
+  - Space: not in a text box, not in an open menu, not while a type-ahead is under way
+    (`_typeAheadBuffer` non-empty, so "pink floyd" still works). Otherwise always
+    play/pause, **even on a focused button**, which Space would otherwise click.
+  - Ctrl shortcuts: **off while a song-table cell is edited** (Ctrl+S there out of habit
+    must not toggle Shuffle); Ctrl+arrows off in any text box (word moves). Exactly Ctrl:
+    Ctrl+Shift and Ctrl+Alt (AltGr) pass through.
+  - A held key acts once, except the volume. Statistics, Analyze, the art viewer and
+    Ctrl+F run after the key event (`BeginInvoke`): Statistics is modal.
+  - Window-level, so they override the song table's own Ctrl+arrows (first/last row or
+    column). Main window only; Statistics, tag and Analyze windows are untouched.
+- **Verified**: ThemeLab **`--shortcuts 1`**: every key resolved with focus on the window,
+  song table, Artists, the Shuffle button, the search box, a menu item, an open cell
+  edit (F2's command, then cancelled) and during a type-ahead; Ctrl+Q's and Ctrl+D's
+  choices; Shuffle, Repeat, volume, mute, Bit-Perfect (stopped stays stopped), like, Ctrl+J
+  and Ctrl+F run and checked. All OK; `settings.json` and `library.json` byte-identical
+  afterwards. **Not run** (they open windows, play or scan; each just calls the existing
+  command): Space, Ctrl+W/Q/D/R, Ctrl+Left/Right. Ctrl+J's check passes but the playing
+  album was already the selected one. **Not yet tried with the real keyboard.**
+  README's shortcut table updated. Installed.
 
 ### Changes from session 46 (2026-10-12): Bit-Perfect never starts playback
 
@@ -2993,7 +3104,7 @@ covers. Work is on `main`, no branch, at the user's request.
 
 - **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
   libVLC fallback; `AudioEngine.CreateDecodeStream` is the single seam for that.
-- No playlists or queue view. Shuffle and repeat are done (session 5); what is still
+- No queue view (playlists came in session 38). Shuffle and repeat are done (session 5); what is still
   missing is a visible, editable queue.
 - Memory was profiled in session 43 (see there). Still left: FLAC tag reads load the cover
   (TagLib ignores PictureLazy for FLAC), so a big scan still peaks high before the reclaim.
