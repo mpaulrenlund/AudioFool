@@ -11,8 +11,8 @@ namespace AudioFool.ViewModels;
 /// </summary>
 public sealed partial class AlbumItemViewModel : ObservableObject
 {
-    /// <summary>Matches the thumbnail size in the album list template.</summary>
-    private const int ThumbnailWidth = 96;
+    /// <summary>Matches the thumbnail size in the album list template; saved as a copy on disk.</summary>
+    private const int ThumbnailWidth = AlbumArtService.ListThumbnailWidth;
 
     /// <param name="namesArtist">
     /// Adds a line with the artist under the title, for Recently Added, whose albums come

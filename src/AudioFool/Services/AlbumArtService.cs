@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using AudioFool.Core.Art;
 using AudioFool.Core.Library;
@@ -20,9 +21,25 @@ namespace AudioFool.Services;
 /// first. An unbounded cache looks fine on a small library and quietly grows to
 /// hundreds of megabytes once you've browsed a few thousand albums.
 /// </para>
+/// <para>
+/// The Albums list's thumbnails and the album header also keep a small copy on
+/// the local drive (<see cref="ArtDiskCache"/>, session 47), so after a restart
+/// they come from there rather than from the music drive.
+/// </para>
 /// </summary>
 public sealed class AlbumArtService
 {
+    /// <summary>The Albums list's thumbnail, decoded wider than its 56 px tile for sharpness.</summary>
+    public const int ListThumbnailWidth = 96;
+
+    /// <summary>The album header's cover.</summary>
+    public const int HeaderWidth = 320;
+
+    private readonly ArtDiskCache? _disk;
+
+    /// <param name="disk">Where the small copies live; null keeps none (ThemeLab).</param>
+    public AlbumArtService(ArtDiskCache? disk = null) => _disk = disk;
+
     /// <summary>Roughly 170 header covers or 17,000 thumbnails.</summary>
     private const long MaxCachedBytes = 64L * 1024 * 1024;
 
@@ -38,10 +55,112 @@ public sealed class AlbumArtService
     private readonly LinkedList<string> _recency = new();   // front = most recent
     private long _cachedBytes;
 
-    /// <summary>Art for an album, decoded to roughly <paramref name="decodeWidth"/> pixels wide.</summary>
+    /// <summary>
+    /// Art for an album, decoded to roughly <paramref name="decodeWidth"/> pixels wide.
+    /// At <see cref="ListThumbnailWidth"/> and <see cref="HeaderWidth"/> a saved
+    /// copy is used, or made.
+    /// </summary>
     public Task<BitmapSource?> GetAlbumArtAsync(Album album, int decodeWidth) =>
         GetOrLoad($"{album.ArtistName}␟{album.Title}␟{decodeWidth}",
-                  () => LoadForAlbum(album, decodeWidth));
+                  () => KeepsCopy(decodeWidth) ? LoadWithCopy(album, decodeWidth) : LoadForAlbum(album, decodeWidth));
+
+    private bool KeepsCopy(int width) => _disk is not null && width is ListThumbnailWidth or HeaderWidth;
+
+    /// <summary>
+    /// Makes the saved list thumbnail for an album that has none yet, for the
+    /// background prefill. Leaves the in-memory cache alone, so filling in a whole
+    /// library doesn't push out what is on screen. True when a copy was made.
+    /// </summary>
+    public bool EnsureSavedThumbnail(Album album)
+    {
+        if (_disk is null || _disk.Contains(ArtDiskCache.KeyFor(album, ListThumbnailWidth)))
+            return false;
+
+        return LoadFromSource(album, ListThumbnailWidth, save: true).Saved;
+    }
+
+    /// <summary>Deletes saved copies untouched for 90 days. Returns how many went.</summary>
+    public int PruneSavedCopies() => _disk?.Prune(DateTime.UtcNow) ?? 0;
+
+    private BitmapSource? LoadWithCopy(Album album, int width)
+    {
+        if (_disk!.TryRead(ArtDiskCache.KeyFor(album, width), out var saved))
+        {
+            if (saved is null)
+                return null;   // looked before: no cover
+
+            if (DecodeBytes(saved, 0) is { } copy)
+                return copy;
+        }
+
+        return LoadFromSource(album, width, save: true).Art;
+    }
+
+    /// <summary>
+    /// Reads the cover from the tracks or the folder, as <see cref="LoadForAlbum"/>
+    /// does, and with <paramref name="save"/> keeps a copy. "No cover" is kept only
+    /// when every file looked in was read: an unplugged music drive or a file
+    /// another program has open must not be remembered as an album without art.
+    /// </summary>
+    private (BitmapSource? Art, bool Saved) LoadFromSource(Album album, int width, bool save)
+    {
+        var certain = album.Tracks.Count > 0;
+        BitmapSource? art = null;
+        foreach (var track in album.Tracks.Take(5))
+        {
+            if (!TagReader.TryReadEmbeddedArt(track.FilePath, out var embedded))
+                certain = false;
+            if ((art = DecodeBytes(embedded, width)) is not null)
+                break;
+        }
+
+        if (art is null && album.FolderArtPath is { } folderArt)
+        {
+            art = DecodeFile(folderArt, width);
+            certain &= art is not null;
+        }
+
+        if (!save || _disk is null)
+            return (art, false);
+
+        var key = ArtDiskCache.KeyFor(album, width);
+        if (art is not null)
+        {
+            if (Encode(art) is not { } bytes)
+                return (art, false);
+            _disk.Write(key, bytes);
+            return (art, true);
+        }
+
+        if (!certain)
+            return (null, false);
+
+        _disk.Write(key, null);
+        return (null, true);
+    }
+
+    /// <summary>JPEG at quality 90; PNG when the picture has transparency, which JPEG would lose.</summary>
+    private static byte[]? Encode(BitmapSource art)
+    {
+        try
+        {
+            var format = art.Format;
+            var hasAlpha = format == PixelFormats.Bgra32 || format == PixelFormats.Pbgra32
+                           || format == PixelFormats.Rgba64 || format == PixelFormats.Prgba64
+                           || format == PixelFormats.Rgba128Float || format == PixelFormats.Prgba128Float;
+            BitmapEncoder encoder = hasAlpha
+                ? new PngBitmapEncoder()
+                : new JpegBitmapEncoder { QualityLevel = 90 };
+            encoder.Frames.Add(BitmapFrame.Create(art));
+            using var stream = new MemoryStream();
+            encoder.Save(stream);
+            return stream.ToArray();
+        }
+        catch (Exception ex) when (ex is NotSupportedException or InvalidOperationException or ArgumentException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>
     /// Art for a single track. Falls back to its album folder's cover so that a
@@ -122,6 +241,11 @@ public sealed class AlbumArtService
                 _recency.Remove(entry.Node);
             }
         }
+
+        // The edit gives the album new saved-copy names anyway (its files'
+        // write times change); this just doesn't leave the old ones for 90 days.
+        _disk?.Remove(ArtDiskCache.KeyFor(album, ListThumbnailWidth));
+        _disk?.Remove(ArtDiskCache.KeyFor(album, HeaderWidth));
     }
 
     /// <summary>

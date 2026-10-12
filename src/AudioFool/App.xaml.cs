@@ -37,7 +37,7 @@ public partial class App : Application
         // thread's SynchronizationContext and marshals its events back to it.
         _engine = new AudioEngine(_runtime);
 
-        _viewModel = new MainViewModel(_engine, _runtime, new AlbumArtService(), settings);
+        _viewModel = new MainViewModel(_engine, _runtime, new AlbumArtService(new Core.Art.ArtDiskCache(Core.Art.ArtDiskCache.DefaultFolder)), settings);
 
         // Before the window is built, not after.
         //

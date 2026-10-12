@@ -1456,7 +1456,10 @@ internal static class Program
                         var bounds = pick.Split('-');
                         var (from, to) = (int.Parse(bounds[0]), int.Parse(bounds[^1]));
                         var picked = album.Tracks.Skip(from - 1).Take(to - from + 1).ToList();
+                        SynchronizationContext.SetSynchronizationContext(
+                            new System.Windows.Threading.DispatcherSynchronizationContext(System.Windows.Threading.Dispatcher.CurrentDispatcher));
                         editVm = new TagEditViewModel(picked);
+                        WaitForDetails(editVm);
                         Console.WriteLine($"selection: {picked.Count} of {album.Title}'s {album.Tracks.Count} tracks, opened in {clock.ElapsedMilliseconds} ms");
                         foreach (var t in picked)
                             Console.WriteLine($"    {t.DiscNumber}/{t.DiscCount} #{t.TrackNumber}/{t.TrackCount}  {t.Title}");
@@ -1470,6 +1473,7 @@ internal static class Program
                         SynchronizationContext.SetSynchronizationContext(
                             new System.Windows.Threading.DispatcherSynchronizationContext(System.Windows.Threading.Dispatcher.CurrentDispatcher));
                         editVm = new TagEditViewModel(album, new AlbumArtService());
+                        WaitForDetails(editVm);
                         Console.WriteLine($"album: {album.Title} ({album.Tracks.Count} tracks), opened in {clock.ElapsedMilliseconds} ms");
                         Settle(1500);
                         Console.WriteLine($"  art       '{editVm.ArtSizeText}' '{editVm.ArtFormatText}' [{editVm.ArtSourceText}]  preview={editVm.ArtPreview?.PixelWidth}px");
@@ -3874,6 +3878,7 @@ internal static class Program
         TagEditViewModel Open(AudioFool.Core.Library.TagSelection selection)
         {
             var edit = new TagEditViewModel(selection.Tracks, selection.Description);
+            WaitForDetails(edit);
             Log($"  dialog: '{edit.WindowTitle}'");
             Log($"    tracks: {Names(selection.Tracks, t => $"{t.Title} ({t.Artist} / {t.Album})")}");
             Log($"    artist '{edit.Artist}' [{edit.ArtistPlaceholder}]  album artist '{edit.AlbumArtist}' [{edit.AlbumArtistPlaceholder}]");
@@ -5194,6 +5199,21 @@ internal static class Program
                 return deeper;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Album and selection tag windows read their detail fields in the background
+    /// (session 47). Pumps until they arrive and reports whether the fields opened
+    /// greyed, how long the read took, and that Save came back.
+    /// </summary>
+    private static void WaitForDetails(TagEditViewModel vm)
+    {
+        var greyed = vm.IsReadingDetails;
+        var savable = vm.CanSave;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (!vm.DetailsRead.IsCompleted && clock.ElapsedMilliseconds < 60_000)
+            Settle(25);
+        Console.WriteLine($"  details: greyed at open={greyed} save at open={savable}, read in {clock.ElapsedMilliseconds} ms, now greyed={vm.IsReadingDetails} save={vm.CanSave}");
     }
 
     private static void Settle(int milliseconds)

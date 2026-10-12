@@ -115,7 +115,11 @@
                 </StackPanel>
             </StackPanel>
 
-            <Grid Margin="{theme:Thickness X=dialog.paddingX, Top=tagEdit.fieldsGapTop}">
+            <!-- Greyed while an album or a selection reads its files (session 47):
+                 the window opens at once, and nothing is typed over values that
+                 haven't arrived yet. -->
+            <Grid Margin="{theme:Thickness X=dialog.paddingX, Top=tagEdit.fieldsGapTop}"
+                  IsEnabled="{Binding IsReadingDetails, Converter={StaticResource InverseBool}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="{theme:Token tagEdit.labelWidth}" />
                     <ColumnDefinition Width="*" />

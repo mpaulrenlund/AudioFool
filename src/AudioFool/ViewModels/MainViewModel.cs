@@ -22,7 +22,7 @@ namespace AudioFool.ViewModels;
 public sealed partial class MainViewModel : ObservableObject, IDisposable
 {
     private const int NowPlayingArtWidth = 128;
-    private const int AlbumHeaderArtWidth = 320;
+    private const int AlbumHeaderArtWidth = AlbumArtService.HeaderWidth;
 
     private readonly AudioEngine _engine;
     private readonly BassRuntime _runtime;
@@ -859,6 +859,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
 
         _scanCts?.Cancel();
+        StopArtPrefill();
         _scanCts = new CancellationTokenSource();
         var token = _scanCts.Token;
 
@@ -926,6 +927,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             IsScanning = false;
             ScanFraction = 0;
             ReclaimScanMemory();
+
+            // A newer scan cancelled this one and will start it when it ends.
+            if (!token.IsCancellationRequested)
+                StartArtPrefill();
         }
     }
 
@@ -2306,6 +2311,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         _scanCts?.Cancel();
         _scanCts?.Dispose();
+        StopArtPrefill();
 
         // Each thread finishes the file it's on (well under a second), then the
         // results are saved; wait for that rather than lose the last 30 seconds.

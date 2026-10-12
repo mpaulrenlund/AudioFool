@@ -104,7 +104,23 @@ public static class TagReader
     /// and comment - read fresh for the tag dialog. Null when the file cannot be
     /// opened, which the dialog must not mistake for "every field is empty".
     /// </summary>
-    public static TagDetails? ReadDetails(string path)
+    public static TagDetails? ReadDetails(string path) => ReadDetailsCore(path);
+
+    /// <summary>
+    /// <see cref="ReadDetails"/> for many files, several at once, in the order
+    /// given. For the tag windows over a whole album or artist (session 47): one at
+    /// a time, 428 Rush tracks took 1.8 s the first time.
+    /// </summary>
+    public static IReadOnlyList<TagDetails?> ReadDetails(IReadOnlyList<string> paths, CancellationToken token = default)
+    {
+        var read = new TagDetails?[paths.Count];
+        Parallel.For(0, paths.Count,
+            new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = token },
+            i => read[i] = ReadDetailsCore(paths[i]));
+        return read;
+    }
+
+    private static TagDetails? ReadDetailsCore(string path)
     {
         try
         {
@@ -210,10 +226,22 @@ public static class TagReader
     /// <summary>Embedded cover art bytes, or null when the file carries none.</summary>
     public static byte[]? ReadEmbeddedArt(string path)
     {
+        TryReadEmbeddedArt(path, out var art);
+        return art;
+    }
+
+    /// <summary>
+    /// As <see cref="ReadEmbeddedArt"/>, but false when the file couldn't be read
+    /// (missing, locked, damaged), so "no cover" can be told from "didn't look".
+    /// </summary>
+    public static bool TryReadEmbeddedArt(string path, out byte[]? art)
+    {
+        art = null;
         try
         {
             using var file = TagLib.File.Create(path);
-            return BestCover(file.Tag.Pictures)?.Data?.Data;
+            art = BestCover(file.Tag.Pictures)?.Data?.Data;
+            return true;
         }
         catch (Exception ex) when (ex is TagLib.UnsupportedFormatException
                                      or TagLib.CorruptFileException
@@ -221,7 +249,7 @@ public static class TagReader
                                      or UnauthorizedAccessException
                                      or NotSupportedException)
         {
-            return null;
+            return false;
         }
     }
 

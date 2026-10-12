@@ -227,37 +227,17 @@ public sealed partial class TagEditViewModel : ObservableObject
 
         var tracks = album.Tracks;
         _albumTrackPaths = tracks.Select(t => t.FilePath).ToList();
-        var read = tracks.Select(t => TagReader.ReadDetails(t.FilePath)).ToList();
-        ShowNumbers(tracks, read);
 
-        // A file that cannot be opened has no say: its write will fail anyway,
-        // and counting it as "empty" would hide a value every other track shares.
-        var details = read.OfType<TagDetails>().ToList();
-        const string varies = "Varies by track - kept unless changed";
-        Publisher = Shared(details.Select(d => d.Publisher), varies, out var publisherHint);
-        Composer = Shared(details.Select(d => d.Composer), varies, out var composerHint);
-        Conductor = Shared(details.Select(d => d.Conductor), varies, out var conductorHint);
-        Genre = Shared(details.Select(d => d.Genre), varies, out var genreHint);
-        Comment = Shared(details.Select(d => d.Comment), varies, out var commentHint);
-        PublisherPlaceholder = publisherHint;
-        ComposerPlaceholder = composerHint;
-        ConductorPlaceholder = conductorHint;
-        GenrePlaceholder = genreHint;
-        CommentPlaceholder = commentHint;
-
-        // A full date only when every track has the same one. Year is written
-        // album-wide, so otherwise the album's year is what Save would write.
-        var dates = details.Select(d => d.Date).Distinct(StringComparer.Ordinal).ToList();
-        if (dates is [{ Length: > 0 } date] && details.Count == tracks.Count)
-            Year = date;
-
-        RememberInitialDetails();
         // Not for Save, which writes these four album-wide regardless: only so
-        // HasChanges can tell whether anything was typed.
+        // HasChanges can tell whether anything was typed. Year is remembered again
+        // when the files are read, since one full date shared by every track
+        // replaces the cached year.
+        RememberInitialDetails();
         _initial[nameof(Artist)] = Artist;
         _initial[nameof(AlbumArtist)] = AlbumArtist;
         _initial[nameof(AlbumTitle)] = AlbumTitle;
         _initial[nameof(Year)] = Year;
+        DetailsRead = ReadDetailsAsync(tracks, albumDate: true);
 
         _artStartDirectory = first is null ? null : Path.GetDirectoryName(first.FilePath);
 
@@ -288,10 +268,44 @@ public sealed partial class TagEditViewModel : ObservableObject
         AlbumTitlePlaceholder = albumHint;
         YearPlaceholder = yearHint;
 
-        var read = tracks.Select(t => TagReader.ReadDetails(t.FilePath)).ToList();
-        ShowNumbers(tracks, read);
+        RememberInitialDetails();
+        _initial[nameof(Artist)] = Artist;
+        _initial[nameof(AlbumArtist)] = AlbumArtist;
+        _initial[nameof(AlbumTitle)] = AlbumTitle;
+        _initial[nameof(Year)] = Year;
+        DetailsRead = ReadDetailsAsync(tracks, albumDate: false);
+    }
 
+    /// <summary>
+    /// True while the album and selection windows read the detail fields from the
+    /// files. The fields are greyed and Save is off until they arrive, so nothing
+    /// is saved over values that haven't been read yet.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isReadingDetails;
+
+    partial void OnIsReadingDetailsChanged(bool value) => Revalidate();
+
+    /// <summary>Finishes when the detail fields are filled in (ThemeLab waits on it).</summary>
+    public Task DetailsRead { get; } = Task.CompletedTask;
+
+    /// <summary>
+    /// Reads the five detail fields and the count and disc numbers of every track
+    /// off the UI thread, several files at once, so the window opens at once even
+    /// for an artist of 500 tracks (session 47; it used to freeze for 1-2 s). The
+    /// boxes pre-fill only when every track agrees. A file that cannot be opened has
+    /// no say: its write will fail anyway, and counting it as "empty" would hide a
+    /// value every other track shares.
+    /// </summary>
+    private async Task ReadDetailsAsync(IReadOnlyList<Track> tracks, bool albumDate)
+    {
+        IsReadingDetails = true;
+        var paths = tracks.Select(t => t.FilePath).ToList();
+        var read = await Task.Run(() => TagReader.ReadDetails(paths));
+
+        ShowNumbers(tracks, read);
         var details = read.OfType<TagDetails>().ToList();
+        const string varies = "Varies by track - kept unless changed";
         Publisher = Shared(details.Select(d => d.Publisher), varies, out var publisherHint);
         Composer = Shared(details.Select(d => d.Composer), varies, out var composerHint);
         Conductor = Shared(details.Select(d => d.Conductor), varies, out var conductorHint);
@@ -303,12 +317,19 @@ public sealed partial class TagEditViewModel : ObservableObject
         GenrePlaceholder = genreHint;
         CommentPlaceholder = commentHint;
 
+        // Album: a full date only when every track has the same one. Year is
+        // written album-wide, so otherwise the album's year is what Save would write.
+        if (albumDate)
+        {
+            var dates = details.Select(d => d.Date).Distinct(StringComparer.Ordinal).ToList();
+            if (dates is [{ Length: > 0 } date] && details.Count == tracks.Count)
+                Year = date;
+            _initial[nameof(Year)] = Year;
+        }
+
         RememberInitialDetails();
-        _initial[nameof(Artist)] = Artist;
-        _initial[nameof(AlbumArtist)] = AlbumArtist;
-        _initial[nameof(AlbumTitle)] = AlbumTitle;
-        _initial[nameof(Year)] = Year;
-        Revalidate();
+        RemoveLeadingZerosCommand.NotifyCanExecuteChanged();
+        IsReadingDetails = false;
     }
 
     /// <summary>
@@ -650,7 +671,7 @@ public sealed partial class TagEditViewModel : ObservableObject
         }
 
         ValidationError = "";
-        CanSave = true;
+        CanSave = !IsReadingDetails;
     }
 
     private static int? ParseOrNull(string value) =>
