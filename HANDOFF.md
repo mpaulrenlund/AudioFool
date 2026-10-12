@@ -829,7 +829,7 @@ Open items only; finished ones are in `HISTORY.md`.
 1. **Ask the user** how the art feels on the other machine after installing 0.4.0 (the
    reason for session 47's thumbnails), and whether Edit Artist Tags on a big artist now
    opens at once. Here the art "appears to be loading faster" (the user, 2026-10-12).
-   The shell can't see `%LOCALAPPDATA%AudioFoolrt` (container), so ask.
+   The shell can't see `%LOCALAPPDATA%\AudioFoolrt` (container), so ask.
 2. **A visible, editable queue view**: the most conspicuous missing player feature.
 3. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
    are confirmed; edge scrolling hasn't been tried.
