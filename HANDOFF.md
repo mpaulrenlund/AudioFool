@@ -16,6 +16,7 @@ you need the story behind a piece of code, not at the start of every session.
 | Publish output | `C:\MusicPlayer\publish\` (a build artifact, *not* what runs) |
 | Settings | `%APPDATA%\AudioFool\settings.json` |
 | Scan cache | `%LOCALAPPDATA%\AudioFool\library.json` (~13 MB) |
+| Saved cover thumbnails | `%LOCALAPPDATA%\AudioFool\art\` (~11 MB, disposable; session 47) |
 | Native BASS DLLs | `C:\MusicPlayer\lib\bass\x64\` (13 of them) |
 | Music library | `D:\Music` — external 4 TB SSD "Marc SSD", ~26,000 tracks, 692 GB |
 
@@ -125,10 +126,11 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
-  a build of `main` as pushed. **624 tests** pass.
+  a build of `main` as pushed. **634 tests** pass.
 - **Last release: v0.3.0** (2026-10-09). Since then: session 46 (Bit-Perfect never
   starts playback, keyboard shortcuts, leaving the search box, Statistics changes, the
-  owner-activation fix) and session 47 (artist sizes, ARTISTS · SIZE). The next
+  owner-activation fix) and session 47 (artist sizes, ARTISTS · SIZE, saved cover
+  thumbnails, tag windows reading in the background). The next
   release would be 0.4.0 (new features).
 - **PS1 is the only theme**, built from `design/theme-tokens.json`. `design/progress.md`
   holds every design decision; read it before UI work.
@@ -138,8 +140,15 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
 
 - **47** (2026-10-12): artist rows read "12 albums · 14.2 GB" (one decimal, "<0.1 GB"
   for tiny artists); a third click on the ARTISTS header sorts largest first
-  (`ArtistOrder`: Name → Recent → Size); the header's tooltip removed. Docs tidied:
-  this file split into `HANDOFF.md` and `HISTORY.md`.
+  (`ArtistOrder`: Name → Recent → Size; confirmed by the user); the header's tooltip
+  removed. Docs tidied: this file split into `HANDOFF.md` and `HISTORY.md`. Then,
+  after the user found art slow on another machine: **saved cover thumbnails**
+  (`Core/Art/ArtDiskCache`, `%LOCALAPPDATA%\AudioFool\art`, list and header sizes,
+  prefilled in the background by `MainViewModel.ArtPrefill.cs`; thumbnail 19 → 3 ms,
+  worst 185 → 6 ms) and **tag windows that read their files in the background**
+  (`TagEditViewModel.ReadDetailsAsync`, fields greyed until read; was a 1–2 s freeze
+  on big artists). Neither seen in the running app yet: ask the user, and ask how
+  the other machine feels.
 - **46** (2026-10-12): Bit-Perfect never starts playback; Space and fifteen Ctrl
   shortcuts (`MainWindow.Shortcuts.cs`, listed in `ViewModels/ShortcutGuide.cs` and the
   README); Escape or a click leaves the search box; Statistics lost Top Artists and its
@@ -575,6 +584,10 @@ a `finally`, then deletes the scratch tracks. It also installs a
 `DispatcherSynchronizationContext`, without which the save's continuation runs
 on the thread pool (see the art-search note) and the grid never updates.
 
+`--window tags` waits for an album or selection window's background read
+(`WaitForDetails`, session 47) and prints `details: greyed at open=... read in ... ms`
+before the fields; without the wait every detail field would print empty.
+
 `--window tags --album/--track` reads the real files' tags (read-only) and prints
 every prefill and placeholder. `--set` types into the boxes (`Name=value`) or presses a
 clear button (`!Name`), then prints what Save *would* write, with `(keep)` for untouched
@@ -816,16 +829,18 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
-1. **A visible, editable queue view**: the most conspicuous missing player feature.
-2. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
+1. **Ask the user** how the art and the big-artist tag windows feel in the running
+   app (session 47), here and on the other machine. On this machine
+   `%LOCALAPPDATA%\AudioFool\art` should reach ~11 MB a minute or so after launch;
+   the shell can't see it (container), so ask.
+2. **A visible, editable queue view**: the most conspicuous missing player feature.
+3. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
    are confirmed; edge scrolling hasn't been tried.
-3. **Not offered yet**: if Edit Artist Tags feels slow on big artists, or Ctrl+A in
-   Artists bites, read the detail fields off the UI thread (or confirm over some track
-   count).
 4. **Extra covers** (session 44): done for FLAC and MP3. Other formats aren't handled
    (9 DSF files keep their extra covers).
-5. **Memory** (session 43), not offered: a FLAC metadata reader that skips PICTURE
-   blocks (lowers the scan peak), and GC tuning (`GCConserveMemory`) for the steady state.
+5. **Memory** (session 43): a FLAC metadata reader that skips PICTURE blocks (lowers
+   the scan peak), and GC tuning (`GCConserveMemory`) for the steady state. Discussed in
+   session 47 and left: it only matters during a full scan.
 6. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll`, source only).
    Next step would be a spike build of `libprojectM.dll`. Nothing started.

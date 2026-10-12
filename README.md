@@ -666,6 +666,19 @@ next start does a full scan and writes a fresh one. It's written to a temp file 
 moved into place, so an interrupted write leaves the last good cache rather than a
 truncated one.
 
+**Saved cover thumbnails.** Showing a cover means opening a music file and shrinking
+a picture that is typically 300 KB and sometimes 12 MB. So the Albums list's thumbnails
+and the album header's cover are also kept as small copies in
+`%LOCALAPPDATA%\AudioFool\art` (about 4 KB and 30 KB each), and after a restart they
+come from there: measured, a thumbnail in 3 ms instead of 19 ms, and the slowest in 6 ms
+instead of 185 ms. After each library check, a low-priority background thread makes the
+thumbnail for every album that hasn't got one (about a minute for 2,400 albums, ~11 MB),
+so even the first visit to an artist is quick. A copy is named after its tracks' file
+names, sizes and write times, so it survives a drive-letter change, and a retag or a new
+cover simply makes a new one. Copies unused for 90 days are deleted. The folder is
+disposable: delete it and the copies are made again. A cover file changed by another
+program while no track changed isn't noticed until a track does.
+
 **Gapless playback.** The audio device is never stopped between tracks. A BASSmix mixer
 stays open and each track is a *decode* channel fed into it. When a track runs dry, a
 mixtime sync fires from inside BASS's mixing pass and the next channel — already decoded
@@ -694,6 +707,9 @@ sets the track count and disc number for every track. Any field the tracks disag
 starts empty and marked *Varies*, and is left alone unless you type into it. So editing
 an album's genre never flattens each track's own comment. To strip a tag, press the ✕
 beside it; in the album dialog that clears it on every track, even where they differed.
+For an album or a selection the window opens at once and reads the files in the
+background, four at a time; its fields stay greyed and Save stays off until they're read
+(a fraction of a second, a second or two for a 500-song artist on a slow drive).
 
 **Walking through albums.** *Edit Album Tags…* stays open beside the main window and
 follows the Albums list: click another album (or another artist, or use the arrow keys)

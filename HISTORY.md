@@ -3020,6 +3020,50 @@ No code changed apart from the version number. Four commits, all pushed.
   623 tests. Not tried with a real mouse click. Installed.
 
 
+### Changes from session 47, part 3 (2026-10-12): saved cover thumbnails, tag windows read in the background
+
+- **The user's report**: on another machine, album art was slow to load while browsing.
+  Measured on 200 random albums here (a probe, read-only): a cover is typically 309 KB
+  and 1200 px, one in ten over 1.4 MB / 2250 px, the largest 11.7 MB / 4000 px. Per
+  album, opening the file and finding the picture took 3.2 ms (median), shrinking it to
+  96 px 3.8 ms, 38+ ms for big ones, 22 ms for PNGs. Nothing persisted between runs, so
+  a slower drive or CPU paid that after every launch. Opening with `ReadStyle.None`
+  made no difference.
+- **Fix**: `Core/Art/ArtDiskCache` keeps the list thumbnail (96 px) and the header
+  (320 px) as small JPEGs (PNG when the picture has transparency) in
+  `%LOCALAPPDATA%\AudioFool\art`. Named by a SHA-1 of the width and the first five
+  tracks' `QualityCache.KeyOf` (file name, size, write time), so a drive-letter change
+  still finds it and a retag makes a new name. A zero-length copy means "no cover",
+  written only when every file looked in was read (`TagReader.TryReadEmbeddedArt`), so an
+  unplugged drive or a locked file is never remembered as no art. `InvalidateAlbum`
+  deletes the album's copies. Copies older than 30 days are re-stamped when used;
+  `Prune` deletes ones untouched for 90 days, and stray `.tmp` files, once a run.
+  The now-playing art (per song, could reach ~160 MB) and the art viewer are unchanged.
+- **Prefill** (the user's call, after asking the size): `MainViewModel.ArtPrefill.cs`.
+  After each library check (not a cancelled one), a below-normal thread makes the
+  thumbnail for every album without one, one at a time, leaving the in-memory cache
+  alone (`AlbumArtService.EnsureSavedThumbnail`); a new scan and shutdown stop it.
+- **Measured** with a probe driving the real `AlbumArtService` on the real library
+  (copies in a scratch folder): thumbnail median 18.5 → **3.3 ms**, p90 56 → 4.1, max
+  185 → 6.2; header median 16.6 → 5.4, max 224 → 12. Prefill: 2,168 albums in 57 s;
+  a second pass that finds them all 3.5 s. Folder: 16.8 MB for every thumbnail plus 200
+  headers. Thumbnails average 4.2 KB, headers 29 KB (measured on 191 covers).
+- **#5, Edit Artist Tags slow on big artists**: measured 1.1–1.8 s frozen the first
+  time (Rush 428 tracks 1.81 s, Buckethead 578 1.64 s; 0.1–0.25 s read in parallel and
+  warm). `TagReader.ReadDetails(paths)` reads four at a time in order;
+  `TagEditViewModel`'s album and selection constructors start `ReadDetailsAsync` and
+  the window opens at once with the fields grid greyed (`IsReadingDetails`, the dialog
+  text box's tokenised disabled opacity) and Save off until the values arrive. The
+  one-song window still reads its one file at once. `DetailsRead` lets ThemeLab wait.
+- **#6 (the scan's memory peak) left alone**, the user agreed: only during a full scan.
+- **Verified**: 634 tests (10 new in `ArtDiskCacheTests`). ThemeLab `--window tags`
+  (Saturn Return with `--set`, Goodbye Yellow Brick Road `--pick 1-8 --set`, Chronicles,
+  The Inevitable End `^Zeros`): every line of output (fields, placeholders, Save payload)
+  and every pixel of the render identical to a build of HEAD; the windows open greyed
+  with Save off and fill in ~57 ms. Main window renders 0 px different. Installed (the
+  app wasn't running). **Not verified**: the real app making its copies and prefill
+  (the shell's `LOCALAPPDATA` is a container copy), and the other machine.
+
 ---
 
 ## Reference notes retired from the handoff
