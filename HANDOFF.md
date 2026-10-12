@@ -144,8 +144,8 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   prefilled in the background by `MainViewModel.ArtPrefill.cs`; thumbnail 19 → 3 ms,
   worst 185 → 6 ms) and **tag windows that read their files in the background**
   (`TagEditViewModel.ReadDetailsAsync`, fields greyed until read; was a 1–2 s freeze
-  on big artists). Neither seen in the running app yet: ask the user, and ask how
-  the other machine feels.
+  on big artists). Released as **v0.4.0**. The user says the art "appears to be loading
+  faster" here; the other machine and the big-artist tag window not yet reported.
 - **46** (2026-10-12): Bit-Perfect never starts playback; Space and fifteen Ctrl
   shortcuts (`MainWindow.Shortcuts.cs`, listed in `ViewModels/ShortcutGuide.cs` and the
   README); Escape or a click leaves the search box; Statistics lost Top Artists and its
@@ -826,10 +826,10 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
-1. **Ask the user** how the art and the big-artist tag windows feel in the running
-   app (session 47), here and on the other machine. On this machine
-   `%LOCALAPPDATA%\AudioFool\art` should reach ~11 MB a minute or so after launch;
-   the shell can't see it (container), so ask.
+1. **Ask the user** how the art feels on the other machine after installing 0.4.0 (the
+   reason for session 47's thumbnails), and whether Edit Artist Tags on a big artist now
+   opens at once. Here the art "appears to be loading faster" (the user, 2026-10-12).
+   The shell can't see `%LOCALAPPDATA%AudioFoolrt` (container), so ask.
 2. **A visible, editable queue view**: the most conspicuous missing player feature.
 3. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
    are confirmed; edge scrolling hasn't been tried.
