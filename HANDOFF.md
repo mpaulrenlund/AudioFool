@@ -1487,7 +1487,8 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   "12 albums · 14.2 GB". Binary GB, like the status bar's total.
 - `ArtistGroup.AlbumSummary` (with `SummaryText(culture)` underneath, for tests) sums
   `FileSize` over the albums listed, so unticked folders drop out as the count does.
-  `LibrarySummary.GigabytesOneDecimal` sits beside `Gigabytes`. Spec 6.3 updated.
+  `LibrarySummary.GigabytesOneDecimal` sits beside `Gigabytes`; what would round to
+  0.0 reads "<0.1 GB" (the user's call; only no bytes at all says 0.0). Spec 6.3 updated.
 - **Verified**: 618 tests (7 new); ThemeLab main render on sample data, the line fits
   with room to spare. Not yet seen on the real library in the running app. Installed.
 

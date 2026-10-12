@@ -52,7 +52,8 @@ public class PlaybackBarTextTests
     [InlineData(0L, "0.0 GB")]
     [InlineData(GB * 4 / 10, "0.4 GB")]
     [InlineData(GB * 6 / 100, "0.1 GB")]
-    [InlineData(GB * 4 / 100, "0.0 GB")]
+    [InlineData(GB * 4 / 100, "<0.1 GB")]
+    [InlineData(1L, "<0.1 GB")]
     [InlineData(14 * GB + GB / 5, "14.2 GB")]
     [InlineData(1204 * GB, "1,204.0 GB")]
     public void Artist_size_is_binary_gigabytes_to_one_decimal(long bytes, string expected) =>

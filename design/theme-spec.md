@@ -210,7 +210,7 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 
 - Rows 42 px tall, 10 px horizontal padding, two lines stacked with 1 px between:
   - Line 1: artist name (truncate with "…" if too long).
-  - Line 2: "1 album" / "N albums", then a middle dot and the space those albums take in GB to one decimal: "12 albums · 14.2 GB" (added 2026-10-12, the user's request).
+  - Line 2: "1 album" / "N albums", then a middle dot and the space those albums take in GB to one decimal: "12 albums · 14.2 GB"; under 0.05 GB, "<0.1 GB" (added 2026-10-12, the user's request).
 - Selected: `state.selectionBg`; subline switches to `text.secondary`.
 - Hover: `state.hoverOverlay`.
 - Sorting ignores a leading "The" (e.g., "The Mercury Tree" sorts under M) — keep the current app's behavior.

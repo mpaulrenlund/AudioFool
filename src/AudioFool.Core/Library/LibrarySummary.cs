@@ -33,10 +33,15 @@ public static class LibrarySummary
     /// <summary>
     /// The same gigabytes to one decimal, for an artist's share (spec 6.3):
     /// "0.4 GB", "14.2 GB", "1,204.0 GB". One album is often under a gigabyte.
+    /// Anything that would round to 0.0 reads "&lt;0.1 GB" (the user's call), so
+    /// only an artist with no bytes at all says "0.0 GB".
     /// </summary>
     public static string GigabytesOneDecimal(long bytes, IFormatProvider? culture = null)
     {
+        culture ??= CultureInfo.CurrentCulture;
         var gigabytes = Math.Round(Math.Max(0, bytes) / BytesPerGigabyte, 1, MidpointRounding.AwayFromZero);
-        return string.Format(culture ?? CultureInfo.CurrentCulture, "{0:N1} GB", gigabytes);
+        return bytes > 0 && gigabytes == 0
+            ? string.Format(culture, "<{0:N1} GB", 0.1)
+            : string.Format(culture, "{0:N1} GB", gigabytes);
     }
 }
