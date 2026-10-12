@@ -95,9 +95,9 @@ the only thing that catches a file you forgot to track.
 
 ### Releases
 
-Three so far, all on GitHub (private, so downloads need a signed-in account):
-**v0.1.0** (2026-09-30, the user by hand), **v0.2.0** (2026-10-02) and **v0.3.0**
-(2026-10-09, session 45), both by Claude. Handle a release end to end when asked, but
+Four so far, all on GitHub (private, so downloads need a signed-in account):
+**v0.1.0** (2026-09-30, the user by hand), **v0.2.0** (2026-10-02), **v0.3.0**
+(2026-10-09, session 45) and **v0.4.0** (2026-10-12, session 47), all three by Claude. Handle a release end to end when asked, but
 **confirm the version number and the notes with the user before `gh release create`**:
 it publishes a tag. Middle number for new features, last for fixes only.
 
@@ -127,11 +127,8 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
   a build of `main` as pushed. **634 tests** pass.
-- **Last release: v0.3.0** (2026-10-09). Since then: session 46 (Bit-Perfect never
-  starts playback, keyboard shortcuts, leaving the search box, Statistics changes, the
-  owner-activation fix) and session 47 (artist sizes, ARTISTS · SIZE, saved cover
-  thumbnails, tag windows reading in the background). The next
-  release would be 0.4.0 (new features).
+- **Last release: v0.4.0** (2026-10-12, session 47, tag on `3a531a6`, 60 MB zip,
+  installed). It holds everything from sessions 46 and 47. Nothing unreleased since.
 - **PS1 is the only theme**, built from `design/theme-tokens.json`. `design/progress.md`
   holds every design decision; read it before UI work.
 - **Nothing is half-done.** Open items are under *Suggested next steps* at the end.

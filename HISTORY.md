@@ -3064,6 +3064,16 @@ No code changed apart from the version number. Four commits, all pushed.
   app wasn't running). **Not verified**: the real app making its copies and prefill
   (the shell's `LOCALAPPDATA` is a container copy), and the other machine.
 
+### Session 47, part 4 (2026-10-12): release 0.4.0
+
+- The user's ask. Notes confirmed with the user first (New: keyboard shortcuts, artist
+  sizes, ARTISTS · SIZE; Improved: faster album art, tag windows opening at once, leaving
+  the search box, Statistics; Fixed: Bit-Perfect starting a paused song, another app
+  jumping in front). 634 tests; `Version 0.4.0` (`3a531a6`) pushed; exe reports
+  0.4.0; the same 19 files as v0.3.0; zip 60.2 MB; tag checked with `git rev-list`.
+- The user closed the app themselves; the same build is installed.
+- The user said the art "appears to be loading faster" here; the other machine not yet.
+
 ---
 
 ## Reference notes retired from the handoff
