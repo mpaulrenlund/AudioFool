@@ -3072,7 +3072,9 @@ No code changed apart from the version number. Four commits, all pushed.
   jumping in front). 634 tests; `Version 0.4.0` (`3a531a6`) pushed; exe reports
   0.4.0; the same 19 files as v0.3.0; zip 60.2 MB; tag checked with `git rev-list`.
 - The user closed the app themselves; the same build is installed.
-- The user said the art "appears to be loading faster" here; the other machine not yet.
+- The user said the art "appears to be loading faster" here, and after installing 0.4.0
+  on the other machine (where it had been slow): "I didn't see any slow loading this
+  time". The big-artist tag window not yet reported.
 
 ---
 
