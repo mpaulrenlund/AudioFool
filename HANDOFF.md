@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-12 after the forty-sixth session (**Bit-Perfect never starts playback**, and **keyboard shortcuts**: Space and fifteen Ctrl keys, see part 2; and **Escape or a click leaves the search box**, part 3; **Ctrl+D closes the art viewer**, part 4; **Statistics: Top Artists out, a shortcut guide in**, part 5; **another app jumping in front after closing a tag window**, likely fixed, part 6; **Statistics without tooltips or footer hint**, part 7; all installed, and **confirmed by the user**: the shortcuts feel good and no other app jumps in front any more). Session 45 before it (no code changes: **AudioFool 0.3.0 released**, tag `v0.3.0` on `9c17008`, and installed; the user confirmed Quality Check clearing; the seek bar's ~200 ms lead discussed and left alone. Nothing open). Session 44 before it: embedded covers, the best of several shown, Keep Best Cover run over the whole library (~9 GB freed). Read this alongside
+Updated 2026-10-12 after the forty-seventh session (**artist rows show their size**: "12 albums · 14.2 GB", and **ARTISTS · SIZE**, a third header click sorting largest first; see its entries below; installed). Session 46 before it (**Bit-Perfect never starts playback**, and **keyboard shortcuts**: Space and fifteen Ctrl keys, see part 2; and **Escape or a click leaves the search box**, part 3; **Ctrl+D closes the art viewer**, part 4; **Statistics: Top Artists out, a shortcut guide in**, part 5; **another app jumping in front after closing a tag window**, likely fixed, part 6; **Statistics without tooltips or footer hint**, part 7; all installed, and **confirmed by the user**: the shortcuts feel good and no other app jumps in front any more). Session 45 before it (no code changes: **AudioFool 0.3.0 released**, tag `v0.3.0` on `9c17008`, and installed; the user confirmed Quality Check clearing; the seek bar's ~200 ms lead discussed and left alone. Nothing open). Session 44 before it: embedded covers, the best of several shown, Keep Best Cover run over the whole library (~9 GB freed). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1463,6 +1463,33 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   ~~Offered: re-probing when the default device changes~~ Done in session 37, with
   output following the device. (A tooltip saying why it is disabled was turned down
   in session 37, along with the chip's tooltip.)
+
+### Changes from session 47, part 2 (2026-10-12): ARTISTS · SIZE
+
+- **The user's ask**: clicking the header after ARTISTS · RECENT shows ARTISTS · SIZE,
+  largest artists first; the next click goes back to A-Z.
+- `Core/Library/ArtistOrder` (Name, Recent, Size) replaces `MainViewModel.ArtistsByRecent`
+  as the setting; `ArtistsByRecent` and `ArtistsBySize` remain as read-only flags for the
+  header's labels. `SortRules.SortArtistsBySize` (by `ArtistGroup.TotalBytes`, the same
+  figure the row shows; ties A-Z), `SortArtists(artists, order)` and `Next(order)`.
+- **The header's tooltip is gone** (the user's call; `ArtistSortTooltip` removed).
+- ThemeLab: `--clickartists N` clicks N times and prints the visible label;
+  `--artistsort size`. Use `--window click` with it: the sample data isn't the library
+  a click re-sorts, so the list comes out empty without it.
+- **Verified**: on the real library ARTISTS → · RECENT → · SIZE (Dream Theater 21.8 GB,
+  Rush 19.8, Ozric Tentacles 17.0), `settings.json` and `library.json` unchanged;
+  623 tests. Not tried with a real mouse click. Installed.
+
+### Changes from session 47 (2026-10-12): artist rows show their size
+
+- **The user's ask**: after the album count in the Artists list, a dot and the space the
+  artist takes in GB. One decimal (the user's pick): "1 album · 0.4 GB",
+  "12 albums · 14.2 GB". Binary GB, like the status bar's total.
+- `ArtistGroup.AlbumSummary` (with `SummaryText(culture)` underneath, for tests) sums
+  `FileSize` over the albums listed, so unticked folders drop out as the count does.
+  `LibrarySummary.GigabytesOneDecimal` sits beside `Gigabytes`. Spec 6.3 updated.
+- **Verified**: 618 tests (7 new); ThemeLab main render on sample data, the line fits
+  with room to spare. Not yet seen on the real library in the running app. Installed.
 
 ### Changes from session 46, part 7 (2026-10-12): Statistics without tooltips or footer hint
 

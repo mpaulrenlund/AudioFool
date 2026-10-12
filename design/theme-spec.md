@@ -154,7 +154,7 @@ Font: **Segoe UI Variable Text**, falling back to **Segoe UI**.
 | Panel headers (ARTISTS, ALBUMS) | 11 px | 600 | `text.muted` | Uppercase, letter-spacing 0.12 em |
 | Song table headers | 11 px | 600 | `text.muted` | Uppercase, letter-spacing 0.06 em |
 | Artist name | 13.5 px | 400 | `text.primary` | |
-| Artist album count | 11.5 px | 400 | `text.muted` | "1 album" / "N albums" |
+| Artist album count | 11.5 px | 400 | `text.muted` | "1 album · 0.4 GB" / "N albums · 14.2 GB" |
 | Album title (list) | 13.5 px | 400 | `text.primary` | Line height 1.3, max 2 lines |
 | Album meta (list) | 12 px | 400 | `text.muted` | "1998 · 21 tracks" |
 | Album title (header) | 30 px | 600 | `text.heading` | Line height 1.15 |
@@ -210,10 +210,11 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 
 - Rows 42 px tall, 10 px horizontal padding, two lines stacked with 1 px between:
   - Line 1: artist name (truncate with "…" if too long).
-  - Line 2: "1 album" / "N albums".
+  - Line 2: "1 album" / "N albums", then a middle dot and the space those albums take in GB to one decimal: "12 albums · 14.2 GB" (added 2026-10-12, the user's request).
 - Selected: `state.selectionBg`; subline switches to `text.secondary`.
 - Hover: `state.hoverOverlay`.
 - Sorting ignores a leading "The" (e.g., "The Mercury Tree" sorts under M) — keep the current app's behavior.
+- **The ARTISTS header is the sort toggle** (added 2026-10-12, the user's request). Each click moves on: ARTISTS (A–Z) → ARTISTS · RECENT (most recently added first) → ARTISTS · SIZE (most space first, ties A–Z) → ARTISTS. Each change starts at the top of the list; the app always opens on A–Z. Hover and keyboard focus underline it. No tooltip.
 
 ### 6.4 Albums panel
 
