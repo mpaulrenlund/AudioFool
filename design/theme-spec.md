@@ -7,8 +7,7 @@ Companion files in this folder:
 - `theme-tokens.json` — the same colors, sizes, and spacing in machine-readable form. Load these into the app's central theme instead of hard-coding values.
 - `mockup/AudioFool-mockup.dc.html` — source of the design mockup. Useful for exact icon shapes (SVG paths) and structure. It was made in a design tool and **will not run on its own**; read it, don't execute it. The `{{...}}` placeholders and the script block are mockup scaffolding, not app logic.
 - `screenshots/` — exported images of the mockup for visual comparison.
-- `progress.md` — what's been built so far.
-- `session-prompts.md` — kickoff messages for each implementation session.
+- `progress.md` — every design decision, and what each session built and verified.
 
 ---
 

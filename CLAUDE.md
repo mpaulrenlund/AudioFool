@@ -10,6 +10,8 @@ controls (light PS1 theme; see `design/`), ManagedBass for audio and TagLibSharp
   techniques, and the traps worth not rediscovering. Start here.
 - **[README.md](README.md)** — how the app works: output modes, DSD, the library cache,
   portable-drive handling, keyboard shortcuts.
+- [HISTORY.md](HISTORY.md) — what each past session changed, oldest first. Not needed
+  at the start of a session; look things up there when you need the background.
 
 ## Three things to know before touching anything
 
@@ -41,22 +43,19 @@ absolute path, and never let a missing folder be interpreted as a deleted librar
 
 Playback, DSD correctness and drive behaviour have all been verified by driving the real
 app or a headless probe against `AudioFool.Core` — not by reasoning about the code. Keep
-that standard. `dotnet test` covers the 611 unit tests over sorting, picking the best of several embedded covers, removing the extra ones (padding cut, the result checked before it replaces the file), a new cover being the only one, and the cover check, caching, search, path
-handling, the music-folder list, play order, reopening on the last-played song, the album header's full date, tag writing and reading (including files with a cover, in-place grid edits and edits over several artists or albums), release dates, the album header's track count (including "9 of 13" for part of an album),
-library statistics (including albums whose tracks disagree), playlists and likes (saving, order, drag to reorder, finding songs again after a drive-letter change, keeping songs that are not found), Recently Added (the 30 days, album grouping and order), online cover-art parsing, saving embedded art as cover.jpg, Last.fm scrobbling, track-number spelling,
-saving files that playback holds open, reading the theme tokens, the output readout,
-mute, the status bar's library size, the empty Songs panel's wording, and the Analyze
-window's spectrum (FFT, spectrogram, bit counting) and quality opinion, and the library
-quality check (sampled reads, saved results, the Statistics rows, clearing songs from a row), and the seekbar waveform's levels.
+that standard. `dotnet test` runs the unit tests over `AudioFool.Core` (624 as of
+session 47). They cover the logic, not the windows: anything visual is checked with
+ThemeLab or the installed app, as HANDOFF.md describes.
 
 
-## Current work: PS1 theme
+## The PS1 theme
 
-We're implementing a PlayStation 1–inspired theme. The design is fully specified:
+The app's only theme, inspired by the PlayStation 1. It was built in sessions 25–31 and
+is finished; changes since are the user's requests, one at a time.
 
 - **`design/theme-spec.md`**: source of truth for every color, size, layout rule, and behavior. Read it before any UI work.
 - **`design/theme-tokens.json`**: the same values in machine-readable form.
-- **`design/progress.md`**: what's done and what's next. Read it at the start of each theme session; update it at the end.
+- **`design/progress.md`**: every design decision and what each session verified. Read the Decisions section before UI work; add to it when you change the UI.
 - `design/mockup/` and `design/screenshots/`: visual references. The mockup file is design-tool output; read it for icon shapes, but don't try to run it.
 
 If the spec and the mockup disagree, the spec wins. If the spec is silent on something, ask rather than guess.
@@ -70,12 +69,12 @@ If the spec and the mockup disagree, the spec wins. If the spec is silent on som
 - **Song rows: single-click selects, double-click plays.**
 - **Keep the existing PlayStation logo asset** (`PlayStation-Logo-1994.png`). Don't replace or redraw it.
 - **Teal means playback** (play/pause, seekbar, now-playing row). **Blue is only for artist names.** Don't add colors outside the roles in the spec.
-- **Album titles** wrap to two lines max, then "…"; tooltip only when truncated. Remove the old always-on album title tooltip.
+- **Album titles** wrap to two lines max, then "…"; tooltip only when truncated.
 
-### How we work on the theme
+### How we work on the UI
 
-- Each theme session covers one step from `design/progress.md`. Stay within that scope; don't change other parts of the UI.
 - Before editing, describe the plan and wait for approval.
-- For visual checks against `design/screenshots/`, publish and install as described in HANDOFF.md, then capture the app with `PrintWindow`. Never drive the mouse or keyboard.
-- When done, list what changed and anything that differs from the spec or mockup, then update `design/progress.md`.
-- Work on `main`, no branch (the user's call, 2026-10-01: all sessions are planned for one day). Every screen is on the new theme, and the old PS1 files (`Themes/DesignTokens.xaml`, `Components.xaml`, `Ps1Theme.xaml`, `Ps1Motion.xaml`, the `Af*` keys) were deleted in session 31. WPF-UI's own colour keys are no longer overridden: a stock control that shows gets its colours from tokens, on the control or in its style.
+- Stay within the change asked for; don't restyle other parts of the UI.
+- For visual checks, render with ThemeLab or publish and install as described in HANDOFF.md, then capture the app with `PrintWindow`. Never drive the mouse or keyboard.
+- When done, list what changed and anything that differs from the spec, update the spec if the user's request changed what it says, and add the decision to `design/progress.md`.
+- Work on `main`, no branch (the user's call, 2026-10-01). WPF-UI's own colour keys aren't overridden: a stock control that shows gets its colours from tokens, on the control or in its style.
