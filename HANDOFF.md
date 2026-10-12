@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-08 after the forty-fourth build session (embedded covers, four commits, all pushed: the best of several is shown, `e11c97c`; Statistics → EXTRA COVERS and Keep Best Cover, `6b1172f`; the whole library and a byte-level rewrite, `8a6249f`, run by the user over D:\Music, ~9 GB freed, every FLAC and MP3 now holds one cover; a new cover from Edit Album Tags is the only cover, `5bfdc6b`. Nothing open). Read this alongside
+Updated 2026-10-12 after the forty-fifth session (no code changes: **AudioFool 0.3.0 released**, tag `v0.3.0` on `9c17008`, and installed; the user confirmed Quality Check clearing; the seek bar's ~200 ms lead discussed and left alone. Nothing open). Session 44 before it: embedded covers, the best of several shown, Keep Best Cover run over the whole library (~9 GB freed). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -88,6 +88,34 @@ Verified, not assumed: a fresh `git clone` of this repo into a scratch directory
 with 0 warnings and passes the whole suite (73 tests when that was checked in session 5;
 299 now, though the clean-clone check has not been repeated since). If you add a dependency that lives outside NuGet, re-run that check — it is
 the only thing that catches a file you forgot to track.
+
+### Releases
+
+Three so far, all on GitHub (private, so downloads need a signed-in account):
+**v0.1.0** (2026-09-30, the user by hand), **v0.2.0** (2026-10-02) and **v0.3.0**
+(2026-10-09, session 45), both by Claude. Handle a release end to end when asked, but
+**confirm the version number and the notes with the user before `gh release create`**:
+it publishes a tag. Middle number for new features, last for fixes only.
+
+1. Commit and push anything outstanding, and run the tests.
+2. Bump `<Version>` in `src/AudioFool/AudioFool.csproj` (the only place it lives),
+   commit ("Version x.y.z") and push, so the tag lands on that commit.
+3. Fresh `dotnet publish` (the command above), then delete `publish\*.pdb`. Check
+   `(Get-Item publish\AudioFool.exe).VersionInfo.ProductVersion` shows the new version.
+4. Compare the file list with the last release (`gh release download v<old> --dir
+   <temp>`, unzip, `Compare-Object` the names): **19 files** (the exe, 13 BASS DLLs,
+   5 WPF native DLLs). A missing loose DLL breaks the app on another machine.
+5. `Compress-Archive publish\* $env:TEMP\AudioFool-<ver>-win-x64.zip` (never inside
+   the repo). 0.3.0 was 60 MB.
+6. Notes in a file (dodges quoting): `gh release create v<ver> <zip> --target main
+   --title "AudioFool <ver>" --notes-file <file>`, then `git fetch --tags`.
+7. Check the tag with `git rev-list -n 1 v<ver>`. **Not `git rev-parse v<ver>^{commit}`**:
+   PowerShell mangles the `^{}` and the command fails.
+8. Install the same build over the installed copy (close the app first; it stops
+   playback, so say so).
+
+The notes are written for the user, grouped New / Improved / Fixed, from
+`git log v<old>..HEAD` with the Docs and ThemeLab commits left out.
 
 ---
 
@@ -1435,6 +1463,30 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   ~~Offered: re-probing when the default device changes~~ Done in session 37, with
   output following the device. (A tooltip saying why it is disabled was turned down
   in session 37, along with the chip's tooltip.)
+
+### Session 45 (2026-10-09): release 0.3.0
+
+No code changed apart from the version number. Four commits, all pushed.
+
+- **The user confirmed session 42's Quality Check clearing** works well (`9ee8efc`,
+  the next-steps item crossed off).
+- **The seek bar's ~200 ms lead was discussed and left alone** (the user asked whether
+  to fix it, then moved on to the release; not declined outright). Cause, in plain
+  terms: the bar reads the decode position (`BassMix.ChannelGetPosition`,
+  `AudioEngine.Position`), which runs ahead of the audio still waiting in the device's
+  buffer. The fix would subtract what the WASAPI device still holds, but has to be right
+  across the gapless handover (the old song still audible while the new one is counted),
+  seeking, pause, exclusive mode and DoP. My recommendation, given to the user: not worth
+  it while the bar ticks every 250 ms and nothing depends on it; build it with a feature
+  that needs exact timing (synced lyrics, a beat-reactive visualiser, projectM).
+- **AudioFool 0.3.0 released**: version bump `9c17008`, tag `v0.3.0` on it, zip
+  `AudioFool-0.3.0-win-x64.zip` (19 files, 60 MB, the same list as 0.2.0). Notes
+  approved by the user first: likes and playlists, Recently Added, the seekbar waveform,
+  Analyze, Quality Check, extra covers, multi-select tag edits, reopen where you left
+  off, full release dates, the quality tier; plus the improvements and fixes since
+  0.2.0. 613 tests passed before the bump. Installed (the app wasn't running); the
+  installed exe reports `0.3.0+9c17008`. The process is now under *Version control →
+  Releases*.
 
 ### Changes from session 44 (2026-10-08): the best of several embedded covers
 
@@ -2927,7 +2979,8 @@ covers. Work is on `main`, no branch, at the user's request.
 - Memory was profiled in session 43 (see there). Still left: FLAC tag reads load the cover
   (TagLib ignores PictureLazy for FLAC), so a big scan still peaks high before the reclaim.
 - The seek bar reads ~200 ms ahead of what you hear (decode position versus device
-  buffer). Invisible in practice.
+  buffer). Invisible in practice. Discussed with the user in session 45 and left alone;
+  see there for the fix and why it waits for a feature that needs exact timing.
 
 ---
 
