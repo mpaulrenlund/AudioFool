@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-12 after the forty-sixth session (**Bit-Perfect never starts playback**, and **keyboard shortcuts**: Space and fifteen Ctrl keys, see part 2; and **Escape or a click leaves the search box**, part 3; **Ctrl+D closes the art viewer**, part 4; **Statistics: Top Artists out, a shortcut guide in**, part 5; **another app jumping in front after closing a tag window**, likely fixed, part 6; **Statistics without tooltips or footer hint**, part 7; installed, not yet tried with the real keyboard). Session 45 before it (no code changes: **AudioFool 0.3.0 released**, tag `v0.3.0` on `9c17008`, and installed; the user confirmed Quality Check clearing; the seek bar's ~200 ms lead discussed and left alone. Nothing open). Session 44 before it: embedded covers, the best of several shown, Keep Best Cover run over the whole library (~9 GB freed). Read this alongside
+Updated 2026-10-12 after the forty-sixth session (**Bit-Perfect never starts playback**, and **keyboard shortcuts**: Space and fifteen Ctrl keys, see part 2; and **Escape or a click leaves the search box**, part 3; **Ctrl+D closes the art viewer**, part 4; **Statistics: Top Artists out, a shortcut guide in**, part 5; **another app jumping in front after closing a tag window**, likely fixed, part 6; **Statistics without tooltips or footer hint**, part 7; all installed, and **confirmed by the user**: the shortcuts feel good and no other app jumps in front any more). Session 45 before it (no code changes: **AudioFool 0.3.0 released**, tag `v0.3.0` on `9c17008`, and installed; the user confirmed Quality Check clearing; the seek bar's ~200 ms lead discussed and left alone. Nothing open). Session 44 before it: embedded covers, the best of several shown, Keep Best Cover run over the whole library (~9 GB freed). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1494,10 +1494,9 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   either** (session 5 found it for `MenuItem`). The first version hooked every window
   that way; ThemeLab showed it never attached.
 - **Verified**: ThemeLab `--shortcuts 1`, section 5: the three windows, built and never
-  shown, carry the Closing handler. **Not verified**: that the right window comes to the
-  front. That needs the user: close a tag window a few times and see whether another
-  app still jumps in front. If it does, the next suspect is WPF-UI's title-bar close
-  button. Installed.
+  shown, carry the Closing handler. The probe can't show which window comes to the
+  front. **Confirmed by the user (2026-10-12)**: windows no longer pop in front of AudioFool.
+  If it ever comes back, the next suspect is WPF-UI's title-bar close button. Installed.
 
 ### Changes from session 46, part 5 (2026-10-12): Statistics, Top Artists out, a shortcut guide in
 
@@ -1572,7 +1571,7 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   and Ctrl+F run and checked. All OK; `settings.json` and `library.json` byte-identical
   afterwards. **Not run** (they open windows, play or scan; each just calls the existing
   command): Space, Ctrl+W/Q/D/R, Ctrl+Left/Right. Ctrl+J's check passes but the playing
-  album was already the selected one. **Not yet tried with the real keyboard.**
+  album was already the selected one. **Confirmed by the user (2026-10-12)** on the real keyboard: "shortcuts feel good".
   README's shortcut table updated. Installed.
 
 ### Changes from session 46 (2026-10-12): Bit-Perfect never starts playback
