@@ -4150,12 +4150,28 @@ internal static class Program
             engine.SwitchDevice(OutputMode.Shared);
             var pausedOk = engine.State == PlaybackState.Paused && Math.Abs((engine.Position - pausedAt).TotalMilliseconds) < 25;
             Log($"switch while paused: {pausedAt.TotalMilliseconds:0} -> {engine.Position.TotalMilliseconds:0} ms, state={engine.State} {(pausedOk ? "OK" : "WRONG")}");
+
+            // Bit-Perfect turned on and off while paused: stays paused, same place.
+            // On the engine, not the view model, so settings.json isn't written.
+            foreach (var mode in new[] { OutputMode.Exclusive, OutputMode.Shared })
+            {
+                engine.OutputMode = mode;
+                Settle(200);
+                var stillPaused = engine.State == PlaybackState.Paused && Math.Abs((engine.Position - pausedAt).TotalMilliseconds) < 25;
+                Log($"bit-perfect {mode} while paused: {engine.Position.TotalMilliseconds:0} ms, state={engine.State} {(stillPaused ? "OK" : "WRONG")}");
+            }
             engine.Resume();
             Settle(400);
             Log($"  resumed: {engine.Position.TotalMilliseconds:0} ms, state={engine.State} {(engine.Position - pausedAt > TimeSpan.FromMilliseconds(250) ? "OK" : "WRONG")}");
 
             // Stopped: the connection is closed, and the next play opens one.
             engine.Stop();
+            foreach (var mode in new[] { OutputMode.Exclusive, OutputMode.Shared })
+            {
+                engine.OutputMode = mode;
+                Settle(200);
+                Log($"bit-perfect {mode} while stopped: state={engine.State} {(engine.State == PlaybackState.Stopped ? "OK" : "WRONG")}");
+            }
             engine.SwitchDevice(OutputMode.Shared);
             var closed = !engine.HasOutput;
             var played = engine.Play(tracks, 0);

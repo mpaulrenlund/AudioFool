@@ -422,8 +422,10 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     }
 
     /// <summary>
-    /// Requested output mode. Takes effect on the next track, or immediately if
-    /// something is playing (which costs a short gap while the device reopens).
+    /// Requested output mode. The device reopens under it straight away, the way
+    /// <see cref="SwitchDevice"/> does: a playing track carries on from where it
+    /// was after a short gap, a paused one stays paused, and stopped stays stopped.
+    /// Changing the mode never starts playback.
     /// </summary>
     public OutputMode OutputMode
     {
@@ -434,18 +436,11 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             {
                 if (_requestedMode == value)
                     return;
-
-                _requestedMode = value;
-
-                // A mode the user re-selects deserves a fresh attempt even if the
-                // device refused it earlier.
-                _exclusiveRefusedAt.Clear();
             }
 
-            // Reopen the device under the new mode, keeping our place in the queue.
-            var index = _index;
-            if (index >= 0 && State != PlaybackState.Stopped)
-                JumpTo(index);
+            // Also clears an earlier refusal: a mode the user re-selects deserves
+            // a fresh attempt.
+            SwitchDevice(value);
         }
     }
 
