@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-12 after the forty-fifth session (no code changes: **AudioFool 0.3.0 released**, tag `v0.3.0` on `9c17008`, and installed; the user confirmed Quality Check clearing; the seek bar's ~200 ms lead discussed and left alone. Nothing open). Session 44 before it: embedded covers, the best of several shown, Keep Best Cover run over the whole library (~9 GB freed). Read this alongside
+Updated 2026-10-12 after the forty-sixth session (**Bit-Perfect never starts playback**: toggling it while paused no longer plays; installed, not committed). Session 45 before it (no code changes: **AudioFool 0.3.0 released**, tag `v0.3.0` on `9c17008`, and installed; the user confirmed Quality Check clearing; the seek bar's ~200 ms lead discussed and left alone. Nothing open). Session 44 before it: embedded covers, the best of several shown, Keep Best Cover run over the whole library (~9 GB freed). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 how to work on it*.
 
@@ -1463,6 +1463,25 @@ audio files found". The files were fine: the scanner's own walk found all 26,795
   ~~Offered: re-probing when the default device changes~~ Done in session 37, with
   output following the device. (A tooltip saying why it is disabled was turned down
   in session 37, along with the chip's tooltip.)
+
+### Changes from session 46 (2026-10-12): Bit-Perfect never starts playback
+
+- **The user's ask:** clicking Bit-Perfect must never start music (stopping is fine).
+  Before, `AudioEngine.OutputMode`'s setter reopened the device with `JumpTo(index)`
+  whenever the state wasn't Stopped, so a **paused** track started playing.
+- Now the setter calls `SwitchDevice(mode)`, the release-and-reacquire path the
+  default-device change uses: playing carries on **at the same position** (before,
+  `JumpTo` reopened the track), paused stays paused, stopped stays stopped and the
+  device connection is closed (so turning Bit-Perfect off while stopped frees the
+  DAC for other apps at once).
+- **Verified**: ThemeLab `--window device` now also sets `engine.OutputMode` to Exclusive
+  then Shared while paused (stays Paused, same position, resumes) and while stopped
+  (stays Stopped); all lines OK on the Topping DAC. The engine is set directly, not the
+  view model, so `settings.json` isn't written. Playing isn't toggled into exclusive
+  in the probe: exclusive is fixed at 100% volume and would be audible.
+- **Trap:** the probe can't play anything while the installed AudioFool is running
+  with Bit-Perfect on (it holds the DAC). Every line reads WRONG, with the original code too.
+  Ask the user to close the app first.
 
 ### Session 45 (2026-10-09): release 0.3.0
 
