@@ -1,3 +1,6 @@
+using System.Globalization;
+using AudioFool.Core.Library;
+
 namespace AudioFool.Core.Models;
 
 /// <summary>
@@ -24,8 +27,21 @@ public sealed class ArtistGroup
     public DateTime LastAddedUtc =>
         Albums.SelectMany(a => a.Tracks).Select(t => t.AddedUtc ?? DateTime.MinValue).DefaultIfEmpty().Max();
 
-    /// <summary>"1 album" or "12 albums" - shown beneath the artist name.</summary>
-    public string AlbumSummary => Albums.Count == 1 ? "1 album" : $"{Albums.Count:N0} albums";
+    /// <summary>
+    /// "1 album · 0.4 GB" or "12 albums · 14.2 GB" - shown beneath the artist name.
+    /// The size covers the albums listed, so it follows the folder ticks.
+    /// </summary>
+    public string AlbumSummary => SummaryText(null);
+
+    public string SummaryText(IFormatProvider? culture)
+    {
+        culture ??= CultureInfo.CurrentCulture;
+        var albums = Albums.Count == 1 ? "1 album" : string.Format(culture, "{0:N0} albums", Albums.Count);
+        return $"{albums} · {LibrarySummary.GigabytesOneDecimal(TotalBytes, culture)}";
+    }
+
+    /// <summary>The space the listed albums take; what ARTISTS · SIZE sorts on.</summary>
+    public long TotalBytes => Albums.Sum(a => a.Tracks.Sum(t => t.FileSize));
 
     public override string ToString() => Name;
 }

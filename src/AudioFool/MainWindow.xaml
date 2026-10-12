@@ -475,8 +475,10 @@
                 <HeaderedContentControl.Header>
                   <Grid>
                     <!--
-                        The header is the sort toggle: A-Z, or most recently added
-                        first. Two fixed labels rather than one bound one, because
+                        The header is the sort toggle: A-Z, then most recently added
+                        first, then largest first (ARTISTS · SIZE, 2026-10-12), then
+                        A-Z again. No tooltip (the user's call): the label says which.
+                        Fixed labels rather than one bound one, because
                         LetterSpacing spaces its text once and does not follow changes.
                         A bare template (Style x:Null) so it reads as the plain label
                         it always was, in the same place; hover and keyboard focus
@@ -490,7 +492,6 @@
                     <Button x:Name="ArtistSortHeader"
                             Style="{x:Null}"
                             Command="{Binding ToggleArtistSortCommand}"
-                            ToolTip="{Binding ArtistSortTooltip}"
                             Visibility="{Binding IsPlaylistMode, Converter={StaticResource BoolToVisibility}, ConverterParameter=InverseHidden}"
                             AutomationProperties.Name="Sort artists"
                             Cursor="Hand"
@@ -512,12 +513,17 @@
                                             <DataTrigger Binding="{Binding ArtistsByRecent}" Value="True">
                                                 <Setter Property="Visibility" Value="Hidden" />
                                             </DataTrigger>
+                                            <DataTrigger Binding="{Binding ArtistsBySize}" Value="True">
+                                                <Setter Property="Visibility" Value="Hidden" />
+                                            </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
                             <TextBlock Text="ARTISTS · RECENT" Style="{StaticResource PanelHeaderLabel}"
                                        Visibility="{Binding ArtistsByRecent, Converter={StaticResource BoolToVisibility}}" />
+                            <TextBlock Text="ARTISTS · SIZE" Style="{StaticResource PanelHeaderLabel}"
+                                       Visibility="{Binding ArtistsBySize, Converter={StaticResource BoolToVisibility}}" />
                             <Border VerticalAlignment="Bottom"
                                     Height="{theme:Token layout.panelBorder}"
                                     Background="{DynamicResource color.text.muted}">

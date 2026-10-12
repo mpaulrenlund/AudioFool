@@ -82,6 +82,41 @@ public static class SortRules
             .Select(x => x.Artist);
 
     /// <summary>
+    /// Artist groups by the space their listed albums take, largest first; ties
+    /// fall back to A-Z.
+    /// </summary>
+    public static IEnumerable<ArtistGroup> SortArtistsBySize(IEnumerable<ArtistGroup> artists) =>
+        artists
+            .Select(a => (Artist: a, Bytes: a.TotalBytes))
+            .OrderByDescending(x => x.Bytes)
+            .ThenBy(x => x.Artist.SortKey, NameComparer)
+            .ThenBy(x => x.Artist.Name, NameComparer)
+            .Select(x => x.Artist);
+
+    /// <summary>
+    /// Artists in the given order. <paramref name="artists"/> arrives A-Z, as the
+    /// library builds it.
+    /// </summary>
+    public static IEnumerable<ArtistGroup> SortArtists(IEnumerable<ArtistGroup> artists, ArtistOrder order) =>
+        order switch
+        {
+            ArtistOrder.Recent => SortArtistsByRecent(artists),
+            ArtistOrder.Size => SortArtistsBySize(artists),
+            _ => artists,
+        };
+
+    /// <summary>
+    /// What a click on the ARTISTS header moves to: A-Z, then RECENT, then SIZE,
+    /// then back to A-Z.
+    /// </summary>
+    public static ArtistOrder Next(ArtistOrder order) => order switch
+    {
+        ArtistOrder.Name => ArtistOrder.Recent,
+        ArtistOrder.Recent => ArtistOrder.Size,
+        _ => ArtistOrder.Name,
+    };
+
+    /// <summary>
     /// Albums oldest at the top, newest at the bottom, by full release date where
     /// the files have one: "2026" (year only) comes before "2026-10-02", and
     /// "2026-03" before "2026-10-02". Albums with no year land at the bottom

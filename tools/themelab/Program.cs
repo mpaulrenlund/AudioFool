@@ -332,10 +332,11 @@ internal static class Program
             Populate(vm);
         }
 
-        // --artistsort recent: the most recently added artists first, as after a
-        // click on the header (the app itself always opens A-Z).
-        if (Arg(args, "--artistsort") == "recent")
-            vm.ArtistsByRecent = true;
+        // --artistsort recent|size: the most recently added, or largest, artists
+        // first, as after one or two clicks on the header (the app itself always
+        // opens A-Z).
+        if (Arg(args, "--artistsort") is "recent" or "size")
+            vm.ArtistOrder = Arg(args, "--artistsort") == "size" ? AudioFool.Core.Library.ArtistOrder.Size : AudioFool.Core.Library.ArtistOrder.Recent;
 
         // --paused 1: the sample track loaded but not playing, so the transport
         // key shows Play rather than Pause.
@@ -437,16 +438,19 @@ internal static class Program
                 + $"label='{vm.LastFmLabel}' tooltip='{vm.LastFmToolTip}'");
         }
 
-        // --clickartists 1: click the Artists header through its automation peer
-        // and print the order before and after. The toggle saves settings, so the
-        // settings file is copied aside first and put back afterwards.
-        if (Arg(args, "--clickartists") is not null)
+        // --clickartists N: click the Artists header N times (default once)
+        // through its automation peer and print the order before and after each.
+        // The toggle saves settings, so the settings file is copied aside first
+        // and put back afterwards.
+        if (Arg(args, "--clickartists") is { } headerClicks)
         {
-            string Top() => string.Join(" | ", vm.Artists.Take(8).Select(a => $"{a.Name} ({a.LastAddedUtc:yyyy-MM-dd})"));
+            string Top() => string.Join(" | ", vm.Artists.Take(8).Select(a => $"{a.Name} ({a.LastAddedUtc:yyyy-MM-dd}, {a.AlbumSummary})"));
             var header = (System.Windows.Controls.Button)main.FindName("ArtistSortHeader");
             var settingsBackup = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null;
             var artistList = (System.Windows.Controls.ListBox)main.FindName("ArtistList");
             double Offset() => FindFirst<System.Windows.Controls.ScrollViewer>(artistList)?.VerticalOffset ?? -1;
+            string Label() => string.Join(",", FindAll<System.Windows.Controls.TextBlock>(header)
+                .Where(t => t.Visibility == Visibility.Visible).Select(t => string.Concat(t.Inlines.OfType<System.Windows.Documents.Run>().Select(r => r.Text))));
             try
             {
                 // --clickfrom N: select the N-th artist first, as if browsed to.
@@ -456,15 +460,19 @@ internal static class Program
                     Settle(300);
                 }
 
-                Console.WriteLine($"artists before: recent={vm.ArtistsByRecent} selected='{vm.SelectedArtist?.Name}' "
+                Console.WriteLine($"artists before: order={vm.ArtistOrder} label='{Label()}' selected='{vm.SelectedArtist?.Name}' "
                     + $"(#{vm.Artists.IndexOf(vm.SelectedArtist!)}) scroll={Offset():0} tip='{header.ToolTip}'");
                 Console.WriteLine($"  {Top()}");
                 var peer = new System.Windows.Automation.Peers.ButtonAutomationPeer(header);
-                ((System.Windows.Automation.Provider.IInvokeProvider)peer.GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke)!).Invoke();
-                Settle(300);
-                Console.WriteLine($"artists after: recent={vm.ArtistsByRecent} selected='{vm.SelectedArtist?.Name}' "
-                    + $"(#{vm.Artists.IndexOf(vm.SelectedArtist!)}) scroll={Offset():0} album='{vm.SelectedAlbum?.Album.Title}' tip='{header.ToolTip}'");
-                Console.WriteLine($"  {Top()}");
+                var clicks = int.TryParse(headerClicks, out var n) && n > 0 ? n : 1;
+                for (var i = 1; i <= clicks; i++)
+                {
+                    ((System.Windows.Automation.Provider.IInvokeProvider)peer.GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke)!).Invoke();
+                    Settle(300);
+                    Console.WriteLine($"artists after click {i}: order={vm.ArtistOrder} label='{Label()}' selected='{vm.SelectedArtist?.Name}' "
+                        + $"(#{vm.Artists.IndexOf(vm.SelectedArtist!)}) scroll={Offset():0} album='{vm.SelectedAlbum?.Album.Title}' tip='{header.ToolTip}'");
+                    Console.WriteLine($"  {Top()}");
+                }
             }
             finally
             {

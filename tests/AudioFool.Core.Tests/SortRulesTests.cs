@@ -314,4 +314,61 @@ public class TrackOrderingTests
             ["One", "Two", "Mystery"],
             SortRules.SortTracks(input).Select(t => t.Title).ToArray());
     }
+
+    // ------------------------------------------------------- ARTISTS · SIZE
+
+    /// <summary>An artist whose albums hold tracks of the given sizes in MB.</summary>
+    private static ArtistGroup SizedArtist(string name, params int[][] albumMegabytes) => new()
+    {
+        Name = name,
+        SortKey = SortRules.ArtistSortKey(name),
+        Albums = albumMegabytes.Select((sizes, i) => new Album
+        {
+            Title = $"{name} {i}",
+            ArtistName = name,
+            Tracks = sizes.Select((mb, j) => new Track
+            {
+                FilePath = $@"C:\music\{name}\{i}\{j}.flac",
+                FileSize = mb * 1024L * 1024,
+            }).ToList(),
+        }).ToList(),
+    };
+
+    private static string[] BySize(params ArtistGroup[] artists) =>
+        SortRules.SortArtistsBySize(artists).Select(a => a.Name).ToArray();
+
+    [Fact]
+    public void Largest_artist_comes_first() =>
+        Assert.Equal(
+            ["Cake", "Zebra", "ABBA"],
+            BySize(SizedArtist("ABBA", [10]), SizedArtist("Cake", [30, 30]), SizedArtist("Zebra", [40])));
+
+    [Fact]
+    public void Size_counts_every_album() =>
+        // Air has the biggest single album; Beck's three add up to more.
+        Assert.Equal(
+            ["Beck", "Air"],
+            BySize(SizedArtist("Air", [500]), SizedArtist("Beck", [200], [200], [200])));
+
+    [Fact]
+    public void Equal_sizes_fall_back_to_A_to_Z_ignoring_the_article() =>
+        Assert.Equal(
+            ["The Beatles", "Cream", "Zappa"],
+            BySize(SizedArtist("Zappa", [100]), SizedArtist("Cream", [100]), SizedArtist("The Beatles", [100])));
+
+    [Fact]
+    public void Header_clicks_cycle_A_to_Z_recent_size_and_back()
+    {
+        Assert.Equal(ArtistOrder.Recent, SortRules.Next(ArtistOrder.Name));
+        Assert.Equal(ArtistOrder.Size, SortRules.Next(ArtistOrder.Recent));
+        Assert.Equal(ArtistOrder.Name, SortRules.Next(ArtistOrder.Size));
+    }
+
+    [Fact]
+    public void A_to_Z_leaves_the_library_order_alone()
+    {
+        ArtistGroup[] artists = [SizedArtist("Zappa", [1]), SizedArtist("ABBA", [900])];
+        Assert.Equal(artists, SortRules.SortArtists(artists, ArtistOrder.Name));
+        Assert.Equal(["ABBA", "Zappa"], SortRules.SortArtists(artists, ArtistOrder.Size).Select(a => a.Name));
+    }
 }

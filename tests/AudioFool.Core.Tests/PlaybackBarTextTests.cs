@@ -48,6 +48,40 @@ public class PlaybackBarTextTests
             LibrarySummary.Totals(499, 2376, tracks, En));
     }
 
+    [Theory]
+    [InlineData(0L, "0.0 GB")]
+    [InlineData(GB * 4 / 10, "0.4 GB")]
+    [InlineData(GB * 6 / 100, "0.1 GB")]
+    [InlineData(GB * 4 / 100, "0.0 GB")]
+    [InlineData(14 * GB + GB / 5, "14.2 GB")]
+    [InlineData(1204 * GB, "1,204.0 GB")]
+    public void Artist_size_is_binary_gigabytes_to_one_decimal(long bytes, string expected) =>
+        Assert.Equal(expected, LibrarySummary.GigabytesOneDecimal(bytes, En));
+
+    private static Album AlbumOf(int tracks, long bytesEach) => new()
+    {
+        Title = "A",
+        ArtistName = "X",
+        Tracks = Enumerable.Range(0, tracks)
+            .Select(i => new Track { FilePath = $@"D:\Music\{i}.flac", FileSize = bytesEach })
+            .ToList(),
+    };
+
+    [Fact]
+    public void Artist_row_shows_album_count_then_size_after_a_middle_dot()
+    {
+        var one = new ArtistGroup { Name = "X", SortKey = "X", Albums = [AlbumOf(10, 40 * 1024 * 1024)] };
+        Assert.Equal("1 album · 0.4 GB", one.SummaryText(En));
+
+        // 12 albums × 12 tracks × 100 MB = 14,400 MB = 14.06 GB.
+        var many = new ArtistGroup
+        {
+            Name = "X", SortKey = "X",
+            Albums = Enumerable.Range(0, 12).Select(_ => AlbumOf(12, 100 * 1024 * 1024)).ToList(),
+        };
+        Assert.Equal("12 albums · 14.1 GB", many.SummaryText(En));
+    }
+
     // ---------------------------------------------------------- output readout
 
     [Fact]

@@ -1093,7 +1093,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             : LibraryScanner.Build(matched);
 
         Artists.Clear();
-        foreach (var artist in ArtistsByRecent ? SortRules.SortArtistsByRecent(view.Artists) : view.Artists)
+        foreach (var artist in SortRules.SortArtists(view.Artists, ArtistOrder))
             Artists.Add(artist);
 
         SelectedArtist = artistName is null
@@ -2099,36 +2099,40 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public string ShuffleTooltip => IsShuffle ? "Shuffle: on" : "Shuffle: off";
 
     /// <summary>
-    /// Artists by most recently added first instead of A-Z. Clicking the pane header flips
-    /// it and starts again at the top of the new order, as startup does. Keeping the
-    /// selection would scroll to wherever the old artist landed, which is usually
-    /// just the first A-Z artist the app opened on. For this session only: the
-    /// app always opens A-Z, at the user's request.
+    /// The Artists list's order: A-Z, most recently added first, or largest first.
+    /// Clicking the pane header moves to the next and starts again at the top of
+    /// the new order, as startup does. Keeping the selection would scroll to
+    /// wherever the old artist landed, which is usually just the first A-Z artist
+    /// the app opened on. For this session only: the app always opens A-Z, at the
+    /// user's request.
     /// </summary>
-    public bool ArtistsByRecent
+    public ArtistOrder ArtistOrder
     {
-        get => _artistsByRecent;
+        get => _artistOrder;
         set
         {
-            if (_artistsByRecent == value)
+            if (_artistOrder == value)
                 return;
 
-            _artistsByRecent = value;
+            _artistOrder = value;
 
             OnPropertyChanged();
-            OnPropertyChanged(nameof(ArtistSortTooltip));
+            OnPropertyChanged(nameof(ArtistsByRecent));
+            OnPropertyChanged(nameof(ArtistsBySize));
             ApplyToView(keepSelection: false);
         }
     }
 
-    private bool _artistsByRecent;
+    private ArtistOrder _artistOrder;
 
-    public string ArtistSortTooltip => ArtistsByRecent
-        ? "Most recently added first. Click to sort A-Z."
-        : "A-Z. Click to show the most recently added first.";
+    /// <summary>The header shows ARTISTS · RECENT.</summary>
+    public bool ArtistsByRecent => ArtistOrder == ArtistOrder.Recent;
+
+    /// <summary>The header shows ARTISTS · SIZE.</summary>
+    public bool ArtistsBySize => ArtistOrder == ArtistOrder.Size;
 
     [RelayCommand]
-    private void ToggleArtistSort() => ArtistsByRecent = !ArtistsByRecent;
+    private void ToggleArtistSort() => ArtistOrder = SortRules.Next(ArtistOrder);
 
     /// <summary>Where the window was when it last closed, if it has been closed before.</summary>
     public WindowBounds? SavedWindowBounds => _settings.Window;

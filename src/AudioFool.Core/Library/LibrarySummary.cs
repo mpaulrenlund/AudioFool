@@ -29,4 +29,14 @@ public static class LibrarySummary
         var gigabytes = Math.Round(Math.Max(0, bytes) / BytesPerGigabyte, MidpointRounding.AwayFromZero);
         return string.Format(culture ?? CultureInfo.CurrentCulture, "{0:N0} GB", gigabytes);
     }
+
+    /// <summary>
+    /// The same gigabytes to one decimal, for an artist's share (spec 6.3):
+    /// "0.4 GB", "14.2 GB", "1,204.0 GB". One album is often under a gigabyte.
+    /// </summary>
+    public static string GigabytesOneDecimal(long bytes, IFormatProvider? culture = null)
+    {
+        var gigabytes = Math.Round(Math.Max(0, bytes) / BytesPerGigabyte, 1, MidpointRounding.AwayFromZero);
+        return string.Format(culture ?? CultureInfo.CurrentCulture, "{0:N1} GB", gigabytes);
+    }
 }
