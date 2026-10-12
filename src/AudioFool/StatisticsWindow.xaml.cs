@@ -5,8 +5,8 @@ using Wpf.Ui.Controls;
 namespace AudioFool;
 
 /// <summary>
-/// Library statistics: headline totals, top artists, file types, audio quality,
-/// missing tags and decades. Read-only - it opens a snapshot and writes nothing.
+/// Library statistics: headline totals, file types, audio quality,
+/// missing tags, decades and the keyboard shortcuts. Read-only - it opens a snapshot and writes nothing.
 /// <para>
 /// Modal like <see cref="TagEditWindow"/>, so the snapshot cannot drift out of
 /// date behind it while a background rescan lands. Escape or Close dismisses it.

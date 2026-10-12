@@ -42,7 +42,6 @@ public class LibraryStatisticsTests
         var stats = LibraryStatistics.Compute(MusicLibrary.Empty);
 
         Assert.Equal(0, stats.TrackCount);
-        Assert.Empty(stats.TopArtists);
         Assert.Empty(stats.FileTypes);
         Assert.Empty(stats.TagGaps);
     }
@@ -60,45 +59,6 @@ public class LibraryStatisticsTests
         Assert.Equal(2, stats.ArtistCount);
         Assert.Equal(TimeSpan.FromSeconds(210), stats.TotalDuration);
         Assert.Equal(600, stats.TotalBytes);
-    }
-
-    [Fact]
-    public void Top_artists_are_ranked_by_track_count_and_capped()
-    {
-        var tracks = new List<Track>();
-        void Add(string artist, int count, string album = "X")
-        {
-            for (var i = 0; i < count; i++)
-                tracks.Add(T(artist, album));
-        }
-
-        Add("Six", 6);
-        Add("Two", 2);
-        Add("Five", 3, "One");
-        Add("Five", 2, "Two");
-        Add("Four", 4);
-        Add("One", 1);
-        Add("Three", 3);
-
-        var top = LibraryStatistics.Compute(LibraryScanner.Build(tracks), topArtistCount: 5).TopArtists;
-
-        Assert.Equal(["Six", "Five", "Four", "Three", "Two"], top.Select(a => a.Name));
-        Assert.Equal(2, top[1].AlbumCount);
-        Assert.Equal(5 / 21.0, top[1].Share, 6);
-    }
-
-    [Fact]
-    public void Top_artists_group_on_album_artist_like_the_sidebar()
-    {
-        // A compilation: four different track artists, one album artist.
-        var stats = Stats(
-            T("Guest 1", "Hits", albumArtist: "Various Artists"),
-            T("Guest 2", "Hits", albumArtist: "Various Artists"),
-            T("Guest 3", "Hits", albumArtist: "Various Artists"),
-            T("Solo", "Mine"));
-
-        Assert.Equal("Various Artists", stats.TopArtists[0].Name);
-        Assert.Equal(3, stats.TopArtists[0].TrackCount);
     }
 
     [Fact]

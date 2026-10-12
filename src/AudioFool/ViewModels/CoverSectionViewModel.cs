@@ -95,7 +95,6 @@ public sealed partial class CoverSectionViewModel : ObservableObject, IDisposabl
         return new BarRow(CoverStatistics.Label, $"{albums} · {tracks} · {Display.Size(_stats.Freeable)} to free", share, note)
         {
             Filter = _stats.Filter,
-            ToolTip = $"Show {(_stats.Albums == 1 ? "this album" : $"these {_stats.Albums:N0} albums")} in the library",
         };
     }
 

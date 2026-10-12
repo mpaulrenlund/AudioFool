@@ -16,9 +16,6 @@ public sealed class LibraryStatistics
     public TimeSpan TotalDuration { get; init; }
     public long TotalBytes { get; init; }
 
-    /// <summary>Artists with the most tracks, most first.</summary>
-    public IReadOnlyList<ArtistStat> TopArtists { get; init; } = [];
-
     /// <summary>One row per Kind-column value ("FLAC", "MP3", ...), most tracks first.</summary>
     public IReadOnlyList<Slice> FileTypes { get; init; } = [];
 
@@ -49,7 +46,7 @@ public sealed class LibraryStatistics
 
     public const string UnknownDecade = "Unknown";
 
-    public static LibraryStatistics Compute(MusicLibrary library, int topArtistCount = 5)
+    public static LibraryStatistics Compute(MusicLibrary library)
     {
         var tracks = library.AllTracks;
         var total = tracks.Count;
@@ -63,19 +60,6 @@ public sealed class LibraryStatistics
             ArtistCount = library.Artists.Count,
             TotalDuration = TimeSpan.FromTicks(tracks.Sum(t => t.Duration.Ticks)),
             TotalBytes = tracks.Sum(t => t.FileSize),
-
-            // Taken from the artist tree rather than regrouped here, so the names
-            // and counts are exactly the ones the sidebar shows.
-            TopArtists = [.. library.Artists
-                .Select(a => new ArtistStat(
-                    a.Name,
-                    a.TrackCount,
-                    a.Albums.Count,
-                    TimeSpan.FromTicks(a.Albums.Sum(al => al.TotalDuration.Ticks)),
-                    Share(a.TrackCount, total)))
-                .OrderByDescending(a => a.TrackCount)
-                .ThenBy(a => a.Name, SortRules.NameComparer)
-                .Take(topArtistCount)],
 
             // Every row carries the filter that reproduces it, built from the same
             // key its group was formed on, so clicking a row can never show a
@@ -292,8 +276,6 @@ public sealed record Slice(string Label, int Count, double Share, long Bytes)
     /// <summary>Selects exactly the <see cref="Count"/> tracks this row counted.</summary>
     public TrackFilter? Filter { get; init; }
 }
-
-public sealed record ArtistStat(string Name, int TrackCount, int AlbumCount, TimeSpan Duration, double Share);
 
 /// <param name="Share">Fraction of all tracks missing this field, 0 to 1.</param>
 public sealed record TagGap(string Field, int Missing, double Share, string? Note)

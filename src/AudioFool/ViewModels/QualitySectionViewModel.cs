@@ -106,7 +106,6 @@ public sealed partial class QualitySectionViewModel : ObservableObject, IDisposa
                     "Tracks you've said are genuine; right-click one to put it back")
                 {
                     Filter = _stats.ClearedFilter,
-                    ToolTip = _stats.Cleared == 1 ? "Show this track in the library" : $"Show these {_stats.Cleared:N0} tracks in the library",
                 },
             ];
         UpdateStatus();
@@ -122,7 +121,6 @@ public sealed partial class QualitySectionViewModel : ObservableObject, IDisposa
         return new BarRow(gap.Label, $"{Plural(gap.Tracks)} · {Display.Percent(share)}", share, gap.Note)
         {
             Filter = gap.Filter,
-            ToolTip = gap.Tracks == 1 ? "Show this track in the library" : $"Show these {gap.Tracks:N0} tracks in the library",
         };
     }
 

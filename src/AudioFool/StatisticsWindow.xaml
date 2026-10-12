@@ -84,7 +84,6 @@
             <Button Style="{StaticResource StatRowButton}"
                     Click="Row_Click"
                     IsEnabled="{Binding IsClickable}"
-                    ToolTip="{Binding ToolTip}"
                     AutomationProperties.Name="{Binding Label}">
                 <StackPanel>
                     <Grid>
@@ -204,14 +203,6 @@
                     <StackPanel Grid.Column="0">
                         <HeaderedContentControl Style="{StaticResource Section}">
                             <HeaderedContentControl.Header>
-                                <TextBlock Text="TOP ARTISTS BY TRACKS" Style="{StaticResource SectionHeader}" />
-                            </HeaderedContentControl.Header>
-                            <ItemsControl x:Name="TopArtistList" ItemsSource="{Binding TopArtists}"
-                                          Style="{StaticResource SectionList}" />
-                        </HeaderedContentControl>
-
-                        <HeaderedContentControl Style="{StaticResource Section}">
-                            <HeaderedContentControl.Header>
                                 <TextBlock Text="FILE TYPES" Style="{StaticResource SectionHeader}" />
                             </HeaderedContentControl.Header>
                             <ItemsControl x:Name="FileTypeList" ItemsSource="{Binding FileTypes}"
@@ -324,6 +315,61 @@
                             <ItemsControl x:Name="DecadeList" ItemsSource="{Binding Decades}"
                                           Style="{StaticResource SectionList}" />
                         </HeaderedContentControl>
+
+                        <!--
+                            A help guide, not figures (the user's call): no bars, nothing
+                            to click. Keys in a column the width of the longest (shared
+                            across every group), in the row-label text; what they do in
+                            the grey detail text. Group titles in the section-header style.
+                        -->
+                        <HeaderedContentControl Style="{StaticResource Section}">
+                            <HeaderedContentControl.Header>
+                                <TextBlock Text="KEYBOARD SHORTCUTS" Style="{StaticResource SectionHeader}" />
+                            </HeaderedContentControl.Header>
+                            <ItemsControl x:Name="ShortcutList" ItemsSource="{Binding Shortcuts}"
+                                          Focusable="False" Grid.IsSharedSizeScope="True"
+                                          AlternationCount="{Binding Shortcuts.Count}"
+                                          Margin="{theme:Thickness X=layout.panelHeaderPaddingX, Y=statistics.sectionPaddingY}">
+                                <ItemsControl.ItemContainerStyle>
+                                    <Style TargetType="ContentPresenter">
+                                        <Setter Property="Margin" Value="{theme:Thickness Top=statistics.summaryGap}" />
+                                        <Style.Triggers>
+                                            <Trigger Property="ItemsControl.AlternationIndex" Value="0">
+                                                <Setter Property="Margin" Value="0" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ItemsControl.ItemContainerStyle>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Title}" Style="{StaticResource SectionHeader}"
+                                                       Margin="{theme:Thickness Bottom=statistics.rowGap}" />
+                                            <ItemsControl ItemsSource="{Binding Rows}" Focusable="False">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="{theme:Thickness Bottom=statistics.rowGap}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" SharedSizeGroup="ShortcutKeys" />
+                                                                <ColumnDefinition Width="{theme:Token statistics.columnGap}" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Keys}"
+                                                                       Style="{DynamicResource type.songTitle}"
+                                                                       VerticalAlignment="Center" />
+                                                            <TextBlock Grid.Column="2" Text="{Binding Does}"
+                                                                       Style="{DynamicResource type.albumMeta}"
+                                                                       TextWrapping="Wrap" TextTrimming="None"
+                                                                       VerticalAlignment="Center" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </HeaderedContentControl>
                     </StackPanel>
                 </Grid>
             </StackPanel>
@@ -334,12 +380,7 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0"
-                       Text="Click a row to show those tracks in the library, or an artist to go to them."
-                       Style="{DynamicResource type.albumMeta}"
-                       TextWrapping="Wrap"
-                       VerticalAlignment="Center"
-                       Margin="{theme:Thickness Right=dialog.buttonGap}" />
+            <!-- No hint beside it, and no tooltips on the rows (the user's call, session 46). -->
             <!-- Not IsDefault: Enter belongs to whichever row has focus. -->
             <Button x:Name="CloseButton" Grid.Column="1" Content="Close" IsCancel="True"
                     Style="{StaticResource theme.dialogButton}"

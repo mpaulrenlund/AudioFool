@@ -67,6 +67,8 @@ public partial class MainWindow : FluentWindow
         TrackGrid.PreviewMouseWheel += (_, _) => _slowClickTimer.Stop();
         TrackGrid.LostKeyboardFocus += TrackGrid_LostKeyboardFocus;
         HookReorder();
+        HookShortcuts();
+        HookSearchFocus();
         _viewModel.TracksChanging += OnTracksChanging;
         _viewModel.RevealTrackRequested += OnRevealTrackRequested;
 

@@ -14,6 +14,7 @@ public partial class ArtWindow : FluentWindow
     public ArtWindow(BitmapSource art, string caption, Window owner)
     {
         InitializeComponent();
+        Services.OwnerActivation.Attach(this);
 
         Owner = owner;
         // The title bar shows the window's Title (theme.dialogTitle).
@@ -65,9 +66,16 @@ public partial class ArtWindow : FluentWindow
         Top = Math.Clamp(centreY - (Height / 2), work.Top, Math.Max(work.Top, work.Bottom - Height));
     }
 
+    /// <summary>
+    /// Escape, or Ctrl+D, the shortcut that opens the viewer (the user's call,
+    /// session 46). A held Ctrl+D only opens it: the repeats land here.
+    /// </summary>
+    internal static bool ClosesOn(Key key, ModifierKeys modifiers, bool isRepeat) =>
+        key is Key.Escape || (key is Key.D && modifiers == ModifierKeys.Control && !isRepeat);
+
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {
-        if (e.Key is Key.Escape)
+        if (ClosesOn(e.Key, Keyboard.Modifiers, e.IsRepeat))
         {
             Close();
             e.Handled = true;

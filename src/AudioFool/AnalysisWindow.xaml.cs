@@ -31,6 +31,7 @@ public partial class AnalysisWindow : FluentWindow
         DataContext = viewModel;
 
         InitializeComponent();
+        Services.OwnerActivation.Attach(this);
 
         Owner = owner;
         Legend.Background = SpectrogramImage.LegendBrush(TokenResources.Current!);

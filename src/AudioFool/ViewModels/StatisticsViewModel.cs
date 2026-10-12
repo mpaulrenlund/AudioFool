@@ -26,19 +26,6 @@ public sealed class StatisticsViewModel
             new StatTile(Display.Size(stats.TotalBytes), "On disk"),
         ];
 
-        // The leader fills its bar and the rest are drawn against it: five
-        // artists who each hold 1-2% of a library would otherwise all be slivers.
-        var leader = stats.TopArtists.Count > 0 ? stats.TopArtists[0].TrackCount : 1;
-        TopArtists = [.. stats.TopArtists.Select((a, i) => new BarRow(
-            $"{i + 1}.  {a.Name}",
-            $"{a.TrackCount:N0} tracks · {Display.Percent(a.Share)}",
-            (double)a.TrackCount / leader,
-            $"{Plural(a.AlbumCount, "album")} · {Display.LongDuration(a.Duration)}")
-        {
-            ArtistName = a.Name,
-            ToolTip = $"Show {a.Name} in the library",
-        })];
-
         FileTypes = [.. stats.FileTypes.Select(s => SliceRow(s))];
         Quality = [.. stats.Quality.Select(s => SliceRow(s))];
 
@@ -49,7 +36,6 @@ public sealed class StatisticsViewModel
             (double)s.Count / busiestDecade)
         {
             Filter = s.Filter,
-            ToolTip = ShowTracks(s.Count),
         })];
 
         // A complete field has nothing to show, so it is the one row left inert.
@@ -58,7 +44,6 @@ public sealed class StatisticsViewModel
             : new BarRow(g.Field, $"{g.Missing:N0} missing · {Display.Percent(g.Share)}", g.Share, g.Note)
             {
                 Filter = g.Filter,
-                ToolTip = ShowTracks(g.Missing) + " to fix them",
             })];
 
         // Whole albums: the row shows every track of each one, so Edit Album Tags
@@ -68,7 +53,6 @@ public sealed class StatisticsViewModel
             : new BarRow(g.Check, $"{Plural(g.Albums, "album")} · {Plural(g.Tracks, "track")}", g.Share, g.Note)
             {
                 Filter = g.Filter,
-                ToolTip = $"Show {(g.Albums == 1 ? "this album" : $"these {g.Albums:N0} albums")} in the library to fix them",
             })];
 
         TagSummary = stats.TrackCount == 0
@@ -82,7 +66,9 @@ public sealed class StatisticsViewModel
     public bool HasScope => Scope is not null;
 
     public IReadOnlyList<StatTile> Tiles { get; }
-    public IReadOnlyList<BarRow> TopArtists { get; }
+    /// <summary>The KEYBOARD SHORTCUTS section; see <see cref="ShortcutGuide"/>.</summary>
+    public IReadOnlyList<ShortcutGroup> Shortcuts { get; init; } = [];
+
     public IReadOnlyList<BarRow> FileTypes { get; }
     public IReadOnlyList<BarRow> Quality { get; }
     public IReadOnlyList<BarRow> Decades { get; }
@@ -105,11 +91,7 @@ public sealed class StatisticsViewModel
         s.Share)
     {
         Filter = s.Filter,
-        ToolTip = ShowTracks(s.Count),
     };
-
-    private static string ShowTracks(int n) =>
-        n == 1 ? "Show this track in the library" : $"Show these {n:N0} tracks in the library";
 
     private static string Plural(int n, string noun) => n == 1 ? $"1 {noun}" : $"{n:N0} {noun}s";
 }
@@ -147,10 +129,5 @@ public sealed class BarRow
     /// <summary>Clicking narrows the library to these tracks.</summary>
     public TrackFilter? Filter { get; init; }
 
-    /// <summary>Clicking selects this artist in the sidebar instead of filtering.</summary>
-    public string? ArtistName { get; init; }
-
-    public string? ToolTip { get; init; }
-
-    public bool IsClickable => Filter is not null || ArtistName is not null;
+    public bool IsClickable => Filter is not null;
 }

@@ -31,6 +31,7 @@ public partial class TagEditWindow : FluentWindow
         DataContext = viewModel;
 
         InitializeComponent();
+        Services.OwnerActivation.Attach(this);
 
         Owner = owner;
         Title = viewModel.WindowTitle;

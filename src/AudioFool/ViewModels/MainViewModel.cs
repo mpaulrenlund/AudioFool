@@ -314,6 +314,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         ApplyVolume(!_volumeState.IsMuted);
     }
 
+    /// <summary>
+    /// Ctrl+Up / Ctrl+Down: the level moves by <paramref name="delta"/> from where
+    /// it was before any mute, and unmutes, as moving the slider does. Nothing in
+    /// exclusive mode, where the volume is fixed.
+    /// </summary>
+    public void StepVolume(double delta)
+    {
+        if (IsVolumeEnabled)
+            Volume = Math.Clamp(_volumeState.Level + delta, 0, 1);
+    }
+
     private void ApplyVolume(bool wasMuted)
     {
         _engine.Volume = _volumeState.Effective;
@@ -371,9 +382,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// <summary>Distinguishes "no results" from "nothing scanned yet".</summary>
     public bool HasNoSearchResults => IsSearching && Artists.Count == 0;
 
-    [RelayCommand]
-    private void ClearSearch() => SearchQuery = "";
-
     // --------------------------------------------------------- library filter
 
     /// <summary>
@@ -408,30 +416,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void ClearLibraryFilter() => LibraryFilter = null;
-
-    /// <summary>
-    /// Selects an artist in the sidebar, for a top-artist row in Statistics. Any
-    /// filter or search hiding them is cleared first - the request was to see
-    /// this artist, so a view that could not show them would be the wrong answer.
-    /// </summary>
-    public void ShowArtist(string name)
-    {
-        IsPlaylistMode = false;
-        LibraryFilter = null;
-
-        if (!Artists.Any(a => SortRules.NameComparer.Equals(a.Name, name)) && IsSearching)
-        {
-            // Applied now rather than after the debounce, so the artist is there to select.
-            _searchQuery = "";
-            OnPropertyChanged(nameof(SearchQuery));
-            OnPropertyChanged(nameof(IsSearching));
-            ApplyToView(keepSelection: true);
-            StatusText = DescribeStatus(default);
-        }
-
-        if (Artists.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Name, name)) is { } artist)
-            SelectedArtist = artist;
-    }
 
     private void OnSearchDebounceTick(object? sender, EventArgs e)
     {
@@ -1401,7 +1385,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // The quality and cover sections are live: a check running behind the window updates them.
         using var quality = new QualitySectionViewModel(this);
         using var covers = new CoverSectionViewModel(this);
-        var statsVm = new StatisticsViewModel(stats, someHidden) { QualityCheck = quality, CoverCheck = covers };
+        var statsVm = new StatisticsViewModel(stats, someHidden) { QualityCheck = quality, CoverCheck = covers, Shortcuts = ShortcutGuide.For(_settings.GlobalHotkeys) };
         if (new StatisticsWindow(statsVm, owner).ShowDialog() == true && statsVm.Chosen is { } row)
             ApplyStatisticsChoice(row);
     }
@@ -1515,9 +1499,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// <summary>What clicking a Statistics row does: go to an artist, or filter to a subset.</summary>
     public void ApplyStatisticsChoice(BarRow row)
     {
-        if (row.ArtistName is { } artist)
-            ShowArtist(artist);
-        else if (row.Filter is { } filter)
+        if (row.Filter is { } filter)
             LibraryFilter = filter;
     }
 

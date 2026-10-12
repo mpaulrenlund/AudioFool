@@ -404,13 +404,10 @@
                             PlaceholderText="Search"
                             ClearButtonEnabled="True"
                             AutomationProperties.Name="Search"
-                            ToolTip="Search artists, albums and songs">
-                    <!-- Escape clears the search: the keyboard's way to the clear ×,
-                         which is not a Tab stop. -->
-                    <ui:TextBox.InputBindings>
-                        <KeyBinding Key="Escape" Command="{Binding ClearSearchCommand}" />
-                    </ui:TextBox.InputBindings>
-                </ui:TextBox>
+                            ToolTip="Search artists, albums and songs" />
+                <!-- Escape leaves the box and keeps the search (MainWindow.SearchFocus.cs);
+                     the clear × clears it. -->
+
 
                 <!--
                     The Statistics filter, while one is on. Beside the search box

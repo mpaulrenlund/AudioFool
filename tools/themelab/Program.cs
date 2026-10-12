@@ -781,6 +781,12 @@ internal static class Program
         // click, and leave the control focusable for Tab. Down and up are raised
         // through the buttons' own handlers. Commands are detached for the click,
         // so nothing plays and no setting (Shuffle, Repeat) is saved.
+        if (Arg(args, "--shortcuts") is not null)
+        {
+            RunShortcuts(main, vm);
+            return 0;
+        }
+
         if (Arg(args, "--clickfocus") is not null)
         {
             main.UpdateLayout();
@@ -1644,7 +1650,7 @@ internal static class Program
             }
 
             var chosenRow = (BarRow)rowButton.DataContext;
-            Console.WriteLine($"click: '{chosenRow.Label}' enabled={rowButton.IsEnabled} tooltip='{chosenRow.ToolTip}' "
+            Console.WriteLine($"click: '{chosenRow.Label}' enabled={rowButton.IsEnabled} "
                 + $"uia='{System.Windows.Automation.AutomationProperties.GetName(rowButton)}'");
 
             // Setting DialogResult on a window that was never shown modally throws,
@@ -2151,7 +2157,7 @@ internal static class Program
 
             var quality = new QualitySectionViewModel(vm);
             var covers = new CoverSectionViewModel(vm);
-            var statsVm = new StatisticsViewModel(stats, someFoldersHidden: Arg(args, "--hidden") is not null) { QualityCheck = quality, CoverCheck = covers };
+            var statsVm = new StatisticsViewModel(stats, someFoldersHidden: Arg(args, "--hidden") is not null) { QualityCheck = quality, CoverCheck = covers, Shortcuts = ShortcutGuide.For(Arg(args, "--nohotkeys") is null) };
             Console.WriteLine($"  [extra covers] {covers.Summary}  button '{covers.ButtonText}' enabled={covers.CanToggle}");
             foreach (var r in covers.Rows) Console.WriteLine($"    {r.Label,-32} {r.Value,-30} clickable={r.IsClickable}  ({r.Detail})");
             Console.WriteLine($"  [quality check] {quality.Summary}  button '{quality.ButtonText}' enabled={quality.CanToggle}");
@@ -2163,7 +2169,6 @@ internal static class Program
                 Console.WriteLine($"  [{name}]");
                 foreach (var r in rows) Console.WriteLine($"    {r.Label,-32} {r.Value,-30} {r.Detail}");
             }
-            Rows("top artists", statsVm.TopArtists);
             Rows("file types", statsVm.FileTypes);
             Rows("quality", statsVm.Quality);
             Rows("missing tags", statsVm.TagGaps);
@@ -2185,6 +2190,9 @@ internal static class Program
             Save(root, outPath, w, height, scale);
             Console.WriteLine($"  size {w}x{height} (content measured {root.DesiredSize.Height:0.##}, rows {Descendants<System.Windows.Controls.Button>(root).Count(b => b.DataContext is BarRow)})");
             PrintTitleBar(statsBar, root);
+            // No tooltips anywhere in the window (the user's call, session 46).
+            var tipped = Descendants<FrameworkElement>(root).Where(f => f.ToolTip is not null).ToList();
+            Console.WriteLine($"  tooltips: {tipped.Count} {(tipped.Count == 0 ? "OK" : "WRONG: " + string.Join(", ", tipped.Select(f => $"{f.GetType().Name} '{f.Name}' {f.ToolTip}")))}");
             foreach (var panel in Descendants<System.Windows.Controls.HeaderedContentControl>(root).Where(p => p.ActualWidth > 0))
             {
                 var p = panel.TranslatePoint(new Point(0, 0), root);
@@ -3297,6 +3305,314 @@ internal static class Program
     /// its private ApplyLibrary. Read-only: the cache is loaded, never saved, and
     /// no scan runs, so neither library.json nor the drive is touched.
     /// </summary>
+    /// <summary>
+    /// --shortcuts 1: the main window's keyboard shortcuts (session 46), through
+    /// MainWindow.ResolveShortcut and HandleShortcut with the modifiers and focus
+    /// passed in, since the real keyboard is off limits. Every key is resolved in
+    /// each place focus can be. Only the ones that open no window, play nothing and
+    /// write nothing but the scratch playlists are run; Shuffle, Repeat, Bit-Perfect
+    /// and the volume save settings, so the real file is put back afterwards.
+    /// </summary>
+    private static void RunShortcuts(MainWindow main, MainViewModel vm)
+    {
+        LoadRealLibrary(vm);
+        Pump();
+        main.UpdateLayout();
+        Settle(300);
+
+        const System.Reflection.BindingFlags own = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var ctrl = System.Windows.Input.ModifierKeys.Control;
+        var none = System.Windows.Input.ModifierKeys.None;
+        string Resolve(System.Windows.Input.Key key, System.Windows.Input.ModifierKeys mods, DependencyObject? at) =>
+            typeof(MainWindow).GetMethod("ResolveShortcut", own)!.Invoke(main, [key, mods, at])!.ToString()!;
+        bool Handle(System.Windows.Input.Key key, bool repeat = false) =>
+            (bool)typeof(MainWindow).GetMethod("HandleShortcut", own)!.Invoke(main, [key, ctrl, repeat, null])!;
+
+        var all = true;
+        void Expect(string label, object? actual, object? expected)
+        {
+            var ok = Equals(actual, expected);
+            all &= ok;
+            Console.WriteLine($"{label}: {actual} {(ok ? "OK" : $"WRONG (expected {expected})")}");
+        }
+
+        var grid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
+        var search = (System.Windows.Controls.TextBox)main.FindName("SearchBox");
+        var shuffleButton = (DependencyObject)main.FindName("ShuffleButton");
+        var artistList = (DependencyObject)main.FindName("ArtistList");
+        var songColumn = (System.Windows.Controls.DataGridColumn)main.FindName("SongColumn");
+
+        // 1. What each key is, wherever focus is.
+        var keys = new (System.Windows.Input.Key Key, string Expected)[]
+        {
+            (System.Windows.Input.Key.W, "Statistics"), (System.Windows.Input.Key.Q, "Analyze"), (System.Windows.Input.Key.D, "Art"),
+            (System.Windows.Input.Key.S, "Shuffle"), (System.Windows.Input.Key.R, "Scan"), (System.Windows.Input.Key.E, "Repeat"),
+            (System.Windows.Input.Key.B, "BitPerfect"), (System.Windows.Input.Key.F, "Search"), (System.Windows.Input.Key.L, "Like"),
+            (System.Windows.Input.Key.M, "Mute"), (System.Windows.Input.Key.J, "GoToPlaying"), (System.Windows.Input.Key.Left, "Previous"),
+            (System.Windows.Input.Key.Right, "Next"), (System.Windows.Input.Key.Up, "VolumeUp"), (System.Windows.Input.Key.Down, "VolumeDown"),
+            (System.Windows.Input.Key.A, "None"), (System.Windows.Input.Key.C, "None"),
+        };
+        foreach (var (where, at) in new (string, DependencyObject?)[] { ("window", null), ("song table", grid), ("Artists", artistList), ("Shuffle button", shuffleButton) })
+        {
+            Expect($"{where}, Space", Resolve(System.Windows.Input.Key.Space, none, at), "PlayPause");
+            foreach (var (key, expected) in keys)
+                Expect($"{where}, Ctrl+{key}", Resolve(key, ctrl, at), expected);
+        }
+        Expect("Shift+Space", Resolve(System.Windows.Input.Key.Space, System.Windows.Input.ModifierKeys.Shift, null), "None");
+        Expect("Ctrl+Shift+S", Resolve(System.Windows.Input.Key.S, ctrl | System.Windows.Input.ModifierKeys.Shift, null), "None");
+        Expect("Ctrl+Alt+S (AltGr)", Resolve(System.Windows.Input.Key.S, ctrl | System.Windows.Input.ModifierKeys.Alt, null), "None");
+        Expect("plain S", Resolve(System.Windows.Input.Key.S, none, null), "None");
+
+        // In the search box: Space types, Ctrl+arrows move by word, Ctrl+letters work.
+        Expect("search box, Space", Resolve(System.Windows.Input.Key.Space, none, search), "None");
+        foreach (var key in new[] { System.Windows.Input.Key.Left, System.Windows.Input.Key.Right, System.Windows.Input.Key.Up, System.Windows.Input.Key.Down })
+            Expect($"search box, Ctrl+{key}", Resolve(key, ctrl, search), "None");
+        Expect("search box, Ctrl+S", Resolve(System.Windows.Input.Key.S, ctrl, search), "Shuffle");
+        Expect("search box, Ctrl+B", Resolve(System.Windows.Input.Key.B, ctrl, search), "BitPerfect");
+
+        // In an open menu: nothing.
+        var menuItem = new System.Windows.Controls.MenuItem();
+        Expect("menu item, Space", Resolve(System.Windows.Input.Key.Space, none, menuItem), "None");
+        Expect("menu item, Ctrl+S", Resolve(System.Windows.Input.Key.S, ctrl, menuItem), "None");
+
+        // A type-ahead under way: Space is part of the name.
+        var buffer = typeof(MainWindow).GetField("_typeAheadBuffer", own)!;
+        buffer.SetValue(main, "pink");
+        Expect("type-ahead 'pink', Space", Resolve(System.Windows.Input.Key.Space, none, artistList), "None");
+        buffer.SetValue(main, "");
+        Expect("type-ahead over, Space", Resolve(System.Windows.Input.Key.Space, none, artistList), "PlayPause");
+
+        // A song-table cell being edited (F2's command, then cancelled, so nothing saves).
+        var songs = grid.Items.OfType<Track>().ToList();
+        if (songs.Count > 0)
+        {
+            grid.SelectedItem = songs[0];
+            grid.CurrentCell = new System.Windows.Controls.DataGridCellInfo(songs[0], songColumn);
+            grid.Focus();
+            System.Windows.Controls.DataGrid.BeginEditCommand.Execute(null, grid);
+            Pump();
+            var editor = FindVisual<System.Windows.Controls.Primitives.TextBoxBase>(grid);
+            Console.WriteLine($"cell edit open: {editor is not null}");
+            all &= editor is not null;
+            if (editor is not null)
+            {
+                Expect("cell edit, Space", Resolve(System.Windows.Input.Key.Space, none, editor), "None");
+                foreach (var key in new[] { System.Windows.Input.Key.S, System.Windows.Input.Key.W, System.Windows.Input.Key.Left, System.Windows.Input.Key.Up })
+                    Expect($"cell edit, Ctrl+{key}", Resolve(key, ctrl, editor), "None");
+            }
+            grid.CancelEdit();
+            Pump();
+        }
+
+        // 2. Ctrl+Q's song and Ctrl+D's art.
+        var target = typeof(MainWindow).GetMethod("AnalyzeTarget", own)!;
+        var artPlaying = typeof(MainWindow).GetProperty("ArtShowsPlaying", own)!;
+        var playing = songs.Count > 1 ? songs[^1] : null;
+        vm.NowPlaying = null;
+        if (songs.Count > 2)
+        {
+            grid.SelectedItems.Clear();
+            grid.SelectedItem = songs[0];
+            Expect("Ctrl+Q, one song selected", (target.Invoke(main, null) as Track)?.Title, songs[0].Title);
+            grid.SelectedItems.Add(songs[1]);
+            grid.CurrentCell = new System.Windows.Controls.DataGridCellInfo(songs[1], songColumn);
+            Expect("Ctrl+Q, two selected, focus on the second", (target.Invoke(main, null) as Track)?.Title, songs[1].Title);
+            grid.SelectedItems.Clear();
+            Expect("Ctrl+Q, none selected, nothing playing", target.Invoke(main, null), null);
+            Expect("Ctrl+D, nothing playing: selected album", artPlaying.GetValue(main), false);
+            vm.NowPlaying = playing;
+            Expect("Ctrl+Q, none selected, one playing", (target.Invoke(main, null) as Track)?.Title, playing!.Title);
+            Expect("Ctrl+D, one playing: playing album", artPlaying.GetValue(main), true);
+        }
+
+        // 3. Run the safe ones and watch the state change.
+        var settingsKept = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null;
+        try
+        {
+            var shuffle = vm.IsShuffle;
+            Handle(System.Windows.Input.Key.S);
+            Expect("Ctrl+S toggles Shuffle", vm.IsShuffle, !shuffle);
+            Handle(System.Windows.Input.Key.S, repeat: true);
+            Expect("Ctrl+S held: once only", vm.IsShuffle, !shuffle);
+            Handle(System.Windows.Input.Key.S);
+
+            var repeats = new List<string> { vm.Repeat.ToString() };
+            for (var i = 0; i < 3; i++)
+            {
+                Handle(System.Windows.Input.Key.E);
+                repeats.Add(vm.Repeat.ToString());
+            }
+            Expect("Ctrl+E cycles Repeat", string.Join(" > ", repeats), "Off > All > One > Off");
+
+            vm.Volume = 0.5;
+            Handle(System.Windows.Input.Key.Up);
+            Expect("Ctrl+Up", Math.Round(vm.Volume, 2), 0.55);
+            Handle(System.Windows.Input.Key.Up, repeat: true);
+            Expect("Ctrl+Up held: keeps going", Math.Round(vm.Volume, 2), 0.6);
+            Handle(System.Windows.Input.Key.Down);
+            Handle(System.Windows.Input.Key.Down);
+            Expect("Ctrl+Down twice", Math.Round(vm.Volume, 2), 0.5);
+            Handle(System.Windows.Input.Key.M);
+            Expect("Ctrl+M mutes", (vm.IsMuted, vm.Volume), (true, 0.0));
+            Handle(System.Windows.Input.Key.M);
+            Expect("Ctrl+M unmutes", (vm.IsMuted, Math.Round(vm.Volume, 2)), (false, 0.5));
+            Handle(System.Windows.Input.Key.M);
+            Handle(System.Windows.Input.Key.Up);
+            Expect("Ctrl+Up while muted: unmutes one step up", (vm.IsMuted, Math.Round(vm.Volume, 2)), (false, 0.55));
+            vm.Volume = 0;
+
+            var bitPerfect = vm.IsExclusiveOutput;
+            Handle(System.Windows.Input.Key.B);
+            Expect($"Ctrl+B (can use: {vm.CanUseExclusiveOutput})", vm.IsExclusiveOutput, vm.CanUseExclusiveOutput ? !bitPerfect : bitPerfect);
+            Handle(System.Windows.Input.Key.B);
+            Expect("Ctrl+B again", vm.IsExclusiveOutput, bitPerfect);
+            Expect("  nothing started playing", engine(vm).State, PlaybackState.Stopped);
+
+            if (playing is not null)
+            {
+                bool Liked() => vm.LikedPaths.Contains(playing.FilePath);
+                var liked = Liked();
+                Handle(System.Windows.Input.Key.L);
+                Expect("Ctrl+L likes the playing song", Liked(), !liked);
+                Handle(System.Windows.Input.Key.L);
+                Expect("Ctrl+L again unlikes it", Liked(), liked);
+
+                vm.SearchQuery = "";
+                Handle(System.Windows.Input.Key.J);
+                Settle(300);
+                Expect("Ctrl+J shows the playing song's album", vm.SelectedAlbum?.Album.Title, playing.Album);
+            }
+
+            search.Text = "abc";
+            Handle(System.Windows.Input.Key.F);
+            Settle(100);
+            Expect("Ctrl+F: search box focused, text selected", (search.IsKeyboardFocusWithin, search.SelectedText), (true, "abc"));
+            search.Text = "";
+        }
+        finally
+        {
+            if (settingsKept is not null)
+                File.WriteAllBytes(AppSettings.SettingsPath, settingsKept);
+            else if (File.Exists(AppSettings.SettingsPath))
+                File.Delete(AppSettings.SettingsPath);
+        }
+
+        // 3b. Ctrl+D with the art viewer open closes it: from the main window (a
+        //     viewer that is never shown, so nothing appears), and in the viewer.
+        var artField = typeof(MainWindow).GetField("_artWindow", own)!;
+        var pixels = BitmapSource.Create(2, 2, 96, 96, PixelFormats.Bgr32, null, new byte[16], 8);
+        artField.SetValue(main, new ArtWindow(pixels, "test", main));
+        Handle(System.Windows.Input.Key.D);
+        Settle(100);
+        Expect("Ctrl+D, viewer open: closed", artField.GetValue(main), null);
+        var closesOn = typeof(ArtWindow).GetMethod("ClosesOn", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        bool Closes(System.Windows.Input.Key key, System.Windows.Input.ModifierKeys mods, bool repeat) => (bool)closesOn.Invoke(null, [key, mods, repeat])!;
+        Expect("in the viewer, Ctrl+D", Closes(System.Windows.Input.Key.D, ctrl, false), true);
+        Expect("in the viewer, Ctrl+D held (repeat)", Closes(System.Windows.Input.Key.D, ctrl, true), false);
+        Expect("in the viewer, Escape", Closes(System.Windows.Input.Key.Escape, none, false), true);
+        Expect("in the viewer, plain D", Closes(System.Windows.Input.Key.D, none, false), false);
+        Expect("in the viewer, Ctrl+Shift+D", Closes(System.Windows.Input.Key.D, ctrl | System.Windows.Input.ModifierKeys.Shift, false), false);
+
+        // 4. Leaving the search box: Escape, or a click elsewhere, takes focus back
+        //    to where it was (else the selected song) and keeps the search.
+        string Where() => System.Windows.Input.Keyboard.FocusedElement switch
+        {
+            System.Windows.Controls.DataGridCell c => $"song '{(c.DataContext as Track)?.Title}'",
+            FrameworkElement f when f == search || search.IsAncestorOf(f) => "search box",
+            FrameworkElement f => f.Name is { Length: > 0 } n ? n : f.GetType().Name,
+            _ => "nothing",
+        };
+        void Escape()
+        {
+            search.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice,
+                PresentationSource.FromVisual(search), 0, System.Windows.Input.Key.Escape) { RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent });
+            Settle(100);
+        }
+        void ClickOn(UIElement target)
+        {
+            target.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount,
+                System.Windows.Input.MouseButton.Left) { RoutedEvent = System.Windows.Input.Mouse.PreviewMouseDownEvent });
+            Settle(100);
+        }
+        var before = typeof(MainWindow).GetField("_focusBeforeSearch", own)!;
+        var shuffleElement = (UIElement)shuffleButton;
+        var label = (UIElement)main.FindName("ArtistsHeaderLabel");
+
+        if (songs.Count > 0)
+        {
+            grid.SelectedItems.Clear();
+            grid.SelectedItem = songs[0];
+            typeof(MainWindow).GetMethod("FocusCell", own)!.Invoke(main, [songs[0], songColumn]);
+            Settle(50);
+            var songWhere = Where();
+            search.Focus();
+            search.Text = "show";
+            Settle(400);
+            Expect($"search box focused from {songWhere}", Where(), "search box");
+            Escape();
+            Expect("Escape: back to the song", Where(), songWhere);
+            Expect("  search kept", (search.Text, vm.SearchQuery), ("show", "show"));
+
+            shuffleElement.Focus();
+            search.Focus();
+            Escape();
+            Expect("Escape, from the Shuffle button: back to it", Where(), "ShuffleButton");
+
+            search.Focus();
+            before.SetValue(main, null);
+            Escape();
+            Expect("Escape, nowhere before: the selected song", Where(), songWhere);
+
+            search.Focus();
+            ClickOn(search);
+            Expect("click in the search box: stays", Where(), "search box");
+            ClickOn(label);
+            Expect("click on the ARTISTS label: leaves", Where(), songWhere);
+            Expect("  search kept", search.Text, "show");
+
+            search.Focus();
+            ClickOn(shuffleElement);
+            Expect("click on Shuffle (skips focus): leaves", Where() != "search box", true);
+            search.Text = "";
+            Settle(400);
+        }
+
+        // 5. OwnerActivation: the non-modal windows hand activation back to their
+        //    owner as they close. Activation itself can't be tried without taking
+        //    the foreground from the user, so only the wiring is checked, on
+        //    windows that are built and never shown.
+        bool Hooked(Window window)
+        {
+            var key = typeof(Window).GetField("EVENT_CLOSING", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.GetValue(null)!;
+            var events = (System.ComponentModel.EventHandlerList)typeof(Window).GetProperty("Events", own)!.GetValue(window)!;
+            return events[key]?.GetInvocationList().Any(d => d.Method.DeclaringType == typeof(AudioFool.Services.OwnerActivation)) == true;
+        }
+        Expect("art viewer hands activation back", Hooked(new ArtWindow(pixels, "test", main)), true);
+        if (songs.Count > 0)
+        {
+            Expect("song tag window hands activation back", Hooked(new TagEditWindow(new TagEditViewModel(songs[0]), main)), true);
+            Expect("Analyze hands activation back", Hooked(new AnalysisWindow(new AnalysisViewModel(songs[0], vm), main)), true);
+        }
+
+        Console.WriteLine(all ? "shortcuts: all OK" : "shortcuts: SOMETHING WRONG");
+
+        static AudioEngine engine(MainViewModel m) =>
+            (AudioEngine)typeof(MainViewModel).GetField("_engine", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(m)!;
+    }
+
+    private static T? FindVisual<T>(DependencyObject node) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+        {
+            var child = VisualTreeHelper.GetChild(node, i);
+            if (child is T match)
+                return match;
+            if (FindVisual<T>(child) is { } deeper)
+                return deeper;
+        }
+        return null;
+    }
+
     private static void LoadRealLibrary(MainViewModel vm)
     {
         var cached = AudioFool.Core.Library.LibraryCache.Load();
