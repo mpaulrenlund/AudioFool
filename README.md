@@ -438,6 +438,15 @@ scrobbling but does not reveal your password.
 
 ---
 
+## Finding a song's file
+
+Right-click a song → **Open in Windows Explorer** opens its folder with the file
+selected. With several rows selected, it opens the one you right-clicked. If the file
+has moved, the nearest folder that still exists opens instead; if the drive isn't
+connected, the status bar says so.
+
+---
+
 ## Analyzing a track
 
 Right-click a song → **Analyze…** opens a window with the track's **spectrogram**

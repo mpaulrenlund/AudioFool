@@ -1568,6 +1568,32 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         new AnalysisWindow(new AnalysisViewModel(track, this), owner).Show();
     }
 
+    /// <summary>
+    /// Shows one track's file in Windows Explorer, selected in its folder; the
+    /// nearest folder still there if the file has moved.
+    /// </summary>
+    [RelayCommand]
+    private void OpenInExplorer(Track? track)
+    {
+        if (track is null)
+            return;
+
+        if (ExplorerTarget.ArgumentsFor(track.FilePath) is not { } arguments)
+        {
+            StatusText = $"Can't open {track.FilePath}: the drive isn't connected.";
+            return;
+        }
+
+        try
+        {
+            System.Diagnostics.Process.Start("explorer.exe", arguments);
+        }
+        catch (System.ComponentModel.Win32Exception ex)
+        {
+            StatusText = $"Couldn't open Windows Explorer: {ex.Message}";
+        }
+    }
+
     [RelayCommand]
     private void EditAlbumTags(AlbumItemViewModel? item)
     {

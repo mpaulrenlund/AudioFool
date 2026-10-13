@@ -996,6 +996,11 @@
                                             <MenuItem Header="Remove from Playlist"
                                                       Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanRemoveFromShownPlaylist, Converter={StaticResource BoolToVisibility}}"
                                                       Command="{Binding Source={StaticResource Proxy}, Path=Data.RemoveFromPlaylistCommand}" />
+                                            <Separator />
+                                            <!-- The row right-clicked, as for Analyze. -->
+                                            <MenuItem Header="Open in Windows Explorer"
+                                                      Command="{Binding Source={StaticResource Proxy}, Path=Data.OpenInExplorerCommand}"
+                                                      CommandParameter="{Binding}" />
                                         </ContextMenu>
                                     </Setter.Value>
                                 </Setter>
