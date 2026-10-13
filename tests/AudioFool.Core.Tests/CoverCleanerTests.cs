@@ -138,9 +138,11 @@ public class CoverCleanerTests
 
         Assert.Equal(3, finding.Pictures);
         Assert.True(finding.HasExtras);
+        // All three are PNGs, found by their bytes: 24-byte headers plus fillers.
+        Assert.Equal(3 * 24 + 40_000 + 120_000 + 30_000, finding.PngBytes);
         // The survey counts picture bytes; the file also loses each one's few header bytes.
         Assert.InRange(finding.Freeable, freed - 200, freed);
-        Assert.Equal(new CoverFinding(1, 0), CoverCleaner.Survey(file.Path));
+        Assert.Equal(new CoverFinding(1, 0, 24 + 120_000), CoverCleaner.Survey(file.Path));
     }
 
     [Theory]

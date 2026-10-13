@@ -558,6 +558,23 @@ formats aren't listed.
 
 ---
 
+## PNG covers
+
+Statistics → **PNG COVERS** lists the PNG covers left in the library, on the way to
+converting them to JPEG. Two rows:
+
+- **Embedded PNG covers**: songs with a PNG picture inside, with the albums, songs and
+  bytes of PNG. Filled by the Extra Covers check above (no button of its own); a picture
+  counts by its contents, not by the type its tag claims. Every format counts, DSF and
+  M4A included.
+- **PNG cover files**: `.png` files of any name in the songs' folders (`cover.png`,
+  `folder.png`, a back scan), looked for each time the window opens (under a second).
+
+Clicking a row narrows the library to those albums, as the other rows do. AudioFool
+doesn't convert them yet.
+
+---
+
 ## Output modes
 
 The **Bit-Perfect** switch in the bottom-right of the status bar chooses how audio

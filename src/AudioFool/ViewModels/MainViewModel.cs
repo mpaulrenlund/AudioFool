@@ -1390,7 +1390,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // The quality and cover sections are live: a check running behind the window updates them.
         using var quality = new QualitySectionViewModel(this);
         using var covers = new CoverSectionViewModel(this);
-        var statsVm = new StatisticsViewModel(stats, someHidden) { QualityCheck = quality, CoverCheck = covers, Shortcuts = ShortcutGuide.For(_settings.GlobalHotkeys) };
+        using var pngs = new PngSectionViewModel(this);
+        var statsVm = new StatisticsViewModel(stats, someHidden) { QualityCheck = quality, CoverCheck = covers, PngCovers = pngs, Shortcuts = ShortcutGuide.For(_settings.GlobalHotkeys) };
         if (new StatisticsWindow(statsVm, owner).ShowDialog() == true && statsVm.Chosen is { } row)
             ApplyStatisticsChoice(row);
     }

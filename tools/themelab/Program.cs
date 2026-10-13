@@ -2167,9 +2167,35 @@ internal static class Program
             if (Arg(args, "--covercache") is not null && Arg(args, "--qualitycache") is null)
                 LoadRealLibrary(vm);
 
+            // --covercheck 1 (with --covercache <scratch file>): run the real cover
+            // check over the library first, so both cover sections show real results.
+            if (Arg(args, "--covercheck") is not null && Arg(args, "--covercache") is not null)
+            {
+                var coverClock = System.Diagnostics.Stopwatch.StartNew();
+                vm.StartCoverCheck();
+                Settle(500);
+                while (vm.IsCheckingCovers)
+                    Settle(500);
+                Settle(300);
+                Console.WriteLine($"cover check: '{vm.StatusText}' in {coverClock.Elapsed:mm\\:ss}");
+            }
+
             var quality = new QualitySectionViewModel(vm);
             var covers = new CoverSectionViewModel(vm);
-            var statsVm = new StatisticsViewModel(stats, someFoldersHidden: Arg(args, "--hidden") is not null) { QualityCheck = quality, CoverCheck = covers, Shortcuts = ShortcutGuide.For(Arg(args, "--nohotkeys") is null) };
+            var pngs = new PngSectionViewModel(vm);
+            var pngClock = System.Diagnostics.Stopwatch.StartNew();
+            while (pngs.Rows.LastOrDefault()?.Value.StartsWith("Looking") == true && pngClock.Elapsed < TimeSpan.FromMinutes(2))
+                Settle(50);
+            Console.WriteLine($"  [png covers] {pngs.Summary}  (folders looked in {pngClock.ElapsedMilliseconds} ms)");
+            foreach (var r in pngs.Rows) Console.WriteLine($"    {r.Label,-32} {r.Value,-40} clickable={r.IsClickable}");
+            if (Arg(args, "--pngfilter") is { } pngRow && pngs.Rows.FirstOrDefault(r => r.Label.StartsWith(pngRow, StringComparison.OrdinalIgnoreCase))?.Filter is { } pngFilter)
+            {
+                var matched = pngFilter.Apply(vm.StatisticsTracks);
+                Console.WriteLine($"  filter '{pngFilter.Description}': {matched.Count:N0} tracks, e.g.");
+                foreach (var folder in matched.Select(t => Path.GetDirectoryName(t.FilePath)).Distinct().Take(8))
+                    Console.WriteLine($"    {folder}");
+            }
+            var statsVm = new StatisticsViewModel(stats, someFoldersHidden: Arg(args, "--hidden") is not null) { QualityCheck = quality, CoverCheck = covers, PngCovers = pngs, Shortcuts = ShortcutGuide.For(Arg(args, "--nohotkeys") is null) };
             Console.WriteLine($"  [extra covers] {covers.Summary}  button '{covers.ButtonText}' enabled={covers.CanToggle}");
             foreach (var r in covers.Rows) Console.WriteLine($"    {r.Label,-32} {r.Value,-30} clickable={r.IsClickable}  ({r.Detail})");
             Console.WriteLine($"  [quality check] {quality.Summary}  button '{quality.ButtonText}' enabled={quality.CanToggle}");

@@ -127,7 +127,7 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
-  a build of `main` as pushed. **640 tests** pass.
+  a build of `main` as pushed. **646 tests** pass.
 - **Last release: v0.4.0** (2026-10-12, session 47, tag on `3a531a6`, 60 MB zip,
   installed). It holds everything from sessions 46 and 47. Nothing unreleased since.
 - **PS1 is the only theme**, built from `design/theme-tokens.json`. `design/progress.md`
@@ -136,7 +136,7 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
-- **48** (2026-10-13): song menu gained **Open in Windows Explorer** (`Core/Library/ExplorerTarget`, `OpenInExplorerCommand`; README section; 640 tests). And: the user hears **occasional stutters while working in other
+- **48** (2026-10-13): Statistics gained **PNG COVERS** (embedded from the cover check, `CoverFinding.PngBytes`, covers.json v2 so the user re-runs the check once; `.png` files counted per folder on open; `PngSectionViewModel`, `PngCoverStatistics`; ThemeLab `--covercheck 1`, `--pngfilter`; real library: 1,140 songs / 2.6 GB embedded, 131 files / 301 MB). Song menu gained **Open in Windows Explorer** (`Core/Library/ExplorerTarget`, `OpenInExplorerCommand`; README section). And: the user hears **occasional stutters while working in other
   apps**, Bit-Perfect on or off. Cause not yet known. Added `Core/Playback/PlaybackDiagnostics`:
   every device pull is timed (wall time, CPU cycles, GC pause, gap since the last
   pull), a normal-priority watcher samples the queued audio every 5 ms (`BASS_DATA_AVAILABLE`)

@@ -9,10 +9,17 @@ namespace AudioFool.Core.Art;
 /// What keeping only the best one would free: the other pictures, and the tag's
 /// padding beyond <see cref="TagPadding.Reserve"/>. 0 for a file with one picture or none.
 /// </param>
-public sealed record CoverFinding(int Pictures, long Freeable)
+/// <param name="PngBytes">
+/// The bytes of the pictures that are PNG by their contents (not their MIME type,
+/// which files get wrong). 0 when none is.
+/// </param>
+public sealed record CoverFinding(int Pictures, long Freeable, long PngBytes = 0)
 {
     [System.Text.Json.Serialization.JsonIgnore]
     public bool HasExtras => Pictures > 1;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasPng => PngBytes > 0;
 }
 
 public enum CoverCleanOutcome
@@ -55,13 +62,16 @@ public static class CoverCleaner
         {
             using var file = TagLib.File.Create(path);
             var pictures = file.Tag.Pictures;
+            var png = pictures
+                .Where(p => p.Data?.Data is { } data && ImageInfo.Read(data)?.Format == ImageFormat.Png)
+                .Sum(p => (long)p.Data.Count);
             if (pictures.Length <= 1 || TagReader.BestCover(pictures) is not { } best)
-                return new CoverFinding(pictures.Length, 0);
+                return new CoverFinding(pictures.Length, 0, png);
 
             // The extra covers become padding, which is then cut to the reserve.
             var extra = pictures.Where(p => !ReferenceEquals(p, best)).Sum(p => (long)(p.Data?.Count ?? 0));
             var padding = TagPadding.Read(path)?.Padding ?? 0;
-            return new CoverFinding(pictures.Length, Math.Max(0, extra + padding - TagPadding.Reserve));
+            return new CoverFinding(pictures.Length, Math.Max(0, extra + padding - TagPadding.Reserve), png);
         }
         catch (Exception ex) when (ex is TagLib.UnsupportedFormatException or TagLib.CorruptFileException
                                      or IOException or UnauthorizedAccessException or NotSupportedException)

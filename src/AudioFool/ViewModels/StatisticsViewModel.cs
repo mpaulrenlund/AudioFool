@@ -82,6 +82,9 @@ public sealed class StatisticsViewModel
     /// <summary>The cover check's section, which updates while a check runs or songs are cleaned.</summary>
     public CoverSectionViewModel? CoverCheck { get; init; }
 
+    /// <summary>PNG covers, embedded and as files, which updates with the cover check.</summary>
+    public PngSectionViewModel? PngCovers { get; init; }
+
     /// <summary>The row the window was closed by clicking, if any.</summary>
     public BarRow? Chosen { get; set; }
 

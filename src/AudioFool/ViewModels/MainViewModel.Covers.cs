@@ -48,6 +48,13 @@ public sealed partial class MainViewModel
     public CoverStatistics ComputeCoverStatistics() =>
         CoverStatistics.Compute(_folderFilteredLibrary.AllTracks, CoverResults);
 
+    /// <summary>The PNG COVERS section's embedded row, from the same results; <paramref name="files"/> fills the other.</summary>
+    public PngCoverStatistics ComputePngStatistics(PngFileCount? files = null) =>
+        PngCoverStatistics.Compute(_folderFilteredLibrary.AllTracks, CoverResults, files);
+
+    /// <summary>The tracks Statistics counts, for looking in their folders off the UI thread.</summary>
+    public IReadOnlyList<Track> StatisticsTracks => _folderFilteredLibrary.AllTracks;
+
     /// <summary>Reads the pictures of every track not read yet, in the background, with progress in the status bar.</summary>
     public void StartCoverCheck()
     {
