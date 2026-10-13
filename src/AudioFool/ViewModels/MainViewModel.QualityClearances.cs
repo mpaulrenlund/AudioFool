@@ -38,6 +38,7 @@ public sealed partial class MainViewModel
         OnPropertyChanged(nameof(CanClearQuality));
         OnPropertyChanged(nameof(CanPutBackQuality));
         OnPropertyChanged(nameof(CanKeepBestCover));
+        OnPropertyChanged(nameof(CanConvertPngs));
     }
 
     /// <summary>The flags the library check saved for this song; empty when it hasn't been checked.</summary>

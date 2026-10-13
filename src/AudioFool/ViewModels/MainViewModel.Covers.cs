@@ -42,7 +42,7 @@ public sealed partial class MainViewModel
     /// While the "Extra covers" row's filter is on, the artist and album menus
     /// offer Keep Best Cover; while a run goes, they offer to stop it, filter or not.
     /// </summary>
-    public bool CanKeepBestCover => IsKeepingCovers || (!IsPlaylistMode && LibraryFilter?.ShowsExtraCovers == true);
+    public bool CanKeepBestCover => IsKeepingCovers || (!IsPlaylistMode && !IsConvertingPngs && LibraryFilter?.ShowsExtraCovers == true);
 
     /// <summary>Counted over what Statistics counts: the ticked folders, ignoring any search.</summary>
     public CoverStatistics ComputeCoverStatistics() =>
@@ -129,7 +129,7 @@ public sealed partial class MainViewModel
     private static readonly TimeSpan KeepCommitEvery = TimeSpan.FromSeconds(30);
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction), nameof(KeepBestCoverHeader), nameof(CanKeepBestCover))]
+    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction), nameof(KeepBestCoverHeader), nameof(CanKeepBestCover), nameof(CanConvertPngs))]
     private bool _isKeepingCovers;
 
     [ObservableProperty]

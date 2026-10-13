@@ -77,6 +77,12 @@
                                   Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanKeepBestCover, Converter={StaticResource BoolToVisibility}}"
                                   Command="{Binding Source={StaticResource Proxy}, Path=Data.KeepBestCoverForArtistsCommand}"
                                   CommandParameter="{Binding}" />
+                        <!-- While a PNG COVERS row's filter is on: the same, converting
+                             the PNG covers it shows to JPEG. -->
+                        <MenuItem Header="{Binding Source={StaticResource Proxy}, Path=Data.ConvertPngHeader}"
+                                  Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanConvertPngs, Converter={StaticResource BoolToVisibility}}"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.ConvertPngsForArtistsCommand}"
+                                  CommandParameter="{Binding}" />
                     </ContextMenu>
                 </Setter.Value>
             </Setter>
@@ -110,6 +116,10 @@
                         <MenuItem Header="{Binding Source={StaticResource Proxy}, Path=Data.KeepBestCoverHeader}"
                                   Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanKeepBestCover, Converter={StaticResource BoolToVisibility}}"
                                   Command="{Binding Source={StaticResource Proxy}, Path=Data.KeepBestCoverForAlbumsCommand}"
+                                  CommandParameter="{Binding}" />
+                        <MenuItem Header="{Binding Source={StaticResource Proxy}, Path=Data.ConvertPngHeader}"
+                                  Visibility="{Binding Source={StaticResource Proxy}, Path=Data.CanConvertPngs, Converter={StaticResource BoolToVisibility}}"
+                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.ConvertPngsForAlbumsCommand}"
                                   CommandParameter="{Binding}" />
                     </ContextMenu>
                 </Setter.Value>

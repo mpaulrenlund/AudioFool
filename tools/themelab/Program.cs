@@ -306,7 +306,7 @@ internal static class Program
         {
             LoadMultiLibrary(vm);
         }
-        else if (which == "covers")
+        else if (which is "covers" or "pngconvert")
         {
             LoadCoversLibrary(vm, Arg(args, "--album") ?? @"D:\Music\Arch Echo\[2017] Arch Echo");
         }
@@ -1301,7 +1301,7 @@ internal static class Program
             return 0;
         }
 
-        if (which is "edit" or "queue" or "clicks" or "multiedit" or "albumeditor" or "trackeditor" or "covers")
+        if (which is "edit" or "queue" or "clicks" or "multiedit" or "albumeditor" or "trackeditor" or "covers" or "pngconvert")
         {
             // Each save persists the library, and LibraryCache.CachePath is the
             // real library.json - so it is put back byte for byte afterwards.
@@ -1312,7 +1312,9 @@ internal static class Program
                 File.Copy(cachePath, backup, overwrite: true);
             try
             {
-                if (which == "covers")
+                if (which == "pngconvert")
+                    RunPngConvert(main, vm);
+                else if (which == "covers")
                     RunCovers(main, vm);
                 else if (which == "trackeditor")
                     RunTrackEditor(main, vm);
@@ -3822,6 +3824,121 @@ internal static class Program
         }
 
         Section("after keeping");
+        Files("after");
+        Console.WriteLine($"leftover working files: {Directory.GetFiles(_scratchDir!, ".audiofool-cover-*", SearchOption.AllDirectories).Length}");
+    }
+
+    /// <summary>
+    /// --window pngconvert: the cover check, both PNG COVERS rows, their filters, the
+    /// album menu and Convert PNG Covers to JPEG, through the app's own code on
+    /// scratch copies of real albums (--album "a;b"). Prints each song's pictures
+    /// and each folder's image files before and after. The replaced PNGs go to the
+    /// Recycle Bin, as in the app (the scratch folder is on a fixed drive).
+    /// </summary>
+    private static void RunPngConvert(MainWindow main, MainViewModel vm)
+    {
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        var albumDirs = Directory.GetDirectories(_scratchDir!, "*", SearchOption.AllDirectories)
+            .Where(d => Directory.GetFiles(d).Length > 0).Order().ToList();
+
+        void Files(string when)
+        {
+            Console.WriteLine($"[{when}]");
+            foreach (var albumDir in albumDirs)
+            {
+                Console.WriteLine($"  {Path.GetFileName(Path.GetDirectoryName(albumDir))} / {Path.GetFileName(albumDir)}");
+                foreach (var f in Directory.GetFiles(albumDir).Where(f => AudioFool.Core.Library.AudioFormats.IsSupported(f)).Order())
+                {
+                    using var t = TagLib.File.Create(f);
+                    var pics = string.Join(", ", t.Tag.Pictures.Select(p =>
+                        AudioFool.Core.Art.ImageInfo.Read(p.Data.Data) is { } i ? $"{i.FormatText} {i.SizeText} {p.Data.Count:N0} B ({p.MimeType})" : "unreadable"));
+                    Console.WriteLine($"    {Path.GetFileName(f),-44} {new FileInfo(f).Length,12:N0} B  created {File.GetCreationTimeUtc(f):u}  [{pics}]");
+                }
+                foreach (var img in Directory.GetFiles(albumDir).Where(f => Path.GetExtension(f).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg").Order())
+                {
+                    var i = AudioFool.Core.Art.ImageInfo.Read(File.ReadAllBytes(img));
+                    Console.WriteLine($"    file {Path.GetFileName(img),-30} {new FileInfo(img).Length,10:N0} B  {i?.FormatText} {i?.SizeText}");
+                }
+            }
+            var art = vm.StatisticsTracks.Select(t => t.FolderArtPath).Distinct().Select(p => p is null ? "none" : Path.GetFileName(p));
+            Console.WriteLine($"  library's folder art: {string.Join(", ", art)}");
+        }
+
+        void Rows(string when)
+        {
+            using var s = new PngSectionViewModel(vm);
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (s.Rows.LastOrDefault()?.Value.StartsWith("Looking") == true && clock.Elapsed < TimeSpan.FromSeconds(30))
+                Settle(50);
+            Console.WriteLine($"[{when}] {s.Summary}");
+            foreach (var r in s.Rows) Console.WriteLine($"    {r.Label,-22} {r.Value,-40} clickable={r.IsClickable}");
+        }
+
+        void AlbumMenu(string when)
+        {
+            main.UpdateLayout();
+            Settle(200);
+            var row = FindAll<System.Windows.Controls.ListBoxItem>(main)
+                .FirstOrDefault(r => r.DataContext is AlbumItemViewModel && r.ContextMenu is not null && r.IsVisible);
+            if (row?.ContextMenu is not { } menu)
+            {
+                Console.WriteLine($"  {when} album menu: none");
+                return;
+            }
+            menu.PlacementTarget = row;
+            menu.IsOpen = true;
+            Settle(200);
+            var items = menu.Items.OfType<System.Windows.Controls.MenuItem>()
+                .Select(m => $"'{m.Header}'{(m.Visibility == Visibility.Visible ? "" : " (hidden)")}");
+            Console.WriteLine($"  {when} album menu: {string.Join(", ", items)}");
+            menu.IsOpen = false;
+        }
+
+        void Convert(string label)
+        {
+            using (var s = new PngSectionViewModel(vm))
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                while (s.Rows.LastOrDefault()?.Value.StartsWith("Looking") == true && clock.Elapsed < TimeSpan.FromSeconds(30))
+                    Settle(50);
+                var row = s.Rows.FirstOrDefault(r => r.Label == label && r.IsClickable);
+                if (row is null)
+                {
+                    Console.WriteLine($"{label}: no clickable row");
+                    return;
+                }
+                vm.ApplyStatisticsChoice(row);
+            }
+            Console.WriteLine($"filter on: '{vm.LibraryFilter}' canConvert={vm.CanConvertPngs} canKeep={vm.CanKeepBestCover}, {vm.Artists.Count} artists");
+            AlbumMenu("filtered:");
+            vm.SelectedArtists = [.. vm.Artists];
+            var run = System.Diagnostics.Stopwatch.StartNew();
+            vm.ConvertPngsForArtistsCommand.Execute(vm.Artists[0]);
+            Settle(50);
+            Console.WriteLine($"  running: menu '{vm.ConvertPngHeader}' visible={vm.CanConvertPngs} progress shown={vm.ShowsProgress} canKeep={vm.CanKeepBestCover}");
+            while (vm.IsConvertingPngs)
+                Settle(50);
+            Settle(300);
+            Console.WriteLine($"  done in {run.Elapsed.TotalSeconds:0.0} s: {vm.StatusText}");
+            Console.WriteLine($"  menu now '{vm.ConvertPngHeader}', artists left under the filter: {vm.Artists.Count}, progress shown={vm.ShowsProgress}");
+            vm.ClearLibraryFilterCommand.Execute(null);
+            Settle(100);
+        }
+
+        Files("before");
+        vm.StartCoverCheck();
+        Settle(300);
+        while (vm.IsCheckingCovers)
+            Settle(200);
+        Settle(300);
+        Console.WriteLine($"check: '{vm.StatusText}'");
+        Rows("after the check");
+        AlbumMenu("no filter:");
+
+        Convert(AudioFool.Core.Art.PngCoverStatistics.EmbeddedLabel);
+        Rows("after embedded");
+        Convert(AudioFool.Core.Art.PngCoverStatistics.FilesLabel);
+        Rows("after files");
         Files("after");
         Console.WriteLine($"leftover working files: {Directory.GetFiles(_scratchDir!, ".audiofool-cover-*", SearchOption.AllDirectories).Length}");
     }

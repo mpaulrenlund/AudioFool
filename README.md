@@ -570,8 +570,26 @@ converting them to JPEG. Two rows:
 - **PNG cover files**: `.png` files of any name in the songs' folders (`cover.png`,
   `folder.png`, a back scan), looked for each time the window opens (under a second).
 
-Clicking a row narrows the library to those albums, as the other rows do. AudioFool
-doesn't convert them yet.
+Clicking a row narrows the library to those albums, as the other rows do.
+
+**Convert them.** With a row's filter on, right-click an album in the Albums list or an
+artist in the Artists list → **Convert PNG Covers to JPEG**. It acts on what the row
+shows of that album or artist, or of every selected one: **Ctrl+A in Artists does the
+whole library**. Progress is in the status bar; every 30 seconds the work done is saved
+and leaves the list. **To stop**, right-click → **Stop Converting PNG Covers**; a second
+run picks up the rest. The JPEGs are quality 95 with full colour resolution: about a
+third of the PNGs' size and visually the same (quality 100 saved only a fifth and made
+one cover in four bigger, measured on 60 of the library's covers). Every PNG is
+converted, even the few that come out bigger.
+
+- **Embedded:** each song's cover is re-encoded and becomes its only picture, through
+  the same checked rewrite as Keep Best Cover (a new copy, checked for identical audio,
+  identical tags and exactly that one picture, then swapped in, creation date kept).
+  Anything that doesn't check out is left as it was. FLAC and MP3.
+- **Files:** `cover.png` becomes `cover.jpg` (any name, same name). A PNG beside a JPEG
+  of the same name with at least as many pixels is only removed; a bigger PNG replaces
+  the JPEG. Replaced files go to the **Recycle Bin**. On a drive without one (an SD
+  card) the PNG is kept and the status bar says so, and a JPEG is never overwritten.
 
 ---
 

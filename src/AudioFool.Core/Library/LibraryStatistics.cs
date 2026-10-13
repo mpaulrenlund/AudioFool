@@ -340,6 +340,15 @@ public sealed class TrackFilter
     /// <summary>The cover check's "Extra covers" row: albums whose best cover can be kept.</summary>
     public bool ShowsExtraCovers { get; init; }
 
+    /// <summary>One of the PNG COVERS rows: what Convert PNG Covers to JPEG acts on; null for every other filter.</summary>
+    public Art.PngCoverKind? PngCovers { get; init; }
+
+    /// <summary>
+    /// The "PNG cover files" row's folders. A converted folder is taken out, so it
+    /// leaves the filter without looking in every folder again.
+    /// </summary>
+    public Art.PngFolderSet? PngFolders { get; init; }
+
     public IReadOnlyList<Track> Apply(IReadOnlyList<Track> tracks) => _apply(tracks);
 
     public override string ToString() => Description;

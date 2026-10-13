@@ -62,7 +62,7 @@ public sealed class PngCoverStatistics
             EmbeddedBytes = bytes,
             EmbeddedFilter = found.Count == 0
                 ? null
-                : new TrackFilter(EmbeddedLabel, t => keys.Contains(QualityCache.KeyOf(t))),
+                : new TrackFilter(EmbeddedLabel, t => keys.Contains(QualityCache.KeyOf(t))) { PngCovers = PngCoverKind.Embedded },
             Files = files,
         };
     }
@@ -108,6 +108,7 @@ public sealed class PngCoverStatistics
             .Where(t => Path.GetDirectoryName(t.FilePath) is { } d && withPng.Contains(d))
             .ToList();
 
+        var set = new PngFolderSet(withPng);
         return new PngFileCount(
             Files: files,
             Bytes: bytes,
@@ -116,7 +117,43 @@ public sealed class PngCoverStatistics
             Albums: LibraryScanner.Build(inThem).Artists.Sum(a => a.Albums.Count),
             Filter: files == 0
                 ? null
-                : new TrackFilter(FilesLabel, t => Path.GetDirectoryName(t.FilePath) is { } d && withPng.Contains(d)));
+                : new TrackFilter(FilesLabel, t => Path.GetDirectoryName(t.FilePath) is { } d && set.Contains(d))
+                {
+                    PngCovers = PngCoverKind.Files,
+                    PngFolders = set,
+                });
+    }
+}
+
+/// <summary>Which PNG COVERS row a filter is.</summary>
+public enum PngCoverKind
+{
+    /// <summary>Songs with a PNG embedded.</summary>
+    Embedded,
+
+    /// <summary>Folders holding .png files.</summary>
+    Files,
+}
+
+/// <summary>The folders the "PNG cover files" row found; thread-safe, since a conversion takes them out as it goes.</summary>
+public sealed class PngFolderSet
+{
+    private readonly HashSet<string> _folders;
+    private readonly object _lock = new();
+
+    public PngFolderSet(IEnumerable<string> folders) =>
+        _folders = new HashSet<string>(folders, StringComparer.OrdinalIgnoreCase);
+
+    public bool Contains(string folder)
+    {
+        lock (_lock)
+            return _folders.Contains(folder);
+    }
+
+    public void Remove(string folder)
+    {
+        lock (_lock)
+            _folders.Remove(folder);
     }
 }
 

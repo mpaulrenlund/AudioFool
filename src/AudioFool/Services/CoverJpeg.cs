@@ -24,7 +24,19 @@ namespace AudioFool.Services;
 /// </summary>
 public static class CoverJpeg
 {
-    public static byte[]? FromPng(byte[] png)
+    /// <summary>
+    /// Convert PNG Covers to JPEG's setting (the user's pick, session 48). Measured on
+    /// 60 of the library's PNG covers: 36% of the PNGs' size, where quality 100
+    /// was 81% and made one in four bigger. Still full colour resolution.
+    /// </summary>
+    public const int ConversionQuality = 95;
+
+    /// <summary>For Convert PNG Covers to JPEG: <see cref="ConversionQuality"/>.</summary>
+    public static byte[]? ForConversion(byte[] png) => FromPng(png, ConversionQuality);
+
+    public static byte[]? FromPng(byte[] png) => FromPng(png, 100);
+
+    public static byte[]? FromPng(byte[] png, int quality)
     {
         try
         {
@@ -36,7 +48,7 @@ public static class CoverJpeg
             var pixels = source.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
             try
             {
-                return Encode(pixels, width, height);
+                return Encode(pixels, width, height, quality);
             }
             finally
             {
@@ -51,7 +63,7 @@ public static class CoverJpeg
         }
     }
 
-    private static byte[] Encode(BitmapData pixels, int width, int height)
+    private static byte[] Encode(BitmapData pixels, int width, int height, int quality)
     {
         using var output = new MemoryStream();
 
@@ -63,7 +75,7 @@ public static class CoverJpeg
             In_color_space = J_COLOR_SPACE.JCS_RGB,
         };
         jpeg.jpeg_set_defaults();
-        jpeg.jpeg_set_quality(100, force_baseline: true);
+        jpeg.jpeg_set_quality(quality, force_baseline: true);
 
         // Defaults sample the luma at 2 x 2, i.e. 4:2:0. One sample per pixel in
         // every component is full colour resolution.

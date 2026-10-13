@@ -190,30 +190,80 @@ public static class CoverCleaner
             else
             {
                 File.Copy(path, copy);
-                using (var file = OpenAs(copy, path))
-                {
-                    file.Tag.Pictures =
-                    [
-                        new TagLib.Picture(new TagLib.ByteVector(best.Data.Data))
-                        {
-                            Type = best.Type,
-                            MimeType = best.MimeType,
-                            Description = best.Description,
-                        },
-                    ];
-                    // Setting the pictures fills every tag that can hold one; an APE
-                    // tag at the end of an MP3 would keep a second copy.
-                    if (file.GetTag(TagLib.TagTypes.Ape, false) is TagLib.Ape.Tag ape)
-                        ape.Pictures = [];
-                    file.Save();
-                }
-
+                WriteOnlyPicture(copy, path, best.Data.Data, best.Type, best.MimeType, best.Description);
                 didShrink = TagPadding.TryShrink(copy, shrunk);
                 result = didShrink ? shrunk : copy;
             }
 
             if (Verify(path, result, best.Data.Data) is { } problem)
                 return Failed(path, problem);
+
+            File.Replace(result, path, null);
+            return new CoverCleanResult(path, CoverCleanOutcome.Cleaned, before - new FileInfo(path).Length, didShrink, null);
+        }
+        catch (Exception ex) when (ex is TagLib.UnsupportedFormatException or TagLib.CorruptFileException
+                                     or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return Failed(path, Describe(path, ex));
+        }
+        finally
+        {
+            TryDelete(copy);
+            TryDelete(shrunk);
+        }
+    }
+
+    /// <summary>Through TagLib, on a working copy: <paramref name="data"/> becomes the only picture.</summary>
+    private static void WriteOnlyPicture(string copy, string formatOf, byte[] data, TagLib.PictureType type, string mime, string description)
+    {
+        using var file = OpenAs(copy, formatOf);
+        file.Tag.Pictures =
+        [
+            new TagLib.Picture(new TagLib.ByteVector(data))
+            {
+                Type = type,
+                MimeType = mime,
+                Description = description,
+            },
+        ];
+        // Setting the pictures fills every tag that can hold one; an APE
+        // tag at the end of an MP3 would keep a second copy.
+        if (file.GetTag(TagLib.TagTypes.Ape, false) is TagLib.Ape.Tag ape)
+            ape.Pictures = [];
+        file.Save();
+    }
+
+    /// <summary>
+    /// Replaces the file's cover with <paramref name="cover"/>, a re-encoding of
+    /// <paramref name="current"/> (Convert PNG Covers to JPEG), as its only
+    /// picture, padding cut. As <see cref="Clean"/>: a rewritten copy, checked
+    /// (audio byte for byte, tags, exactly that one picture), then swapped in.
+    /// </summary>
+    public static CoverCleanResult ReplaceCover(string path, TagLib.IPicture current, byte[] cover, string mime, IFileHolder? holder = null)
+    {
+        if (!CanClean(path))
+            return Failed(path, "only FLAC and MP3 files can be rewritten");
+
+        return holder is null
+            ? ReplaceCore(path, current, cover, mime)
+            : holder.Saving(path, needsRelease: () => true, save: () => ReplaceCore(path, current, cover, mime));
+    }
+
+    private static CoverCleanResult ReplaceCore(string path, TagLib.IPicture current, byte[] cover, string mime)
+    {
+        var stem = Path.Combine(Path.GetDirectoryName(path)!, TempPrefix + Guid.NewGuid().ToString("N"));
+        var copy = stem + ".part";
+        var shrunk = stem + ".shrunk.part";
+        try
+        {
+            var before = new FileInfo(path).Length;
+            File.Copy(path, copy);
+            WriteOnlyPicture(copy, path, cover, current.Type, mime, current.Description);
+            var didShrink = TagPadding.TryShrink(copy, shrunk);
+            var result = didShrink ? shrunk : copy;
+
+            if (Verify(path, result, cover) is { } problem)
+                return Failed(path, problem.Replace("the best one", "the new one"));
 
             File.Replace(result, path, null);
             return new CoverCleanResult(path, CoverCleanOutcome.Cleaned, before - new FileInfo(path).Length, didShrink, null);

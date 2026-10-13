@@ -244,11 +244,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private double _scanFraction;
 
     /// <summary>The status bar's progress bar: a library scan, else a quality check, a cover check, or Keep Best Cover.</summary>
-    public bool ShowsProgress => IsScanning || IsCheckingQuality || IsCheckingCovers || IsKeepingCovers;
+    public bool ShowsProgress => IsScanning || IsCheckingQuality || IsCheckingCovers || IsKeepingCovers || IsConvertingPngs;
 
     public double ProgressFraction => IsScanning ? ScanFraction
         : IsCheckingQuality ? Fraction(QualityProgress.Done, QualityProgress.Total)
         : IsCheckingCovers ? Fraction(CoverProgress.Done, CoverProgress.Total)
+        : IsConvertingPngs ? Fraction(PngProgress.Done, PngProgress.Total)
         : Fraction(KeepProgress.Done, KeepProgress.Total);
 
     private static double Fraction(int done, int total) => total == 0 ? 0 : (double)done / total;
