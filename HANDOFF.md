@@ -136,7 +136,7 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
-- **48** (2026-10-13): Statistics gained **PNG COVERS** (embedded from the cover check, `CoverFinding.PngBytes`, covers.json v2 so the user re-runs the check once; `.png` files counted per folder on open; `PngSectionViewModel`, `PngCoverStatistics`; ThemeLab `--covercheck 1`, `--pngfilter`; real library: 1,140 songs / 2.6 GB embedded, 131 files / 301 MB). Song menu gained **Open in Windows Explorer** (`Core/Library/ExplorerTarget`, `OpenInExplorerCommand`; README section). And: the user hears **occasional stutters while working in other
+- **48** (2026-10-13): Statistics gained **PNG COVERS** (embedded from the cover check, `CoverFinding.PngBytes`, covers.json v2 so the user re-runs the check once; `.png` files counted per folder on open; `PngSectionViewModel`, `PngCoverStatistics`; ThemeLab `--covercheck 1`, `--pngfilter`; real library: 1,140 songs / 2.6 GB embedded, 131 files / 301 MB; the user re-ran the check and sees both rows, 2026-10-13). Song menu gained **Open in Windows Explorer** (`Core/Library/ExplorerTarget`, `OpenInExplorerCommand`; README section). And: the user hears **occasional stutters while working in other
   apps**, Bit-Perfect on or off. Cause not yet known. Added `Core/Playback/PlaybackDiagnostics`:
   every device pull is timed (wall time, CPU cycles, GC pause, gap since the last
   pull), a normal-priority watcher samples the queued audio every 5 ms (`BASS_DATA_AVAILABLE`)
