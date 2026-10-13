@@ -25,8 +25,14 @@ public static class PlaybackDiagnostics
     /// <summary>A pull slower than this is logged.</summary>
     private const double SlowFillMs = 15;
 
-    /// <summary>A gap between pulls longer than this is logged.</summary>
-    private const double LongGapMs = 60;
+    /// <summary>
+    /// A gap this much longer than the usual one is logged. The usual gap depends
+    /// on the mode: about 10 ms in shared, a whole 200 ms buffer in exclusive.
+    /// </summary>
+    private const double LateByMs = 20;
+
+    /// <summary>The watcher logs itself as starved past this.</summary>
+    private const double StarvedMs = 60;
 
     /// <summary>Queued audio below this counts as running low.</summary>
     private const double LowBufferMs = 25;
@@ -47,8 +53,10 @@ public static class PlaybackDiagnostics
     // The device being watched, set by OutputChain. Only one is open at a time.
     private static volatile DeviceInfo? _device;
 
-    // Written only by the device thread inside Fill.
+    // Written only by the device thread inside Fill: when the last pull began,
+    // and a running average of the gap between pulls (0 until the first gap).
     private static long _lastFillStart;
+    private static double _usualGapMs;
 
     // The minute's figures. Fill writes them; the watcher swaps in a fresh set.
     private static Stats _stats = new();
@@ -95,6 +103,7 @@ public static class PlaybackDiagnostics
         var bytes = BassWasapi.GetInfo(out var info) ? info.BufferLength : 0;
         _device = new DeviceInfo(mode, rate, depth, bufferSeconds * 1000, bytes);
         _lastFillStart = 0;
+        _usualGapMs = 0;
         Write($"device opened: {mode}, {rate} Hz, {(depth > 0 ? $"{depth}-bit" : "depth unknown")}, " +
               $"buffer {bufferSeconds * 1000:0} ms ({bytes} bytes)");
     }
@@ -144,14 +153,19 @@ public static class PlaybackDiagnostics
         stats.FillMax = Math.Max(stats.FillMax, tookMs);
         stats.GcMs += gcMs;
 
-        if (tookMs < SlowFillMs && gapMs < LongGapMs)
+        var usual = _usualGapMs;
+        if (gapMs > 0)
+            _usualGapMs = usual == 0 ? gapMs : usual + (gapMs - usual) * 0.02;
+
+        var late = usual > 0 && gapMs > usual + LateByMs;
+        if (tookMs < SlowFillMs && !late)
             return;
 
         stats.SlowFills++;
         var busy = _cyclesPerMs > 0 ? $"busy ~{(cycles - token.Cycles) / _cyclesPerMs:0.0} ms" : "busy unknown";
         var buffer = _lastBufferMs >= 0 ? $"{_lastBufferMs:0} ms queued" : "queue unknown";
-        Write($"SLOW FILL  took {tookMs:0.0} ms ({busy}, GC {gcMs:0.0} ms), " +
-              $"{gapMs:0.0} ms since the previous fill, {buffer}");
+        Write($"{(late ? "LATE FILL" : "SLOW FILL")}  took {tookMs:0.0} ms ({busy}, GC {gcMs:0.0} ms), " +
+              $"{gapMs:0.0} ms since the previous fill (usually {usual:0.0}), {buffer}");
     }
 
     private static void EnsureWatcher()
@@ -190,7 +204,7 @@ public static class PlaybackDiagnostics
             var slept = Stopwatch.GetTimestamp();
             Thread.Sleep(WatchIntervalMs);
             var sleptMs = Ms(Stopwatch.GetTimestamp() - slept);
-            if (sleptMs > LongGapMs && _device is not null && BassWasapi.IsStarted)
+            if (sleptMs > StarvedMs && _device is not null && BassWasapi.IsStarted)
                 Write($"APP STARVED  a {WatchIntervalMs} ms sleep took {sleptMs:0} ms (not given the CPU)");
 
             if (_restarted)

@@ -17,7 +17,7 @@ you need the story behind a piece of code, not at the start of every session.
 | Settings | `%APPDATA%\AudioFool\settings.json` |
 | Scan cache | `%LOCALAPPDATA%\AudioFool\library.json` (~13 MB) |
 | Saved cover thumbnails | `%LOCALAPPDATA%\AudioFool\art\` (~11 MB, disposable; session 47) |
-| Playback log | `%LOCALAPPDATA%\AudioFool\playback.log` (stall diagnostics, rolls at 4 MB; session 48). Readable from Claude's shell as long as the shell never writes it |
+| Playback log | `%LOCALAPPDATA%\AudioFool\playback.log` (stall diagnostics, rolls at 4 MB; session 48; first stutter read: see session 48 below). Readable from Claude's shell as long as the shell never writes it |
 | Native BASS DLLs | `C:\MusicPlayer\lib\bass\x64\` (13 of them) |
 | Music library | `D:\Music` — external 4 TB SSD "Marc SSD", ~26,000 tracks, 692 GB |
 
@@ -151,6 +151,12 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   log after a stutter, then fix (likely candidates: `BassFlags.AsyncFile` read-ahead,
   a decode-ahead buffer, MMCSS for the feed thread; a bigger buffer needs the seek-bar
   latency fix from session 45).
+  **First real stutter** (user, ~8:24): Bit-Perfect, 44.1 kHz. Exclusive pulls come every
+  200 ms (a whole buffer), each answered in < 2 ms all morning; the one oddity was a pull
+  33 ms late at 8:24:03 (then 33 ms early), no GC, no starved watcher. So the wake-up from
+  WASAPI was late, below our code: points to a driver. Not proven (one event, "I think").
+  The gap threshold now follows the learned rhythm (usual + 20 ms; LATE FILL lines), after
+  the fixed 60 ms flagged every exclusive pull. Asked the user which output device.
 
 - **47** (2026-10-12): artist rows read "12 albums · 14.2 GB" (one decimal, "<0.1 GB"
   for tiny artists); a third click on the ARTISTS header sorts largest first
