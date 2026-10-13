@@ -3111,6 +3111,14 @@ No code changed apart from the version number. Four commits, all pushed.
   left in D:\Music. Saved 1.66 GB (1.37 GB in songs, 287 MB of image files, the latter
   still on D: in the Recycle Bin until it's emptied).
 
+### Session 48, part 2 (2026-10-13): release 0.5.0
+
+- The user's ask. Notes confirmed with the user first (New: Convert PNG Covers to
+  JPEG, PNG COVERS in Statistics, Open in Windows Explorer; Improved: the playback log,
+  the cover check recording formats, run once more after updating). 658 tests;
+  `Version 0.5.0` (`a8bffb1`) pushed; exe reports 0.5.0; the same 19 files as v0.4.0;
+  zip 60.2 MB; tag checked with `git rev-list`. Installed (the app wasn't running).
+
 ---
 
 ## Reference notes retired from the handoff

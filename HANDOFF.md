@@ -96,9 +96,9 @@ the only thing that catches a file you forgot to track.
 
 ### Releases
 
-Four so far, all on GitHub (private, so downloads need a signed-in account):
+Five so far, all on GitHub (private, so downloads need a signed-in account):
 **v0.1.0** (2026-09-30, the user by hand), **v0.2.0** (2026-10-02), **v0.3.0**
-(2026-10-09, session 45) and **v0.4.0** (2026-10-12, session 47), all three by Claude. Handle a release end to end when asked, but
+(2026-10-09, session 45), **v0.4.0** (2026-10-12, session 47) and **v0.5.0** (2026-10-13, session 48), all four by Claude. Handle a release end to end when asked, but
 **confirm the version number and the notes with the user before `gh release create`**:
 it publishes a tag. Middle number for new features, last for fixes only.
 
@@ -128,15 +128,15 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
   a build of `main` as pushed. **658 tests** pass.
-- **Last release: v0.4.0** (2026-10-12, session 47, tag on `3a531a6`, 60 MB zip,
-  installed). It holds everything from sessions 46 and 47. **Session 48 is unreleased.**
+- **Last release: v0.5.0** (2026-10-13, session 48, tag on `a8bffb1`, 60.2 MB zip,
+  installed). It holds everything from session 48. Nothing unreleased since.
 - **PS1 is the only theme**, built from `design/theme-tokens.json`. `design/progress.md`
   holds every design decision; read it before UI work.
 - **Nothing is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
-- **48** (2026-10-13), four things, all on `main`, installed, not yet released:
+- **48** (2026-10-13), four things, released as **v0.5.0**:
   - **Stutters (open).** The user hears occasional stutters while working in other
     apps, Bit-Perfect on or off. `Core/Playback/PlaybackDiagnostics` logs to
     `playback.log`: every device pull timed (wall, CPU cycles, GC pause, gap; LATE FILL
@@ -870,27 +870,25 @@ Open items only; finished ones are in `HISTORY.md`.
    latency; LatencyMon). If AudioFool is at fault, or to cover for the driver: decode
    ahead (`BassFlags.AsyncFile` read-ahead, a decode-ahead buffer), MMCSS for the feed
    thread; a bigger device buffer needs the seek-bar latency fix from session 45.
-1. **Release v0.5.0** when the user asks: everything from session 48 is unreleased
-   (Open in Windows Explorer, PNG COVERS, Convert PNG Covers to JPEG, playback log).
-2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
+1. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
-3. **Ask once**: does Edit Artist Tags on a big artist (Rush, Buckethead) now open at
+2. **Ask once**: does Edit Artist Tags on a big artist (Rush, Buckethead) now open at
    once (session 47)? The art side is confirmed on both machines (2026-10-12).
-4. **A visible, editable queue view**: the most conspicuous missing player feature.
-5. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
+3. **A visible, editable queue view**: the most conspicuous missing player feature.
+4. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
    are confirmed; edge scrolling hasn't been tried.
-6. **A change of the Windows shared format isn't noticed** until AudioFool restarts
+5. **A change of the Windows shared format isn't noticed** until AudioFool restarts
    (`BassRuntime.OnWasapiNotify` reprobes only on a default-device change). Offered to
    the user in session 48, not asked for; only matters with Bit-Perfect off.
-7. **Extra covers** (session 44): done for FLAC and MP3. Other formats aren't handled
+6. **Extra covers** (session 44): done for FLAC and MP3. Other formats aren't handled
    (9 DSF files keep their extra covers).
-8. **Memory** (session 43): a FLAC metadata reader that skips PICTURE blocks (lowers
+7. **Memory** (session 43): a FLAC metadata reader that skips PICTURE blocks (lowers
    the scan peak), and GC tuning (`GCConserveMemory`) for the steady state. Discussed in
    session 47 and left: it only matters during a full scan.
-9. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
+8. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll`, source only).
    Next step would be a spike build of `libprojectM.dll`. Nothing started.
-10. Code signing would remove the SmartScreen warning on first launch, but is rarely
+9. Code signing would remove the SmartScreen warning on first launch, but is rarely
    worth the cost for a personal build.
 
 **Design notes for the next round of critique.** The user works in a screenshot loop:
