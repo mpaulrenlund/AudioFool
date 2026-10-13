@@ -103,7 +103,9 @@ internal sealed class OutputChain : IDisposable
     /// </summary>
     private int Fill(IntPtr buffer, int length, IntPtr user)
     {
+        var timing = PlaybackDiagnostics.FillBegin();
         var got = Bass.ChannelGetData(_mixer, buffer, length);
+        PlaybackDiagnostics.FillEnd(timing);
         if (got <= 0)
             return got;
 
@@ -236,15 +238,24 @@ internal sealed class OutputChain : IDisposable
         }
 
         chain.DeviceBitDepth = depth;
+        PlaybackDiagnostics.DeviceOpened(mode, chain.SampleRate, depth, BufferSeconds);
         return chain;
     }
 
-    public bool Start() => BassWasapi.Start();
+    public bool Start()
+    {
+        PlaybackDiagnostics.DeviceStarting();
+        return BassWasapi.Start();
+    }
 
     /// <summary>Stops the device without discarding what's buffered.</summary>
     public void Pause() => BassWasapi.Stop(false);
 
-    public void Resume() => BassWasapi.Start();
+    public void Resume()
+    {
+        PlaybackDiagnostics.DeviceStarting();
+        BassWasapi.Start();
+    }
 
     /// <summary>Stops the device and discards what's buffered.</summary>
     public void Stop() => BassWasapi.Stop(true);
@@ -264,6 +275,7 @@ internal sealed class OutputChain : IDisposable
             return;
         _disposed = true;
 
+        PlaybackDiagnostics.DeviceClosed();
         BassWasapi.Stop(true);
         BassWasapi.Free();
 

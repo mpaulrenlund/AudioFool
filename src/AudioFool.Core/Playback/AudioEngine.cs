@@ -82,6 +82,8 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         // Captured so consumers get events on the thread that built the engine
         // (the UI thread) instead of a BASS worker thread.
         _events = SynchronizationContext.Current;
+
+        TrackChanged += (_, track) => PlaybackDiagnostics.TrackStarted(track.FilePath);
     }
 
     public event EventHandler<Track>? TrackChanged;

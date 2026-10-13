@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-12, session 47. Read this alongside `README.md`: the README covers
+Updated 2026-10-13, session 48. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -17,6 +17,7 @@ you need the story behind a piece of code, not at the start of every session.
 | Settings | `%APPDATA%\AudioFool\settings.json` |
 | Scan cache | `%LOCALAPPDATA%\AudioFool\library.json` (~13 MB) |
 | Saved cover thumbnails | `%LOCALAPPDATA%\AudioFool\art\` (~11 MB, disposable; session 47) |
+| Playback log | `%LOCALAPPDATA%\AudioFool\playback.log` (stall diagnostics, rolls at 4 MB; session 48). Readable from Claude's shell as long as the shell never writes it |
 | Native BASS DLLs | `C:\MusicPlayer\lib\bass\x64\` (13 of them) |
 | Music library | `D:\Music` — external 4 TB SSD "Marc SSD", ~26,000 tracks, 692 GB |
 
@@ -134,6 +135,22 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 - **Nothing is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **48** (2026-10-13): the user hears **occasional stutters while working in other
+  apps**, Bit-Perfect on or off. Cause not yet known. Added `Core/Playback/PlaybackDiagnostics`:
+  every device pull is timed (wall time, CPU cycles, GC pause, gap since the last
+  pull), a normal-priority watcher samples the queued audio every 5 ms (`BASS_DATA_AVAILABLE`)
+  and logs when it runs low or the watcher itself is starved, plus a summary each
+  minute, all to `playback.log`. The design that makes stutters possible: decoding,
+  including the file read from D:, happens inside the WASAPI callback with only the
+  200 ms device buffer as slack. A headless probe (silent, shared mode) found **no stall**
+  under 2 normal-priority busy threads per core, 5.7 GB of competing reads on D:, or
+  GC storms; only `Highest`-priority threads inside our own process starved the feed
+  (176 ms, buffer to 40 ms). Normal pull rhythm: ~10 ms gaps, fill < 1 ms. Not checked:
+  whether `Available` reads in exclusive event-driven mode. **Next**: read the user's
+  log after a stutter, then fix (likely candidates: `BassFlags.AsyncFile` read-ahead,
+  a decode-ahead buffer, MMCSS for the feed thread; a bigger buffer needs the seek-bar
+  latency fix from session 45).
 
 - **47** (2026-10-12): artist rows read "12 albums · 14.2 GB" (one decimal, "<0.1 GB"
   for tiny artists); a third click on the ARTISTS header sorts largest first
@@ -827,6 +844,10 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
+0. **Stutters (session 48)**: read `playback.log` around the time the user heard one.
+   SLOW FILL with little "busy" and no APP STARVED near it = waiting on the file;
+   APP STARVED alongside = CPU; GC > 0 = garbage collection; nothing logged at all
+   = not ours (driver latency; LatencyMon).
 1. **Ask once**: does Edit Artist Tags on a big artist (Rush, Buckethead) now open at
    once (session 47)? The art side is confirmed on both machines (2026-10-12).
 2. **A visible, editable queue view**: the most conspicuous missing player feature.
