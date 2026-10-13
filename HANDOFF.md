@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-13, session 48. Read this alongside `README.md`: the README covers
+Updated 2026-10-13, end of session 48. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -129,36 +129,47 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 - **Everything in `README.md` is implemented and verified**, and the installed app is
   a build of `main` as pushed. **658 tests** pass.
 - **Last release: v0.4.0** (2026-10-12, session 47, tag on `3a531a6`, 60 MB zip,
-  installed). It holds everything from sessions 46 and 47. Nothing unreleased since.
+  installed). It holds everything from sessions 46 and 47. **Session 48 is unreleased.**
 - **PS1 is the only theme**, built from `design/theme-tokens.json`. `design/progress.md`
   holds every design decision; read it before UI work.
 - **Nothing is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
-- **48** (2026-10-13): **Convert PNG Covers to JPEG** (artist/album menus under a PNG COVERS filter; q95 4:4:4, convert even if bigger, PNG files to the Recycle Bin, the user's calls; `PngCoverConverter`, `CoverCleaner.ReplaceCover`, `Services/RecycleBin`, `MainViewModel.PngConversion`; ThemeLab `--window pngconvert`; not yet run on D:). Statistics gained **PNG COVERS** (embedded from the cover check, `CoverFinding.PngBytes`, covers.json v2 so the user re-runs the check once; `.png` files counted per folder on open; `PngSectionViewModel`, `PngCoverStatistics`; ThemeLab `--covercheck 1`, `--pngfilter`; real library: 1,140 songs / 2.6 GB embedded, 131 files / 301 MB; the user re-ran the check and sees both rows, 2026-10-13). Song menu gained **Open in Windows Explorer** (`Core/Library/ExplorerTarget`, `OpenInExplorerCommand`; README section). And: the user hears **occasional stutters while working in other
-  apps**, Bit-Perfect on or off. Cause not yet known. Added `Core/Playback/PlaybackDiagnostics`:
-  every device pull is timed (wall time, CPU cycles, GC pause, gap since the last
-  pull), a normal-priority watcher samples the queued audio every 5 ms (`BASS_DATA_AVAILABLE`)
-  and logs when it runs low or the watcher itself is starved, plus a summary each
-  minute, all to `playback.log`. The design that makes stutters possible: decoding,
-  including the file read from D:, happens inside the WASAPI callback with only the
-  200 ms device buffer as slack. A headless probe (silent, shared mode) found **no stall**
-  under 2 normal-priority busy threads per core, 5.7 GB of competing reads on D:, or
-  GC storms; only `Highest`-priority threads inside our own process starved the feed
-  (176 ms, buffer to 40 ms). Normal pull rhythm: ~10 ms gaps, fill < 1 ms. Not checked:
-  whether `Available` reads in exclusive event-driven mode. **Next**: read the user's
-  log after a stutter, then fix (likely candidates: `BassFlags.AsyncFile` read-ahead,
-  a decode-ahead buffer, MMCSS for the feed thread; a bigger buffer needs the seek-bar
-  latency fix from session 45).
-  **First real stutter** (user, ~8:24): Bit-Perfect, 44.1 kHz. Exclusive pulls come every
-  200 ms (a whole buffer), each answered in < 2 ms all morning; the one oddity was a pull
-  33 ms late at 8:24:03 (then 33 ms early), no GC, no starved watcher. So the wake-up from
-  WASAPI was late, below our code: points to a driver. Not proven (one event, "I think").
-  The gap threshold now follows the learned rhythm (usual + 20 ms; LATE FILL lines), after
-  the fixed 60 ms flagged every exclusive pull. Output: **Topping DX5 USB DAC on
-  Topping's own driver** (5.74.0.18449, Thesycon-based; its control panel has a USB
-  buffer setting worth raising before any code change), IEMs (Meze Astru, Sony IER-M9).
+- **48** (2026-10-13), four things, all on `main`, installed, not yet released:
+  - **Stutters (open).** The user hears occasional stutters while working in other
+    apps, Bit-Perfect on or off. `Core/Playback/PlaybackDiagnostics` logs to
+    `playback.log`: every device pull timed (wall, CPU cycles, GC pause, gap; LATE FILL
+    when a gap passes the learned rhythm + 20 ms), a normal-priority watcher sampling the
+    queued audio every 5 ms (BUFFER LOW, APP STARVED), and a summary each minute. Why
+    stutters are possible: decoding, file read from D: included, runs inside the WASAPI
+    callback with only the 200 ms buffer as slack. A silent headless probe found no
+    stall under busy normal-priority threads, 5.7 GB of competing reads on D: or GC
+    storms. The one real stutter (~8:24, Bit-Perfect 44.1 kHz) lined up with a single
+    WASAPI pull 33 ms late while our fill took < 1 ms: below our code, pointing at the
+    driver, but one event isn't proof. Then ~30 min clean, and none reported since.
+    Output is a **Topping DX5 on Topping's own driver** (5.74.0.18449, Thesycon-based);
+    its control panel was checked with the user: the buffer size there is **ASIO
+    only** (512 samples, Safe Mode on) and Streaming is Always On, so nothing there
+    applies to WASAPI. Windows shared format: 24-bit 96 kHz.
+  - **Open in Windows Explorer** on the song menu (`Core/Library/ExplorerTarget`,
+    `OpenInExplorerCommand`); confirmed by the user.
+  - **Statistics → PNG COVERS**: embedded PNGs from the cover check
+    (`CoverFinding.PngBytes`, covers.json v2) and `.png` files in song folders, counted
+    when the window opens (`PngCoverStatistics`, `PngSectionViewModel`); confirmed.
+  - **Convert PNG Covers to JPEG** from the artist and album menus under a PNG COVERS
+    filter (`PngCoverConverter`, `CoverCleaner.ReplaceCover`, `Services/RecycleBin`,
+    `MainViewModel.PngConversion`). The user's calls: quality 95 at 4:4:4 (measured on
+    60 real covers: q100 kept 81% of the size and made 1 in 4 bigger, q95 36%), convert
+    even when bigger, replaced files to the Recycle Bin. **Run on the whole library by
+    the user** after a backup of the 140 affected folders to `C:\AudioFool PNG backup\`
+    (42 GB, `folders.txt` lists them; delete once the user is happy). Audited against
+    that backup: 1,137 of 1,144 songs byte-identical audio, same tags, one same-size JPEG
+    that decodes, creation dates kept; the other 7 are *Bucketheadland* MP3s the user
+    retagged afterwards (cover from Cover.jpg, "04/7" to "4/7"), audio identical. All
+    131 cover files converted; the 7 scans in song-less subfolders converted too; no PNG
+    left in D:\Music. Saved 1.66 GB (1.37 GB in songs, 287 MB of image files, the latter
+    still on D: in the Recycle Bin until it's emptied).
 
 - **47** (2026-10-12): artist rows read "12 albums · 14.2 GB" (one decimal, "<0.1 GB"
   for tiny artists); a third click on the ARTISTS header sorts largest first
@@ -852,24 +863,34 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
-0. **Stutters (session 48)**: read `playback.log` around the time the user heard one.
-   SLOW FILL with little "busy" and no APP STARVED near it = waiting on the file;
-   APP STARVED alongside = CPU; GC > 0 = garbage collection; nothing logged at all
-   = not ours (driver latency; LatencyMon).
-1. **Ask once**: does Edit Artist Tags on a big artist (Rush, Buckethead) now open at
+0. **Stutters (session 48)**: when the user gives a time, read `playback.log` around it.
+   LATE FILL with a fast fill and no APP STARVED = the wake-up from the driver was late
+   (the 8:24 case); SLOW FILL with little "busy" = waiting on the file; APP STARVED
+   alongside = CPU; GC > 0 = garbage collection; nothing logged = not ours (driver
+   latency; LatencyMon). If AudioFool is at fault, or to cover for the driver: decode
+   ahead (`BassFlags.AsyncFile` read-ahead, a decode-ahead buffer), MMCSS for the feed
+   thread; a bigger device buffer needs the seek-bar latency fix from session 45.
+1. **Release v0.5.0** when the user asks: everything from session 48 is unreleased
+   (Open in Windows Explorer, PNG COVERS, Convert PNG Covers to JPEG, playback log).
+2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
+   happy with the converted covers.
+3. **Ask once**: does Edit Artist Tags on a big artist (Rush, Buckethead) now open at
    once (session 47)? The art side is confirmed on both machines (2026-10-12).
-2. **A visible, editable queue view**: the most conspicuous missing player feature.
-3. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
+4. **A visible, editable queue view**: the most conspicuous missing player feature.
+5. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
    are confirmed; edge scrolling hasn't been tried.
-4. **Extra covers** (session 44): done for FLAC and MP3. Other formats aren't handled
+6. **A change of the Windows shared format isn't noticed** until AudioFool restarts
+   (`BassRuntime.OnWasapiNotify` reprobes only on a default-device change). Offered to
+   the user in session 48, not asked for; only matters with Bit-Perfect off.
+7. **Extra covers** (session 44): done for FLAC and MP3. Other formats aren't handled
    (9 DSF files keep their extra covers).
-5. **Memory** (session 43): a FLAC metadata reader that skips PICTURE blocks (lowers
+8. **Memory** (session 43): a FLAC metadata reader that skips PICTURE blocks (lowers
    the scan peak), and GC tuning (`GCConserveMemory`) for the steady state. Discussed in
    session 47 and left: it only matters during a full scan.
-6. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
+9. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll`, source only).
    Next step would be a spike build of `libprojectM.dll`. Nothing started.
-7. Code signing would remove the SmartScreen warning on first launch, but is rarely
+10. Code signing would remove the SmartScreen warning on first launch, but is rarely
    worth the cost for a personal build.
 
 **Design notes for the next round of critique.** The user works in a screenshot loop:
