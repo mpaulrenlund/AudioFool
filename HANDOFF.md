@@ -156,7 +156,9 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   33 ms late at 8:24:03 (then 33 ms early), no GC, no starved watcher. So the wake-up from
   WASAPI was late, below our code: points to a driver. Not proven (one event, "I think").
   The gap threshold now follows the learned rhythm (usual + 20 ms; LATE FILL lines), after
-  the fixed 60 ms flagged every exclusive pull. Asked the user which output device.
+  the fixed 60 ms flagged every exclusive pull. Output: **Topping DX5 USB DAC on
+  Topping's own driver** (5.74.0.18449, Thesycon-based; its control panel has a USB
+  buffer setting worth raising before any code change), IEMs (Meze Astru, Sony IER-M9).
 
 - **47** (2026-10-12): artist rows read "12 albums · 14.2 GB" (one decimal, "<0.1 GB"
   for tiny artists); a third click on the ARTISTS header sorts largest first
