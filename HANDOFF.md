@@ -127,8 +127,7 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
-  a build of `main` plus session 50's uncommitted changes (DSF covers, the quality
-  rule). **670 tests** pass.
+  a build of `main` as pushed. **670 tests** pass.
 - **Last release: v0.5.0** (2026-10-13, session 48, tag on `a8bffb1`, 60.2 MB zip,
   installed). It holds everything from session 48. Session 49's fix is unreleased.
 - **PS1 is the only theme**, built from `design/theme-tokens.json`. `design/progress.md`
