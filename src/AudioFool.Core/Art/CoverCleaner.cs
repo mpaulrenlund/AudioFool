@@ -39,7 +39,7 @@ public sealed record CoverCleanResult(string Path, CoverCleanOutcome Outcome, lo
 
 /// <summary>
 /// Keeps only the best embedded cover (<see cref="TagReader.BestCover"/>) and cuts
-/// the room the others leave behind, for FLAC and MP3.
+/// the room the others leave behind, for FLAC, MP3 and DSF.
 /// <para>
 /// The original file is never edited. A copy is made beside it, the extra
 /// pictures are removed from the copy and its padding cut, and the result is then
@@ -81,17 +81,17 @@ public static class CoverCleaner
     }
 
     /// <summary>
-    /// FLAC and MP3, the formats <see cref="TagPadding"/> can lay out and so check.
-    /// Others (DSF, say) are left out of the check's row, since nothing can be done.
+    /// FLAC, MP3 and DSF, the formats <see cref="TagPadding"/> can lay out and so check.
+    /// Others (DFF, say) are left out of the check's row, since nothing can be done.
     /// </summary>
     public static bool CanClean(string path) =>
-        Path.GetExtension(path).ToLowerInvariant() is ".flac" or ".mp3";
+        Path.GetExtension(path).ToLowerInvariant() is ".flac" or ".mp3" or ".dsf";
 
     /// <param name="holder">Playback, which may hold the file open; it lets go for the swap and picks up where it was.</param>
     public static CoverCleanResult Clean(string path, IFileHolder? holder = null)
     {
         if (!CanClean(path))
-            return Failed(path, "only FLAC and MP3 files can be cleaned");
+            return Failed(path, "only FLAC, MP3 and DSF files can be cleaned");
 
         TagLib.IPicture best;
         bool coversElsewhere;
@@ -125,7 +125,7 @@ public static class CoverCleaner
     /// cover's room as padding (measured on copies of the library's files).
     /// <para>
     /// NothingToDo, writing nothing, when the file already holds just that cover and
-    /// no spare room, isn't FLAC or MP3, or doesn't hold the cover at all. Otherwise
+    /// no spare room, isn't FLAC, MP3 or DSF, or doesn't hold the cover at all. Otherwise
     /// as <see cref="Clean"/>: a rewritten copy, checked, then swapped in.
     /// </para>
     /// </summary>
@@ -242,7 +242,7 @@ public static class CoverCleaner
     public static CoverCleanResult ReplaceCover(string path, TagLib.IPicture current, byte[] cover, string mime, IFileHolder? holder = null)
     {
         if (!CanClean(path))
-            return Failed(path, "only FLAC and MP3 files can be rewritten");
+            return Failed(path, "only FLAC, MP3 and DSF files can be rewritten");
 
         return holder is null
             ? ReplaceCore(path, current, cover, mime)
@@ -286,7 +286,7 @@ public static class CoverCleaner
         if (TagPadding.Read(original) is not { } before || TagPadding.Read(result) is not { } after)
             return "couldn't find where the audio starts, so it couldn't be checked";
 
-        if (!AudioHash(original, before.AudioStart).AsSpan().SequenceEqual(AudioHash(result, after.AudioStart)))
+        if (!AudioHash(original, before).AsSpan().SequenceEqual(AudioHash(result, after)))
             return "the audio didn't come out identical";
 
         using var a = TagLib.File.Create(original);
@@ -383,13 +383,15 @@ public static class CoverCleaner
 
     /// <summary>
     /// From where the tags end to the end of the file, less an ID3v1 tag and an
-    /// APE tag there (those are compared as tags).
+    /// APE tag there (those are compared as tags). In a DSF, from after the header
+    /// (whose file size changes) to where the tag begins.
     /// </summary>
-    private static byte[] AudioHash(string path, long start)
+    private static byte[] AudioHash(string path, TagLayout layout)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-        var end = stream.Length;
-        if (end - start >= 128)
+        var start = layout.AudioStart;
+        var end = layout.AudioEnd ?? stream.Length;
+        if (layout.AudioEnd is null && end - start >= 128)
         {
             var tag = new byte[3];
             stream.Position = end - 128;
@@ -399,7 +401,7 @@ public static class CoverCleaner
         }
 
         // APEv2: a 32-byte footer whose size covers the items and the footer, plus a 32-byte header if flagged.
-        if (end - start >= 32)
+        if (layout.AudioEnd is null && end - start >= 32)
         {
             var footer = new byte[32];
             stream.Position = end - 32;

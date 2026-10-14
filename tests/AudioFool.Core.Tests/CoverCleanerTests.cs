@@ -46,14 +46,16 @@ public class CoverCleanerTests
 
     private static string AudioHash(string path)
     {
-        var start = TagPadding.Read(path)!.AudioStart;
+        var layout = TagPadding.Read(path)!;
         var bytes = File.ReadAllBytes(path);
-        return Convert.ToHexString(SHA256.HashData(bytes.AsSpan((int)start)));
+        var end = (int)(layout.AudioEnd ?? bytes.Length);
+        return Convert.ToHexString(SHA256.HashData(bytes.AsSpan((int)layout.AudioStart, end - (int)layout.AudioStart)));
     }
 
     [Theory]
     [InlineData("sample.flac")]
     [InlineData("sample.mp3")]
+    [InlineData("sample.dsf")]
     public void Keeps_the_best_cover_and_cuts_the_padding(string fixture)
     {
         using var file = WithThreeCovers(fixture);
@@ -84,6 +86,7 @@ public class CoverCleanerTests
     [Theory]
     [InlineData("sample.flac")]
     [InlineData("sample.mp3")]
+    [InlineData("sample.dsf")]
     public void Keeps_the_creation_date_and_leaves_no_working_files(string fixture)
     {
         using var source = WithThreeCovers(fixture);
@@ -111,6 +114,7 @@ public class CoverCleanerTests
     [Theory]
     [InlineData("sample.flac")]
     [InlineData("sample.mp3")]
+    [InlineData("sample.dsf")]
     public void A_file_with_one_cover_is_not_written(string fixture)
     {
         using var file = new TempAudioFile(fixture);
@@ -129,6 +133,7 @@ public class CoverCleanerTests
     [Theory]
     [InlineData("sample.flac")]
     [InlineData("sample.mp3")]
+    [InlineData("sample.dsf")]
     public void Survey_counts_the_pictures_and_what_cleaning_would_free(string fixture)
     {
         using var file = WithThreeCovers(fixture);
@@ -148,6 +153,7 @@ public class CoverCleanerTests
     [Theory]
     [InlineData("sample.flac")]
     [InlineData("sample.mp3")]
+    [InlineData("sample.dsf")]
     public void The_check_catches_changed_audio(string fixture)
     {
         using var original = WithThreeCovers(fixture);
@@ -164,13 +170,16 @@ public class CoverCleanerTests
             Assert.Null(CoverCleaner.Verify(original.Path, copy, Large));
 
             // The fixtures' audio is short (the FLAC's is 72 bytes), so the
-            // byte flipped is the last one before any ID3v1 tag at the end.
+            // byte flipped is the last one before any ID3v1 tag at the end,
+            // or in a DSF, the last one before its tag.
+            var dsfTag = TagPadding.Read(copy)!.AudioEnd;
             using (var stream = new FileStream(copy, FileMode.Open, FileAccess.ReadWrite))
             {
                 stream.Position = stream.Length - 128;
                 var tag = new byte[3];
                 stream.ReadExactly(tag);
-                var last = tag is [(byte)'T', (byte)'A', (byte)'G'] ? stream.Length - 129 : stream.Length - 1;
+                var last = dsfTag is { } end ? end - 1
+                    : tag is [(byte)'T', (byte)'A', (byte)'G'] ? stream.Length - 129 : stream.Length - 1;
                 stream.Position = last;
                 var b = stream.ReadByte();
                 stream.Position = last;
@@ -188,6 +197,7 @@ public class CoverCleanerTests
     [Theory]
     [InlineData("sample.flac")]
     [InlineData("sample.mp3")]
+    [InlineData("sample.dsf")]
     public void The_check_catches_changed_tags_and_the_wrong_cover(string fixture)
     {
         using var original = WithThreeCovers(fixture);
@@ -221,6 +231,7 @@ public class CoverCleanerTests
     [Theory]
     [InlineData("sample.flac")]
     [InlineData("sample.mp3")]
+    [InlineData("sample.dsf")]
     public void A_file_playback_holds_is_let_go_for_the_swap(string fixture)
     {
         using var file = WithThreeCovers(fixture);
@@ -347,6 +358,7 @@ public class CoverCleanerTests
     [Theory]
     [InlineData("sample.flac")]
     [InlineData("sample.mp3")]
+    [InlineData("sample.dsf")]
     public void A_new_cover_replaces_the_old_and_its_room(string fixture)
     {
         using var file = new TempAudioFile(fixture);
@@ -428,12 +440,75 @@ public class CoverCleanerTests
     }
 
     [Fact]
-    public void Only_flac_and_mp3_are_cleaned()
+    public void Only_flac_mp3_and_dsf_are_cleaned()
     {
         Assert.True(CoverCleaner.CanClean(@"D:\a.FLAC"));
         Assert.True(CoverCleaner.CanClean(@"D:\a.mp3"));
-        Assert.False(CoverCleaner.CanClean(@"D:\a.dsf"));
+        Assert.True(CoverCleaner.CanClean(@"D:\a.DSF"));
+        Assert.False(CoverCleaner.CanClean(@"D:\a.dff"));
+        Assert.Equal(CoverCleanOutcome.Failed, CoverCleaner.Clean(@"D:\no such file.dff").Outcome);
         Assert.Equal(CoverCleanOutcome.Failed, CoverCleaner.Clean(@"D:\no such file.dsf").Outcome);
+    }
+
+    private static (ulong FileSize, ulong TagPointer) DsfHeader(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        return (BitConverter.ToUInt64(bytes, 12), BitConverter.ToUInt64(bytes, 20));
+    }
+
+    // A DSF's tag comes after the music; the header holds the file size and where the tag starts.
+    [Fact]
+    public void A_cleaned_dsf_keeps_its_music_and_header_in_step()
+    {
+        using var file = WithThreeCovers("sample.dsf");
+        var (_, pointer) = DsfHeader(file.Path);
+        var musicBefore = File.ReadAllBytes(file.Path).AsSpan(28, (int)pointer - 28).ToArray();
+
+        Assert.Equal(CoverCleanOutcome.Cleaned, CoverCleaner.Clean(file.Path).Outcome);
+
+        var after = File.ReadAllBytes(file.Path);
+        var (size, newPointer) = DsfHeader(file.Path);
+        Assert.Equal((ulong)after.Length, size);
+        Assert.Equal(pointer, newPointer);
+        Assert.Equal(musicBefore, after.AsSpan(28, (int)pointer - 28).ToArray());
+        Assert.Equal("ID3"u8.ToArray(), after.AsSpan((int)pointer, 3).ToArray());
+        Assert.Equal(TimeSpan.FromSeconds(32768 / 2822400.0).TotalMilliseconds,
+                     DsfHeaderReader.TryRead(file.Path)!.Value.Duration.TotalMilliseconds, 0.001);
+    }
+
+    [Fact]
+    public void A_dsf_without_a_tag_or_with_a_wrong_size_is_left_alone()
+    {
+        using var file = new TempAudioFile("sample.dsf");
+        Assert.Null(TagPadding.Read(file.Path));
+
+        using var tagged = WithThreeCovers("sample.dsf");
+        var bytes = File.ReadAllBytes(tagged.Path);
+        BitConverter.GetBytes((ulong)bytes.Length + 5).CopyTo(bytes, 12);
+        File.WriteAllBytes(tagged.Path, bytes);
+        Assert.Null(TagPadding.Read(tagged.Path));
+        Assert.Equal(CoverCleanOutcome.Failed, CoverCleaner.Clean(tagged.Path).Outcome);
+        Assert.Equal(bytes, File.ReadAllBytes(tagged.Path));
+    }
+
+    // The Dark Side of the Moon DSFs: leftover bytes after the tag, past the size in the header.
+    [Fact]
+    public void Bytes_after_a_dsf_tag_go_with_the_extra_covers()
+    {
+        using var file = WithThreeCovers("sample.dsf");
+        var bytes = File.ReadAllBytes(file.Path);
+        var junk = new byte[50_000];
+        new Random(3).NextBytes(junk);
+        File.WriteAllBytes(file.Path, [.. bytes, .. junk]);
+        Assert.True(TagPadding.Read(file.Path)!.Padding >= 50_000);
+
+        var result = CoverCleaner.Clean(file.Path);
+
+        Assert.Equal(CoverCleanOutcome.Cleaned, result.Outcome);
+        Assert.True(result.BytesFreed >= 50_000 + 70_000 - TagPadding.Reserve, $"freed {result.BytesFreed}");
+        var (size, _) = DsfHeader(file.Path);
+        Assert.Equal((ulong)new FileInfo(file.Path).Length, size);
+        Assert.InRange(TagPadding.Read(file.Path)!.Padding, 0, TagPadding.Reserve);
     }
 
     /// <summary>Holds the file as BASS does, and lets go only inside Saving.</summary>

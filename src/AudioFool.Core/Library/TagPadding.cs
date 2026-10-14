@@ -2,14 +2,15 @@ namespace AudioFool.Core.Library;
 
 /// <summary>
 /// Where a file's tags end and its audio begins, how much empty room the tags
-/// hold, and how many pictures they carry, for FLAC and MP3, read from the bytes alone.
+/// hold, and how many pictures they carry, for FLAC, MP3 and DSF, read from the bytes alone.
 /// </summary>
-/// <param name="AudioStart">The first byte after the tags: everything from here on is the music (and any trailing tag).</param>
+/// <param name="AudioStart">The first byte after the tags: everything from here on is the music (and any trailing tag). In a DSF, the first byte after its 28-byte header.</param>
 /// <param name="Padding">The empty room inside the tags, in bytes, headers included.</param>
 /// <param name="Pictures">FLAC PICTURE blocks and ID3v2 APIC/PIC frames, in every tag at the front.</param>
 /// <param name="Id3Tags">How many ID3v2 tags sit back to back at the front.</param>
 /// <param name="HasSpareRoom">Some tag holds more padding than <see cref="TagPadding.Reserve"/>, so a rewrite would free space.</param>
-public sealed record TagLayout(long AudioStart, long Padding, int Pictures, int Id3Tags, bool HasSpareRoom);
+/// <param name="AudioEnd">Where the music ends: a DSF's tag, which comes after it. Null for FLAC and MP3.</param>
+public sealed record TagLayout(long AudioStart, long Padding, int Pictures, int Id3Tags, bool HasSpareRoom, long? AudioEnd = null);
 
 /// <summary>
 /// Rewrites a file with its tags' padding cut to <see cref="Reserve"/>, and can
@@ -27,7 +28,9 @@ public sealed record TagLayout(long AudioStart, long Padding, int Pictures, int 
 /// </para>
 /// <para>
 /// Only layouts it fully understands are rewritten: ID3v2 tags (one or several)
-/// before the audio or before a FLAC's "fLaC", then the FLAC's metadata blocks.
+/// before the audio or before a FLAC's "fLaC", then the FLAC's metadata blocks;
+/// or a DSF, whose one ID3v2 tag sits after the music, where its "DSD " header
+/// points. A DSF without a tag isn't rewritten.
 /// An ID3v2 tag that is unsynchronised, has an extended header or a footer, or
 /// whose frames don't walk cleanly to zeros, makes <see cref="Read"/> return null.
 /// A picture frame that is compressed or encrypted can't be compared, so a file
@@ -61,7 +64,9 @@ public static class TagPadding
                 layout.Id3.Sum(t => t.Frames.Count(f => f.IsPicture)) + (layout.Flac?.Count(b => b.Type == FlacPicture) ?? 0),
                 layout.Id3.Count,
                 layout.Id3.Any(t => t.End - t.FramesEnd > Reserve)
-                || (layout.Flac?.Where(b => b.Type == FlacPadding).Sum(b => 4L + b.Length) ?? 0) > 4 + Reserve)
+                || (layout.Flac?.Where(b => b.Type == FlacPadding).Sum(b => 4L + b.Length) ?? 0) > 4 + Reserve
+                || layout.DsfTrailer > 0,
+                layout.DsfTag)
             : null;
 
     /// <summary>
@@ -111,11 +116,47 @@ public static class TagPadding
         var flacPadding = layout.Flac?.Where(b => b.Type == FlacPadding).Sum(b => 4L + b.Length) ?? 0;
         var gains = droppedBlocks.Count > 0 || droppedFrames.Count > 0
                     || layout.Id3.Any(t => t.End - t.FramesEnd > Reserve)
-                    || (layout.Flac is not null && flacPadding > 4 + Reserve);
+                    || (layout.Flac is not null && flacPadding > 4 + Reserve)
+                    || layout.DsfTrailer > 0;
         if (!gains)
             return false;
 
         using var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write);
+        if (layout.DsfTag is { } tagStart)
+        {
+            // The header, the fmt and data chunks as they were, then the tag, and
+            // nothing after it. The tag stays where the header points; only the
+            // file size changes, and is written right.
+            Copy(input, 0, tagStart, output);
+            WriteId3(input, layout, droppedFrames, output);
+            output.Position = 12;
+            output.Write(BitConverter.GetBytes((ulong)output.Length));
+            return true;
+        }
+
+        WriteId3(input, layout, droppedFrames, output);
+
+        if (layout.Flac is { } flac)
+        {
+            output.Write("fLaC"u8);
+            foreach (var block in flac.Where(b => b.Type != FlacPadding && !droppedBlocks.Contains(b)))
+            {
+                // Every kept block is followed by the padding, so none is the last.
+                output.Write([(byte)block.Type, (byte)(block.Length >> 16), (byte)(block.Length >> 8), (byte)block.Length]);
+                Copy(input, block.Offset + 4, block.Length, output);
+            }
+
+            output.Write([0x80 | FlacPadding, (Reserve >> 16) & 0xFF, (Reserve >> 8) & 0xFF, Reserve & 0xFF]);
+            output.Write(new byte[Reserve]);
+        }
+
+        Copy(input, layout.AudioStart, input.Length - layout.AudioStart, output);
+        return true;
+    }
+
+    /// <summary>Each ID3v2 tag, less its dropped frames, with its padding cut to the reserve.</summary>
+    private static void WriteId3(Stream input, Layout layout, HashSet<Id3Frame> droppedFrames, Stream output)
+    {
         foreach (var tag in layout.Id3)
         {
             var drops = tag.Frames.Where(droppedFrames.Contains).ToList();
@@ -138,23 +179,6 @@ public static class TagPadding
                 Copy(input, frame.Start, frame.Length, output);
             output.Write(new byte[newPadding]);
         }
-
-        if (layout.Flac is { } flac)
-        {
-            output.Write("fLaC"u8);
-            foreach (var block in flac.Where(b => b.Type != FlacPadding && !droppedBlocks.Contains(b)))
-            {
-                // Every kept block is followed by the padding, so none is the last.
-                output.Write([(byte)block.Type, (byte)(block.Length >> 16), (byte)(block.Length >> 8), (byte)block.Length]);
-                Copy(input, block.Offset + 4, block.Length, output);
-            }
-
-            output.Write([0x80 | FlacPadding, (Reserve >> 16) & 0xFF, (Reserve >> 8) & 0xFF, Reserve & 0xFF]);
-            output.Write(new byte[Reserve]);
-        }
-
-        Copy(input, layout.AudioStart, input.Length - layout.AudioStart, output);
-        return true;
     }
 
     private sealed record FlacBlock(int Type, long Offset, int Length);
@@ -170,15 +194,19 @@ public static class TagPadding
 
     private sealed record Id3Layout(long Start, int Version, long FramesEnd, long End, IReadOnlyList<Id3Frame> Frames);
 
-    /// <summary>The ID3v2 tags at the front, then a FLAC's metadata blocks if "fLaC" follows them.</summary>
-    private sealed record Layout(IReadOnlyList<Id3Layout> Id3, IReadOnlyList<FlacBlock>? Flac, long AudioStart)
+    /// <summary>The ID3v2 tags at the front, then a FLAC's metadata blocks if "fLaC" follows them; or a DSF's one tag, at <paramref name="DsfTag"/>.</summary>
+    /// <param name="DsfTrailer">Bytes after a DSF's tag, past the file its header describes.</param>
+    private sealed record Layout(IReadOnlyList<Id3Layout> Id3, IReadOnlyList<FlacBlock>? Flac, long AudioStart, long? DsfTag = null, long DsfTrailer = 0)
     {
         public long Padding =>
-            Id3.Sum(t => t.End - t.FramesEnd) + (Flac?.Where(b => b.Type == FlacPadding).Sum(b => 4L + b.Length) ?? 0);
+            Id3.Sum(t => t.End - t.FramesEnd) + (Flac?.Where(b => b.Type == FlacPadding).Sum(b => 4L + b.Length) ?? 0) + DsfTrailer;
     }
 
     private static Layout? Parse(Stream stream)
     {
+        if (IsDsf(stream))
+            return Dsf(stream);
+
         var id3 = new List<Id3Layout>();
         long position = 0;
         var head = new byte[10];
@@ -203,6 +231,45 @@ public static class TagPadding
             // Anything else after the tags is audio; with no tag at all, not a layout this knows.
             return id3.Count > 0 ? new Layout(id3, null, position) : null;
         }
+    }
+
+    private static bool IsDsf(Stream stream)
+    {
+        var id = new byte[4];
+        stream.Position = 0;
+        return stream.Read(id, 0, 4) == 4 && id.AsSpan().SequenceEqual("DSD "u8);
+    }
+
+    /// <summary>
+    /// A DSF's header: "DSD ", a chunk size of 28, the file size, then where the
+    /// ID3v2 tag starts. The file size must be where the tag ends, or one more,
+    /// which is what TagLib writes. Bytes after the tag, beyond the file the header
+    /// describes, are counted as spare room: the library's Dark Side of the Moon
+    /// DSFs carry 1.38 MB each, left behind by a tagger that shrank the tag but not
+    /// the file. Null when the header doesn't check out or there's no tag.
+    /// </summary>
+    private static Layout? Dsf(Stream stream)
+    {
+        var header = new byte[28];
+        stream.Position = 0;
+        if (stream.Read(header, 0, 28) < 28)
+            return null;
+
+        var chunkSize = BitConverter.ToUInt64(header, 4);
+        var fileSize = BitConverter.ToUInt64(header, 12);
+        var pointer = BitConverter.ToUInt64(header, 20);
+        if (chunkSize != 28 || pointer < 28 || pointer + 10 > (ulong)stream.Length)
+            return null;
+
+        var head = new byte[10];
+        stream.Position = (long)pointer;
+        stream.ReadExactly(head);
+        if (!(head[0] == 'I' && head[1] == 'D' && head[2] == '3')
+            || Id3v2(stream, (long)pointer, head) is not { } tag
+            || (fileSize != (ulong)tag.End && fileSize != (ulong)tag.End + 1))
+            return null;
+
+        return new Layout([tag], null, 28, (long)pointer, stream.Length - tag.End);
     }
 
     /// <summary>The metadata blocks from <paramref name="start"/>; null if they run past the end or there's no STREAMINFO first.</summary>

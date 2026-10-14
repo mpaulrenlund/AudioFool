@@ -553,8 +553,14 @@ before it replaces the original: the music must match byte for byte, every tag m
 back the same, and exactly one cover, the best, must be left in all of the file's tags.
 Anything that doesn't check out is left as it was and named in the status bar. The file
 keeps its creation date, so Recently Added is unaffected. A song that is playing is let
-go for a moment and picks up where it was (a short gap). FLAC and MP3 only; other
+go for a moment and picks up where it was (a short gap). FLAC, MP3 and DSF; other
 formats aren't listed.
+
+A DSF keeps its tag after the music, where its header points, and the header also holds
+the file's size. The music and the header's pointer stay as they were; the tag is
+rewritten in place and the size corrected. Any bytes after the tag, past the end the
+header gives (a tagger that shrank the tag without shortening the file leaves them), go
+too: about 1.4 MB in each of the library's *Dark Side of the Moon* DSFs.
 
 ---
 
