@@ -3119,6 +3119,26 @@ No code changed apart from the version number. Four commits, all pushed.
   `Version 0.5.0` (`a8bffb1`) pushed; exe reports 0.5.0; the same 19 files as v0.4.0;
   zip 60.2 MB; tag checked with `git rev-list`. Installed (the app wasn't running).
 
+### Session 49 (2026-10-14): the post-scan memory clean-up no longer freezes playback
+
+- **A cause of the stutters found and fixed.** The user heard one
+  at 7:40, playing from the SD card (`E:\Music`; the SSD wasn't connected). The log
+  showed the whole app frozen 300 ms at 7:31, a minute after launch, feed thread
+  included, the buffer down to 10 ms of 200. The log couldn't name it (it counted GC
+  only inside a fill, and a GC between two pulls holds the next one back at the
+  managed callback), so it now counts GC across the gap and labels a watcher freeze
+  **GC PAUSE** or **APP STARVED**. A probe confirmed: `ReclaimScanMemory`'s full
+  compacting collection on a 458 MB heap froze the feed 352 ms, 20 ms left. It runs
+  after the startup scan and the art prefill, both soon after launch. Fix:
+  `ReclaimScanMemory` waits while playing (`_reclaimPending`) and runs on pause or
+  stop; `GCSettings.LatencyMode` is `SustainedLowLatency` while playing. ThemeLab
+  `--window reclaim --file <audio>` (real library, silent): postponed with 0 ms paused;
+  a scan's worth of garbage while playing gave 3 background full collections and no
+  LATE FILL or BUFFER LOW; on pause it ran (109 ms, 42 MB committed). The log notes
+  "memory clean-up postponed" / "ran". 7:40 itself: a switch into Bit-Perfect at
+  7:39:52 (a gap by design) and a 73 ms whole-app freeze at 7:40:25 with the feed on
+  time. Installed; unreleased.
+
 ---
 
 ## Reference notes retired from the handoff

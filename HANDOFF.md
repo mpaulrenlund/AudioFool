@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-13, end of session 48. Read this alongside `README.md`: the README covers
+Updated 2026-10-14, session 49. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -129,12 +129,30 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 - **Everything in `README.md` is implemented and verified**, and the installed app is
   a build of `main` as pushed. **658 tests** pass.
 - **Last release: v0.5.0** (2026-10-13, session 48, tag on `a8bffb1`, 60.2 MB zip,
-  installed). It holds everything from session 48. Nothing unreleased since.
+  installed). It holds everything from session 48. Session 49's fix is unreleased.
 - **PS1 is the only theme**, built from `design/theme-tokens.json`. `design/progress.md`
   holds every design decision; read it before UI work.
 - **Nothing is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **49** (2026-10-14): **a cause of the stutters found and fixed.** The user heard one
+  at 7:40, playing from the SD card (`E:\Music`; the SSD wasn't connected). The log
+  showed the whole app frozen 300 ms at 7:31, a minute after launch, feed thread
+  included, the buffer down to 10 ms of 200. The log couldn't name it (it counted GC
+  only inside a fill, and a GC between two pulls holds the next one back at the
+  managed callback), so it now counts GC across the gap and labels a watcher freeze
+  **GC PAUSE** or **APP STARVED**. A probe confirmed: `ReclaimScanMemory`'s full
+  compacting collection on a 458 MB heap froze the feed 352 ms, 20 ms left. It runs
+  after the startup scan and the art prefill, both soon after launch. Fix:
+  `ReclaimScanMemory` waits while playing (`_reclaimPending`) and runs on pause or
+  stop; `GCSettings.LatencyMode` is `SustainedLowLatency` while playing. ThemeLab
+  `--window reclaim --file <audio>` (real library, silent): postponed with 0 ms paused;
+  a scan's worth of garbage while playing gave 3 background full collections and no
+  LATE FILL or BUFFER LOW; on pause it ran (109 ms, 42 MB committed). The log notes
+  "memory clean-up postponed" / "ran". 7:40 itself: a switch into Bit-Perfect at
+  7:39:52 (a gap by design) and a 73 ms whole-app freeze at 7:40:25 with the feed on
+  time. Installed; unreleased.
 
 - **48** (2026-10-13), four things, released as **v0.5.0**:
   - **Stutters (open).** The user hears occasional stutters while working in other
@@ -863,32 +881,36 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
-0. **Stutters (session 48)**: when the user gives a time, read `playback.log` around it.
-   LATE FILL with a fast fill and no APP STARVED = the wake-up from the driver was late
-   (the 8:24 case); SLOW FILL with little "busy" = waiting on the file; APP STARVED
-   alongside = CPU; GC > 0 = garbage collection; nothing logged = not ours (driver
-   latency; LatencyMon). If AudioFool is at fault, or to cover for the driver: decode
-   ahead (`BassFlags.AsyncFile` read-ahead, a decode-ahead buffer), MMCSS for the feed
+0. **Stutters (sessions 48–49)**: the post-scan memory clean-up is fixed (session 49).
+   Ask the user whether stutters still happen, especially in the first minutes after
+   launch. When they give a time, read `playback.log` around it: GC PAUSE = another
+   full GC froze the app (find what forced it); APP STARVED with a late fill = the PC;
+   LATE FILL alone with a fast fill = the driver's wake-up was late (the 8:24 case);
+   SLOW FILL with little "busy" = waiting on the file (the SD card is slower than the
+   SSD); nothing logged = not ours (LatencyMon). Still available: decode ahead
+   (`BassFlags.AsyncFile` read-ahead, a decode-ahead buffer), MMCSS for the feed
    thread; a bigger device buffer needs the seek-bar latency fix from session 45.
-1. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
+1. **Release v0.5.1** when the user asks: session 49's fix (a fix only, so the last
+   number).
+2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
-2. **Ask once**: does Edit Artist Tags on a big artist (Rush, Buckethead) now open at
+3. **Ask once**: does Edit Artist Tags on a big artist (Rush, Buckethead) now open at
    once (session 47)? The art side is confirmed on both machines (2026-10-12).
-3. **A visible, editable queue view**: the most conspicuous missing player feature.
-4. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
+4. **A visible, editable queue view**: the most conspicuous missing player feature.
+5. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
    are confirmed; edge scrolling hasn't been tried.
-5. **A change of the Windows shared format isn't noticed** until AudioFool restarts
+6. **A change of the Windows shared format isn't noticed** until AudioFool restarts
    (`BassRuntime.OnWasapiNotify` reprobes only on a default-device change). Offered to
    the user in session 48, not asked for; only matters with Bit-Perfect off.
-6. **Extra covers** (session 44): done for FLAC and MP3. Other formats aren't handled
+7. **Extra covers** (session 44): done for FLAC and MP3. Other formats aren't handled
    (9 DSF files keep their extra covers).
-7. **Memory** (session 43): a FLAC metadata reader that skips PICTURE blocks (lowers
+8. **Memory** (session 43): a FLAC metadata reader that skips PICTURE blocks (lowers
    the scan peak), and GC tuning (`GCConserveMemory`) for the steady state. Discussed in
    session 47 and left: it only matters during a full scan.
-8. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
+9. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll`, source only).
    Next step would be a spike build of `libprojectM.dll`. Nothing started.
-9. Code signing would remove the SmartScreen warning on first launch, but is rarely
+10. Code signing would remove the SmartScreen warning on first launch, but is rarely
    worth the cost for a personal build.
 
 **Design notes for the next round of critique.** The user works in a screenshot loop:

@@ -1294,6 +1294,56 @@ internal static class Program
             return 0;
         }
 
+        // --window reclaim --file <audio>: the post-scan memory clean-up while
+        // music plays (silently): it must wait, the feed must not stall, and it
+        // must run once playback pauses. Also piles up garbage while playing, as a
+        // scan does, to see the GC's own collections. Log to a scratch file.
+        if (which == "reclaim")
+        {
+            var logPath = Path.Combine(Path.GetTempPath(), "themelab-reclaim-" + Guid.NewGuid().ToString("N")[..8] + ".log");
+            AudioFool.Core.Playback.PlaybackDiagnostics.LogPath = logPath;
+            LoadRealLibrary(vm);
+            var file = Arg(args, "--file") ?? throw new ArgumentException("--window reclaim needs --file <audio file>");
+            engine.Volume = 0;
+            engine.Play([AudioFool.Core.Library.TagReader.Read(file)], 0);
+            Settle(3000);
+            Console.WriteLine($"playing: {engine.State}, GC latency mode {System.Runtime.GCSettings.LatencyMode}");
+
+            var reclaim = typeof(MainViewModel).GetMethod("ReclaimScanMemory", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            var pauseBefore = GC.GetTotalPauseDuration();
+            reclaim.Invoke(vm, null);
+            Settle(1500);
+            Console.WriteLine($"clean-up asked for while playing: GC paused the app {(GC.GetTotalPauseDuration() - pauseBefore).TotalMilliseconds:0} ms in 1.5 s");
+
+            // A scan's worth of churn: many short-lived buffers and strings.
+            var churnClock = System.Diagnostics.Stopwatch.StartNew();
+            pauseBefore = GC.GetTotalPauseDuration();
+            var gen2 = GC.CollectionCount(2);
+            var survivors = new List<object>();
+            for (var i = 0; i < 3000; i++)
+            {
+                var block = new object[2_000];
+                for (var j = 0; j < block.Length; j++) block[j] = new string('y', 32 + (j % 64));
+                if (i % 3 == 0) survivors.Add(block);
+                if (i % 200 == 0) Settle(1);
+            }
+            Settle(500);
+            Console.WriteLine($"churn while playing: {churnClock.ElapsedMilliseconds} ms, {GC.CollectionCount(2) - gen2} full collections, "
+                + $"GC paused the app {(GC.GetTotalPauseDuration() - pauseBefore).TotalMilliseconds:0} ms in all, "
+                + $"longest single pause {GC.GetGCMemoryInfo(GCKind.Any).PauseDurations.ToArray().DefaultIfEmpty().Max().TotalMilliseconds:0} ms");
+            survivors.Clear();
+
+            engine.Pause();
+            Settle(2000);
+            Console.WriteLine($"paused: {engine.State}, GC latency mode {System.Runtime.GCSettings.LatencyMode}");
+            engine.Stop();
+            Settle(500);
+            Console.WriteLine("---- playback log ----");
+            Console.WriteLine(File.ReadAllText(logPath));
+            File.Delete(logPath);
+            return 0;
+        }
+
         if (which == "waveform")
         {
             RunWaveform(main, vm, engine, Arg(args, "--file") ?? throw new ArgumentException("--window waveform needs --file <audio file>"),

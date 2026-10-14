@@ -1241,11 +1241,37 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// changed files: 23 MB live, 743 MB still committed after Forced, 22 MB
     /// after Aggressive.
     /// </para>
+    /// <para>
+    /// Never while music plays (session 48): the collection suspends every managed
+    /// thread, the device's feed included, since its callback is managed code. On
+    /// a 458 MB heap it froze the feed for 352 ms and left 20 ms of the 200 ms
+    /// buffer; a freeze like it a minute after launch was a near-dropout the user
+    /// heard. So it waits for a pause or stop (<see cref="OnEngineStateChanged"/>).
+    /// </para>
     /// </summary>
-    private static void ReclaimScanMemory() => _ = Task.Run(() =>
+    private void ReclaimScanMemory()
     {
+        if (_engine.State == PlaybackState.Playing)
+        {
+            if (Interlocked.Exchange(ref _reclaimPending, 1) == 0)
+                PlaybackDiagnostics.Note("memory clean-up postponed until playback pauses or stops");
+            return;
+        }
+
+        Interlocked.Exchange(ref _reclaimPending, 0);
+        RunReclaim();
+    }
+
+    // 1 while a clean-up waits for playback to pause or stop.
+    private int _reclaimPending;
+
+    private static void RunReclaim() => _ = Task.Run(() =>
+    {
+        var paused = GC.GetTotalPauseDuration();
         GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
         GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+        PlaybackDiagnostics.Note($"memory clean-up ran, not playing: paused the app {(GC.GetTotalPauseDuration() - paused).TotalMilliseconds:0} ms, "
+            + $"committed now {GC.GetGCMemoryInfo().TotalCommittedBytes / 1048576.0:0} MB");
     });
 
     [RelayCommand]
@@ -2279,6 +2305,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         IsPlaying = state == PlaybackState.Playing;
         IsOutputActive = ShouldShowOutput();
+
+        // While music plays, the GC avoids full blocking collections of its own
+        // (background ones instead), and a clean-up that waited runs once it stops.
+        GCSettings.LatencyMode = IsPlaying ? GCLatencyMode.SustainedLowLatency : GCLatencyMode.Interactive;
+        if (!IsPlaying && Interlocked.Exchange(ref _reclaimPending, 0) == 1)
+            RunReclaim();
 
         if (state == PlaybackState.Playing)
             _positionTimer.Start();
