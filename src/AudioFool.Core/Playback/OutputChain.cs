@@ -76,6 +76,13 @@ internal sealed class OutputChain : IDisposable
     }
 
     public int Mixer => _mixer;
+
+    /// <summary>
+    /// Runs on the device's thread just before each pull from the mixer, so the
+    /// engine can note where the playing track stands (see AudioEngine.SpliceDelay).
+    /// </summary>
+    public Action? BeforePull { get; set; }
+
     public int SampleRate { get; private set; }
     public int Channels { get; private set; }
     public OutputMode Mode { get; }
@@ -106,6 +113,7 @@ internal sealed class OutputChain : IDisposable
     /// </summary>
     private int Fill(IntPtr buffer, int length, IntPtr user)
     {
+        BeforePull?.Invoke();
         var timing = PlaybackDiagnostics.FillBegin();
         var got = Bass.ChannelGetData(_mixer, buffer, length);
         PlaybackDiagnostics.FillEnd(timing);

@@ -185,7 +185,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "analysis" or "clear" or "waveform" or "device" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "analysis" or "clear" or "waveform" or "device" or "splice" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -1288,6 +1288,34 @@ internal static class Program
         // --window waveform --file <audio> [--at 0.4]: plays it silently, waits
         // for the seekbar's waveform, moves to that fraction of the track and
         // renders the window, plus the seekbar alone at 3x next to it.
+        // --window splice --long "a.flac;b.flac": plays a silently from 2 s before its
+        // end into b and prints the log's gapless line (session 51). For the exact
+        // join the two must share the shared mix rate (96 kHz here).
+        if (which == "splice")
+        {
+            var logPath = Path.Combine(Path.GetTempPath(), "themelab-splice-" + Guid.NewGuid().ToString("N")[..8] + ".log");
+            AudioFool.Core.Playback.PlaybackDiagnostics.LogPath = logPath;
+            var files = (Arg(args, "--long") ?? throw new ArgumentException("--window splice needs --long \"a;b\""))
+                .Split(';', StringSplitOptions.RemoveEmptyEntries);
+            var tracks = files.Select(AudioFool.Core.Library.TagReader.Read).ToList();
+            var ready = runtime.Initialise();
+            engine.Volume = 0;
+            var played = engine.Play(tracks, 0);
+            Console.WriteLine($"init {ready} {runtime.InitError}, play {played}, warning '{engine.OutputWarning}', tracks {string.Join(" / ", tracks.Select(t => t.Title + " " + t.Duration))}");
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (!engine.HoldsFile(files[1]) && clock.ElapsedMilliseconds < 5000)
+                Settle(20);
+            // Off the 10 ms pull grid, so the track ends inside a pull.
+            engine.Seek(engine.Duration - TimeSpan.FromSeconds(2.0037));
+            Settle(4000);
+            Console.WriteLine($"mix rate {runtime.SharedMixRate}, now playing '{engine.CurrentTrack?.Title}' at {engine.Position.TotalSeconds:0.00} s, output '{engine.OutputDescription}'");
+            engine.Stop();
+            Settle(500);
+            if (File.Exists(logPath)) foreach (var line in File.ReadLines(logPath).Where(l => l.Contains("gapless") || l.Contains("track:") || l.Contains("device")))
+                Console.WriteLine(line);
+            return 0;
+        }
+
         if (which == "device")
         {
             RunDeviceSwitch(vm, engine, runtime, Arg(args, "--long") ?? throw new ArgumentException("--window device needs --long \"a.flac;b.flac\""));

@@ -741,7 +741,12 @@ program while no track changed isn't noticed until a track does.
 stays open and each track is a *decode* channel fed into it. When a track runs dry, a
 mixtime sync fires from inside BASS's mixing pass and the next channel — already decoded
 on a worker thread — is spliced in on the spot. The handover costs zero samples of
-silence. See `AudioEngine.cs`.
+silence. One subtlety: BASSmix mixes a channel added at that moment from the *start* of
+the block it is working on, which would lay the next track over the last few
+milliseconds of the one ending. So it is added with a start delay of exactly the frames
+the ending track still filled in that block (`SpliceDelay`), and the join is
+sample-exact. That matters most for DSD over PCM, where any overlap scrambles the DoP
+markers and the DAC drops out of DSD for a moment. See `AudioEngine.cs`.
 
 **BASS holds the "no sound" device.** `Bass.Init(0, ...)` is deliberate: BASS is only
 ever a decoder here, and output goes through WASAPI via `OutputChain`. If BASS held the

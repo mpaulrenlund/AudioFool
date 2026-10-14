@@ -65,6 +65,13 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
     private readonly object _releaseGate = new();
 
+    // The playing stream and its position just before the device's current pull.
+    // Written and read on the device's thread only (BeforePull, then the END sync
+    // inside that pull), so no lock. See SpliceDelay.
+    private readonly Action _notePullStart;
+    private int _pullStream;
+    private long _pullStartBytes = -1;
+
     // Files a save is writing, and files a stream is being opened on (a file can
     // be opened twice at once: the playing track and, on repeat, the next).
     // Both are guarded by _gate, which is also what waits on them.
@@ -77,6 +84,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
         // Held in a field so the GC can't collect the delegate BASS is calling.
         _endSyncProc = OnCurrentStreamEnded;
+        _notePullStart = NotePullStart;
 
         // Captured so consumers get events on the thread that built the engine
         // (the UI thread) instead of a BASS worker thread.
@@ -779,6 +787,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         var promotedIndex = -1;
         var reopenAtIndex = -1;
         var waitForSave = false;
+        long spliceFrames = 0;
 
         lock (_gate)
         {
@@ -815,7 +824,12 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 _currentStream = promoted;
                 _index = promotedIndex;
 
-                BassMix.MixerAddChannel(_output!.Mixer, promoted, SourceFlags);
+                var delay = SpliceDelay(finished);
+                spliceFrames = delay / (sizeof(float) * _output!.Channels);
+                if (delay > 0)
+                    BassMix.MixerAddChannel(_output!.Mixer, promoted, SourceFlags, delay, 0);
+                else
+                    BassMix.MixerAddChannel(_output!.Mixer, promoted, SourceFlags);
                 Bass.ChannelSetSync(promoted, SyncFlags.End | SyncFlags.Mixtime, 0, _endSyncProc);
             }
             else
@@ -839,6 +853,9 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             if (promoted != 0)
             {
                 var track = CurrentTrack;
+                PlaybackDiagnostics.Note(spliceFrames > 0
+                    ? $"gapless: next track joined {spliceFrames} frames into the block"
+                    : "gapless: next track joined at the block start (ended on a block edge, or resampled)");
                 if (track is not null)
                     Raise(TrackChanged, track);
 
@@ -867,6 +884,40 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 Raise(PlaybackFinished);
             }
         });
+    }
+
+    private void NotePullStart()
+    {
+        var stream = Volatile.Read(ref _currentStream);
+        _pullStream = stream;
+        _pullStartBytes = stream != 0 ? Bass.ChannelGetPosition(stream) : -1;
+    }
+
+    /// <summary>
+    /// How far into the mixer's current block, in mixer bytes, the next track must
+    /// start. BASSmix mixes a source added from the END sync from the start of the
+    /// block it is working on, so without this the next track begins up to a block
+    /// early, on top of <paramref name="finished"/>'s last frames. Harmless-sounding
+    /// in PCM, but in DoP the sum destroys the markers and the DAC drops out of DSD
+    /// for a moment: a gap between DSD tracks (session 51, measured on real DSFs).
+    /// The frames <paramref name="finished"/> gave in this block are where it was
+    /// before the pull to its end. Only without resampling, where its frames are the
+    /// mixer's; 0 (the old behaviour) when it can't be worked out.
+    /// Caller holds <see cref="_gate"/>, on the device's thread.
+    /// </summary>
+    private long SpliceDelay(int finished)
+    {
+        if (_output is null || _pullStream != finished || _pullStartBytes < 0
+            || RateOf(finished) != _output.SampleRate || !Bass.ChannelGetInfo(finished, out var info))
+            return 0;
+
+        var frames = (Bass.ChannelGetPosition(finished) - _pullStartBytes) / (sizeof(float) * info.Channels);
+
+        // A pull is a few hundredths of a second; more than a second is a stale reading.
+        if (frames <= 0 || frames > _output.SampleRate)
+            return 0;
+
+        return frames * sizeof(float) * _output.Channels;
     }
 
     /// <summary>
@@ -971,6 +1022,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         }
 
         _output.SetVolume(_volume);
+        _output.BeforePull = _notePullStart;
         return true;
     }
 

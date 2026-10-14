@@ -140,7 +140,16 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   The logo-menu item started audio when clicked (its setter jumped to the loaded track,
   paused included). Rather than fix it, it's gone: with Bit-Perfect on, DSD goes out as
   DoP whenever the device can clock the rate, else PCM. `DsdMode` removed everywhere.
-  The user believes Keep Best Cover has been run on the 9 DSFs (not checked).
+  The user believes Keep Best Cover has been run on the 9 DSFs (not checked). DoP
+  confirmed by the user ("DSD over PCM" at 352.8 kHz).
+  **Part 2: gapless joins were up to a block early.** BASSmix mixes a source added
+  from the END sync from the start of the block, so the next track overlapped the
+  last ≤ 20 ms of the one before; in DoP that sum kills the markers and the DAC drops
+  out (the gap the user heard between DSD tracks). Now the next track is added with a
+  start delay of the frames the ended one gave in that block (`SpliceDelay`, via
+  `OutputChain.BeforePull`); probe on the real DSFs: sample-exact; ThemeLab `--window splice` through the real engine:
+  delayed by the right number of frames. Installed. `playback.log`
+  logs each join. **The user has to listen** for the gap being gone.
 
 - **50** (2026-10-14): **Keep Best Cover handles DSF.** `TagPadding` reads a DSF's
   layout (header "DSD ", chunk size 28, file size, tag pointer; one ID3v2 tag after the
@@ -627,6 +636,7 @@ ThemeLab.exe --rows 1,2,3,4       # several selected grid rows
 ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
 ThemeLab.exe --window queue       # edit queued and playing tracks while the real engine plays silently
 ThemeLab.exe --window queue --long "D:/Music/x/a.flac;D:/Music/y/b.dsf" [--longcomment 3000000]   # also save to real tracks (copied to scratch) while they play
+ThemeLab.exe --window splice --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a gapless join through the real engine, silent; prints the log's "gapless:" line (needs the device free, and both at the shared mix rate for an exact join)
 ThemeLab.exe --window device --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a change of default output device, simulated: playing, paused, stopped, next track
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
 ThemeLab.exe --w 1300 --h 700 --lastfm failing   # the status-bar indicator

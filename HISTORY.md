@@ -3171,6 +3171,40 @@ No code changed apart from the version number. Four commits, all pushed.
   (`SwitchDevice`), so DSD switches form there, in place. A leftover `"DsdMode"` key in
   settings.json is ignored on load and dropped on the next save. Menu rendered with
   `--menushot`: opens with Libraries, no stray separator. 670 tests.
+- Confirmed by the user: "Exclusive · 352.8 kHz · DSD over PCM" on the DSD128 *Dark Side
+  of the Moon (R2R)*, and Bit-Perfect on/off doesn't start audio.
+
+### Session 51, part 2 (2026-10-14): gapless joins were up to a block early
+
+- The user heard a gap between DSD tracks in Bit-Perfect. `playback.log` showed a clean
+  splice (no reopen, no late fill), so it was downstream of the engine's bookkeeping.
+- Probe (scratchpad `dopprobe`, BASS on no-sound, the real DSFs, read-only):
+  - Each DSF decodes as unbroken DoP, first marker 05, last FA, even frame count, no
+    padding; so the marker pattern runs on across tracks. Not the files.
+  - A decode mixer built as `OutputChain` builds it, A's last 2 s, B added from A's
+    mixtime END sync as `OnCurrentStreamEnded` does, pulled in 20 ms blocks: **the
+    output over A's last block is A + B** (checked frame by frame). BASSmix mixes a
+    source added from that sync from the *start of the block being mixed*, so B began
+    up to one block (≤ 20 ms) early, summed with A's tail. In DoP the sum wipes out the
+    markers (FA + 05 ≈ 0) and the DAC drops out of DSD: the gap. In PCM it's a ≤ 20 ms
+    overlap, inaudible in practice, but wrong all the same. `BassMix.ChannelSetSync`
+    behaves the same.
+  - Adding B with `MixerAddChannel(..., start, 0)` delayed by the frames A delivered
+    in that block (A's position before the pull to its end, subtracted from its end)
+    gives a sample-exact join: every frame of A as decoded, B from the next frame,
+    unchanged. Checked on 08→09 and 06→07 in DoP and on 08→09 as PCM.
+- Engine: `OutputChain.BeforePull` (runs on the device thread before each pull)
+  lets `AudioEngine.NotePullStart` note the playing stream and its position;
+  `SpliceDelay` turns that into the start delay. Only when the ended track is at the
+  mixer's rate (always so in Bit-Perfect); resampled shared-mode joins keep the old
+  behaviour. Repeat One's rewind still re-adds from the block start (not changed).
+  `playback.log` says "gapless: next track joined N frames into the block" (or "at
+  the block start") at each join.
+- ThemeLab `--window splice --long "a;b"` plays a silently into b (from 2.0037 s before its
+  end, off the 10 ms pull grid) and prints the log's join line. Real engine, shared
+  96 kHz, two BadBadNotGood 96 kHz pairs: "joined 356 frames into the block" both times
+  (0.0037 × 96000). Seeking to exactly 2 s first gave "at the block start", correctly:
+  the track ended on a pull's edge, where no delay is needed. Installed. 670 tests.
 
 ---
 
