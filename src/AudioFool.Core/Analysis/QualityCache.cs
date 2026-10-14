@@ -25,7 +25,7 @@ public sealed class QualityCache
     /// Bump when the rules in <see cref="QualityOpinion"/> change: an older file
     /// is ignored, so the next check reads every track again.
     /// </summary>
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     public static string DefaultPath { get; } = Path.Combine(LibraryCache.CacheDirectory, "quality.json");
 

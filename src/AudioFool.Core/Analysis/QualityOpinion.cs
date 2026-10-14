@@ -157,6 +157,15 @@ public static class QualityOpinion
     /// <summary>A decoder's output for "nothing here" is far below any recording's noise.</summary>
     private const double SilenceDb = -125;
 
+    /// <summary>
+    /// Ultrasonic content this far below the treble is only faint noise: possibly
+    /// upsampled. Was 35; raised in session 50 after the user vouched for 38 real
+    /// 96 kHz tracks at 35-44 dB (Snarky Puppy, Tigran Hamasyan, Tycho, Muse,
+    /// BADBADNOTGOOD). Upsampled files are still caught by silence above 24 kHz,
+    /// a cliff below 24.5 kHz or a mirror image.
+    /// </summary>
+    public const double FaintUltrasonicDb = 45;
+
     public static Opinion Form(SpectrumAnalysis analysis, QualityClaim claim)
     {
         var findings = new List<Finding>();
@@ -322,7 +331,7 @@ public static class QualityOpinion
             { Flag = QualityFlag.Upsampled };
         }
 
-        if (below >= 35)
+        if (below >= FaintUltrasonicDb)
         {
             return new Finding(Verdict.Suspect, $"Possibly not true {what}",
                 $"Above 25 kHz there is only faint noise, {below:0} dB below the treble. It may have been upsampled from CD quality, or the recording may simply have little up there.")

@@ -162,6 +162,22 @@ public class QualityOpinionTests
         Assert.Equal("Possibly not true hi-res", opinion.Headline);
     }
 
+    // Snarky Puppy's Empire Central, measured: the ultrasonic band ~40 dB under
+    // the treble, fading smoothly. Real 96 kHz recordings often look like this.
+    [Fact]
+    public void Hi_res_with_quiet_real_content_up_high_is_consistent()
+    {
+        double Quiet(double hz) => hz < 22000 ? Music(hz) : Music(22000) - (5.5 * (hz - 22000) / 1000);
+        var analysis = Spectrum(96000, Quiet, usedBits: 24);
+        var below = QualityOpinion.Level(analysis, 14000, 19000) - QualityOpinion.Level(analysis, 25000, 32000);
+        Assert.InRange(below, 35, QualityOpinion.FaintUltrasonicDb - 1);
+
+        var opinion = QualityOpinion.Form(analysis, HiResFlac);
+
+        Assert.Equal(Verdict.Consistent, opinion.Verdict);
+        Assert.Empty(opinion.Flags);
+    }
+
     [Fact]
     public void Hi_res_made_from_a_lossy_file_says_so()
     {
