@@ -647,14 +647,16 @@ return to a device that can.
 
 ### DSD
 
-The **DSD passthrough** switch chooses between two paths. It requires bit-perfect
-output and a DoP-capable DAC, and is greyed out otherwise.
+There is no separate DSD switch: **Bit-Perfect decides.** With Bit-Perfect on, a DSD
+file goes to the DAC as DSD (passthrough, via DoP) whenever the device can clock the
+rate; otherwise, or with Bit-Perfect off, it is converted to PCM. Turning Bit-Perfect on
+or off mid-track reopens the track in the new form, from where it was.
 
-| | Convert to PCM (default) | DSD passthrough |
+| | Convert to PCM | DSD passthrough |
 |---|---|---|
 | What reaches the DAC | PCM | The original DSD bitstream |
 | Device rate | DSD rate ÷ 8 — **705.6 kHz** for DSD128 | DSD rate ÷ 16 — **352.8 kHz** for DSD128 |
-| Works on | Any DAC | DoP-capable DACs only |
+| Works on | Any DAC | DoP-capable DACs only (a DAC that takes the rate but not DoP would play hiss) |
 
 **Convert to PCM** runs at the highest rate BASSDSD allows, which is an eighth of the
 DSD rate. Only 1/8, 1/16, 1/32… of the DSD rate are valid, and all of them are in the

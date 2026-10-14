@@ -32,23 +32,3 @@ public enum OutputMode
     /// </summary>
     Exclusive,
 }
-
-/// <summary>What to do with DSD material.</summary>
-public enum DsdMode
-{
-    /// <summary>
-    /// Decode DSD to PCM. Works with any DAC. The conversion runs at the highest
-    /// rate in the 44.1 kHz family the device accepts - up to an eighth of the DSD
-    /// rate, which is 705.6 kHz for DSD128.
-    /// </summary>
-    ConvertToPcm,
-
-    /// <summary>
-    /// DSD over PCM. The DSD bitstream is carried inside a 24-bit PCM container
-    /// with 0x05/0xFA marker bytes, which a DoP-aware DAC detects and unwraps to
-    /// get the original bits. Needs exclusive output at one sixteenth of the DSD
-    /// rate (352.8 kHz for DSD128) and a DAC that speaks DoP; falls back to
-    /// <see cref="ConvertToPcm"/> when either is unavailable.
-    /// </summary>
-    DsdOverPcm,
-}

@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-14, session 49. Read this alongside `README.md`: the README covers
+Updated 2026-10-14, session 51. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -135,6 +135,12 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 - **Nothing is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **51** (2026-10-14): **DSD passthrough folded into Bit-Perfect** (the user's call).
+  The logo-menu item started audio when clicked (its setter jumped to the loaded track,
+  paused included). Rather than fix it, it's gone: with Bit-Perfect on, DSD goes out as
+  DoP whenever the device can clock the rate, else PCM. `DsdMode` removed everywhere.
+  The user believes Keep Best Cover has been run on the 9 DSFs (not checked).
 
 - **50** (2026-10-14): **Keep Best Cover handles DSF.** `TagPadding` reads a DSF's
   layout (header "DSD ", chunk size 28, file size, tag pointer; one ID3v2 tag after the
@@ -935,16 +941,13 @@ Open items only; finished ones are in `HISTORY.md`.
    (`BassFlags.AsyncFile` read-ahead, a decode-ahead buffer), MMCSS for the feed
    thread; a bigger device buffer needs the seek-bar latency fix from session 45.
 1. **Release** when the user asks: session 49's two fixes and session 50's DSF covers.
-   DSF support is a feature, so v0.6.0 rather than v0.5.1.
+   DSF support is a feature, so v0.6.0 rather than v0.5.1. Session 51 removed the DSD passthrough item.
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
 3. **A visible, editable queue view**: the most conspicuous missing player feature.
 4. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
    are confirmed; edge scrolling hasn't been tried.
-5. **Run Keep Best Cover on the 9 DSF files** (session 50): the user's step, from the
-   EXTRA COVERS row in Statistics (they show without a new check; covers.json already
-   lists them). Expect about 3 MB freed per file, ~27 MB in all.
-6. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
+5. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll`, source only).
    Next step would be a spike build of `libprojectM.dll`. Nothing started.
 

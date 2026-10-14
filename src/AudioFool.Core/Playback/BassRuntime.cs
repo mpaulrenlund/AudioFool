@@ -315,9 +315,6 @@ public sealed class BassRuntime
     public bool SupportsDopFor(int dsdRate) =>
         dsdRate > 0 && ExclusiveRates.Contains(dsdRate / 16);
 
-    /// <summary>True when the device can carry DoP for at least DSD64.</summary>
-    public bool SupportsDop => ExclusiveRates.Contains(176400);
-
     /// <summary>Rate DSD is decoded to when the DAC can't take DSD directly.</summary>
     public int DsdConversionRate { get; private set; } = 88200;
 

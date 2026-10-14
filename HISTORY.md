@@ -3156,6 +3156,22 @@ No code changed apart from the version number. Four commits, all pushed.
   a flaky test from session 48 (`A_failed_conversion_leaves_the_file_as_it_was`
   looked for working files across all of %TEMP%). Installed; **the user has to listen**.
 
+### Session 51 (2026-10-14): DSD passthrough folded into Bit-Perfect
+
+- The user found that clicking **DSD passthrough** (logo menu) started audio. Cause:
+  `AudioEngine.DsdMode`'s setter called `JumpTo(_index)` whenever a track was loaded,
+  so a paused track restarted from the top, the bug Bit-Perfect had before session 46.
+- Asked whether the item was needed: the engine already fell back to PCM whenever DoP
+  couldn't work (shared output, or a rate the device can't clock), so the only use of
+  "off" was a DAC that takes the rate without understanding DoP. The DX5 does DoP. **The
+  user's call: remove it and fold it into Bit-Perfect.** `DsdMode` (enum, setting,
+  engine property), `IsDsdPassthrough`, `CanUseDsdPassthrough` and
+  `BassRuntime.SupportsDop` are gone; `TryCreateDopStream` checks only for exclusive
+  output and the device's rates. Toggling Bit-Perfect already reopens the playing track
+  (`SwitchDevice`), so DSD switches form there, in place. A leftover `"DsdMode"` key in
+  settings.json is ignored on load and dropped on the next save. Menu rendered with
+  `--menushot`: opens with Libraries, no stray separator. 670 tests.
+
 ---
 
 ## Reference notes retired from the handoff

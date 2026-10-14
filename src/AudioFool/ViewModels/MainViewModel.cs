@@ -56,7 +56,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         settings.OutputMode = OutputMode.Shared;
         _engine.OutputMode = OutputMode.Shared;
 
-        _engine.DsdMode = settings.DsdMode;
         _engine.Shuffle = settings.Shuffle;
         _engine.Repeat = settings.Repeat;
 
@@ -476,8 +475,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             OnPropertyChanged();
 
-            // DoP is only meaningful over an exclusive connection.
-            OnPropertyChanged(nameof(CanUseDsdPassthrough));
             RefreshOutputState();
         }
     }
@@ -496,7 +493,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(CanUseExclusiveOutput));
         OnPropertyChanged(nameof(IsExclusiveOutput));
-        OnPropertyChanged(nameof(CanUseDsdPassthrough));
         OnPropertyChanged(nameof(OutputDeviceName));
         RefreshOutputState();
 
@@ -507,31 +503,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>Greyed out when the device can't do exclusive mode at all.</summary>
     public bool CanUseExclusiveOutput => _runtime.SupportsExclusive;
-
-    /// <summary>DSD-over-PCM passthrough, for a DAC that can unwrap it.</summary>
-    public bool IsDsdPassthrough
-    {
-        get => _settings.DsdMode == DsdMode.DsdOverPcm;
-        set
-        {
-            var mode = value ? DsdMode.DsdOverPcm : DsdMode.ConvertToPcm;
-            if (_settings.DsdMode == mode)
-                return;
-
-            _settings.DsdMode = mode;
-            _settings.Save();
-            _engine.DsdMode = mode;
-
-            OnPropertyChanged();
-            RefreshOutputState();
-        }
-    }
-
-    /// <summary>
-    /// DoP needs both an exclusive connection and a device that can clock the DoP
-    /// rate - one sixteenth of the DSD rate, so 176.4 kHz for DSD64 upwards.
-    /// </summary>
-    public bool CanUseDsdPassthrough => _runtime.SupportsDop && IsExclusiveOutput;
 
     public string OutputDeviceName => _runtime.OutputDeviceName;
 
@@ -617,7 +588,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // window has already bound. Without these the bit-perfect toggle stays
         // disabled for the whole session even on a device that supports it.
         OnPropertyChanged(nameof(CanUseExclusiveOutput));
-        OnPropertyChanged(nameof(CanUseDsdPassthrough));
         OnPropertyChanged(nameof(OutputDeviceName));
         OnPropertyChanged(nameof(IsExclusiveOutput));
 

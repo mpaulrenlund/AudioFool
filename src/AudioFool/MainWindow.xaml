@@ -328,22 +328,6 @@
                             <MenuItem.Header>
                                 <Border x:Name="LogoMenuSpacer" Height="20" Background="Transparent" />
                             </MenuItem.Header>
-                            <MenuItem Header="DSD passthrough"
-                                      IsCheckable="True"
-                                      IsChecked="{Binding IsDsdPassthrough, Mode=TwoWay}"
-                                      IsEnabled="{Binding CanUseDsdPassthrough}">
-                                <MenuItem.ToolTip>
-                                    <TextBlock>
-                                        Send DSD to the DAC untouched, wrapped as DSD-over-PCM,<LineBreak />
-                                        instead of decoding it to PCM first.<LineBreak /><LineBreak />
-                                        Needs bit-perfect output and a DoP-capable DAC. Falls back<LineBreak />
-                                        to PCM conversion for any file the device can't clock.
-                                    </TextBlock>
-                                </MenuItem.ToolTip>
-                            </MenuItem>
-        
-                            <Separator />
-        
                             <MenuItem Header="Libraries"
                                       Icon="{ui:SymbolIcon Folder24}">
                                 <MenuItem.ItemContainerStyle>

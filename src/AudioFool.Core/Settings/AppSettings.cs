@@ -47,13 +47,6 @@ public sealed class AppSettings
     [JsonConverter(typeof(JsonStringEnumConverter<Playback.OutputMode>))]
     public Playback.OutputMode OutputMode { get; set; } = Playback.OutputMode.Shared;
 
-    /// <summary>
-    /// PCM conversion by default: DoP only works on a DAC that speaks it, and the
-    /// conversion path is correct everywhere.
-    /// </summary>
-    [JsonConverter(typeof(JsonStringEnumConverter<Playback.DsdMode>))]
-    public Playback.DsdMode DsdMode { get; set; } = Playback.DsdMode.ConvertToPcm;
-
     /// <summary>Play the queue in a shuffled order.</summary>
     public bool Shuffle { get; set; }
 

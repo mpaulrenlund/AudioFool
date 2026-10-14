@@ -48,7 +48,6 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     private RepeatMode _repeat = RepeatMode.Off;
     private OutputChain? _output;
     private OutputMode _requestedMode = OutputMode.Shared;
-    private DsdMode _dsdMode = DsdMode.ConvertToPcm;
     private int _currentStream;
     private int _prefetchedStream;
     private int _prefetchedIndex = -1;
@@ -443,30 +442,6 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             // Also clears an earlier refusal: a mode the user re-selects deserves
             // a fresh attempt.
             SwitchDevice(value);
-        }
-    }
-
-    /// <summary>
-    /// How DSD material is handled. Reopens the current track if one is playing,
-    /// since the choice is baked into the decode stream.
-    /// </summary>
-    public DsdMode DsdMode
-    {
-        get { lock (_gate) return _dsdMode; }
-        set
-        {
-            int index;
-            lock (_gate)
-            {
-                if (_dsdMode == value)
-                    return;
-
-                _dsdMode = value;
-                index = _index;
-            }
-
-            if (index >= 0 && State != PlaybackState.Stopped)
-                JumpTo(index);
         }
     }
 
@@ -1037,6 +1012,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     /// <summary>
     /// Opens a DSD file as DSD-over-PCM, or returns 0 if that isn't possible here.
     /// <para>
+    /// Bit-Perfect on means DSD goes out as DoP (session 51: no separate switch).
     /// DoP only means anything if the bits survive the trip to the DAC, so it is
     /// refused unless the output is exclusive (no resampling, unity gain) and the
     /// device can actually clock the DoP rate. Anything else and the markers would
@@ -1045,7 +1021,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     /// </summary>
     private int TryCreateDopStream(string path, BassFlags baseFlags)
     {
-        if (_dsdMode != DsdMode.DsdOverPcm || _requestedMode != OutputMode.Exclusive)
+        if (_requestedMode != OutputMode.Exclusive)
             return 0;
 
         // Float is mandatory for DoP: the payload is 24-bit, which BASS has no
