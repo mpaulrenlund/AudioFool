@@ -140,7 +140,7 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   The logo-menu item started audio when clicked (its setter jumped to the loaded track,
   paused included). Rather than fix it, it's gone: with Bit-Perfect on, DSD goes out as
   DoP whenever the device can clock the rate, else PCM. `DsdMode` removed everywhere.
-  The user believes Keep Best Cover has been run on the 9 DSFs (not checked). DoP
+  Keep Best Cover has been run on the 9 DSFs (checked on E:: one front cover each, 37 KB, padding 5 KB, nothing after the tag, header size right). DoP
   confirmed by the user ("DSD over PCM" at 352.8 kHz).
   **Part 2: gapless joins were up to a block early.** BASSmix mixes a source added
   from the END sync from the start of the block, so the next track overlapped the
