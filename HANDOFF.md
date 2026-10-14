@@ -150,6 +150,12 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   `OutputChain.BeforePull`); probe on the real DSFs: sample-exact; ThemeLab `--window splice` through the real engine:
   delayed by the right number of frames. Installed. `playback.log`
   logs each join. **Confirmed by the user** (gapless works). Repeat One was already exact (it loops the same channel mid-block), so not changed.
+  **Part 3: the close X sometimes did nothing.** WPF-UI clicks title-bar buttons from WM_NC*
+  messages and can lose a click (cause not pinned down: fine off-screen). The user chose a
+  fallback: `Services/CloseButtonFallback` (all eight title-bar windows) closes the window
+  after a press and release on its X unless WPF-UI's CloseClicked came. ThemeLab
+  `--window closex` tests four cases. Installed; **the user to report** whether it recurs.
+  Trap: handle `TitleBar.CloseClickedEvent` at a window with a plain `RoutedEventHandler`.
 
 - **50** (2026-10-14): **Keep Best Cover handles DSF.** `TagPadding` reads a DSF's
   layout (header "DSD ", chunk size 28, file size, tag pointer; one ID3v2 tag after the
@@ -636,6 +642,7 @@ ThemeLab.exe --rows 1,2,3,4       # several selected grid rows
 ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
 ThemeLab.exe --window queue       # edit queued and playing tracks while the real engine plays silently
 ThemeLab.exe --window queue --long "D:/Music/x/a.flac;D:/Music/y/b.dsf" [--longcomment 3000000]   # also save to real tracks (copied to scratch) while they play
+ThemeLab.exe --window closex          # Statistics' close button: normal click, a click WPF-UI loses, a cancelled close, press-and-slide-off (posted WM_NC* messages)
 ThemeLab.exe --window splice --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a gapless join through the real engine, silent; prints the log's "gapless:" line (needs the device free, and both at the shared mix rate for an exact join)
 ThemeLab.exe --window device --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a change of default output device, simulated: playing, paused, stopped, next track
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected

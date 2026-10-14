@@ -23,6 +23,12 @@ internal static class Program
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr hWnd);
 
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SendMessageW")]
+    private static extern IntPtr NcSend(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "PostMessageW")]
+    private static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -1316,6 +1322,78 @@ internal static class Program
             return 0;
         }
 
+        // --window closex: the Statistics dialog, modal and off-screen, with mouse
+        // messages for its close button posted to the thread's queue as real input
+        // arrives (WPF-UI clicks title-bar buttons from WM_NC* messages, and
+        // CloseButtonFallback watches the queue). Cases: a normal click; a click
+        // WPF-UI loses (WM_NCMOUSELEAVE between press and release); a close the
+        // window cancels, which must stay cancelled; a press on X released on the
+        // caption, which must do nothing. Nothing moves the real mouse.
+        if (which == "closex")
+        {
+            LoadRealLibrary(vm);
+            var libraryField = typeof(MainViewModel).GetField("_folderFilteredLibrary",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            var library = (AudioFool.Core.Library.MusicLibrary)libraryField.GetValue(vm)!;
+            const uint NcHitTest = 0x84, NcDown = 0xA1, NcUp = 0xA2, NcLeave = 0x2A2;
+            const int HtClose = 20, HtCaption = 2;
+
+            var cases = new (string Name, (uint Msg, int Hit)[] Steps, bool CancelFirstClose, bool ShouldClose)[]
+            {
+                ("normal click", [(NcDown, HtClose), (NcUp, HtClose)], false, true),
+                ("click WPF-UI loses", [(NcDown, HtClose), (NcLeave, 0), (NcUp, HtClose)], false, true),
+                ("close the window cancels", [(NcDown, HtClose), (NcUp, HtClose)], true, false),
+                ("press on X, release on caption", [(NcDown, HtClose), (NcUp, HtCaption)], false, false),
+            };
+
+            foreach (var test in cases)
+            {
+                var statsVm = new StatisticsViewModel(AudioFool.Core.Library.LibraryStatistics.Compute(library), false);
+                var dialog = new StatisticsWindow(statsVm, main) { ShowActivated = false, ShowInTaskbar = false };
+                dialog.Loaded += (_, _) => { dialog.Left = -20000; dialog.Top = -20000; };
+                var closed = false;
+                var titleBarClicks = 0;
+                var cancelled = 0;
+                dialog.Closed += (_, _) => closed = true;
+                dialog.AddHandler(Wpf.Ui.Controls.TitleBar.CloseClickedEvent,
+                    new RoutedEventHandler((_, _) => titleBarClicks++));
+                if (test.CancelFirstClose)
+                    dialog.Closing += (_, e) => { if (cancelled++ == 0) e.Cancel = true; };
+
+                dialog.Loaded += async (_, _) =>
+                {
+                    await Task.Delay(400);
+                    var close = FindAll<Wpf.Ui.Controls.TitleBarButton>(dialog)
+                        .First(b => b.ButtonType == Wpf.Ui.Controls.TitleBarButtonType.Close);
+                    var hwnd = new System.Windows.Interop.WindowInteropHelper(dialog).Handle;
+                    var at = close.PointToScreen(new Point(close.ActualWidth / 2, close.ActualHeight / 2));
+                    var onClose = (IntPtr)(((int)at.Y << 16) | ((int)at.X & 0xFFFF));
+                    var caption = close.PointToScreen(new Point(-300, close.ActualHeight / 2));
+                    var onCaption = (IntPtr)(((int)caption.Y << 16) | ((int)caption.X & 0xFFFF));
+
+                    NcSend(hwnd, NcHitTest, IntPtr.Zero, onClose);   // hover, as the pointer arriving does
+                    foreach (var (msg, hit) in test.Steps)
+                    {
+                        PostMessage(hwnd, msg, (IntPtr)hit, hit == HtCaption ? onCaption : onClose);
+                        await Task.Delay(30);
+                    }
+
+                    await Task.Delay(500);
+                    var ok = closed == test.ShouldClose;
+                    Console.WriteLine($"{test.Name}: closed {closed} (want {test.ShouldClose}), WPF-UI clicked {titleBarClicks}, "
+                        + $"closes cancelled {(test.CancelFirstClose ? cancelled : 0)} {(ok ? "OK" : "WRONG")}");
+                    if (!closed)
+                    {
+                        cancelled = 1;
+                        dialog.Close();
+                    }
+                };
+
+                dialog.ShowDialog();
+                Settle(100);
+            }
+            return 0;
+        }
         if (which == "device")
         {
             RunDeviceSwitch(vm, engine, runtime, Arg(args, "--long") ?? throw new ArgumentException("--window device needs --long \"a.flac;b.flac\""));

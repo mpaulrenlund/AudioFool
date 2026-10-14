@@ -3210,6 +3210,32 @@ No code changed apart from the version number. Four commits, all pushed.
   (0.0037 × 96000). Seeking to exactly 2 s first gave "at the block start", correctly:
   the track ended on a pull's edge, where no delay is needed. Installed. 670 tests.
 
+### Session 51, part 3 (2026-10-14): the close X now and then did nothing
+
+- The user's report: sometimes the X of Statistics or a tag window doesn't close it.
+  WPF-UI 4.3.0 doesn't click title-bar buttons through WPF input: its window hook
+  marks a button pressed on WM_NCLBUTTONDOWN over it and clicks (through the button's
+  automation peer, queued at Input priority) on WM_NCLBUTTONUP, and `RemoveHover`,
+  run on any WM_NCMOUSELEAVE or hit-test miss in between, clears the mark. Off-screen
+  (`--window closex`, real Statistics window, messages sent in order) it closed every
+  time, so whatever clears it only comes with a real mouse; not pinned down (the user
+  chose a fallback over a diagnostic log).
+- `Services/CloseButtonFallback`, attached in all eight windows with a `ui:TitleBar`
+  (main window included): watches WM_NCLBUTTONDOWN/UP on
+  `ComponentDispatcher.ThreadPreprocessMessage`, before any hook can swallow them,
+  wParam being the hit test (HTCLOSE). After a press and a release both on one
+  window's X, it waits until input has run (Background priority) and closes the
+  window unless WPF-UI raised `TitleBar.CloseClickedEvent` meanwhile, so a close the
+  window cancelled (unsaved-changes prompt) stays cancelled.
+- Trap found by the test: `TitleBar.CloseClickedEvent`'s declared handler is
+  `TypedEventHandler<TitleBar, RoutedEventArgs>`, but at the window the sender is the
+  window, so a typed handler there throws (it would have crashed every close). Use a
+  plain `RoutedEventHandler`.
+- `--window closex`, messages posted to the queue as real input arrives: normal click
+  (WPF-UI closes, fallback idle), a click WPF-UI loses (WM_NCMOUSELEAVE between press
+  and release: WPF-UI clicked 0, fallback closed), a cancelled close (stays open),
+  press on X released on the caption (nothing): all OK. Installed. 670 tests.
+
 ---
 
 ## Reference notes retired from the handoff
