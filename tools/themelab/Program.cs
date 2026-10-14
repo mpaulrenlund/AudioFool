@@ -1324,9 +1324,9 @@ internal static class Program
 
         // --window closex: the Statistics dialog, modal and off-screen, with mouse
         // messages for its close button posted to the thread's queue as real input
-        // arrives (WPF-UI clicks title-bar buttons from WM_NC* messages, and
-        // CloseButtonFallback watches the queue). Cases: a normal click; a click
-        // WPF-UI loses (WM_NCMOUSELEAVE between press and release); a close the
+        // arrives (WPF-UI clicks title-bar buttons from WM_NC* messages). Cases: a
+        // normal click; a click WPF-UI loses (WM_NCMOUSELEAVE between press and
+        // release; WRONG while that bug is open, see HANDOFF); a close the
         // window cancels, which must stay cancelled; a press on X released on the
         // caption, which must do nothing. Nothing moves the real mouse.
         if (which == "closex")

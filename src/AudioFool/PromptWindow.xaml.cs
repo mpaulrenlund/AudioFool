@@ -15,7 +15,6 @@ public partial class PromptWindow : FluentWindow
                          string? initialText, Func<string, string?>? validate)
     {
         InitializeComponent();
-        Services.CloseButtonFallback.Attach(this);
 
         Owner = owner;
         Title = title;

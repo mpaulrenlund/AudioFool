@@ -14,7 +14,6 @@ public partial class ArtWindow : FluentWindow
     public ArtWindow(BitmapSource art, string caption, Window owner)
     {
         InitializeComponent();
-        Services.CloseButtonFallback.Attach(this);
         Services.OwnerActivation.Attach(this);
 
         Owner = owner;

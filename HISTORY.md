@@ -3235,6 +3235,11 @@ No code changed apart from the version number. Four commits, all pushed.
   (WPF-UI closes, fallback idle), a click WPF-UI loses (WM_NCMOUSELEAVE between press
   and release: WPF-UI clicked 0, fallback closed), a cancelled close (stays open),
   press on X released on the caption (nothing): all OK. Installed. 670 tests.
+- **Removed the same day at the user's request**: they saw no hover highlight on the
+  three window buttons with it installed. The fallback only read messages off the queue
+  (it never set handled), so whether it caused that wasn't established; the user will
+  test further later. `--window closex` is kept; without the fallback its "click WPF-UI
+  loses" case reports WRONG, which is the bug itself.
 
 ---
 

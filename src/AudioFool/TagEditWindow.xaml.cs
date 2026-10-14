@@ -31,7 +31,6 @@ public partial class TagEditWindow : FluentWindow
         DataContext = viewModel;
 
         InitializeComponent();
-        Services.CloseButtonFallback.Attach(this);
         Services.OwnerActivation.Attach(this);
 
         Owner = owner;

@@ -19,7 +19,6 @@ public partial class StatisticsWindow : FluentWindow
         DataContext = viewModel;
 
         InitializeComponent();
-        Services.CloseButtonFallback.Attach(this);
 
         Owner = owner;
 

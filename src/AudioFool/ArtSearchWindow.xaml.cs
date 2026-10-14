@@ -21,7 +21,6 @@ public partial class ArtSearchWindow : FluentWindow
         DataContext = viewModel;
 
         InitializeComponent();
-        Services.CloseButtonFallback.Attach(this);
 
         Owner = owner;
 

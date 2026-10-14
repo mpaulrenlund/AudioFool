@@ -34,7 +34,6 @@ public partial class MainWindow : FluentWindow
         DataContext = viewModel;
 
         InitializeComponent();
-        Services.CloseButtonFallback.Attach(this);
 
         ApplySongTableLayout();
         ApplyMinimumWidth();
