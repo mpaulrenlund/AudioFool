@@ -99,7 +99,7 @@ public static class PlaybackDiagnostics
     }
 
     /// <summary>Called by a chain once its device is open.</summary>
-    internal static void DeviceOpened(OutputMode mode, int rate, int depth, double bufferSeconds)
+    internal static void DeviceOpened(OutputMode mode, int rate, int depth, double bufferSeconds, string style)
     {
         EnsureWatcher();
         var bytes = BassWasapi.GetInfo(out var info) ? info.BufferLength : 0;
@@ -107,7 +107,7 @@ public static class PlaybackDiagnostics
         _lastFillStart = 0;
         _lastFillGcPause = null;
         _usualGapMs = 0;
-        Write($"device opened: {mode}, {rate} Hz, {(depth > 0 ? $"{depth}-bit" : "depth unknown")}, " +
+        Write($"device opened: {mode} ({style}), {rate} Hz, {(depth > 0 ? $"{depth}-bit" : "depth unknown")}, " +
               $"buffer {bufferSeconds * 1000:0} ms ({bytes} bytes)");
     }
 

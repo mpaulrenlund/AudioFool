@@ -3139,6 +3139,23 @@ No code changed apart from the version number. Four commits, all pushed.
   7:39:52 (a gap by design) and a 73 ms whole-app freeze at 7:40:25 with the feed on
   time. Installed; unreleased.
 
+### Session 49, part 2 (2026-10-14): Bit-Perfect mode keeps a reserve
+
+- At 7:57:56 (Bit-Perfect, 44.1 kHz) the user
+  heard a gap exactly where the log had APP STARVED 64 ms with 0 ms of GC (the PC, not
+  us) and a pull 39 ms late; yesterday's 8:24 was the same, 33 ms late. Shared mode
+  rode out 55–60 ms freezes unheard. Exclusive mode was **event-driven**: one 200 ms
+  block per device request, and on the DX5 ~35 ms late was audible. Now exclusive
+  opens **timer-driven** like shared (`OutputChain`: buffer 0.2 s, period
+  `ExclusivePeriodSeconds` 0.01; BASSWASAPI wants buffer ≥ 4× period in exclusive),
+  falling back to event-driven if refused; the log's "device opened" line names which
+  ("Exclusive (timer)"). Silent probe on the DX5 (80 s of digital silence, exclusive
+  has no volume): opened timer-driven, refills every 20 ms (max gap 22 ms) all minute,
+  reserve never below 80 ms, and an in-process CPU flood that starved the rest of the
+  probe 248 ms didn't delay a single fill. Same samples, still bit-perfect. Also fixed
+  a flaky test from session 48 (`A_failed_conversion_leaves_the_file_as_it_was`
+  looked for working files across all of %TEMP%). Installed; **the user has to listen**.
+
 ---
 
 ## Reference notes retired from the handoff

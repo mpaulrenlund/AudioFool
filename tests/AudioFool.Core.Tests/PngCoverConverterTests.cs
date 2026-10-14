@@ -110,16 +110,19 @@ public sealed class PngCoverConverterTests : IDisposable
     [Fact]
     public void A_failed_conversion_leaves_the_file_as_it_was()
     {
-        using var file = WithCover("sample.flac", Png(1000, 1000, 50_000));
-        var bytes = File.ReadAllBytes(file.Path);
+        // In this test's own folder: other tests make working files in %TEMP% at the same time.
+        using var source = WithCover("sample.flac", Png(1000, 1000, 50_000));
+        var path = Path.Combine(_folder, "song.flac");
+        File.Copy(source.Path, path);
+        var bytes = File.ReadAllBytes(path);
 
-        var none = PngCoverConverter.ConvertEmbedded(file.Path, _ => null);
-        var wrongSize = PngCoverConverter.ConvertEmbedded(file.Path, _ => Jpeg(500, 500, 100));
+        var none = PngCoverConverter.ConvertEmbedded(path, _ => null);
+        var wrongSize = PngCoverConverter.ConvertEmbedded(path, _ => Jpeg(500, 500, 100));
 
         Assert.Equal(CoverCleanOutcome.Failed, none.Outcome);
         Assert.Equal(CoverCleanOutcome.Failed, wrongSize.Outcome);
-        Assert.Equal(bytes, File.ReadAllBytes(file.Path));
-        Assert.Empty(Directory.EnumerateFiles(Path.GetDirectoryName(file.Path)!, CoverCleaner.TempPrefix + "*"));
+        Assert.Equal(bytes, File.ReadAllBytes(path));
+        Assert.Empty(Directory.EnumerateFiles(_folder, CoverCleaner.TempPrefix + "*"));
     }
 
     [Fact]

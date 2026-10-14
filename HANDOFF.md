@@ -153,6 +153,20 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   "memory clean-up postponed" / "ran". 7:40 itself: a switch into Bit-Perfect at
   7:39:52 (a gap by design) and a 73 ms whole-app freeze at 7:40:25 with the feed on
   time. Installed; unreleased.
+  **Then a second cause, the one heard:** at 7:57:56 (Bit-Perfect, 44.1 kHz) the user
+  heard a gap exactly where the log had APP STARVED 64 ms with 0 ms of GC (the PC, not
+  us) and a pull 39 ms late; yesterday's 8:24 was the same, 33 ms late. Shared mode
+  rode out 55–60 ms freezes unheard. Exclusive mode was **event-driven**: one 200 ms
+  block per device request, and on the DX5 ~35 ms late was audible. Now exclusive
+  opens **timer-driven** like shared (`OutputChain`: buffer 0.2 s, period
+  `ExclusivePeriodSeconds` 0.01; BASSWASAPI wants buffer ≥ 4× period in exclusive),
+  falling back to event-driven if refused; the log's "device opened" line names which
+  ("Exclusive (timer)"). Silent probe on the DX5 (80 s of digital silence, exclusive
+  has no volume): opened timer-driven, refills every 20 ms (max gap 22 ms) all minute,
+  reserve never below 80 ms, and an in-process CPU flood that starved the rest of the
+  probe 248 ms didn't delay a single fill. Same samples, still bit-perfect. Also fixed
+  a flaky test from session 48 (`A_failed_conversion_leaves_the_file_as_it_was`
+  looked for working files across all of %TEMP%). Installed; **the user has to listen**.
 
 - **48** (2026-10-13), four things, released as **v0.5.0**:
   - **Stutters (open).** The user hears occasional stutters while working in other
@@ -881,16 +895,17 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
-0. **Stutters (sessions 48–49)**: the post-scan memory clean-up is fixed (session 49).
-   Ask the user whether stutters still happen, especially in the first minutes after
-   launch. When they give a time, read `playback.log` around it: GC PAUSE = another
+0. **Stutters (sessions 48–49)**: two causes fixed in session 49, the post-scan memory
+   clean-up and event-driven exclusive mode. Ask the user whether stutters still
+   happen, in Bit-Perfect especially. If the PC's own freezes (APP STARVED, no GC) grow
+   past ~80 ms, LatencyMon is the next step (the user runs it). When they give a time, read `playback.log` around it: GC PAUSE = another
    full GC froze the app (find what forced it); APP STARVED with a late fill = the PC;
    LATE FILL alone with a fast fill = the driver's wake-up was late (the 8:24 case);
    SLOW FILL with little "busy" = waiting on the file (the SD card is slower than the
    SSD); nothing logged = not ours (LatencyMon). Still available: decode ahead
    (`BassFlags.AsyncFile` read-ahead, a decode-ahead buffer), MMCSS for the feed
    thread; a bigger device buffer needs the seek-bar latency fix from session 45.
-1. **Release v0.5.1** when the user asks: session 49's fix (a fix only, so the last
+1. **Release v0.5.1** when the user asks: session 49's two fixes (fixes only, so the last
    number).
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.

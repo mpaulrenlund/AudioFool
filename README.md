@@ -608,6 +608,12 @@ slider works the same way, always starting at 100%.
 | Other apps | Play normally | **Silent while a track plays** |
 | Volume slider | Works | **Disabled**, pinned to unity gain |
 | Gapless | Always | Within a run of same-rate tracks |
+| Feeding the device | A 200 ms reserve, topped up every 10 ms | A 200 ms reserve, topped up every 20 ms (never below 80 ms measured) |
+
+Both modes keep a reserve rather than handing over a whole block only when the device
+asks (exclusive mode did that until session 49; on a Topping DX5 a delivery 35 ms late
+was an audible gap). Same samples either way: only the timing of the deliveries
+changed. A device that won't open that way falls back to the old way.
 
 Two consequences worth understanding:
 

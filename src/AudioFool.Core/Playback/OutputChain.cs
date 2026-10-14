@@ -30,6 +30,9 @@ internal sealed class OutputChain : IDisposable
     /// </summary>
     private const float BufferSeconds = 0.2f;
 
+    /// <summary>How often exclusive mode tops the buffer up: shared mode's rhythm.</summary>
+    private const float ExclusivePeriodSeconds = 0.01f;
+
     /// <summary>
     /// The fade either side of a seek. A seek joins two unrelated points of the
     /// waveform, and that step is an audible click; measured on quiet orchestral
@@ -202,11 +205,33 @@ internal sealed class OutputChain : IDisposable
         // source is attached.
         var chain = new OutputChain(mixer, sampleRate, channels, mode);
 
-        var initFlags = mode == OutputMode.Exclusive
-            ? WasapiInitFlags.Exclusive | WasapiInitFlags.EventDriven | WasapiInitFlags.Buffer
-            : WasapiInitFlags.Shared | WasapiInitFlags.Buffer;
+        // Exclusive mode is topped up on a timer, as shared mode is, rather than
+        // event-driven (session 49). Event-driven pulled a whole 200 ms block each
+        // time the device asked, and on the user's DAC a pull 33-39 ms late was an
+        // audible gap (twice, both logged); shared mode rode out 60 ms ones unheard.
+        // Same samples either way: only the timing of the deliveries changes. The
+        // buffer must be at least 4x the period in exclusive mode (BASSWASAPI's docs).
+        // A device that won't open that way gets event-driven, as before.
+        var style = "timer";
+        bool opened;
+        if (mode == OutputMode.Exclusive)
+        {
+            opened = BassWasapi.Init(-1, sampleRate, channels, WasapiInitFlags.Exclusive | WasapiInitFlags.Buffer,
+                BufferSeconds, ExclusivePeriodSeconds, chain._wasapiProc);
+            if (!opened)
+            {
+                style = "event-driven";
+                opened = BassWasapi.Init(-1, sampleRate, channels, WasapiInitFlags.Exclusive | WasapiInitFlags.EventDriven | WasapiInitFlags.Buffer,
+                    BufferSeconds, 0f, chain._wasapiProc);
+            }
+        }
+        else
+        {
+            opened = BassWasapi.Init(-1, sampleRate, channels, WasapiInitFlags.Shared | WasapiInitFlags.Buffer,
+                BufferSeconds, 0f, chain._wasapiProc);
+        }
 
-        if (!BassWasapi.Init(-1, sampleRate, channels, initFlags, BufferSeconds, 0f, chain._wasapiProc))
+        if (!opened)
         {
             error = mode == OutputMode.Exclusive
                 ? $"The device would not open in exclusive mode at {sampleRate} Hz ({Bass.LastError})."
@@ -238,7 +263,7 @@ internal sealed class OutputChain : IDisposable
         }
 
         chain.DeviceBitDepth = depth;
-        PlaybackDiagnostics.DeviceOpened(mode, chain.SampleRate, depth, BufferSeconds);
+        PlaybackDiagnostics.DeviceOpened(mode, chain.SampleRate, depth, BufferSeconds, style);
         return chain;
     }
 
