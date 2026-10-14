@@ -20,10 +20,10 @@ you need the story behind a piece of code, not at the start of every session.
 | Playback log | `%LOCALAPPDATA%\AudioFool\playback.log` (stall diagnostics, rolls at 4 MB; session 48; first stutter read: see session 48 below). Readable from Claude's shell as long as the shell never writes it |
 | Native BASS DLLs | `C:\MusicPlayer\lib\bass\x64\` (13 of them) |
 | Music library | `D:\Music` — external 4 TB SSD "Marc SSD", ~26,000 tracks, 692 GB |
-
-**The single most important workflow fact:** `dotnet publish` writes to
 | Session history | `C:\MusicPlayer\HISTORY.md` (what each session changed, oldest first) |
 | Theme spec and decisions | `C:\MusicPlayer\design\` (`theme-spec.md`, `theme-tokens.json`, `progress.md`) |
+
+**The single most important workflow fact:** `dotnet publish` writes to
 `C:\MusicPlayer\publish`, which is **not** the copy the user runs. Publishing without
 copying makes it look like your change did nothing. Always finish with the copy step.
 
@@ -127,7 +127,8 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
-  a build of `main` as pushed. **658 tests** pass.
+  a build of `main` plus session 50's uncommitted changes (DSF covers, the quality
+  rule). **670 tests** pass.
 - **Last release: v0.5.0** (2026-10-13, session 48, tag on `a8bffb1`, 60.2 MB zip,
   installed). It holds everything from session 48. Session 49's fix is unreleased.
 - **PS1 is the only theme**, built from `design/theme-tokens.json`. `design/progress.md`
@@ -135,6 +136,35 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 - **Nothing is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **50** (2026-10-14): **Keep Best Cover handles DSF.** `TagPadding` reads a DSF's
+  layout (header "DSD ", chunk size 28, file size, tag pointer; one ID3v2 tag after the
+  music) and rewrites it: everything before the tag copied as is, the tag less its
+  extra APIC frames with padding cut to 5 KB, nothing after it, the file size set
+  right. `TagLayout.AudioEnd` (the pointer) bounds the music for `Verify`'s audio hash.
+  Two things found on the real files: **TagLib writes a DSF's file size one byte too
+  big** (accepted: size = tag end or tag end + 1), and the 9 *Dark Side of the Moon (R2R
+  Stereo Master)* DSFs each carry **~1.38 MB after the tag, past the header's file
+  size**, leftovers of a shrunk tag (counted as padding and dropped). Each has three
+  covers: FrontCover 1417² 38 KB (kept, by the front-cover rule), BackCover 1525² 1.19
+  MB, Artist 800×444 485 KB. Probe on copies of tracks 7 and 9 (originals untouched):
+  Cleaned, ~3.05 MB freed each, tags and duration the same, header size = file length,
+  pointer unchanged, creation date kept, a second run NothingToDo. Fixture
+  `TestData/sample.dsf` is synthetic (8 KB of random "music", no tag). 669 tests.
+  Installed, not yet run by the user on the real files.
+  **Then Quality Check:** the user had cleared 161 tracks and asked for fewer flags.
+  Measured all 161 from `E:` with the real analyzer (BASS on the no-sound device).
+  Most flags are measured facts (16-bit in 24-bit files; silence above 24 kHz), so
+  only the weakest rule changed, the user's pick: **"possibly fake hi-res" now needs
+  the 25–32 kHz band 45 dB under the treble, not 35**
+  (`QualityOpinion.FaintUltrasonicDb`); the user's 38 such tracks measured 35–44.
+  Re-measured: those 38 now clean, every other flag unchanged. `QualityCache` version
+  2, so the next check reads every track again (~11 min). Clearances are kept
+  (`quality-cleared.json`, matched by path or artist/album/file name). 670 tests.
+  Installed. Offered and declined: turning off Fake 24-bit and the "possibly" lossy
+  rows. Same session: the table at the
+  top of this file repaired; three next steps dropped (see *Dropped*); the big-artist
+  tag window confirmed.
 
 - **49** (2026-10-14): **a cause of the stutters found and fixed.** The user heard one
   at 7:40, playing from the SD card (`E:\Music`; the SSD wasn't connected). The log
@@ -905,28 +935,22 @@ Open items only; finished ones are in `HISTORY.md`.
    SSD); nothing logged = not ours (LatencyMon). Still available: decode ahead
    (`BassFlags.AsyncFile` read-ahead, a decode-ahead buffer), MMCSS for the feed
    thread; a bigger device buffer needs the seek-bar latency fix from session 45.
-1. **Release v0.5.1** when the user asks: session 49's two fixes (fixes only, so the last
-   number).
+1. **Release** when the user asks: session 49's two fixes and session 50's DSF covers.
+   DSF support is a feature, so v0.6.0 rather than v0.5.1.
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
-3. **Ask once**: does Edit Artist Tags on a big artist (Rush, Buckethead) now open at
-   once (session 47)? The art side is confirmed on both machines (2026-10-12).
-4. **A visible, editable queue view**: the most conspicuous missing player feature.
-5. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
+3. **A visible, editable queue view**: the most conspicuous missing player feature.
+4. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
    are confirmed; edge scrolling hasn't been tried.
-6. **A change of the Windows shared format isn't noticed** until AudioFool restarts
-   (`BassRuntime.OnWasapiNotify` reprobes only on a default-device change). Offered to
-   the user in session 48, not asked for; only matters with Bit-Perfect off.
-7. **Extra covers** (session 44): done for FLAC and MP3. Other formats aren't handled
-   (9 DSF files keep their extra covers).
-8. **Memory** (session 43): a FLAC metadata reader that skips PICTURE blocks (lowers
-   the scan peak), and GC tuning (`GCConserveMemory`) for the steady state. Discussed in
-   session 47 and left: it only matters during a full scan.
-9. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
+5. **Run Keep Best Cover on the 9 DSF files** (session 50): the user's step, from the
+   EXTRA COVERS row in Statistics (they show without a new check; covers.json already
+   lists them). Expect about 3 MB freed per file, ~27 MB in all.
+6. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll`, source only).
    Next step would be a spike build of `libprojectM.dll`. Nothing started.
-10. Code signing would remove the SmartScreen warning on first launch, but is rarely
-   worth the cost for a personal build.
+
+Confirmed by the user (2026-10-14, session 50): Edit Artist Tags on a big artist opens
+at once (session 47's background read).
 
 **Design notes for the next round of critique.** The user works in a screenshot loop:
 they look, then give precise notes, and lately each note removes decoration.
@@ -936,4 +960,7 @@ on. Don't add them unasked.
 **Dropped by the user (2026-10-06): don't build or suggest them.** Library-wide tag
 stripping, recovering dates lost to pre-session-12 saves from MusicBrainz, resuming
 playback on launch, a Last.fm Love button, TAK/DTS playback. Also declined
-(2026-10-07): converting hi-res files to 16-bit to save space.
+(2026-10-07): converting hi-res files to 16-bit to save space. Dropped 2026-10-14:
+noticing a change of the Windows shared format without a restart, lowering memory
+during a scan (FLAC reader skipping PICTURE blocks, `GCConserveMemory`), and code
+signing.
