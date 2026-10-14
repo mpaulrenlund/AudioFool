@@ -149,7 +149,7 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   start delay of the frames the ended one gave in that block (`SpliceDelay`, via
   `OutputChain.BeforePull`); probe on the real DSFs: sample-exact; ThemeLab `--window splice` through the real engine:
   delayed by the right number of frames. Installed. `playback.log`
-  logs each join. **The user has to listen** for the gap being gone.
+  logs each join. **Confirmed by the user** (gapless works). Repeat One was already exact (it loops the same channel mid-block), so not changed.
 
 - **50** (2026-10-14): **Keep Best Cover handles DSF.** `TagPadding` reads a DSF's
   layout (header "DSD ", chunk size 28, file size, tag pointer; one ID3v2 tag after the

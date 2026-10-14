@@ -3197,7 +3197,11 @@ No code changed apart from the version number. Four commits, all pushed.
   lets `AudioEngine.NotePullStart` note the playing stream and its position;
   `SpliceDelay` turns that into the start delay. Only when the ended track is at the
   mixer's rate (always so in Bit-Perfect); resampled shared-mode joins keep the old
-  behaviour. Repeat One's rewind still re-adds from the block start (not changed).
+  behaviour. **Repeat One needed nothing**: rewinding the ended channel in its own END sync
+  is BASSmix's looping case and continues mid-block (scratchpad `repeatprobe`, Eclipse.dsf and
+  a 96 kHz FLAC ending off the block grid: tail unchanged, start on the very next frame;
+  the re-add with a delay is ignored for a channel already in the mixer). The user confirmed
+  the gapless fix by ear.
   `playback.log` says "gapless: next track joined N frames into the block" (or "at
   the block start") at each join.
 - ThemeLab `--window splice --long "a;b"` plays a silently into b (from 2.0037 s before its
