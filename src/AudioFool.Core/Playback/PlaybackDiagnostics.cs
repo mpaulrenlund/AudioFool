@@ -54,9 +54,11 @@ public static class PlaybackDiagnostics
     private static volatile DeviceInfo? _device;
 
     // Written only by the device thread inside Fill: when the last pull began,
-    // and a running average of the gap between pulls (0 until the first gap).
+    // a running average of the gap between pulls (0 until the first gap), and the
+    // GC's total pause time when the last pull ended.
     private static long _lastFillStart;
     private static double _usualGapMs;
+    private static TimeSpan? _lastFillGcPause;
 
     // The minute's figures. Fill writes them; the watcher swaps in a fresh set.
     private static Stats _stats = new();
@@ -103,6 +105,7 @@ public static class PlaybackDiagnostics
         var bytes = BassWasapi.GetInfo(out var info) ? info.BufferLength : 0;
         _device = new DeviceInfo(mode, rate, depth, bufferSeconds * 1000, bytes);
         _lastFillStart = 0;
+        _lastFillGcPause = null;
         _usualGapMs = 0;
         Write($"device opened: {mode}, {rate} Hz, {(depth > 0 ? $"{depth}-bit" : "depth unknown")}, " +
               $"buffer {bufferSeconds * 1000:0} ms ({bytes} bytes)");
@@ -115,6 +118,7 @@ public static class PlaybackDiagnostics
     internal static void DeviceStarting()
     {
         _lastFillStart = 0;
+        _lastFillGcPause = null;
         _restarted = true;
     }
 
@@ -146,6 +150,13 @@ public static class PlaybackDiagnostics
         var gapMs = _lastFillStart == 0 ? 0 : Ms(token.Start - _lastFillStart);
         _lastFillStart = token.Start;
 
+        // A GC that suspends the app between two pulls holds the next one back at
+        // the door (the callback is managed code), so it shows in the gap, not in
+        // the fill: counted from the end of the previous fill.
+        var gapGcMs = _lastFillGcPause is { } previous ? (token.GcPause - previous).TotalMilliseconds : 0;
+        _lastFillGcPause = GC.GetTotalPauseDuration();
+        gcMs += gapGcMs;
+
         var stats = Volatile.Read(ref _stats);
         stats.Fills++;
         stats.GapSum += gapMs;
@@ -164,8 +175,9 @@ public static class PlaybackDiagnostics
         stats.SlowFills++;
         var busy = _cyclesPerMs > 0 ? $"busy ~{(cycles - token.Cycles) / _cyclesPerMs:0.0} ms" : "busy unknown";
         var buffer = _lastBufferMs >= 0 ? $"{_lastBufferMs:0} ms queued" : "queue unknown";
-        Write($"{(late ? "LATE FILL" : "SLOW FILL")}  took {tookMs:0.0} ms ({busy}, GC {gcMs:0.0} ms), " +
-              $"{gapMs:0.0} ms since the previous fill (usually {usual:0.0}), {buffer}");
+        Write($"{(late ? "LATE FILL" : "SLOW FILL")}  took {tookMs:0.0} ms ({busy}), " +
+              $"{gapMs:0.0} ms since the previous fill (usually {usual:0.0}), {buffer}, " +
+              $"GC paused the app {gcMs:0.0} ms of it");
     }
 
     private static void EnsureWatcher()
@@ -201,11 +213,23 @@ public static class PlaybackDiagnostics
             // the machine. If its own short sleep overruns badly, the app as a
             // whole was not getting the CPU; a slow fill at the same moment is
             // then the scheduler, not the disk.
+            // A blocking GC suspends this thread too, so its pause time across the
+            // sleep says which: AudioFool's own memory clean-up, or the PC.
             var slept = Stopwatch.GetTimestamp();
+            var pausedBefore = GC.GetTotalPauseDuration();
+            var gen2Before = GC.CollectionCount(2);
             Thread.Sleep(WatchIntervalMs);
             var sleptMs = Ms(Stopwatch.GetTimestamp() - slept);
             if (sleptMs > StarvedMs && _device is not null && BassWasapi.IsStarted)
-                Write($"APP STARVED  a {WatchIntervalMs} ms sleep took {sleptMs:0} ms (not given the CPU)");
+            {
+                var gcMs = (GC.GetTotalPauseDuration() - pausedBefore).TotalMilliseconds;
+                var gen2 = GC.CollectionCount(2) - gen2Before;
+                Write(gcMs >= (sleptMs - WatchIntervalMs) / 2
+                    ? $"GC PAUSE  AudioFool's memory clean-up froze the app: a {WatchIntervalMs} ms sleep took {sleptMs:0} ms, " +
+                      $"{gcMs:0} ms of it GC ({gen2} full collection{(gen2 == 1 ? "" : "s")}), {Memory()}"
+                    : $"APP STARVED  a {WatchIntervalMs} ms sleep took {sleptMs:0} ms, GC only {gcMs:0} ms of it: " +
+                      $"the PC didn't give AudioFool the CPU");
+            }
 
             if (_restarted)
             {
@@ -309,6 +333,13 @@ public static class PlaybackDiagnostics
     }
 
     private static double Ms(long ticks) => ticks * 1000.0 / Stopwatch.Frequency;
+
+    private static string Memory()
+    {
+        var info = GC.GetGCMemoryInfo();
+        return $"heap {info.HeapSizeBytes / 1048576.0:0} MB, committed {info.TotalCommittedBytes / 1048576.0:0} MB, " +
+               $"compacted {(info.Compacted ? "yes" : "no")}";
+    }
 
     [DllImport("kernel32.dll")]
     private static extern IntPtr GetCurrentThread();
