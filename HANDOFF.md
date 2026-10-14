@@ -128,33 +128,45 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
   a build of `main` as pushed. **670 tests** pass.
-- **Last release: v0.5.0** (2026-10-13, session 48, tag on `a8bffb1`, 60.2 MB zip,
-  installed). It holds everything from session 48. Session 49's fix is unreleased.
+- **Last release: v0.5.0** (2026-10-13, session 48, tag on `a8bffb1`, 60.2 MB zip).
+  Sessions 49–51 are unreleased but installed (the installed app is `main` at
+  `d95f857` or later).
 - **PS1 is the only theme**, built from `design/theme-tokens.json`. `design/progress.md`
   holds every design decision; read it before UI work.
 - **Nothing is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
-- **51** (2026-10-14): **DSD passthrough folded into Bit-Perfect** (the user's call).
-  The logo-menu item started audio when clicked (its setter jumped to the loaded track,
-  paused included). Rather than fix it, it's gone: with Bit-Perfect on, DSD goes out as
-  DoP whenever the device can clock the rate, else PCM. `DsdMode` removed everywhere.
-  Keep Best Cover has been run on the 9 DSFs (checked on E:: one front cover each, 37 KB, padding 5 KB, nothing after the tag, header size right). DoP
-  confirmed by the user ("DSD over PCM" at 352.8 kHz).
-  **Part 2: gapless joins were up to a block early.** BASSmix mixes a source added
-  from the END sync from the start of the block, so the next track overlapped the
-  last ≤ 20 ms of the one before; in DoP that sum kills the markers and the DAC drops
-  out (the gap the user heard between DSD tracks). Now the next track is added with a
-  start delay of the frames the ended one gave in that block (`SpliceDelay`, via
-  `OutputChain.BeforePull`); probe on the real DSFs: sample-exact; ThemeLab `--window splice` through the real engine:
-  delayed by the right number of frames. Installed. `playback.log`
-  logs each join. **Confirmed by the user** (gapless works). Repeat One was already exact (it loops the same channel mid-block), so not changed.
-  **Part 3: the close X sometimes does nothing (open).** WPF-UI clicks title-bar buttons
-  from WM_NC* messages and can lose a click; fine off-screen, cause not pinned down. A
-  fallback (`CloseButtonFallback`) was added and **removed at the user's request** (no hover
-  highlight on the three buttons with it; not established that it caused that). See
-  *Suggested next steps*.
+- **51** (2026-10-14), four things:
+  - **DSD passthrough folded into Bit-Perfect** (the user's call). The logo-menu item
+    started audio when clicked (its setter jumped to the loaded track, paused
+    included); rather than fix it, it's gone. With Bit-Perfect on, DSD goes out as DoP
+    whenever the device can clock the rate, else as PCM; toggling Bit-Perfect mid-track
+    reopens it in place. `DsdMode` (enum, setting, engine property) removed; a leftover
+    `"DsdMode"` key in settings.json is ignored. **Confirmed by the user**: "Exclusive ·
+    352.8 kHz · DSD over PCM" on the DSD128 *Dark Side (R2R)*, and the toggle never
+    starts audio.
+  - **Gapless joins are sample-exact.** BASSmix mixes a source added from the END sync
+    from the *start* of the block it is mixing, so the next track overlapped the last
+    ≤ 20 ms of the one ending. Inaudible in PCM, but in DoP the sum wipes out the
+    markers and the DAC drops out of DSD: the gap the user heard between DSD tracks.
+    Now the next track is added with a start delay of the frames the ended one gave in
+    that block (`AudioEngine.SpliceDelay`, fed by `OutputChain.BeforePull`); only
+    without resampling (always so in Bit-Perfect). Probe on the real DSFs: sample-exact;
+    ThemeLab `--window splice` through the real engine: the right delay. `playback.log`
+    logs each join ("gapless: next track joined N frames into the block").
+    **Confirmed by the user.** Repeat One was already exact (it rewinds the same
+    channel, which BASSmix continues mid-block); unchanged.
+  - **The 9 DSFs are down to one cover each** (Keep Best Cover, run by the user;
+    checked on E:: front cover 37 KB, padding 5 KB, nothing after the tag, header size
+    right).
+  - **The close X sometimes does nothing (open).** WPF-UI clicks title-bar buttons from
+    WM_NC* messages, not WPF input, and drops a click if anything clears its pressed
+    state between press and release. Off-screen it never failed, so the cause isn't
+    pinned down. A fallback (`CloseButtonFallback`) was added, then **removed at the
+    user's request**: they saw no hover highlight on the three window buttons with it
+    (it only read messages, so not established that it caused that). See *Suggested
+    next steps*.
 
 - **50** (2026-10-14): **Keep Best Cover handles DSF.** `TagPadding` reads a DSF's
   layout (header "DSD ", chunk size 28, file size, tag pointer; one ID3v2 tag after the
@@ -170,7 +182,7 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   Cleaned, ~3.05 MB freed each, tags and duration the same, header size = file length,
   pointer unchanged, creation date kept, a second run NothingToDo. Fixture
   `TestData/sample.dsf` is synthetic (8 KB of random "music", no tag). 669 tests.
-  Installed, not yet run by the user on the real files.
+  Installed; since run by the user on the real files (see 51).
   **Then Quality Check:** the user had cleared 161 tracks and asked for fewer flags.
   Measured all 161 from `E:` with the real analyzer (BASS on the no-sound device).
   Most flags are measured facts (16-bit in 24-bit files; silence above 24 kHz), so
@@ -956,17 +968,22 @@ Open items only; finished ones are in `HISTORY.md`.
    SSD); nothing logged = not ours (LatencyMon). Still available: decode ahead
    (`BassFlags.AsyncFile` read-ahead, a decode-ahead buffer), MMCSS for the feed
    thread; a bigger device buffer needs the seek-bar latency fix from session 45.
-1. **Release** when the user asks: session 49's two fixes and session 50's DSF covers.
-   DSF support is a feature, so v0.6.0 rather than v0.5.1. Session 51 removed the DSD passthrough item.
+1. **Release v0.6.0** when the user asks (suggested in session 51, not yet asked for).
+   It would hold: session 49's two stutter fixes, session 50's DSF covers and the
+   gentler "possibly fake hi-res" rule, and session 51's DSD-under-Bit-Perfect and
+   sample-exact gapless. New features, so the middle number.
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
 3. **A visible, editable queue view**: the most conspicuous missing player feature.
 4. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
    are confirmed; edge scrolling hasn't been tried.
 5. **The close X that sometimes does nothing** (session 51): the user will test further.
-   Check first whether the three window buttons highlight on hover in the installed app
-   (the user missed it while the fallback was in). ThemeLab `--window closex` reproduces a
-   lost click; a diagnostic log of WM_NC* messages was the other option offered.
+   First ask whether the three window buttons highlight on hover in the installed app
+   now that the fallback is gone; if they don't, that is a separate, older problem.
+   ThemeLab `--window closex` reproduces a lost click (its "click WPF-UI loses" case
+   reports WRONG while the bug is open). Options offered: a log of WM_NC* messages
+   around the buttons to catch the real cause, or the fallback again with the hover
+   question settled.
 6. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
    `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll`, source only).
    Next step would be a spike build of `libprojectM.dll`. Nothing started.
