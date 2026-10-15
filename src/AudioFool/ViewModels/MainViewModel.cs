@@ -14,6 +14,7 @@ using AudioFool.Core.Playback;
 using AudioFool.Core.Playlists;
 using AudioFool.Core.Scrobbling;
 using AudioFool.Core.Settings;
+using AudioFool.Core.Theme;
 using AudioFool.Formatting;
 using AudioFool.Services;
 
@@ -63,6 +64,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _engine.StateChanged += OnEngineStateChanged;
         _engine.PlaybackFinished += OnEnginePlaybackFinished;
         _runtime.DefaultOutputChanged += OnDefaultOutputChanged;
+        ThemeService.Switched += OnThemeSwitched;
 
         _scrobbler = new LastFmScrobbler(ScrobbleQueue.Load(ScrobbleQueue.DefaultPath, DateTimeOffset.UtcNow))
         {
@@ -452,6 +454,48 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             ? $"{unavailable[0]} is already in use by another app, so that shortcut won't work."
             : $"{string.Join(", ", unavailable)} are already in use by other apps, so those shortcuts won't work.";
     }
+
+    // ----------------------------------------------------------------- theme
+
+    /// <summary>
+    /// Light or Dark (PS2 Dark spec 3). The status bar's Theme button and Ctrl+T
+    /// switch it live, and it is saved at once, so the app opens in it next time.
+    /// Read from what is on screen rather than the setting, which ThemeLab's
+    /// throwaway settings don't match.
+    /// </summary>
+    public AppTheme Theme
+    {
+        get => ThemeService.Current;
+        set
+        {
+            if (ThemeService.Current == value)
+                return;
+
+            ThemeService.Switch(value);
+            _settings.Theme = value;
+            _settings.Save();
+        }
+    }
+
+    // Whoever switched: the button names the theme on screen.
+    private void OnThemeSwitched(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(Theme));
+        OnPropertyChanged(nameof(IsDarkTheme));
+        OnPropertyChanged(nameof(ThemeLabel));
+        OnPropertyChanged(nameof(ThemeAutomationName));
+    }
+
+    /// <summary>The button's moon; a sun when false.</summary>
+    public bool IsDarkTheme => Theme == AppTheme.Dark;
+
+    /// <summary>The theme on screen, "Dark" or "Light": the button names the current one.</summary>
+    public string ThemeLabel => Theme.ToString();
+
+    public string ThemeAutomationName => $"Theme: {ThemeLabel}";
+
+    [RelayCommand]
+    private void ToggleTheme() => Theme = Theme == AppTheme.Dark ? AppTheme.Light : AppTheme.Dark;
 
     // ---------------------------------------------------------------- output
 
@@ -2338,6 +2382,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         _scrobbler.AuthFailed -= OnScrobblerAuthFailed;
         _scrobbler.StatusChanged -= OnScrobblerStatusChanged;
+        ThemeService.Switched -= OnThemeSwitched;
 
         _scanCts?.Cancel();
         _scanCts?.Dispose();

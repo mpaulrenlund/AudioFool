@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AudioFool.Core.Theme;
 
 namespace AudioFool.Core.Settings;
 
@@ -56,6 +57,20 @@ public sealed class AppSettings
     /// </summary>
     [JsonConverter(typeof(JsonStringEnumConverter<Playback.RepeatMode>))]
     public Playback.RepeatMode Repeat { get; set; } = Playback.RepeatMode.Off;
+
+    /// <summary>
+    /// Light or Dark, saved whenever it is switched and applied before the main
+    /// window is built. Stored by name, like the other enums here, but read by
+    /// <see cref="ThemeSettingConverter"/>, which never throws.
+    /// </summary>
+    [JsonConverter(typeof(ThemeSettingConverter))]
+    public AppTheme Theme { get; set; } = DefaultTheme;
+
+    /// <summary>
+    /// When the file has no theme: the first run since the dark theme arrived, or
+    /// a new settings file (PS2 Dark spec 3.2).
+    /// </summary>
+    public const AppTheme DefaultTheme = AppTheme.Dark;
 
     /// <summary>
     /// A personal API key from fanart.tv, for the tag dialog's "Search Internet".
@@ -157,3 +172,36 @@ public sealed class AppSettings
 /// letter since.
 /// </summary>
 public sealed record LastPlayedTrack(string FilePath, string Artist, string Album);
+
+/// <summary>
+/// Reads <see cref="AppSettings.Theme"/> without ever throwing. Until session 18 the
+/// app saved a "Theme" of its own ("Dark", "Vista", "PS1"), and an old settings.json
+/// can still carry one. A strict enum reader throws on "Vista", and
+/// <see cref="AppSettings.Load"/> would then start from defaults: the music folders
+/// and the Last.fm session would be gone at the next save. So anything other than
+/// "Light" or "Dark" - another name, a number, null, an object - reads as
+/// <see cref="AppSettings.DefaultTheme"/>.
+/// </summary>
+internal sealed class ThemeSettingConverter : JsonConverter<AppTheme>
+{
+    public override bool HandleNull => true;
+
+    public override AppTheme Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        var name = reader.TokenType == JsonTokenType.String ? reader.GetString() : null;
+
+        // Past an object or an array; nothing to do for anything else.
+        reader.Skip();
+
+        foreach (var theme in Enum.GetValues<AppTheme>())
+        {
+            if (string.Equals(name, theme.ToString(), StringComparison.OrdinalIgnoreCase))
+                return theme;
+        }
+
+        return AppSettings.DefaultTheme;
+    }
+
+    public override void Write(Utf8JsonWriter writer, AppTheme value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(value.ToString());
+}

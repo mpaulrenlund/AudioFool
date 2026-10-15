@@ -68,7 +68,7 @@ If the spec and the mockup disagree, the spec wins. If the spec is silent on som
 - **No visible scrollbars.** Hide them; lists must still scroll with the mouse wheel, trackpad, and keyboard.
 - **Song rows: single-click selects, double-click plays.**
 - **Keep the existing PlayStation logo asset** (`PlayStation-Logo-1994.png`). Don't replace or redraw it.
-- **Teal means playback** (play/pause, seekbar, now-playing row). **Blue is only for artist names.** Don't add colors outside the roles in the spec.
+- **The playback color means playback** (`accent.playback`: teal in Light, blue in Dark): play/pause, the seekbar, the now-playing row. **Artist names have their own color** (`accent.blue`). Don't add colors outside the roles in the two specs.
 - **Album titles** wrap to two lines max, then "…"; tooltip only when truncated.
 
 ### How we work on the UI

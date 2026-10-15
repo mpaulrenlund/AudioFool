@@ -278,8 +278,8 @@
                                     <Path x:Name="TrianglePath"
                                           Canvas.Left="-1.6"
                                           Data="M 2.2,1.3 V 8.7 L 8.5,5 Z"
-                                          Fill="{DynamicResource color.accent.teal}"
-                                          Stroke="{DynamicResource color.accent.teal}"
+                                          Fill="{DynamicResource color.accent.playback}"
+                                          Stroke="{DynamicResource color.accent.playback}"
                                           StrokeThickness="1.2"
                                           StrokeLineJoin="Round" />
                                 </Canvas>
@@ -322,7 +322,7 @@
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         <Style.Triggers>
             <Trigger Property="local:TrackRow.IsNowPlaying" Value="True">
-                <Setter Property="Foreground" Value="{DynamicResource color.accent.tealText}" />
+                <Setter Property="Foreground" Value="{DynamicResource color.accent.playbackText}" />
                 <Setter Property="FontWeight" Value="{DynamicResource songTable.nowPlayingWeight.fontWeight}" />
             </Trigger>
         </Style.Triggers>
@@ -334,7 +334,7 @@
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         <Style.Triggers>
             <Trigger Property="local:TrackRow.IsNowPlaying" Value="True">
-                <Setter Property="Foreground" Value="{DynamicResource color.accent.tealText}" />
+                <Setter Property="Foreground" Value="{DynamicResource color.accent.playbackText}" />
                 <Setter Property="FontWeight" Value="{DynamicResource songTable.nowPlayingWeight.fontWeight}" />
             </Trigger>
         </Style.Triggers>
@@ -349,7 +349,7 @@
                 <Setter Property="Foreground" Value="{DynamicResource color.text.secondary}" />
             </DataTrigger>
             <Trigger Property="local:TrackRow.IsNowPlaying" Value="True">
-                <Setter Property="Foreground" Value="{DynamicResource color.accent.tealText}" />
+                <Setter Property="Foreground" Value="{DynamicResource color.accent.playbackText}" />
                 <Setter Property="FontWeight" Value="{DynamicResource songTable.nowPlayingWeight.fontWeight}" />
             </Trigger>
         </Style.Triggers>
@@ -697,18 +697,30 @@
 
     <!-- As MainWindow's AppTitleBar: ButtonsBackground is the minimize and
          maximize hover, PaletteRedBrush close's (the same grey, the user's call). It is a new brush
-         of the token's colour: a <StaticResource> alias here, as MainWindow
-         uses, fails to load inside a style's resources ("Value nodes must be
-         followed by EndMember"). -->
+         of the token's colour: a <StaticResource> alias fails to load inside a
+         style's resources ("Value nodes must be followed by EndMember"), and its
+         colour is a LiveColor binding so it follows a theme switch. -->
     <Style x:Key="theme.dialogTitleBar" TargetType="ui:TitleBar"
            BasedOn="{StaticResource {x:Type ui:TitleBar}}">
         <Setter Property="Height" Value="{theme:Token layout.titleBarHeight}" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="ButtonsBackground" Value="{DynamicResource color.window.buttonHover}" />
         <Style.Resources>
-            <SolidColorBrush x:Key="PaletteRedBrush" Color="{StaticResource color.window.buttonHover.value}" />
+            <SolidColorBrush x:Key="PaletteRedBrush" Color="{theme:LiveColor color.window.buttonHover}" />
             <Style TargetType="ui:TitleBarButton" BasedOn="{StaticResource theme.windowButton}" />
         </Style.Resources>
+        <!-- WPF-UI's title-bar template has a trigger that sets ButtonsBackground to
+             its own #17FFFFFF when the bar's ApplicationTheme is Dark, and a template
+             trigger outranks a style setter. The bar reads that theme once, as it is
+             built, from WPF-UI's theme manager, which this app never drives, so it
+             goes stale at a switch. A style trigger outranks a template trigger:
+             this puts the token back whatever the bar thinks the theme is.
+             MainWindow's bar sets the brush locally, which outranks both. -->
+        <Style.Triggers>
+            <Trigger Property="ApplicationTheme" Value="Dark">
+                <Setter Property="ButtonsBackground" Value="{DynamicResource color.window.buttonHover}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <!--
@@ -963,7 +975,7 @@
     <!-- ====================================================== focus rings -->
 
     <!--
-        8: keyboard focus is a 2 px accent.tealText outline (color.state.focusRing)
+        8: keyboard focus is a 2 px accent.playbackText outline (color.state.focusRing)
         2 px outside the control, as the mockup's outline-offset draws it. These
         are FocusVisualStyles, so WPF shows them only after keyboard input, never
         after a click, and draws them in the adorner layer, above the control.
@@ -1564,16 +1576,18 @@
         restated here, in the style's own resources, so nothing outside menus
         changes. A highlighted item gets the selection grey, as list rows do. The
         corners can't be set here, as WPF-UI's templates fix them (8 px drop-downs,
-        4 px highlights); MenuCorners.cs sets the theme's once an item loads.
+        4 px highlights); MenuCorners.cs sets the theme's once an item loads. The
+        colours are LiveColor bindings, as a style's resources can't name a
+        resource that a theme switch replaces.
     -->
     <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
         <Style.Resources>
-            <SolidColorBrush x:Key="FlyoutBackground" Color="{StaticResource color.panel.bg.value}" />
-            <SolidColorBrush x:Key="FlyoutBorderBrush" Color="{StaticResource color.panel.border.value}" />
-            <SolidColorBrush x:Key="MenuBarItemBackgroundSelected" Color="{StaticResource color.state.selectionBg.value}" />
-            <SolidColorBrush x:Key="MenuBarItemBackgroundPressed" Color="{StaticResource color.state.selectionBg.value}" />
-            <SolidColorBrush x:Key="MenuBarItemTextForegroundPressed" Color="{StaticResource color.text.primary.value}" />
-            <SolidColorBrush x:Key="MenuBarItemBorderBrush" Color="{StaticResource color.panel.divider.value}" />
+            <SolidColorBrush x:Key="FlyoutBackground" Color="{theme:LiveColor color.panel.bg}" />
+            <SolidColorBrush x:Key="FlyoutBorderBrush" Color="{theme:LiveColor color.panel.border}" />
+            <SolidColorBrush x:Key="MenuBarItemBackgroundSelected" Color="{theme:LiveColor color.state.selectionBg}" />
+            <SolidColorBrush x:Key="MenuBarItemBackgroundPressed" Color="{theme:LiveColor color.state.selectionBg}" />
+            <SolidColorBrush x:Key="MenuBarItemTextForegroundPressed" Color="{theme:LiveColor color.text.primary}" />
+            <SolidColorBrush x:Key="MenuBarItemBorderBrush" Color="{theme:LiveColor color.panel.divider}" />
         </Style.Resources>
         <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
     </Style>
@@ -1585,11 +1599,11 @@
     -->
     <Style x:Key="theme.logoMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
         <Style.Resources>
-            <SolidColorBrush x:Key="FlyoutBackground" Color="{StaticResource color.panel.bg.value}" />
-            <SolidColorBrush x:Key="FlyoutBorderBrush" Color="{StaticResource color.panel.border.value}" />
+            <SolidColorBrush x:Key="FlyoutBackground" Color="{theme:LiveColor color.panel.bg}" />
+            <SolidColorBrush x:Key="FlyoutBorderBrush" Color="{theme:LiveColor color.panel.border}" />
             <SolidColorBrush x:Key="MenuBarItemBackgroundSelected" Color="Transparent" />
             <SolidColorBrush x:Key="MenuBarItemBackgroundPressed" Color="Transparent" />
-            <SolidColorBrush x:Key="MenuBarItemBorderBrush" Color="{StaticResource color.panel.divider.value}" />
+            <SolidColorBrush x:Key="MenuBarItemBorderBrush" Color="{theme:LiveColor color.panel.divider}" />
         </Style.Resources>
         <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
     </Style>

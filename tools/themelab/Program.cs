@@ -46,6 +46,14 @@ internal static class Program
 
         _brushDump = Arg(args, "--brushdump") is not null;
 
+        // --theme light|dark: the theme to start in; light unless asked, so every
+        // recipe renders as it always has. --switch light|dark: switch to that one
+        // live, as the Theme button does, just before the first render, once every
+        // window in the case is built - a live switch must look exactly like a
+        // start in that theme.
+        _theme = ThemeArg(args, "--theme") ?? AudioFool.Core.Theme.AppTheme.Light;
+        _switchTo = ThemeArg(args, "--switch");
+
         var app = new LabApp();
         app.InitializeComponent();
 
@@ -53,7 +61,7 @@ internal static class Program
         {
             // After Apply, so the dump shows what the theme and
             // ApplicationAccentColorManager actually leave in place.
-            ThemeService.Apply();
+            ThemeService.Apply(_theme);
             Dump(dumpPath, Arg(args, "--dumpkeys"));
             return 0;
         }
@@ -104,7 +112,7 @@ internal static class Program
         if (which == "folders")
         {
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
-            ThemeService.Apply();
+            ThemeService.Apply(_theme);
             var cachePath = AudioFool.Core.Library.LibraryCache.CachePath;
             var saved = new Dictionary<string, byte[]?>
             {
@@ -191,7 +199,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "analysis" or "clear" or "waveform" or "device" or "splice" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "analysis" or "clear" or "waveform" or "device" or "splice" or "themeswitch" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -212,7 +220,7 @@ internal static class Program
 
         // Same order as App.OnStartup: theme first, then the window, because a
         // DynamicResource Style is resolved as the element initialises.
-        ThemeService.Apply();
+        ThemeService.Apply(_theme);
 
         var main = new MainWindow(vm);
         Application.Current.MainWindow = main;
@@ -1456,6 +1464,11 @@ internal static class Program
                 double.Parse(Arg(args, "--at") ?? "0.4", CultureInfo.InvariantCulture), outPath, w, h, scale);
             return 0;
         }
+
+        if (which == "themeswitch")
+            return RunThemeSwitch(main, vm, engine,
+                Arg(args, "--file") ?? throw new ArgumentException("--window themeswitch needs --file <audio file>"),
+                Arg(args, "--artfile"), outPath, w, h, scale);
 
         if (which is "edit" or "queue" or "clicks" or "multiedit" or "albumeditor" or "trackeditor" or "covers" or "pngconvert")
         {
@@ -2921,8 +2934,45 @@ internal static class Program
     /// </summary>
     private static bool _direct;
 
+    /// <summary>--theme: the theme every window is built in.</summary>
+    private static AudioFool.Core.Theme.AppTheme _theme;
+
+    /// <summary>--switch: the theme to switch to before the first render; cleared once done.</summary>
+    private static AudioFool.Core.Theme.AppTheme? _switchTo;
+
+    private static AudioFool.Core.Theme.AppTheme? ThemeArg(string[] args, string name) => Arg(args, name) switch
+    {
+        null => null,
+        var s when Enum.TryParse<AudioFool.Core.Theme.AppTheme>(s, ignoreCase: true, out var t) && Enum.IsDefined(t) => t,
+        var s => throw new ArgumentException($"{name} takes light or dark, not \"{s}\""),
+    };
+
+    /// <summary>
+    /// --switch: the live switch, through ThemeService as the app does it, with
+    /// every window of the case open. Times the switch itself (the resources) and
+    /// the redraw after it. Nothing is laid out again by hand: layout re-runs on
+    /// whatever the switch invalidated, with the sizes the case gave it, as in the
+    /// app (measuring a hand-laid dialog again at the bitmap's whole-pixel size
+    /// moved it a pixel, and squeezed a menu measured unconstrained).
+    /// </summary>
+    private static void SwitchIfAsked()
+    {
+        if (_switchTo is not { } target)
+            return;
+
+        _switchTo = null;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        ThemeService.Switch(target);
+        var swapped = clock.Elapsed.TotalMilliseconds;
+        Application.Current.MainWindow?.UpdateLayout();
+        Pump();
+        Console.WriteLine($"switch: to {ThemeService.Current}, resources {swapped:0} ms, laid out and drawn {clock.Elapsed.TotalMilliseconds:0} ms");
+    }
+
     private static void Save(Visual window, string path, double w, double h, double scale)
     {
+        SwitchIfAsked();
+
         var dpi = 96 * scale;
         var rtb = new RenderTargetBitmap(
             (int)Math.Round(w * scale), (int)Math.Round(h * scale),
@@ -3546,7 +3596,7 @@ internal static class Program
             (System.Windows.Input.Key.B, "BitPerfect"), (System.Windows.Input.Key.F, "Search"), (System.Windows.Input.Key.L, "Like"),
             (System.Windows.Input.Key.M, "Mute"), (System.Windows.Input.Key.J, "GoToPlaying"), (System.Windows.Input.Key.Left, "Previous"),
             (System.Windows.Input.Key.Right, "Next"), (System.Windows.Input.Key.Up, "VolumeUp"), (System.Windows.Input.Key.Down, "VolumeDown"),
-            (System.Windows.Input.Key.A, "None"), (System.Windows.Input.Key.C, "None"),
+            (System.Windows.Input.Key.T, "Theme"), (System.Windows.Input.Key.A, "None"), (System.Windows.Input.Key.C, "None"),
         };
         foreach (var (where, at) in new (string, DependencyObject?)[] { ("window", null), ("song table", grid), ("Artists", artistList), ("Shuffle button", shuffleButton) })
         {
@@ -3565,11 +3615,13 @@ internal static class Program
             Expect($"search box, Ctrl+{key}", Resolve(key, ctrl, search), "None");
         Expect("search box, Ctrl+S", Resolve(System.Windows.Input.Key.S, ctrl, search), "Shuffle");
         Expect("search box, Ctrl+B", Resolve(System.Windows.Input.Key.B, ctrl, search), "BitPerfect");
+        Expect("search box, Ctrl+T", Resolve(System.Windows.Input.Key.T, ctrl, search), "Theme");
 
         // In an open menu: nothing.
         var menuItem = new System.Windows.Controls.MenuItem();
         Expect("menu item, Space", Resolve(System.Windows.Input.Key.Space, none, menuItem), "None");
         Expect("menu item, Ctrl+S", Resolve(System.Windows.Input.Key.S, ctrl, menuItem), "None");
+        Expect("menu item, Ctrl+T", Resolve(System.Windows.Input.Key.T, ctrl, menuItem), "None");
 
         // A type-ahead under way: Space is part of the name.
         var buffer = typeof(MainWindow).GetField("_typeAheadBuffer", own)!;
@@ -3593,7 +3645,7 @@ internal static class Program
             if (editor is not null)
             {
                 Expect("cell edit, Space", Resolve(System.Windows.Input.Key.Space, none, editor), "None");
-                foreach (var key in new[] { System.Windows.Input.Key.S, System.Windows.Input.Key.W, System.Windows.Input.Key.Left, System.Windows.Input.Key.Up })
+                foreach (var key in new[] { System.Windows.Input.Key.S, System.Windows.Input.Key.W, System.Windows.Input.Key.T, System.Windows.Input.Key.Left, System.Windows.Input.Key.Up })
                     Expect($"cell edit, Ctrl+{key}", Resolve(key, ctrl, editor), "None");
             }
             grid.CancelEdit();
@@ -4542,6 +4594,167 @@ internal static class Program
     /// window title and the scrobbler get as each comes up - once through a
     /// gapless handover and once through Next.
     /// </summary>
+    /// <summary>
+    /// --window themeswitch --file <audio> [--artfile <image>]: the live switch as
+    /// the user makes it (PS2 Dark spec 3.2). The real library in the lists, an
+    /// artist, album and song picked far enough down that each list has scrolled,
+    /// the file playing on the real engine (silently: volume 0, shared mode), and
+    /// two dialogs open: the art viewer, shown off-screen like the main window,
+    /// and the Analyze window, laid out unshown as --window analysis does. Then a
+    /// switch with the Theme button (its automation peer, as a click would) and
+    /// one back with Ctrl+T (HandleShortcut), each timed and followed by checks of
+    /// what must not change: the same song playing on, the selections, the scroll
+    /// positions, the dialogs still open. The view model saves the theme at each
+    /// switch, so settings.json is put back afterwards. Renders the main window and
+    /// the viewer as they end, which is the theme they started in.
+    /// </summary>
+    private static int RunThemeSwitch(MainWindow main, MainViewModel vm, AudioEngine engine, string file, string? artFile,
+        string outPath, double w, double h, double scale)
+    {
+        var settingsKept = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null;
+        var failures = 0;
+        void Check(string what, bool ok, string detail = "")
+        {
+            if (!ok) failures++;
+            Console.WriteLine($"  {(ok ? "ok   " : "WRONG")} {what}{(detail.Length > 0 ? ": " + detail : "")}");
+        }
+
+        string Hex(Brush? brush) => brush is SolidColorBrush s ? s.Color.ToString() : brush?.GetType().Name ?? "none";
+        double Offset(DependencyObject list) =>
+            Descendants<System.Windows.Controls.ScrollViewer>(list).First().VerticalOffset;
+
+        AudioFool.ArtWindow? viewer = null;
+        try
+        {
+            LoadRealLibrary(vm);
+            Pump();
+            var artists = (System.Windows.Controls.ListBox)main.FindName("ArtistList");
+            var albums = (System.Windows.Controls.ListBox)main.FindName("AlbumList");
+            var grid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
+            var button = (System.Windows.Controls.Button)main.FindName("ThemeButton");
+
+            // Past the middle of Artists, with enough albums that picking the last
+            // one scrolls the Albums list too.
+            vm.SelectedArtist = vm.Artists.Skip(vm.Artists.Count / 2).FirstOrDefault(a => a.Albums.Count >= 12) ?? vm.Artists[^1];
+            Settle(300);
+            if (vm.Albums.Count > 0)
+                vm.SelectedAlbum = vm.Albums[^1];
+            Settle(300);
+            if (grid.Items.Count > 0)
+            {
+                grid.SelectedItem = grid.Items[^1];
+                grid.ScrollIntoView(grid.SelectedItem);
+            }
+            Settle(300);
+
+            // Playing, silently.
+            var track = AudioFool.Core.Library.TagReader.Read(file);
+            vm.Volume = 0;
+            engine.Play([track], 0);
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (engine.State != PlaybackState.Playing && clock.ElapsedMilliseconds < 5000)
+                Settle(50);
+            Settle(1000);
+
+            // The dialogs.
+            if (artFile is not null)
+            {
+                var album = new Album { Title = "Scratch", ArtistName = "ThemeLab", FolderArtPath = artFile };
+                var art = new AlbumArtService().GetFullAlbumArtAsync(album).GetAwaiter().GetResult()
+                    ?? throw new InvalidOperationException($"no art in {artFile}");
+                viewer = new AudioFool.ArtWindow(art, "ThemeLab - Scratch", main)
+                {
+                    ShowActivated = false,
+                    ShowInTaskbar = false,
+                    Left = -20000,
+                    Top = -20000,
+                };
+                viewer.Show();
+            }
+
+            var analysis = new AudioFool.AnalysisWindow(new AnalysisViewModel(track), main);
+            analysis.ApplyTemplate();
+            var analysisRoot = (FrameworkElement)analysis.Content;
+            analysisRoot.Measure(new Size(880, 600));
+            analysisRoot.Arrange(new Rect(0, 0, 880, 600));
+            Settle(300);
+
+            var viewerRoot = viewer?.Content as System.Windows.Controls.Panel;
+            var picked = (vm.SelectedArtist, vm.SelectedAlbum, grid.SelectedItem);
+            var scrolled = (Artists: Offset(artists), Albums: Offset(albums), Songs: Offset(grid));
+            var started = ThemeService.Current;
+            Console.WriteLine($"start: {started}, playing '{engine.CurrentTrack?.Title}' {engine.State} at {engine.Position.TotalSeconds:0.00} s; "
+                + $"artist '{vm.SelectedArtist?.Name}', album '{vm.SelectedAlbum?.Album.Title}', song '{(grid.SelectedItem as Track)?.Title}'; "
+                + $"scrolled {scrolled.Artists:0} / {scrolled.Albums:0} / {scrolled.Songs:0}; "
+                + $"button '{System.Windows.Automation.AutomationProperties.GetName(button)}'; windows open {Application.Current.Windows.Count}");
+
+            void After(string how, AudioFool.Core.Theme.AppTheme expected, TimeSpan position, double ms)
+            {
+                var windowBg = (Brush)main.FindResource("color.window.bg");
+                Console.WriteLine($"{how}: {ThemeService.Current} in {ms:0} ms (to the next idle, layout and render included)");
+                Check("theme", ThemeService.Current == expected, ThemeService.Current.ToString());
+                Check("button name", System.Windows.Automation.AutomationProperties.GetName(button) == $"Theme: {expected}",
+                    System.Windows.Automation.AutomationProperties.GetName(button));
+                Check("still playing the same song", engine.State == PlaybackState.Playing && engine.CurrentTrack?.FilePath == track.FilePath,
+                    $"{engine.State} '{engine.CurrentTrack?.Title}'");
+                Check("position moved on", engine.Position > position, $"{position.TotalSeconds:0.00} -> {engine.Position.TotalSeconds:0.00} s");
+                Check("same artist, album and song selected",
+                    ReferenceEquals(picked.SelectedArtist, vm.SelectedArtist) && ReferenceEquals(picked.SelectedAlbum, vm.SelectedAlbum)
+                    && ReferenceEquals(picked.SelectedItem, grid.SelectedItem));
+                Check("lists where they were scrolled",
+                    Offset(artists) == scrolled.Artists && Offset(albums) == scrolled.Albums && Offset(grid) == scrolled.Songs,
+                    $"{Offset(artists):0} / {Offset(albums):0} / {Offset(grid):0}");
+                Check("art viewer open, in the new colours", viewer is null || (viewer.IsVisible && Hex(viewerRoot?.Background) == Hex(windowBg)),
+                    viewer is null ? "(no --artfile)" : Hex(viewerRoot?.Background));
+                Check("Analyze window in the new colours", Hex(((System.Windows.Controls.Panel)analysisRoot).Background) == Hex(windowBg),
+                    Hex(((System.Windows.Controls.Panel)analysisRoot).Background));
+                var saved = File.Exists(AppSettings.SettingsPath) ? File.ReadAllText(AppSettings.SettingsPath) : "";
+                Check("saved in settings.json", saved.Contains($"\"Theme\": \"{expected}\""),
+                    System.Text.RegularExpressions.Regex.Match(saved, "\"Theme\": \"\\w+\"").Value);
+            }
+
+            var other = started == AudioFool.Core.Theme.AppTheme.Dark ? AudioFool.Core.Theme.AppTheme.Light : AudioFool.Core.Theme.AppTheme.Dark;
+
+            // 1. The Theme button, as a click would press it.
+            var before = engine.Position;
+            clock.Restart();
+            var peer = new System.Windows.Automation.Peers.ButtonAutomationPeer(button);
+            ((System.Windows.Automation.Provider.IInvokeProvider)peer.GetPattern(System.Windows.Automation.Peers.PatternInterface.Invoke)).Invoke();
+            Pump();
+            After("Theme button", other, before, clock.Elapsed.TotalMilliseconds);
+            Settle(500);
+
+            // 2. Ctrl+T back.
+            const System.Reflection.BindingFlags own = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            before = engine.Position;
+            clock.Restart();
+            var handled = (bool)typeof(MainWindow).GetMethod("HandleShortcut", own)!
+                .Invoke(main, [System.Windows.Input.Key.T, System.Windows.Input.ModifierKeys.Control, false, null])!;
+            Pump();
+            Check("Ctrl+T handled", handled);
+            After("Ctrl+T", started, before, clock.Elapsed.TotalMilliseconds);
+
+            engine.Pause();
+            Settle(300);
+            Save(main, outPath, w, h, scale);
+            if (viewer is not null && viewerRoot is not null)
+                Save(viewerRoot, Path.ChangeExtension(outPath, null) + "-viewer.png", viewerRoot.ActualWidth, viewerRoot.ActualHeight, scale);
+            Console.WriteLine("wrote " + outPath);
+        }
+        finally
+        {
+            engine.Stop();
+            viewer?.Close();
+            if (settingsKept is not null)
+                File.WriteAllBytes(AppSettings.SettingsPath, settingsKept);
+            else if (File.Exists(AppSettings.SettingsPath))
+                File.Delete(AppSettings.SettingsPath);
+        }
+
+        Console.WriteLine(failures == 0 ? "RESULT: all checks passed" : $"RESULT: {failures} WRONG");
+        return failures == 0 ? 0 : 1;
+    }
+
     /// <summary>
     /// --window seek --file <audio>: a click on the seek bar's track, with the real
     /// engine playing silently (volume 0, shared mode). The window is parked to

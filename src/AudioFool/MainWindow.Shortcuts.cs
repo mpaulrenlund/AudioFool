@@ -17,7 +17,7 @@ public partial class MainWindow
     internal enum Shortcut
     {
         None, PlayPause, Statistics, Analyze, Art, Shuffle, Scan, Repeat, BitPerfect,
-        Search, Like, Mute, GoToPlaying, Previous, Next, VolumeUp, VolumeDown,
+        Search, Like, Mute, GoToPlaying, Previous, Next, VolumeUp, VolumeDown, Theme,
     }
 
     private const double VolumeStep = 0.05;
@@ -91,6 +91,7 @@ public partial class MainWindow
             Key.R => Shortcut.Scan,
             Key.E => Shortcut.Repeat,
             Key.B => Shortcut.BitPerfect,
+            Key.T => Shortcut.Theme,
             Key.F => Shortcut.Search,
             Key.L => Shortcut.Like,
             Key.M => Shortcut.Mute,
@@ -137,6 +138,9 @@ public partial class MainWindow
                 break;
             case Shortcut.BitPerfect when _viewModel.CanUseExclusiveOutput:
                 _viewModel.IsExclusiveOutput = !_viewModel.IsExclusiveOutput;
+                break;
+            case Shortcut.Theme:
+                _viewModel.ToggleThemeCommand.Execute(null);
                 break;
             case Shortcut.Search:
                 SearchBox.Focus();

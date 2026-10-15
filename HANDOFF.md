@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-14, session 51. Read this alongside `README.md`: the README covers
+Updated 2026-10-14, session 52. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -127,15 +127,32 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
-  a build of `main` as pushed. **670 tests** pass.
+  a build of `main`. **692 tests** pass.
 - **Last release: v0.5.0** (2026-10-13, session 48, tag on `a8bffb1`, 60.2 MB zip).
-  Sessions 49–51 are unreleased but installed (the installed app is `main` at
-  `d95f857` or later).
-- **PS1 is the only theme**, built from `design/theme-tokens.json`. `design/progress.md`
-  holds every design decision; read it before UI work.
-- **Nothing is half-done.** Open items are under *Suggested next steps* at the end.
+  Sessions 49–52 are unreleased but installed.
+- **Two themes, PS1 Light and PS2 Dark, switched live** (session 52): the status bar's
+  Theme button or Ctrl+T; saved; **Dark when nothing is saved**, so the first launch
+  after session 52's install opens in Dark. PS2 Dark is build session 1 of 3: the two
+  glows (session 2) and the polish pass (session 3) are still to come, and the app is
+  consistent without them. `design/progress.md` holds every design decision (PS1, and
+  the PS2 Dark section); read it before UI work.
+- **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **52** (2026-10-14): **PS2 Dark, build session 1 of 3** (the user's design in
+  `design/ps2-dark/`). Two token sets with the same keys (parity tests), the §9 rename
+  (`accent.playback`, `accent.playbackText`), `AppSettings.Theme` (Dark by default; an
+  unknown value reads as Dark without losing the file), `ThemeService.Switch`, every
+  colour made to follow a switch (see *The themes* below), the Theme chip left of
+  Bit-Perfect and Ctrl+T. ThemeLab: `--theme`, `--switch`, `--window themeswitch`.
+  Verified off-screen: Light renders identical to HEAD apart from the new chip and
+  the shortcut guide's new row; every window, dialog and menu after a live switch
+  pixel-identical to a fresh start in that theme, both ways, and every brush (hover
+  and pressed included) the same; a switch with music playing and two dialogs open
+  keeps playback, selections and scroll, ~80–100 ms. In the user's own installed
+  instance (no Theme saved): opened in Dark, switched to Light and back by UI
+  Automation while a song played, identical afterwards apart from the moving seek bar.
 
 - **51** (2026-10-14), four things:
   - **DSD passthrough folded into Bit-Perfect** (the user's call). The logo-menu item
@@ -323,45 +340,71 @@ search active) or `LibraryScanner.Build(matched)` (search active).
 Drive-letter relocation (`RelocateMovedFoldersAsync`) updates `FolderFilterItem.FolderPath`
 in place alongside `MusicFolders[index]`.
 
-### The theme (one, since session 18)
-PS1 is the only theme. The Dark and Vista themes, the Themes menu, `ThemeItem`,
-`AppSettings.Theme` and runtime switching were removed in session 18 at the user's
-request, so that no session spends time keeping them working. A leftover `"Theme"`
-key in `settings.json` is ignored on load and dropped on the next save.
+### The themes (two since session 52, switched live)
+**PS1 Light** (`design/theme-tokens.json`, spec `design/theme-spec.md`) and **PS2 Dark**
+(`design/ps2-dark/theme-tokens.dark.json`; `design/ps2-dark/theme-spec.md` holds only
+what differs). Same keys and sizes in both files; only `color.*` and `shadow.*` differ,
+and the parity tests in `ThemeTokensTests` hold them to that. **`design/progress.md` is
+the reference** for how screens use the tokens (the token-usage table), for every
+decision, and for where the PS2 Dark build sessions stand (two of three left).
+(Session 18 removed an earlier Dark and Vista; nothing of them was brought back.)
 
-Since session 31 it is the **new** PS1 theme alone, specified in `design/` and built
-from `design/theme-tokens.json`. **`design/progress.md` is the reference** for how
-screens use it (the token-usage table) and for every decision.
+- **The setting:** `AppSettings.Theme`, `Light` or `Dark` by name, **Dark when
+  missing**. Read by `ThemeSettingConverter`, which never throws: anything else (the
+  pre-session-18 "Vista" or "PS1", a number, null) reads as Dark and the rest of the
+  file still loads. A strict reader would make `Load` fall back to defaults.
+- **Startup:** `ThemeService.Apply(settings.Theme)` in `App.OnStartup`, before the
+  window is built (see *Apply the theme before building the window*). It swaps WPF-UI's
+  base dictionary to Dark if needed (`App.xaml` merges Light), merges the token
+  resources (`Theming/TokenResources.cs`, the embedded JSON for that theme) and then
+  `Theming/Chrome.xaml` (the `theme.*` components, plus implicit `ToolTip`,
+  `ContextMenu` and `MenuItem` styles), sets WPF-UI's accent and the window borders.
+  `App.xaml` holds nothing themeable, and every window declares
+  `WindowBackdropType="None"` in its XAML.
+- **A switch:** the status bar's Theme button and Ctrl+T run
+  `MainViewModel.ToggleThemeCommand` → `ThemeService.Switch(theme)`, then save the
+  setting. `Switch` builds the other token set and puts it where the first one was in
+  `Application.Resources`, swaps WPF-UI's base, re-applies the accent, refreshes
+  `{theme:LiveColor}`, tells the window borders, and raises `ThemeService.Switched`
+  (the view model relabels the button from it). Only resources change, so playback,
+  selections, scroll positions and open dialogs stay put. About 80–110 ms in ThemeLab,
+  layout and redraw included.
+- **What makes every colour follow:** `DynamicResource` everywhere (174 `color.*` and
+  12 `shadow.*` references); the `type.*` styles' text colour is a `DynamicResource`
+  too, so the 17 styles `BasedOn` them through `StaticResource` follow;
+  `{theme:LiveColor color.x}` for the 11 brushes inside styles' own resources (WPF-UI
+  keys for menus and title bars), which `DynamicResource` can't reach; code looks
+  colours up as it draws (MoldedFace also holds a reference to its first inset brush, so
+  a switch always redraws it). `{theme:Token}` reads once, so it refuses colours,
+  effects and styles.
+- **Popups:** a context menu or tooltip isn't in its window's tree, so a switch skips it
+  while closed, and WPF refreshes it as it opens (`Popup` re-registers with its placement
+  target and invalidates its subtree on every open; checked in WPF's source).
+- **The window border:** `Theming/WindowFrames.cs` sets `DWMWA_USE_IMMERSIVE_DARK_MODE`
+  on each window in Dark (cleared in Light): open ones at a switch, new ones at their
+  first `SizeChanged`.
 
-`ThemeService.Apply()` runs once in `App.OnStartup`, before the window is built. It
-merges the token resources (`Theming/TokenResources.cs`, from the embedded JSON) and
-then `Theming/Chrome.xaml` (the `theme.*` components, plus implicit `ToolTip`,
-`ContextMenu` and `MenuItem` styles), then sets WPF-UI's accent. `App.xaml` starts on
-WPF-UI's **Light** base and holds nothing themeable, and every window declares
-`WindowBackdropType="None"` in its XAML.
-
-**The accent** is `color.control.iconNeutral`, the theme's dark grey. Nothing visible
+**The accent** is `color.control.iconNeutral`, the theme's control grey. Nothing visible
 reads it (every button, check box and text box has a template of its own); it is set
 so a stock state can't pick up the Windows accent.
 - **`ApplicationAccentColorManager.ApplySystemAccent()` silently does nothing here.**
   It resolves the theme through `ApplicationThemeManager`, which this app never
-  drives. Use the explicit `Apply(color, ApplicationTheme.Light)` overload.
+  drives. Use the explicit `Apply(color, ApplicationTheme.Light / .Dark)` overload.
 - It writes its brushes straight into `Application.Resources`, which outranks every
-  merged dictionary. The old theme copied its own values back over them; nothing needs
-  to now.
+  merged dictionary, so a switch writes them again.
 
 **WPF-UI's own keys are not overridden.** The old `Ps1Theme.xaml` restated about 160 of
-them; since session 31 they are WPF-UI's Light values, and a ThemeLab brush dump
-(`--brushdump 1`) showed none reaching anything visible. Where a stock control still
-shows (the filter chip is a `ui:Button`; menu items use WPF-UI's templates), its
-colours are set from tokens on the control or in its style's own resources, as the
-`MenuItem` styles in `Chrome.xaml` do. A new stock control needs the same treatment.
+them; since session 31 they are WPF-UI's own values (Light, or Dark in Dark), and a
+ThemeLab brush dump (`--brushdump 1`) showed none reaching anything visible. Where a
+stock control still shows (the filter chip is a `ui:Button`; menu items use WPF-UI's
+templates), its colours are set from tokens on the control or in its style's own
+resources, as the `MenuItem` styles in `Chrome.xaml` do. A new stock control needs the
+same treatment.
 
 Still load-bearing from the old design system:
 
-- **Use `DynamicResource` for styles, templates and brushes in windows.** The theme
-  is merged before any window is built, so `StaticResource` would probably work too,
-  but it has not been tested.
+- **Use `DynamicResource` for styles, templates and brushes in windows**, and never
+  `StaticResource` for a colour or shadow: a theme switch replaces them.
 - **`WindowBackdropType.None`** on every window, and a dialog paints `color.window.bg`
   on its root (see *A dialog has no shell* under Gotchas).
 - **Letter spacing** is `Formatting/LetterSpacing.cs` (`LetterSpacing.Em`). WPF has no
@@ -602,7 +645,7 @@ the DAC, and that an advancing position proves the WASAPI callback is actually r
 
 ## Apply the theme *before* building the window
 
-`App.OnStartup` calls `ThemeService.Apply()` before
+`App.OnStartup` calls `ThemeService.Apply(settings.Theme)` before
 `new MainWindow(...)`, and the order matters:
 
 - A `DynamicResource` for a **Style or Template** is resolved while the element is
@@ -615,8 +658,9 @@ the DAC, and that an advancing position proves the WASAPI callback is actually r
   first render. That is what makes this so easy to miss: getting it backwards looks
   like a *half*-applied theme — right colours, wrong panels — rather than no theme.
 
-There is no switching at runtime since session 18, so this is the only time the theme
-is applied.
+A switch at runtime (session 52) is the other case: every window it has to reach is
+open, so `Application.Resources` notifies them all, and a window opened later is built
+in the new theme as at startup.
 
 ## ThemeLab: reviewing a theme without touching the desktop
 
@@ -647,7 +691,7 @@ ThemeLab.exe --window tags --track "Polygon Weather"         # track dialog on a
 ThemeLab.exe --window tags --album "Saturn Return" --set "!Comment;Genre=Ambient"
 ThemeLab.exe --window tags --album "The Inevitable End" --set "^Zeros"   # press Remove Leading Zeros
 ThemeLab.exe --window artsearch --artist "Rush" --album "Moving Pictures" --use 1 --w 820 --h 640
-ThemeLab.exe --artmenu 1          # the album header art's context menu
+ThemeLab.exe --artmenu 1          # the playlist header picture's context menu. Opens a REAL popup, which Windows keeps on a monitor: it can flash on the desktop
 ThemeLab.exe --window tags --album "Goodbye Yellow Brick Road" --pick 1-8 --set "DiscCount=2"  # a grid selection
 ThemeLab.exe --rows 1,2,3,4       # several selected grid rows
 ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
@@ -678,6 +722,9 @@ ThemeLab.exe --window multiedit --w 1720 --h 1080   # several artists, then albu
 ThemeLab.exe --window albumeditor --w 1720 --h 1080 # the album tag window following the list: move, Save / Don't Save / Cancel, rename, Close (scratch files); renders <out>-window.png / -prompt.png
 ThemeLab.exe --window clear --w 1720 --h 1080 --qualitycache scratch\quality.json [--clearances scratch\cleared.json]   # clear an album and a song from the first Quality Check row with songs, the menus, Put Back, the Analyze buttons; renders the Analyze window (make the cache first with --window stats --qualitycache ... --qualitycheck 1 --qualitystop 75)
 ThemeLab.exe --window trackeditor --w 1720 --h 1080 # the song tag window following the table, the same cases (scratch files)
+ThemeLab.exe --theme dark                       # every window built in PS2 Dark (light by default)
+ThemeLab.exe --theme light --switch dark        # built in Light, switched live before the first render: must match --theme dark pixel for pixel
+ThemeLab.exe --window themeswitch --file <audio> --artfile <image> [--theme dark]   # switch by the Theme button and back by Ctrl+T with the real library, the file playing silently, the art viewer and Analyze open; checks playback, selection, scroll, dialogs, settings.json (restored)
 ```
 
 
@@ -758,9 +805,17 @@ Three things it took a while to get right, all worth keeping if it is rebuilt:
   (`pack://application:,,,/AudioFool;component/Themes/...`). The harness also mirrors
   `Resources/logo.png` and `AudioFool.ico`, which `MainWindow.xaml` loads by relative URI.
 - **The harness paints `--bg` behind the window first** (dark grey by default).
-  PS1 is opaque, so none of it should show; that is what makes `--bg "#FF00FF"` a
-  gap detector. `--theme` and `--switch` went with the other themes in session 18;
-  `--theme` is now ignored if passed.
+  Both themes are opaque, so none of it should show; that is what makes
+  `--bg "#FF00FF"` a gap detector. (Today every main-window render has a 6 px magenta
+  strip at the right edge, and the 1720 × 1080 ones a larger area: the canvas is wider
+  than the window ThemeLab lays out. The same counts on HEAD; compare counts, not zero.)
+- **`--theme light|dark`** picks the theme every window is built in (light when not
+  given, so old recipes render as before). **`--switch light|dark`** switches live,
+  through `ThemeService.Switch`, just before the first render, once the case has built
+  its windows; a switched render must match a fresh start in that theme pixel for pixel.
+  It doesn't reach the free-standing context menu and tooltip `--popupshot` builds
+  (outside any window, never opened; WPF refreshes real ones as they open), nor
+  `--window tokens`' specimen, which draws token values as data.
 
 It renders off-screen at `Left = -20000` with `ShowActivated = false`, so nothing
 appears and nothing takes focus. `Keyboard.Focus` still works on an unactivated
@@ -958,6 +1013,13 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
+- **PS2 Dark build sessions 2 and 3** (the user's plan; prompts in
+  `design/ps2-dark/session-prompts.md`, session 1's notes and decisions in
+  `design/progress.md` → PS2 Dark). Left for them from session 1: Statistics' warning
+  bars borrow `status.lastFmOff`, so they are standby red in Dark (yellow in Light),
+  worth a look in session 3's eye check; §1/§7.2 say Close turns red on hover "as in
+  PS1", but PS1's Close hovers grey since 2026-10-02 (progress.md), so session 2 should
+  ask which Dark wants.
 0. **Stutters (sessions 48–49)**: two causes fixed in session 49, the post-scan memory
    clean-up and event-driven exclusive mode. Ask the user whether stutters still
    happen, in Bit-Perfect especially. If the PC's own freezes (APP STARVED, no GC) grow
@@ -970,8 +1032,9 @@ Open items only; finished ones are in `HISTORY.md`.
    thread; a bigger device buffer needs the seek-bar latency fix from session 45.
 1. **Release v0.6.0** when the user asks (suggested in session 51, not yet asked for).
    It would hold: session 49's two stutter fixes, session 50's DSF covers and the
-   gentler "possibly fake hi-res" rule, and session 51's DSD-under-Bit-Perfect and
-   sample-exact gapless. New features, so the middle number.
+   gentler "possibly fake hi-res" rule, session 51's DSD-under-Bit-Perfect and
+   sample-exact gapless, and session 52's theme switch (better after PS2 Dark's
+   sessions 2 and 3, the user's call). New features, so the middle number.
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
 3. **A visible, editable queue view**: the most conspicuous missing player feature.

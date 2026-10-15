@@ -45,11 +45,13 @@
   </ItemGroup>
 
   <!--
-    The central theme. design/theme-tokens.json is the only copy of the values;
-    Theming/TokenResources reads it from the assembly at startup.
+    The two themes. design/theme-tokens.json (PS1 Light) and
+    design/ps2-dark/theme-tokens.dark.json (PS2 Dark) are the only copies of the
+    values; Theming/TokenResources reads the one in use from the assembly.
   -->
   <ItemGroup>
     <EmbeddedResource Include="..\..\design\theme-tokens.json" Link="Themes\theme-tokens.json" LogicalName="AudioFool.theme-tokens.json" />
+    <EmbeddedResource Include="..\..\design\ps2-dark\theme-tokens.dark.json" Link="Themes\theme-tokens.dark.json" LogicalName="AudioFool.theme-tokens.dark.json" />
   </ItemGroup>
 
   <!--

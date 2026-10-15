@@ -3,6 +3,8 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Markup;
+using System.Windows.Media;
+using System.Windows.Media.Effects;
 
 namespace AudioFool.Theming;
 
@@ -26,7 +28,9 @@ namespace AudioFool.Theming;
 /// <para>
 /// It reads the value once, when the XAML loads, from the application's resources.
 /// That is safe because <see cref="ThemeService.Apply"/> loads the tokens before any
-/// window is built, and the theme never changes while the app runs.
+/// window is built, and everything it will read is the same in both themes: only
+/// colours and shadows differ (the parity tests). Those it refuses, as it would keep
+/// the first theme's; use <c>DynamicResource</c> for them.
 /// </para>
 /// </summary>
 [MarkupExtensionReturnType(typeof(object))]
@@ -39,8 +43,14 @@ public sealed class TokenExtension : MarkupExtension
     [ConstructorArgument("key")]
     public string Key { get; set; } = "";
 
-    public override object ProvideValue(IServiceProvider serviceProvider) =>
-        Tokens.Convert(Tokens.Find(Key), Tokens.TargetType(serviceProvider), Key);
+    public override object ProvideValue(IServiceProvider serviceProvider)
+    {
+        var value = Tokens.Find(Key);
+        if (value is Brush or Color or Effect or Style)
+            throw new InvalidOperationException(
+                $"Theme token \"{Key}\" changes with the theme; use {{DynamicResource {Key}}} so it follows a switch.");
+        return Tokens.Convert(value, Tokens.TargetType(serviceProvider), Key);
+    }
 }
 
 /// <summary>

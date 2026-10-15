@@ -82,8 +82,8 @@ All colors live in the central theme (`theme-tokens.json`). Names below are the 
 
 | Token | Value | Used for |
 |---|---|---|
-| `accent.teal` | `#15786C` | Play/pause icon, seekbar fill, now-playing triangle, Last.fm dot, Bit-Perfect "on" dot, search focus ring |
-| `accent.tealText` | `#0C5A51` | Now-playing row text; keyboard focus ring |
+| `accent.playback` | `#15786C` | Play/pause icon, seekbar fill, now-playing triangle, Last.fm dot, Bit-Perfect "on" dot, search focus ring |
+| `accent.playbackText` | `#0C5A51` | Now-playing row text; keyboard focus ring |
 | `accent.blue` | `#00519A` | Artist names (album header and playback bar). Deeper version of PlayStation blue chosen for readability (≈4.7:1). |
 | `accent.like` | `#A8327F` | A liked song's heart in the Like column, filled. The PlayStation Square pink, deepened to stay visible (3.6:1 on a row, 3.1:1 selected, 3.4:1 now playing); the controller's own pink, about `#E5A1C7`, is 1.0–1.2:1 there. Added 2026-10-07 at the user's request. |
 
@@ -194,7 +194,7 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 - **Logo:** the existing PlayStation logo asset, in a 40 × 36 px slot, positioned per alignment rule 1.
 - **Search box:** 30 px tall, width per alignment rule 2, 4 px radius, 1 px `panel.border`, 12 px horizontal padding.
   - At rest: background `panel.bg`, subtle inset shadow (`inset 0 1px 2px rgba(0,0,0,0.15)`).
-  - Focused: background `state.searchFocusBg` plus a 2 px `accent.teal` ring.
+  - Focused: background `state.searchFocusBg` plus a 2 px `accent.playback` ring.
   - 16 px magnifying-glass icon in `text.muted`, 10 px gap before the text.
 - **Window buttons:** Minimize, Maximize, Close at the far right. Each 46 px wide and full title-bar height. Icons 18 px, stroke ≈1.95 px (2.6 on a 24-unit grid), round line caps. Colors per §3. Hover: Minimize/Maximize get `window.buttonHover`; Close fills `window.closeHover` with a white icon.
 
@@ -257,7 +257,7 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 
 **# column structure:** an 8 px slot for the now-playing triangle, a 3 px gap, then the track number right-aligned in a 16 px space (fits two digits). For albums with 100+ tracks, widen the number space by about 7 px.
 
-**Now-playing triangle:** small right-pointing triangle in `accent.teal` in the 8 px slot of the playing row only. **Solid while playing, outlined while paused.** Every row keeps its track number visible.
+**Now-playing triangle:** small right-pointing triangle in `accent.playback` in the 8 px slot of the playing row only. **Solid while playing, outlined while paused.** Every row keeps its track number visible.
 
 **Row states:**
 
@@ -266,7 +266,7 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 | Normal | transparent | Song `text.primary`, others `text.secondary`, number `text.muted` |
 | Hover | `state.hoverOverlay` | unchanged |
 | Selected | `state.selectionBg` | number switches to `text.secondary` |
-| Now playing | `state.nowPlayingBg` | all text `accent.tealText`, weight 600 |
+| Now playing | `state.nowPlayingBg` | all text `accent.playbackText`, weight 600 |
 | Now playing + selected | `state.nowPlayingBg` | same as now playing |
 
 **Interaction:** single-click selects a row; **double-click plays** it. Prevent double-click from highlighting text.
@@ -285,7 +285,7 @@ A panel-styled bar: `panel.bg`, 1 px `panel.border`, 4 px radius, inset top high
 - All round, face `control.face`, 1 px `control.faceBorder`. Molded look: `inset 0 -3px 0 rgba(0,0,0,0.12)`, `inset 0 1px 0 rgba(255,255,255,0.8)`, `0 1px 3px rgba(0,0,0,0.25)`.
 - Sizes: Previous and Next 44 px; Play/Pause 60 px (shadow `inset 0 -4px 0 …` and `0 2px 5px rgba(0,0,0,0.28)`); **Shuffle and Repeat 32 px** (`playbackBar.modeButtonSize`), same molded look.
 - Icons: Previous/Next 20 px (`control.iconNeutral`), Play/Pause 26 px, Shuffle 15 px, Repeat 16 px.
-- **Play/Pause is always `accent.teal`** — triangle when paused, two bars when playing.
+- **Play/Pause is always `accent.playback`** — triangle when paused, two bars when playing.
 - **Shuffle:** `control.iconOff` when off, `control.shuffleOn` when on.
 - **Repeat** cycles **off → all → one** on each click: `control.iconOff` when off, `control.repeatOn` for all and one. Repeat-one adds a badge on the button's top-right corner: a 13 px `control.repeatOn` disc overhanging the button by 2 px, holding a "1" (9 px, 700, `control.face`). (A "1" inside the 16 px icon was unreadable at this size.)
 - No status lights under the buttons.
@@ -312,13 +312,13 @@ Background `window.bg`, 12 px horizontal padding, 12 px text in `text.status`.
 
 **Left, in order:**
 1. **Refresh button:** 26 × 26 px, 4 px radius, `status.chipBg`, 1 px `status.chipBorder`, 14 px circular-arrow icon, 6 px extra space after it. Rescans the library.
-2. Small 7 px `accent.teal` dot.
+2. Small 7 px `accent.playback` dot.
 3. "499 artists · 2,376 albums · 26,795 tracks · [size] GB" (all live values).
 
 **Library size:** total size of all library files, using **1 GB = 1,024³ bytes** (matches Windows File Explorer), rounded to the nearest whole GB, with a thousands separator above 999 ("1,204 GB"). Recalculate when Refresh runs.
 
 **Right, 10 px apart:**
-- **Last.fm:** 26 px tall chip, 4 px radius, `status.chipBg`/`status.chipBorder`, 7 px `accent.teal` dot + "Last.fm".
+- **Last.fm:** 26 px tall chip, 4 px radius, `status.chipBg`/`status.chipBorder`, 7 px `accent.playback` dot + "Last.fm".
 - **Bit-Perfect:** same chip, 7 px dot + "Bit-Perfect". **No "On"/"Off" text** — the dot shows state: `status.bitPerfectOff` when off, `status.bitPerfectOn` when on, with a faint `status.dotRing`. Screen readers should still announce on/off (toggle-button semantics).
 
 ### 6.9 Playlists (added 2026-10-07)
@@ -355,7 +355,7 @@ Background `window.bg`, 12 px horizontal padding, 12 px text in `text.status`.
 
 ## 8. Accessibility
 
-- Visible keyboard focus: 2 px `accent.tealText` outline, 2 px offset, on all buttons and rows. Sliders show the focus outline around the track.
+- Visible keyboard focus: 2 px `accent.playbackText` outline, 2 px offset, on all buttons and rows. Sliders show the focus outline around the track.
 - Every icon-only button has an accessible name (Shuffle, Previous track, Play/Pause, Next track, Repeat: off/all/one, Mute/Unmute, Refresh library, Minimize, Maximize, Close).
 - Toggle buttons (Shuffle, Mute, Bit-Perfect) expose their pressed state.
 - Contrast: text colors above meet ~4.5:1 on their backgrounds; icon colors meet ~3:1. The title-bar yellow is a deliberate stylistic exception.

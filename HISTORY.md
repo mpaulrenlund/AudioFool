@@ -3241,6 +3241,67 @@ No code changed apart from the version number. Four commits, all pushed.
   test further later. `--window closex` is kept; without the fallback its "click WPF-UI
   loses" case reports WRONG, which is the bug itself.
 
+### Session 52 (2026-10-14): PS2 Dark, build session 1 of 3 (two token sets, live switching)
+
+The user's design for a second theme, PS2 Dark, is in `design/ps2-dark/` (spec, tokens,
+brief, the three build-session prompts, the CLAUDE.md text for session 3). This
+session built the plumbing and the switch; the title-bar glow and the Play/Pause glow
+are session 2. Planned and approved with three calls: do the §9 rename, 12 px chip
+padding on both sides (not §3.1's 10/12), no logo-menu item. Decisions in
+`design/progress.md` (PS2 Dark).
+
+- **Tokens**: the six §6 keys added to `design/theme-tokens.json` (transparent in Light);
+  the dark file embedded as `AudioFool.theme-tokens.dark.json` and linked into the
+  tests' `TestData`. **Rename**: `accent.teal` / `accent.tealText` →
+  `accent.playback` / `accent.playbackText` in both files, `Chrome.xaml`, the tests, both
+  specs, progress.md and CLAUDE.md's colour rule.
+- **Parity tests** (`ThemeTokensTests`): same keys, identical values outside `color.*`
+  and `shadow.*`; the shipped-file tests run on both files. **Settings**:
+  `AppSettings.Theme` (`AppTheme` in Core/Theme), Dark by default, read by
+  `ThemeSettingConverter`, which turns anything unknown into Dark without failing the
+  file (the shell's settings copy still says `"Theme": "Vista"` from before session
+  18; a strict reader would have reset every setting). `ThemeSettingTests`.
+- **ThemeService**: `Apply(theme)` at startup; `Switch(theme)` swaps the token
+  dictionary in place, swaps WPF-UI's `ThemesDictionary` (Light/Dark), re-applies the
+  accent, refreshes `LiveColors`, tells `WindowFrames`, raises `Switched`.
+- **Every colour follows**: `type.*` Foreground setters are `DynamicResourceExtension`s;
+  the 10 brushes in `Chrome.xaml`'s style resources and MainWindow's `PaletteRedBrush`
+  bind their colour with the new `{theme:LiveColor}` (`Theming/LiveColor.cs`), because a
+  sealed style's resources can neither be rebuilt nor resolve a `DynamicResource`;
+  `{theme:Token}` refuses colours, effects and styles; MoldedFace holds a resource
+  reference to its first inset brush so a switch always redraws it; `WindowFrames` sets
+  `DWMWA_USE_IMMERSIVE_DARK_MODE`.
+- **The control**: a Theme chip left of Bit-Perfect (`ThemeButton`: moon + "Dark" or
+  sun + "Light", named "Theme: Dark" / "Theme: Light"), Ctrl+T (`Shortcut.Theme`), one
+  command (`MainViewModel.ToggleThemeCommand`) that switches and saves. Ctrl+T added to
+  README's table and to the Statistics shortcut guide. README's "one look" bullet now
+  describes both.
+- **ThemeLab**: `--theme light|dark`, `--switch light|dark`, `--window themeswitch`; the
+  token sheet checks against the theme in use; `--shortcuts` covers Ctrl+T.
+- **Verified** (numbers in `design/progress.md`, PS2 Dark session notes): Light renders
+  against a ThemeLab build of HEAD differ only by the new chip, the guide's new row
+  and the token sheet; 24 of 27 cases switched live are pixel-identical to a fresh
+  start in that theme, both ways (the other three can't be reached by design); brush
+  dumps of the main window and four dialogs identical fresh and switched, after two
+  fixes they found: windows' own background (WPF-UI copies `ApplicationBackgroundBrush`
+  in once; now a resource reference, set again at each switch) and dialog title bars'
+  hover in Dark (WPF-UI's template trigger on `ApplicationTheme`; a style trigger puts
+  the token back). `--window themeswitch`: 100 ms and 78 ms switches with playback,
+  selection, scroll and two dialogs intact. Installed app (minimised, shell's settings
+  copy, UI Automation): opens Dark with no Theme saved and with "Vista", switches,
+  saves, reopens in the saved theme; DWM dark flag 1 in Dark, 0 in Light; Windows
+  draws a 1 px border. 692 tests. **The user's own instance** (their settings, no Theme
+  saved): opened in Dark; switched to Light and back through UI Automation while
+  playing (67 and 45 ms, playback on, everything but the moving seek bar identical
+  after the round trip in `PrintWindow` captures).
+- **Found on the way**: WPF's `Popup` keeps its child attached between openings and
+  refreshes it on each open (re-registering with its placement target, then
+  `TreeWalkHelper.InvalidateOnTreeChange`), so closed context menus and tooltips pick a
+  switch up when they next open. ThemeLab's `--artmenu` / `--trackmenu` open real
+  popups, which Windows keeps on a monitor; left out of the render sets.
+- A duplicate session started by mistake with the same prompt sent four review notes
+  and stopped without editing; all four were already covered or checked here.
+
 ---
 
 ## Reference notes retired from the handoff

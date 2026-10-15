@@ -1,0 +1,276 @@
+{
+  "$description": "AudioFool PS2 dark theme tokens. Same keys as design/theme-tokens.json; only color and shadow values differ, and every size matches. Values match design/ps2-dark/theme-spec.md. Sizes are in device-independent pixels.",
+  "font": {
+    "family": ["Segoe UI Variable Text", "Segoe UI"],
+    "tabularFiguresFor": ["trackNumber", "timeLabel", "tableCell", "statValue"]
+  },
+  "color": {
+    "window": {
+      "bg": "#111216",
+      "minimize": "#3DD6A3",
+      "maximize": "#F28FCB",
+      "close": "#7AA7FF",
+      "buttonHover": "rgba(255,255,255,0.08)",
+      "closeHover": "#C42B1C",
+      "closeHoverIcon": "#FFFFFF",
+      "titleGlow": "rgba(40,90,200,0.2)"
+    },
+    "panel": {
+      "bg": "#1A1C22",
+      "border": "#2B2F38",
+      "divider": "#242831",
+      "highlight": "rgba(255,255,255,0.04)"
+    },
+    "text": {
+      "heading": "#F0F2F6",
+      "primary": "#E2E5EB",
+      "secondary": "#B3B9C4",
+      "muted": "#8C93A0",
+      "placeholder": "#848B98",
+      "status": "#B3B9C4"
+    },
+    "accent": {
+      "playback": "#4C8DFF",
+      "playbackText": "#9CC0FF",
+      "blue": "#A9C8FF",
+      "like": "#F28FCB"
+    },
+    "state": {
+      "selectionBg": "#252A34",
+      "hoverOverlay": "rgba(255,255,255,0.04)",
+      "nowPlayingBg": "#16233D",
+      "searchFocusBg": "#20232A",
+      "focusRing": "#9CC0FF",
+      "searchFocusRing": "#4C8DFF"
+    },
+    "control": {
+      "face": "#121318",
+      "faceBorder": "#2E323B",
+      "faceHover": "#1B1D23",
+      "iconNeutral": "#C9CED8",
+      "iconOff": "#8C93A0",
+      "shuffleOn": "#7AA7FF",
+      "repeatOn": "#FF6670",
+      "playPause": "#4C8DFF",
+      "playRing": "rgba(76,141,255,0.35)"
+    },
+    "slider": {
+      "track": "#3F4451",
+      "seekFill": "#4C8DFF",
+      "volumeFill": "#8C93A0",
+      "thumb": "#E2E5EB",
+      "thumbBorder": "#111216"
+    },
+    "status": {
+      "chipBg": "#1A1C22",
+      "chipBorder": "#2F333C",
+      "libraryDot": "#3DDC84",
+      "lastFmDot": "#3DDC84",
+      "lastFmOff": "#FF5A5F",
+      "scanTrack": "#3F4451",
+      "scanFill": "#8C93A0",
+      "bitPerfectOff": "#FF5A5F",
+      "bitPerfectOn": "#3DDC84",
+      "dotRing": "rgba(0,0,0,0.5)"
+    },
+    "art": {
+      "border": "#33373F",
+      "thumbBorder": "#2F333C",
+      "thumbBorderSelected": "#4A505C"
+    },
+    "spectrogram": {
+      "level0": "#000000",
+      "level1": "#2C0B4F",
+      "level2": "#8B1A6B",
+      "level3": "#D9342B",
+      "level4": "#F58A1F",
+      "level5": "#FCE94F",
+      "marker": "#F7F6F4"
+    }
+  },
+  "shadow": {
+    "panelHighlight": "inset 0 1px 0 rgba(255,255,255,0.04)",
+    "searchInset": "inset 0 1px 2px rgba(0,0,0,0.45)",
+    "sliderTrackInset": "inset 0 1px 2px rgba(0,0,0,0.5)",
+    "sliderThumb": "0 1px 3px rgba(0,0,0,0.6)",
+    "headerArt": "0 4px 14px rgba(0,0,0,0.6)",
+    "nowPlayingArt": "0 0 8px rgba(0,0,0,0.6)",
+    "controlButton": "inset 0 -3px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.6)",
+    "playButton": "inset 0 -4px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.1), 0 2px 5px rgba(0,0,0,0.6)",
+    "playGlow": "0 0 18px rgba(76,141,255,0.45)"
+  },
+  "radius": {
+    "surface": 4,
+    "chip": 4,
+    "row": 3,
+    "sliderTrack": 3,
+    "art": 0
+  },
+  "focus": { "ringWidth": 2, "ringOffset": 2, "sliderRingOffset": 6, "sliderStripRadius": 4 },
+  "type": {
+    "panelHeader": { "size": 11, "weight": 600, "letterSpacingEm": 0.12, "uppercase": true, "color": "text.muted" },
+    "tableHeader": { "size": 11, "weight": 600, "letterSpacingEm": 0.06, "uppercase": true, "color": "text.muted" },
+    "artistName": { "size": 13.5, "weight": 400, "color": "text.primary" },
+    "artistCount": { "size": 11.5, "weight": 400, "color": "text.muted" },
+    "albumTitle": { "size": 13.5, "weight": 400, "lineHeight": 1.3, "maxLines": 2, "color": "text.primary" },
+    "albumMeta": { "size": 12, "weight": 400, "color": "text.muted" },
+    "headerTitle": { "size": 30, "weight": 600, "lineHeight": 1.15, "maxLines": 2, "color": "text.heading" },
+    "headerDetails": { "size": 14, "weight": 400, "lineHeight": 1.4, "color": "text.secondary" },
+    "headerArtist": { "size": 14, "weight": 600, "lineHeight": 1.4, "color": "accent.blue" },
+    "songTitle": { "size": 13.5, "weight": 400, "color": "text.primary" },
+    "tableCell": { "size": 13, "weight": 400, "color": "text.secondary" },
+    "trackNumber": { "size": 12.5, "weight": 400, "color": "text.muted" },
+    "nowPlayingTitle": { "size": 17, "weight": 600, "color": "text.primary" },
+    "nowPlayingArtist": { "size": 14, "weight": 600, "color": "accent.blue" },
+    "nowPlayingFormat": { "size": 13, "weight": 400, "color": "text.muted" },
+    "timeLabel": { "size": 12, "weight": 400, "color": "text.muted" },
+    "outputReadout": { "size": 11.5, "weight": 400, "color": "text.muted" },
+    "search": { "size": 13, "weight": 400, "color": "text.primary" },
+    "status": { "size": 12, "weight": 400, "color": "text.status" },
+    "statValue": { "size": 24, "weight": 600, "color": "text.heading" }
+  },
+  "layout": {
+    "designSize": { "width": 1720, "height": 1080 },
+    "window": { "width": 1560, "height": 900, "minHeight": 560 },
+    "titleBarHeight": 48,
+    "playbackBarHeight": 104,
+    "statusBarHeight": 36,
+    "windowMarginX": 12,
+    "panelGap": 6,
+    "panelsBottomMargin": 6,
+    "playbackBarBottomMargin": 8,
+    "statusBarPaddingX": 12,
+    "artistsPanelOuterWidth": 212,
+    "albumsPanelOuterWidth": 292,
+    "artistsPanelMinWidth": 140,
+    "albumsPanelMinWidth": 180,
+    "panelBorder": 1,
+    "panelHeaderHeight": 28,
+    "panelHeaderPaddingX": 14,
+    "listPadding": 6,
+    "disabledOpacity": 0.32
+  },
+  "titleBar": {
+    "logoSlot": { "width": 40, "height": 36, "align": "centered over ARTISTS label" },
+    "logoToSearchGap": 20,
+    "search": { "height": 30, "paddingX": 12, "iconSize": 16, "iconGap": 10, "iconStrokeOn24Grid": 2, "focusRingWidth": 2, "rightEdge": "Albums panel right outer edge" },
+    "windowButton": { "width": 46, "iconSize": 18, "strokeOn24Grid": 2.6 },
+    "glow": { "radiusX": 900, "radiusY": 130, "centerY": -40 }
+  },
+  "artists": { "rowHeight": 42, "rowPaddingX": 10, "lineGap": 1, "playlistsToggle": { "size": 24, "iconSize": 16, "strokeOn24Grid": 2 } },
+  "albums": { "rowHeight": 64, "recentRowHeight": 82, "rowPaddingY": 4, "rowPaddingX": 8, "thumbSize": 56, "thumbGap": 12, "lineGap": 3, "rowGap": 0, "placeholderIconSize": 20 },
+  "albumHeader": { "paddingY": 22, "paddingX": 24, "artSize": 144, "artGap": 24, "titleMinHeight": 39, "titleToDetailsGap": 8, "detailsLineGap": 3, "placeholderIconSize": 36 },
+  "popup": { "toolTipPaddingX": 8, "toolTipPaddingY": 5, "toolTipMaxWidth": 260, "menuPaddingY": 3 },
+  "dialog": {
+    "titleIconSize": 16, "titleIconGap": 8,
+    "paddingX": 20, "paddingTop": 12, "paddingBottom": 16,
+    "paragraphGap": 10, "fieldGap": 8, "buttonGap": 8,
+    "buttonHeight": 30, "buttonPaddingX": 16, "buttonMinWidth": 80,
+    "checkBoxSize": 16, "checkBoxGap": 8, "checkStrokeOn24Grid": 3,
+    "emphasisWeight": 600, "multilinePaddingY": 6
+  },
+  "lastFm": { "width": 480, "minWidth": 400, "labelWidth": 100 },
+  "tagEdit": {
+    "width": 460, "minWidth": 380, "labelWidth": 90,
+    "artSize": 72, "artGap": 12, "artTextGap": 4, "fieldsGapTop": 16,
+    "numberWidth": 80, "yearWidth": 140, "ofGap": 8,
+    "commentMinHeight": 64, "commentMaxHeight": 140, "clearButtonGap": 6
+  },
+  "artSearch": {
+    "width": 820, "height": 640, "minWidth": 520, "minHeight": 400,
+    "tileSize": 164, "tileMargin": 4, "tilePadding": 6, "tileTextGap": 6,
+    "statusGapTop": 10, "statusGapBottom": 6
+  },
+  "statistics": {
+    "width": 900, "minWidth": 720, "minHeight": 420,
+    "tileGap": 8, "columnGap": 12, "sectionGap": 12,
+    "tilePaddingX": 14, "tilePaddingY": 12, "tileLineGap": 2,
+    "sectionPaddingY": 6,
+    "rowPaddingX": 6, "rowPaddingY": 4, "rowGap": 2, "barGap": 4, "detailGap": 3, "summaryGap": 10
+  },
+  "analysis": {
+    "width": 880, "minWidth": 640, "minHeight": 520,
+    "pictureHeight": 300, "floorDb": -120, "topDb": -20,
+    "axisGap": 6, "freqAxisWidth": 48, "timeAxisHeight": 18,
+    "legendWidth": 10, "legendGap": 10,
+    "markerThickness": 1, "markerDash": 4,
+    "headerGap": 2, "sectionGap": 14, "findingGap": 6, "progressWidth": 240,
+    "legendStepDb": 20, "timeLabelSpacing": 110, "freqLabelSpacing": 50
+  },
+  "prompt": { "width": 400 },
+  "artViewer": { "minSize": 280, "screenMargin": 80, "captionPaddingTop": 10, "captionPaddingBottom": 12 },
+  "emptyState": { "squareSize": 31, "squareStroke": 1, "squareToTitleGap": 22, "titleToSublineGap": 4 },
+  "songTable": {
+    "headerHeight": 32,
+    "headerPaddingX": 16,
+    "rowHeight": 28,
+    "rowPaddingX": 8,
+    "listPaddingY": 6,
+    "listPaddingX": 8,
+    "columnGap": 12,
+    "nowPlayingWeight": 600,
+    "columns": [
+      { "id": "number", "width": 27, "align": "right" },
+      { "id": "song", "flex": 1.05, "align": "left" },
+      { "id": "artist", "width": 88, "align": "left" },
+      { "id": "album", "flex": 1.0, "align": "left" },
+      { "id": "time", "width": 44, "align": "right" },
+      { "id": "disc", "width": 36, "align": "center" },
+      { "id": "kind", "width": 40, "align": "left" },
+      { "id": "bitrate", "width": 68, "align": "right" },
+      { "id": "bitDepth", "width": 70, "align": "center" },
+      { "id": "sampleRate", "width": 82, "align": "right" },
+      { "id": "like", "width": 16, "align": "center" }
+    ],
+    "numberCell": { "triangleSlot": 8, "triangleHeight": 10, "gap": 3, "numberWidth": 16, "numberWidth3Digits": 23 },
+    "editBox": { "borderWidth": 1, "paddingX": 1 },
+    "likeIcon": { "size": 14, "strokeOn24Grid": 2 },
+    "dropLine": { "thickness": 2 }
+  },
+  "playbackBar": {
+    "paddingX": 24,
+    "zoneGap": 40,
+    "nowPlayingZoneWidth": 451,
+    "nowPlayingZoneRule": "the Previous button's left edge aligns with the Songs panel's outer left edge",
+    "artSize": 88,
+    "placeholderIconSize": 22,
+    "artGap": 16,
+    "textLineGap": 3,
+    "buttonGap": 16,
+    "buttonSize": 44,
+    "playButtonSize": 60,
+    "modeButtonSize": 32,
+    "modeButtonGap": 10,
+    "icons": { "shuffle": 15, "previous": 20, "next": 20, "playPause": 26, "repeat": 16, "volume": 17 },
+    "repeatOneBadge": { "size": 9, "weight": 700, "discSize": 13, "outset": 2 },
+    "timeLabelWidth": 36,
+    "seekGap": 14,
+    "trackHeight": 6,
+    "seekThumb": 14,
+    "volumeZoneWidth": 240,
+    "volumeButton": 44,
+    "volumeGap": 8,
+    "volumeThumb": 12,
+    "seekMinTrackWidth": 120,
+    "sliderHitHeight": 22,
+    "waveformHeight": 28,
+    "waveformFloor": 2,
+    "pressedOffset": 1,
+    "iconStrokeOn24Grid": 2.2,
+    "volumeIconStrokeOn24Grid": 2
+  },
+  "statusBar": {
+    "refreshButton": 26,
+    "refreshIcon": 14,
+    "refreshIconStrokeOn24Grid": 2.2,
+    "refreshAfterGap": 6,
+    "dotTextGap": 8,
+    "chipHeight": 26,
+    "chipPaddingX": 12,
+    "chipGap": 10,
+    "chipDotGap": 7,
+    "dotSize": 7,
+    "scanProgressWidth": 180,
+    "scanProgressHeight": 4
+  }
+}

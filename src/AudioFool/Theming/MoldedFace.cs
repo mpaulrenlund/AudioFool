@@ -28,7 +28,15 @@ public sealed class MoldedFace : FrameworkElement
 
     public static readonly DependencyProperty ShadowProperty = DependencyProperty.Register(
         nameof(Shadow), typeof(string), typeof(MoldedFace),
-        new FrameworkPropertyMetadata("", FrameworkPropertyMetadataOptions.AffectsRender));
+        new FrameworkPropertyMetadata("", FrameworkPropertyMetadataOptions.AffectsRender,
+            (d, e) => ((MoldedFace)d).SetResourceReference(InsetsProperty, $"{e.NewValue}.inset1")));
+
+    // The inset brushes are looked up as the face is drawn. This reference to the
+    // first of them redraws the face at a theme switch, which replaces every token
+    // resource, whether or not the face colour itself changed.
+    private static readonly DependencyProperty InsetsProperty = DependencyProperty.Register(
+        "Insets", typeof(object), typeof(MoldedFace),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
     public Brush? Face
     {

@@ -12,7 +12,8 @@
       "close": "#E60012",
       "buttonHover": "rgba(0,0,0,0.06)",
       "closeHover": "#C42B1C",
-      "closeHoverIcon": "#FFFFFF"
+      "closeHoverIcon": "#FFFFFF",
+      "titleGlow": "rgba(0,0,0,0)"
     },
     "panel": {
       "bg": "#CAC7C3",
@@ -29,8 +30,8 @@
       "status": "#33312F"
     },
     "accent": {
-      "teal": "#15786C",
-      "tealText": "#0C5A51",
+      "playback": "#15786C",
+      "playbackText": "#0C5A51",
       "blue": "#00519A",
       "like": "#A8327F"
     },
@@ -50,7 +51,8 @@
       "iconOff": "#75726E",
       "shuffleOn": "#2F5DB8",
       "repeatOn": "#C62F37",
-      "playPause": "#15786C"
+      "playPause": "#15786C",
+      "playRing": "rgba(0,0,0,0)"
     },
     "slider": {
       "track": "#ADAAA5",
@@ -94,7 +96,8 @@
     "headerArt": "0 4px 10px rgba(0,0,0,0.25)",
     "nowPlayingArt": "0 0 6px rgba(0,0,0,0.25)",
     "controlButton": "inset 0 -3px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8), 0 1px 3px rgba(0,0,0,0.25)",
-    "playButton": "inset 0 -4px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 5px rgba(0,0,0,0.28)"
+    "playButton": "inset 0 -4px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 5px rgba(0,0,0,0.28)",
+    "playGlow": "0 0 0 rgba(0,0,0,0)"
   },
   "radius": {
     "surface": 4,
@@ -151,7 +154,8 @@
     "logoSlot": { "width": 40, "height": 36, "align": "centered over ARTISTS label" },
     "logoToSearchGap": 20,
     "search": { "height": 30, "paddingX": 12, "iconSize": 16, "iconGap": 10, "iconStrokeOn24Grid": 2, "focusRingWidth": 2, "rightEdge": "Albums panel right outer edge" },
-    "windowButton": { "width": 46, "iconSize": 18, "strokeOn24Grid": 2.6 }
+    "windowButton": { "width": 46, "iconSize": 18, "strokeOn24Grid": 2.6 },
+    "glow": { "radiusX": 900, "radiusY": 130, "centerY": -40 }
   },
   "artists": { "rowHeight": 42, "rowPaddingX": 10, "lineGap": 1, "playlistsToggle": { "size": 24, "iconSize": 16, "strokeOn24Grid": 2 } },
   "albums": { "rowHeight": 64, "recentRowHeight": 82, "rowPaddingY": 4, "rowPaddingX": 8, "thumbSize": 56, "thumbGap": 12, "lineGap": 3, "rowGap": 0, "placeholderIconSize": 20 },

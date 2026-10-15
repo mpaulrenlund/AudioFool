@@ -4,9 +4,12 @@ namespace AudioFool.Core.Tests;
 
 public class ThemeTokensTests
 {
-    private static readonly string TokenFile = Path.Combine(AppContext.BaseDirectory, "TestData", "theme-tokens.json");
+    // The two shipped token sets: PS1 Light and PS2 Dark.
+    private const string LightFile = "theme-tokens.json";
+    private const string DarkFile = "theme-tokens.dark.json";
 
-    private static ThemeTokens Real() => ThemeTokens.Parse(File.ReadAllText(TokenFile));
+    private static ThemeTokens Real(string file = LightFile) =>
+        ThemeTokens.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "TestData", file)));
 
     // ------------------------------------------------------------- colours
 
@@ -130,29 +133,33 @@ public class ThemeTokensTests
         Assert.Equal("font.tabularFiguresFor", ex.TokenPath);
     }
 
-    // ------------------------------------------------------ the real file
+    // ----------------------------------------------------- the real files
 
-    [Fact]
-    public void The_shipped_token_file_parses()
+    [Theory]
+    [InlineData(LightFile)]
+    [InlineData(DarkFile)]
+    public void The_shipped_token_files_parse(string file)
     {
-        var t = Real();
+        var t = Real(file);
 
         // 48, plus control.faceHover and status.lastFmOff, scanTrack and scanFill (session 4),
-        // plus the spectrogram's six levels and marker (the Analyze window).
-        Assert.Equal(60, t.Colors.Count);
+        // plus the spectrogram's six levels and marker (the Analyze window), plus
+        // window.titleGlow and control.playRing (PS2 Dark's effects).
+        Assert.Equal(62, t.Colors.Count);
         // 19, plus statValue (dialogs, Statistics).
         Assert.Equal(20, t.TextStyles.Count);
-        Assert.Equal(8, t.Shadows.Count);
+        // 8, plus playGlow (PS2 Dark).
+        Assert.Equal(9, t.Shadows.Count);
         Assert.Equal(["Segoe UI Variable Text", "Segoe UI"], t.FontFamily);
     }
 
     [Fact]
-    public void The_shipped_file_matches_spot_values_in_the_spec()
+    public void The_light_file_matches_spot_values_in_the_spec()
     {
-        var t = Real();
+        var t = Real(LightFile);
 
         Assert.Equal(ThemeColor.Parse("#BAB7B3"), t.Colors["color.window.bg"]);
-        Assert.Equal(ThemeColor.Parse("#15786C"), t.Colors["color.accent.teal"]);
+        Assert.Equal(ThemeColor.Parse("#15786C"), t.Colors["color.accent.playback"]);
         Assert.Equal(new ThemeColor(115, 255, 255, 255), t.Colors["color.panel.highlight"]);
         Assert.Equal(4, t.Numbers["radius.surface"]);
         Assert.Equal(212, t.Numbers["layout.artistsPanelOuterWidth"]);
@@ -162,16 +169,96 @@ public class ThemeTokensTests
     }
 
     [Fact]
-    public void The_now_playing_art_shadow_has_no_offset()
+    public void The_dark_file_matches_spot_values_in_its_spec()
     {
-        var layer = Assert.Single(Real().Shadows["shadow.nowPlayingArt"]);
-        Assert.Equal((0.0, 0.0, 6.0), (layer.OffsetX, layer.OffsetY, layer.Blur));
+        var t = Real(DarkFile);
+
+        Assert.Equal(ThemeColor.Parse("#111216"), t.Colors["color.window.bg"]);
+        Assert.Equal(ThemeColor.Parse("#4C8DFF"), t.Colors["color.accent.playback"]);
+        Assert.Equal(ThemeColor.Parse("#9CC0FF"), t.Colors["color.accent.playbackText"]);
+        Assert.Equal(ThemeColor.Parse("#A9C8FF"), t.Colors["color.accent.blue"]);
+        Assert.Equal(ThemeColor.Parse("#FF5A5F"), t.Colors["color.status.bitPerfectOff"]);
+        Assert.Equal(new ThemeColor(10, 255, 255, 255), t.Colors["color.panel.highlight"]);
+        Assert.Equal(new ThemeColor(51, 40, 90, 200), t.Colors["color.window.titleGlow"]);
+
+        var glow = Assert.Single(t.Shadows["shadow.playGlow"]);
+        Assert.Equal((false, 0.0, 0.0, 18.0), (glow.Inset, glow.OffsetX, glow.OffsetY, glow.Blur));
     }
 
     [Fact]
-    public void The_shipped_type_styles_resolve()
+    public void The_dark_only_effects_are_clear_in_light()
     {
-        var styles = Real().TextStyles.ToDictionary(s => s.Name);
+        // PS2 Dark spec 6: the same markup draws nothing in Light.
+        var t = Real(LightFile);
+
+        Assert.Equal(0, t.Colors["color.window.titleGlow"].A);
+        Assert.Equal(0, t.Colors["color.control.playRing"].A);
+        Assert.Equal(0, Assert.Single(t.Shadows["shadow.playGlow"]).Color.A);
+        Assert.Equal((900.0, 130.0, -40.0),
+            (t.Numbers["titleBar.glow.radiusX"], t.Numbers["titleBar.glow.radiusY"], t.Numbers["titleBar.glow.centerY"]));
+    }
+
+    // ------------------------------------------------ the two files agree
+
+    [Fact]
+    public void Both_files_have_the_same_keys()
+    {
+        var light = Keys(Real(LightFile));
+        var dark = Keys(Real(DarkFile));
+
+        Assert.Empty(light.Except(dark));
+        Assert.Empty(dark.Except(light));
+    }
+
+    [Fact]
+    public void Outside_colours_and_shadows_both_files_hold_the_same_values()
+    {
+        // "Same layout, different colours" (PS2 Dark spec 11): every size, spacing,
+        // text style, alignment and flag is identical; only color.* and shadow.* differ.
+        var light = NonColourValues(Real(LightFile));
+        var dark = NonColourValues(Real(DarkFile));
+
+        var differ = light.Keys.Union(dark.Keys)
+            .Where(k => light.GetValueOrDefault(k) != dark.GetValueOrDefault(k))
+            .Select(k => $"{k}: {light.GetValueOrDefault(k) ?? "(none)"} / {dark.GetValueOrDefault(k) ?? "(none)"}");
+        Assert.Empty(differ);
+    }
+
+    private static HashSet<string> Keys(ThemeTokens t) =>
+    [
+        .. t.Colors.Keys, .. t.Numbers.Keys, .. t.Flags.Keys,
+        .. t.Texts.Keys, .. t.Lists.Keys, .. t.Shadows.Keys,
+    ];
+
+    private static Dictionary<string, string> NonColourValues(ThemeTokens t)
+    {
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (k, v) in t.Numbers)
+            values[k] = v.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+        foreach (var (k, v) in t.Flags)
+            values[k] = v ? "true" : "false";
+        foreach (var (k, v) in t.Texts)
+            values[k] = v;
+        foreach (var (k, v) in t.Lists)
+            values[k] = "[" + string.Join(", ", v) + "]";
+        return values;
+    }
+
+    [Theory]
+    [InlineData(LightFile, 6.0)]
+    [InlineData(DarkFile, 8.0)]
+    public void The_now_playing_art_shadow_has_no_offset(string file, double blur)
+    {
+        var layer = Assert.Single(Real(file).Shadows["shadow.nowPlayingArt"]);
+        Assert.Equal((0.0, 0.0, blur), (layer.OffsetX, layer.OffsetY, layer.Blur));
+    }
+
+    [Theory]
+    [InlineData(LightFile)]
+    [InlineData(DarkFile)]
+    public void The_shipped_type_styles_resolve(string file)
+    {
+        var styles = Real(file).TextStyles.ToDictionary(s => s.Name);
 
         var album = styles["albumTitle"];
         Assert.Equal((13.5, 400, "color.text.primary", 2), (album.Size, album.Weight, album.ColorKey, album.MaxLines));
@@ -186,12 +273,14 @@ public class ThemeTokensTests
             styles.Values.Where(s => s.TabularFigures).Select(s => s.Name).Order());
     }
 
-    [Fact]
-    public void Every_shipped_shadow_is_drawable_in_wpf()
+    [Theory]
+    [InlineData(LightFile)]
+    [InlineData(DarkFile)]
+    public void Every_shipped_shadow_is_drawable_in_wpf(string file)
     {
         // TokenResources refuses more than one outer layer and any spread; hold
-        // the file to that here, where it is cheap to see.
-        foreach (var (key, layers) in Real().Shadows)
+        // the files to that here, where it is cheap to see.
+        foreach (var (key, layers) in Real(file).Shadows)
         {
             Assert.True(layers.Count(l => !l.Inset) <= 1, key);
             Assert.All(layers, l => Assert.Equal(0, l.Spread));

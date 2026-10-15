@@ -11,18 +11,26 @@ with nothing else in the way.
   files carry one, so two albums from the same year still come out in release order.
   An album tagged with only a year sorts at the start of that year.
 - Songs sort by disc number, then track number.
-- One look, **PS1**: the light grey of the original PlayStation console. Lighter
-  panels (`#CAC7C3`) sit on a slightly darker window (`#BAB7B3`), with 1 px outlines
-  and squarish 4 px corners. The round transport buttons echo a controller's face
-  buttons. Colour is rare and always means something:
-  - **Teal is playback:** Play/Pause, the seek bar's waveform and the playing song's
-    row.
-  - **Blue is artist names.**
-  - **Shuffle and Repeat when on:** Shuffle turns blue and Repeat red.
-  - **Status chips:** a yellow dot means off, a teal one means on.
+- Two looks, switched at any time with the **Theme** button in the status bar or
+  **Ctrl+T**, and remembered for the next start (Dark until you pick one):
+  - **PS1 Light**: the light grey of the original PlayStation console. Lighter
+    panels (`#CAC7C3`) sit on a slightly darker window (`#BAB7B3`), with 1 px outlines
+    and squarish 4 px corners. The round transport buttons echo a controller's face
+    buttons.
+  - **PS2 Dark**: the matte black of the PlayStation 2, with the same layout, sizes and
+    molded buttons.
 
-  Selection is a mid-grey row with no outline, and lists scroll without visible
-  scrollbars. The design is specified in `design/` (spec, tokens and mockup).
+  Colour is rare and always means something:
+  - **The playback colour** (teal in Light, blue in Dark): Play/Pause, the seek bar's
+    waveform and the playing song's row.
+  - **Artist names** have a colour of their own (blue in Light, a pale blue in Dark).
+  - **Shuffle and Repeat when on:** Shuffle turns blue and Repeat red.
+  - **Status chips:** in Light a yellow dot means off and a teal one on; in Dark,
+    standby red and power-light green.
+
+  Selection is a row a shade off the panel with no outline, and lists scroll without
+  visible scrollbars. The design is specified in `design/` (spec, tokens and mockup;
+  `design/ps2-dark/` for what Dark changes).
 - A waveform in the seek bar: the playing track's loud and quiet parts, teal up to where
   you are and grey after, moving smoothly while it plays. It's read in the background
   when the track starts (well under a second for most files); until then the bar is plain.
@@ -285,6 +293,7 @@ These only apply when AudioFool has focus:
 | **Ctrl+J** | Jump to the playing song in the lists |
 | **Ctrl+F** | Go to the search box |
 | **Ctrl+B** | Bit-Perfect on / off |
+| **Ctrl+T** | Switch between the Light and Dark themes (as the status bar's Theme button does) |
 | **Ctrl+R** | Rescan the library (as F5) |
 | **Ctrl+W** | Statistics |
 | **Ctrl+Q** | Analyze the selected song, or the playing one if no song is selected |

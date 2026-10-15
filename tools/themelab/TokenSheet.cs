@@ -121,10 +121,16 @@ internal static class TokenSheet
         Check("Border.BorderThickness (Token -> Thickness)", panel.BorderThickness, new Thickness(1));
         Check("Border.CornerRadius (Token -> CornerRadius)", panel.CornerRadius, new CornerRadius(4));
         Check("Border.Padding (Thickness X=)", panel.Padding, new Thickness(10, 0, 10, 0));
-        Check("Border.Background (DynamicResource brush)", ((SolidColorBrush)panel.Background).Color, Color.FromRgb(0xCA, 0xC7, 0xC3));
+        // The colours of the theme in use (--theme), not one theme's literals.
+        Color Token(string key)
+        {
+            var c = tokens.Colors[key];
+            return Color.FromArgb(c.A, c.R, c.G, c.B);
+        }
+        Check("Border.Background (DynamicResource brush)", ((SolidColorBrush)panel.Background).Color, Token("color.panel.bg"));
         Check("Border.Effect (DynamicResource shadow)", panel.Effect is System.Windows.Media.Effects.DropShadowEffect, true);
         Check("TextBlock style font size", label.FontSize, 13.5);
-        Check("TextBlock style colour", ((SolidColorBrush)label.Foreground).Color, Color.FromRgb(0x22, 0x21, 0x1F));
+        Check("TextBlock style colour", ((SolidColorBrush)label.Foreground).Color, Token("color.text.primary"));
         Check("TextBlock.TextAlignment (Token -> enum)", label.TextAlignment, TextAlignment.Right);
         Check("Style setter Margin (Thickness X=,Y=)", styled.Margin, new Thickness(8, 6, 8, 6));
         Check("Style setter CornerRadius (Token)", styled.CornerRadius, new CornerRadius(3));
@@ -197,7 +203,9 @@ internal static class TokenSheet
 
         var root = new StackPanel { Margin = new Thickness(R<double>("layout.windowMarginX") * 2) };
         root.Children.Add(Text("Theme tokens", "type.headerTitle", 4));
-        root.Children.Add(Text("Drawn from design/theme-tokens.json through the app's own resources. Nothing here is a screen.", "type.headerDetails"));
+        var file = AudioFool.ThemeService.Current == AudioFool.Core.Theme.AppTheme.Dark
+            ? "design/ps2-dark/theme-tokens.dark.json" : "design/theme-tokens.json";
+        root.Children.Add(Text($"Drawn from {file} through the app's own resources. Nothing here is a screen.", "type.headerDetails"));
 
         // Colours, grouped as in the file. Translucent ones sit on the panel grey
         // they are laid over, with a white/black split behind to show the alpha.

@@ -39,7 +39,8 @@ public partial class App : Application
 
         _viewModel = new MainViewModel(_engine, _runtime, new AlbumArtService(new Core.Art.ArtDiskCache(Core.Art.ArtDiskCache.DefaultFolder)), settings);
 
-        // Before the window is built, not after.
+        // The theme saved at the last switch (Dark when none was), before the
+        // window is built, not after.
         //
         // A DynamicResource for a Style is resolved while the element is still
         // initialising - the style has to be in hand to build the template - so a
@@ -48,8 +49,9 @@ public partial class App : Application
         // notifies windows the application has open, and this one has not been
         // shown yet. Brush references survive the wrong order because they are
         // evaluated lazily, at first render, which is why getting this backwards
-        // looks like a half-applied theme rather than no theme at all.
-        ThemeService.Apply();
+        // looks like a half-applied theme rather than no theme at all. A switch
+        // later on is different: every window it has to reach is open by then.
+        ThemeService.Apply(settings.Theme);
 
         var window = new MainWindow(_viewModel);
         MainWindow = window;

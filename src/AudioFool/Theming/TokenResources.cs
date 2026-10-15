@@ -9,10 +9,12 @@ using AudioFool.Core.Theme;
 namespace AudioFool.Theming;
 
 /// <summary>
-/// The central theme: <c>design/theme-tokens.json</c>, embedded in the exe and
-/// turned into one <see cref="ResourceDictionary"/> at startup. The JSON is the only
-/// copy of every value, so the file and the app cannot drift; change a value there
-/// and rebuild.
+/// The central theme: <c>design/theme-tokens.json</c> (PS1 Light) or
+/// <c>design/ps2-dark/theme-tokens.dark.json</c> (PS2 Dark), embedded in the exe and
+/// turned into one <see cref="ResourceDictionary"/> at startup, and again at each
+/// theme switch. The JSON is the only copy of every value, so the files and the app
+/// cannot drift; change a value there and rebuild. The two files have the same keys
+/// and differ only in <c>color.*</c> and <c>shadow.*</c> (the parity tests).
 /// <para>
 /// Every resource is named by its JSON path. What each kind of token becomes:
 /// </para>
@@ -27,6 +29,8 @@ namespace AudioFool.Theming;
 /// for margins and paddings.</description></item>
 /// <item><term><c>type.*</c></term><description>a <see cref="TextBlock"/> style under <c>type.&lt;name&gt;</c>:
 /// font, size, weight, colour, line height, tabular figures, and a line clamp for <c>maxLines</c>.
+/// The colour is a <c>DynamicResource</c> to its <c>color.*</c> token, not a brush, so the
+/// styles built on these with <c>BasedOn="{StaticResource …}"</c> follow a theme switch too.
 /// Letter spacing and uppercase are left to the component; they stay available as
 /// <c>type.&lt;name&gt;.letterSpacingEm</c> / <c>.uppercase</c>.</description></item>
 /// <item><term><c>font.family</c></term><description>a <see cref="FontFamily"/> with the fallbacks in order.</description></item>
@@ -44,15 +48,17 @@ namespace AudioFool.Theming;
 /// </summary>
 public static class TokenResources
 {
-    private const string EmbeddedName = "AudioFool.theme-tokens.json";
-
-    /// <summary>The tokens the app is running with, once <see cref="ThemeService.Apply"/> has loaded them.</summary>
+    /// <summary>
+    /// The tokens the app is running with, once <see cref="ThemeService.Apply"/> has
+    /// loaded them; the other set after a switch. Its numbers are the same in both.
+    /// </summary>
     public static ThemeTokens? Current { get; private set; }
 
-    public static ThemeTokens LoadEmbedded()
+    public static ThemeTokens LoadEmbedded(AppTheme theme)
     {
-        using var stream = typeof(TokenResources).Assembly.GetManifestResourceStream(EmbeddedName)
-            ?? throw new InvalidOperationException($"{EmbeddedName} is not embedded in the assembly.");
+        var name = theme == AppTheme.Dark ? "AudioFool.theme-tokens.dark.json" : "AudioFool.theme-tokens.json";
+        using var stream = typeof(TokenResources).Assembly.GetManifestResourceStream(name)
+            ?? throw new InvalidOperationException($"{name} is not embedded in the assembly.");
         using var reader = new StreamReader(stream);
         return Current = ThemeTokens.Parse(reader.ReadToEnd());
     }
@@ -119,7 +125,7 @@ public static class TokenResources
         Add("font.family", family);
 
         foreach (var style in tokens.TextStyles)
-            Add(style.Key, TextStyle(style, family, (Brush)d[style.ColorKey]));
+            Add(style.Key, TextStyle(style, family));
 
         foreach (var (key, layers) in tokens.Shadows)
         {
@@ -152,13 +158,17 @@ public static class TokenResources
         return d;
     }
 
-    private static Style TextStyle(TextStyleToken t, FontFamily family, Brush foreground)
+    private static Style TextStyle(TextStyleToken t, FontFamily family)
     {
         var style = new Style(typeof(TextBlock));
         style.Setters.Add(new Setter(TextBlock.FontFamilyProperty, family));
         style.Setters.Add(new Setter(TextBlock.FontSizeProperty, t.Size));
         style.Setters.Add(new Setter(TextBlock.FontWeightProperty, FontWeight.FromOpenTypeWeight(t.Weight)));
-        style.Setters.Add(new Setter(TextBlock.ForegroundProperty, foreground));
+
+        // By name, not the brush: 17 styles in the windows and Chrome.xaml are
+        // BasedOn these through StaticResource, so they keep this style object
+        // after a theme switch, and only a reference follows the new colour.
+        style.Setters.Add(new Setter(TextBlock.ForegroundProperty, new DynamicResourceExtension(t.ColorKey)));
 
         if (t.LineHeightPixels is { } lineHeight)
         {
