@@ -96,9 +96,9 @@ the only thing that catches a file you forgot to track.
 
 ### Releases
 
-Five so far, all on GitHub (private, so downloads need a signed-in account):
+Six so far, all on GitHub (private, so downloads need a signed-in account):
 **v0.1.0** (2026-09-30, the user by hand), **v0.2.0** (2026-10-02), **v0.3.0**
-(2026-10-09, session 45), **v0.4.0** (2026-10-12, session 47) and **v0.5.0** (2026-10-13, session 48), all four by Claude. Handle a release end to end when asked, but
+(2026-10-09, session 45), **v0.4.0** (2026-10-12, session 47), **v0.5.0** (2026-10-13, session 48) and **v0.6.0** (2026-10-15, session 54), all five by Claude. Handle a release end to end when asked, but
 **confirm the version number and the notes with the user before `gh release create`**:
 it publishes a tag. Middle number for new features, last for fixes only.
 
@@ -128,8 +128,11 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
   a build of `main`. **692 tests** pass.
-- **Last release: v0.5.0** (2026-10-13, session 48, tag on `a8bffb1`, 60.2 MB zip).
-  Sessions 49–53 are unreleased but installed.
+- **Last release: v0.6.0** (2026-10-15, session 54, tag on `9fe1b85`, 60.3 MB zip,
+  19 files): PS2 Dark and everything since v0.5.0. Installed.
+- **Session 54** (2026-10-15): the Theme button is icon only; a click anywhere outside
+  an in-place edit box saves it and closes the box (`SaveEditOnClickOutside`, ThemeLab
+  `--window edit` step 5b2). Both in `design/progress.md`.
 - **Two themes, PS1 Light and PS2 Dark, switched live** (session 52): the status bar's
   Theme button or Ctrl+T; saved; **Dark when nothing is saved**, so the first launch
   after session 52's install opens in Dark. **PS2 Dark is finished**: all three of the
