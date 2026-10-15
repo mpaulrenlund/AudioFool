@@ -108,7 +108,7 @@ All colors live in the central theme (`theme-tokens.json`). Names below are the 
 | `control.repeatOn` | `#C62F37` | Repeat icon (and "1" badge) when on |
 | `slider.track` | `#ADAAA5` | Seekbar and volume track |
 | `slider.seekFill` | `#15786C` | Seekbar played portion |
-| `slider.volumeFill` | `#3F3D3B` | Volume filled portion |
+| `slider.volumeFill` | `#75726E` | Volume filled portion |
 | `slider.thumb` | `#F7F6F4` | Slider handle |
 | `slider.thumbBorder` | `#8F8C88` | Slider handle border |
 
@@ -119,8 +119,8 @@ All colors live in the central theme (`theme-tokens.json`). Names below are the 
 | `window.minimize` | `#FFDA00` | Minimize icon (PlayStation yellow, brightened) |
 | `window.maximize` | `#006FCD` | Maximize icon (PlayStation blue) |
 | `window.close` | `#E60012` | Close icon (PlayStation red) |
-| `window.buttonHover` | `rgba(0,0,0,0.06)` | Minimize/Maximize hover background |
-| `window.closeHover` | `#C42B1C` | Close hover background (icon turns white) |
+| `window.buttonHover` | `rgba(0,0,0,0.06)` | Hover background of all three window buttons, Close included |
+| `window.closeHover` | `#C42B1C` | Unused: Close hovers grey like the others since 2026-10-02 (see §6.1) |
 
 ### Status bar
 
@@ -196,7 +196,7 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
   - At rest: background `panel.bg`, subtle inset shadow (`inset 0 1px 2px rgba(0,0,0,0.15)`).
   - Focused: background `state.searchFocusBg` plus a 2 px `accent.playback` ring.
   - 16 px magnifying-glass icon in `text.muted`, 10 px gap before the text.
-- **Window buttons:** Minimize, Maximize, Close at the far right. Each 46 px wide and full title-bar height. Icons 18 px, stroke ≈1.95 px (2.6 on a 24-unit grid), round line caps. Colors per §3. Hover: Minimize/Maximize get `window.buttonHover`; Close fills `window.closeHover` with a white icon.
+- **Window buttons:** Minimize, Maximize, Close at the far right. Each 46 px wide and full title-bar height. Icons 18 px, stroke ≈1.95 px (2.6 on a 24-unit grid), round line caps. Colors per §3. Hover: all three get `window.buttonHover` and keep their icon colors, so Close's X stays `window.close` (the user's call on 2026-10-02, replacing a red `window.closeHover` fill with a white icon).
 
 ### 6.2 Panels (shared)
 

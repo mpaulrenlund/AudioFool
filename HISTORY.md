@@ -3343,6 +3343,37 @@ numbers in `design/progress.md` (PS2 Dark).
   in both themes; 692 tests. Installed (the app wasn't running); a minimised launch
   found the main window and no error, and closed through UI Automation.
 
+### Session 53, part 2 (2026-10-15): PS2 Dark, build session 3 of 3 (polish and testing)
+
+The third prompt, done in the same session at the user's request, after committing
+build session 2 on its own (`21fe924`). Checked first, then planned; approved with the
+user's two calls: Statistics' warning bars **stay standby red** in Dark, and the search
+box's selection matches the dialogs' fields.
+
+- **Checked**: every window, prompt, menu and tooltip ThemeLab draws (the main window,
+  both tag windows, Statistics, Analyze, Last.fm in three states, art search, the art
+  viewer, both prompts, the album editor, the logo menu, the Libraries submenu, a
+  context menu, a tooltip), in both themes at 100%, 125% and 150%: 144 renders. No
+  colour from the other theme in any pixel or in the brush dumps of ten windows each
+  way; no gaps in any window; each live switch identical to a fresh start, both ways;
+  `--window themeswitch` passed. §8's 29 contrast figures match the dark tokens, and
+  each colour is where the table assumes it in the brush dump.
+- **The search box's text selection** is `color.text.muted`, as `theme.dialogTextBox`
+  has it: it was WPF-UI's Windows accent blue (`#0078D4`) in both themes.
+- **ThemeLab**: `--dpi` lays dialogs, prompts, drop-downs and tooltips out at the
+  scale (`LayOutAt` in `Save`), where it used to draw them enlarged from 100%, and sizes
+  the bitmap from that layout when the case asked for the element's own size;
+  windows are placed by their layout box, which removed a 2 px strip from the Dark art
+  viewer (its cover shadow reaches past the window's left edge). All 48 renders at 100%
+  otherwise unchanged.
+- **Docs**: `CLAUDE.md` describes both themes (`design/ps2-dark/claude-md-addition.md`
+  merged); the PS1 spec's `slider.volumeFill` (`#75726E`) and its Close hover (grey)
+  corrected; the dark spec's §10 and §11 marked done; 20 screenshots, ten windows in
+  each theme, in `design/ps2-dark/screenshots/` with a README of the commands. A
+  HANDOFF note about a 6 px magenta strip in every main-window render was no longer
+  true and is replaced.
+- 692 tests. Installed; a minimised launch found the main window and no error.
+
 ---
 
 ## Reference notes retired from the handoff

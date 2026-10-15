@@ -1,7 +1,8 @@
 # AudioFool
 
 A personal Windows 11 music player. **C# / .NET 10 / WPF**, with WPF-UI for Fluent
-controls (light PS1 theme; see `design/`), ManagedBass for audio and TagLibSharp for metadata.
+controls (two themes, PS1 Light and PS2 Dark; see `design/`), ManagedBass for audio and
+TagLibSharp for metadata.
 
 
 ## Read these first
@@ -43,28 +44,41 @@ absolute path, and never let a missing folder be interpreted as a deleted librar
 
 Playback, DSD correctness and drive behaviour have all been verified by driving the real
 app or a headless probe against `AudioFool.Core` — not by reasoning about the code. Keep
-that standard. `dotnet test` runs the unit tests over `AudioFool.Core` (634 as of
-session 47). They cover the logic, not the windows: anything visual is checked with
+that standard. `dotnet test` runs the unit tests over `AudioFool.Core` (692 as of
+session 53). They cover the logic, not the windows: anything visual is checked with
 ThemeLab or the installed app, as HANDOFF.md describes.
 
 
-## The PS1 theme
+## The themes
 
-The app's only theme, inspired by the PlayStation 1. It was built in sessions 25–31 and
-is finished; changes since are the user's requests, one at a time.
+AudioFool has two themes, switchable while it runs: **PS1 Light** (the original,
+inspired by the PlayStation 1) and **PS2 Dark** (matte black with a blue glow). The
+status bar's Theme button and Ctrl+T switch between them; the choice is saved in
+settings.json, and the app opens in Dark when nothing has been saved.
 
-- **`design/theme-spec.md`**: source of truth for every color, size, layout rule, and behavior. Read it before any UI work.
-- **`design/theme-tokens.json`**: the same values in machine-readable form.
+- **`design/theme-spec.md`**: source of truth for every size, layout rule and behavior,
+  and for the PS1 Light colors. Read it before any UI work.
+- **`design/theme-tokens.json`**: the PS1 Light token set.
+- **`design/ps2-dark/theme-spec.md`**: only what differs in PS2 Dark (colors, shadows,
+  three effects, theme switching).
+- **`design/ps2-dark/theme-tokens.dark.json`**: the PS2 Dark token set.
 - **`design/progress.md`**: every design decision and what each session verified. Read the Decisions section before UI work; add to it when you change the UI.
-- `design/mockup/` and `design/screenshots/`: visual references. The mockup file is design-tool output; read it for icon shapes, but don't try to run it.
+- `design/mockup/` and `design/screenshots/`: visual references for PS1; `design/ps2-dark/screenshots/` has both themes. The mockup file is design-tool output; read it for icon shapes, but don't try to run it.
 
 If the spec and the mockup disagree, the spec wins. If the spec is silent on something, ask rather than guess.
 
 ### Rules that must not slip
 
-- **Use the central theme.** All colors, font sizes, spacing, and corner radii come from the theme resources built from `theme-tokens.json`. No hard-coded values in individual screens.
+- **Use the central theme.** All colors, font sizes, spacing, and corner radii come from the theme resources built from the token files. No hard-coded values in individual screens.
   - The JSON is embedded and loaded at startup (`src/AudioFool/Theming/TokenResources.cs`); each resource is named by its JSON path. Colours, text styles, radii and shadows: `{DynamicResource color.panel.bg}`, `{DynamicResource type.albumTitle}`. Numbers, converted to the property's type: `{theme:Token albums.rowHeight}`. Paddings and margins: `{theme:Thickness X=songTable.listPaddingX, Y=songTable.listPaddingY}`. `xmlns:theme="clr-namespace:AudioFool.Theming"`. The full mapping is in `design/progress.md`.
-  - Changing a value means editing `theme-tokens.json` and rebuilding; never copy a value into XAML.
+  - Changing a value means editing the token file and rebuilding; never copy a value into XAML.
+- **Both token files keep the same keys.** A new token goes into both files in the
+  same change. Sizes, spacing and other non-color values are identical in both; only
+  `color.*` and `shadow.*` differ. The parity test enforces this.
+- **Every color reference must follow a theme switch.** Use DynamicResource for
+  `color.*` and `shadow.*` (never StaticResource), and don't hold on to a brush read
+  in code: look it up when you draw.
+- **Check both themes.** Any visual change is rendered with ThemeLab in Light and Dark.
 - **No visible scrollbars.** Hide them; lists must still scroll with the mouse wheel, trackpad, and keyboard.
 - **Song rows: single-click selects, double-click plays.**
 - **Keep the existing PlayStation logo asset** (`PlayStation-Logo-1994.png`). Don't replace or redraw it.

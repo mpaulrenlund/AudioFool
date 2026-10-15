@@ -232,7 +232,7 @@ The result is a faint deep-navy haze along the top centre that has faded out by 
 
 ### 7.2 Window buttons
 
-Icons in their DualShock colors at rest: Minimize `window.minimize` (triangle green), Maximize `window.maximize` (square pink), Close `window.close` (cross blue). Hover as in PS1: all three get `window.buttonHover`, and the icons keep their colors, so Close's X stays cross blue. That is what PS1 has done since 2026-10-02 (the user's call, in `../progress.md`), not the red fill with a white icon that `../theme-spec.md` §6.1 still describes; settled for Dark on 2026-10-15. `window.closeHover` and `window.closeHoverIcon` are unused in both themes.
+Icons in their DualShock colors at rest: Minimize `window.minimize` (triangle green), Maximize `window.maximize` (square pink), Close `window.close` (cross blue). Hover as in PS1: all three get `window.buttonHover`, and the icons keep their colors, so Close's X stays cross blue. That is what PS1 has done since 2026-10-02 (the user's call; `../theme-spec.md` §6.1), settled for Dark on 2026-10-15. `window.closeHover` and `window.closeHoverIcon` are unused in both themes.
 
 ### 7.3 Transport buttons
 
@@ -315,7 +315,7 @@ In the dark set, `accent.teal` and `accent.tealText` hold blues. Before the dark
 
 ## 10. Notes
 
-- **PS1 spec fix:** `../theme-spec.md` §3 lists `slider.volumeFill` as `#3F3D3B`, but `../theme-tokens.json` (what the app loads) has `#75726E`, which is also what the app shows. The dark value was chosen against the JSON. Correct the PS1 table.
+- **PS1 spec fix:** `../theme-spec.md` §3 lists `slider.volumeFill` as `#3F3D3B`, but `../theme-tokens.json` (what the app loads) has `#75726E`, which is also what the app shows. The dark value was chosen against the JSON. Correct the PS1 table. **Done** in build session 3 (2026-10-15).
 - **Changes from the brief's starting palette:** `text.muted` `#868D99` → `#8C93A0` (it was 4.3:1 on selected rows) and `text.placeholder` `#6E7480` → `#848B98` (it was 3.6:1). Everything else in the brief's palette is used as proposed.
 
 ---
@@ -327,3 +327,5 @@ In the dark set, `accent.teal` and `accent.tealText` hold blues. Before the dark
 - **Switch live** with the button and with Ctrl+T while a song plays and a dialog is open. Everything changes at once, and nothing else changes.
 - **Persistence:** close in Dark → reopens Dark; close in Light → reopens Light; remove `Theme` from `settings.json` → opens Dark.
 - As always: no driving the mouse or keyboard to test (UI Automation and `PrintWindow` only).
+
+**All done** in the three build sessions (2026-10-14 and 15): the parity tests; every window, dialog, prompt, menu and tooltip in both themes at 100%, 125% and 150%, with no colour from the other theme anywhere; a live switch identical to a fresh start for each of them, and with music playing and dialogs open; persistence in the installed app. The §8 figures were checked against the colours the app actually uses. Numbers in `../progress.md`, PS2 Dark session notes; renders of both themes in `screenshots/`.

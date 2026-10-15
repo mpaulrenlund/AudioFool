@@ -245,7 +245,8 @@ internal static class Program
         if (Arg(args, "--dpi") is { } dpiArg)
         {
             var d = double.Parse(dpiArg, CultureInfo.InvariantCulture);
-            VisualTreeHelper.SetRootDpi(main, new DpiScale(d, d));
+            _dpi = new DpiScale(d, d);
+            VisualTreeHelper.SetRootDpi(main, _dpi.Value);
             scale = d;
             _direct = true;
             main.UpdateLayout();
@@ -2934,6 +2935,34 @@ internal static class Program
     /// </summary>
     private static bool _direct;
 
+    /// <summary>
+    /// Set by --dpi: the scale the main window is laid out at, and with it every
+    /// dialog, prompt, menu and tooltip Save draws (see LayOutAt).
+    /// </summary>
+    private static DpiScale? _dpi;
+
+    /// <summary>
+    /// --dpi for anything other than the main window: a dialog's content, a
+    /// prompt, a menu's drop-down or a free-standing tooltip is laid out again at
+    /// the scale before it is drawn, as SetRootDpi on the main window does, rather
+    /// than drawn enlarged from its 100% layout. The DPI goes on the tree's root
+    /// (the dialog's window, or the drop-down itself); the visual and everything
+    /// in it is measured again, from the size it was last measured at, since
+    /// layout rounding moves with the scale.
+    /// </summary>
+    private static void LayOutAt(Visual visual, DpiScale dpi)
+    {
+        var root = visual;
+        while (VisualTreeHelper.GetParent(root) is Visual parent)
+            root = parent;
+        if (VisualTreeHelper.GetDpi(root).PixelsPerDip == dpi.PixelsPerDip)
+            return;
+        VisualTreeHelper.SetRootDpi(root, dpi);
+        foreach (var element in Descendants(visual).Prepend(visual).OfType<UIElement>())
+            element.InvalidateMeasure();
+        (visual as UIElement)?.UpdateLayout();
+    }
+
     /// <summary>--theme: the theme every window is built in.</summary>
     private static AudioFool.Core.Theme.AppTheme _theme;
 
@@ -2972,6 +3001,26 @@ internal static class Program
     private static void Save(Visual window, string path, double w, double h, double scale)
     {
         SwitchIfAsked();
+        if (_dpi is { } dpiScale && window is UIElement element)
+        {
+            var before = element.RenderSize;
+            LayOutAt(window, dpiScale);
+            // Measured to its content, it can come out shorter or longer once
+            // layout rounding moves with the scale (Statistics by 41 pixels at
+            // 125%): drawn at the size it was given, the rest of the bitmap would
+            // show as an unpainted strip.
+            if (Math.Abs(before.Width - w) < 0.5 && Math.Abs(before.Height - h) < 0.5)
+                (w, h) = (element.RenderSize.Width, element.RenderSize.Height);
+        }
+
+        // A window, or something inside one, is placed by its layout box: Dark's
+        // cover shadow reaches past the art viewer's left edge, and placed by what
+        // it draws the whole render moved 2 px right. A menu's drop-down, drawn
+        // without ever being opened, still carries its opening animation's offset,
+        // so it, like a free-standing tooltip, is placed by what it draws.
+        var inWindow = false;
+        for (var v = window; v is not null && !inWindow; v = VisualTreeHelper.GetParent(v) as Visual)
+            inWindow = v is Window;
 
         var dpi = 96 * scale;
         var rtb = new RenderTargetBitmap(
@@ -2987,6 +3036,8 @@ internal static class Program
                 dc.DrawRectangle(
                     new VisualBrush(window)
                     {
+                        Viewbox = inWindow ? new Rect(0, 0, w, h) : new Rect(0, 0, 1, 1),
+                        ViewboxUnits = inWindow ? BrushMappingMode.Absolute : BrushMappingMode.RelativeToBoundingBox,
                         Stretch = Stretch.None,
                         AlignmentX = AlignmentX.Left,
                         AlignmentY = AlignmentY.Top,

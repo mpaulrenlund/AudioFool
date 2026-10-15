@@ -132,10 +132,11 @@ The notes are written for the user, grouped New / Improved / Fixed, from
   Sessions 49–53 are unreleased but installed.
 - **Two themes, PS1 Light and PS2 Dark, switched live** (session 52): the status bar's
   Theme button or Ctrl+T; saved; **Dark when nothing is saved**, so the first launch
-  after session 52's install opens in Dark. PS2 Dark's build sessions 1 and 2 of 3 are
-  done (session 53 added the title bar's menu glow and Play/Pause's ring and glow); the
-  polish pass (session 3) is still to come. `design/progress.md` holds every design
-  decision (PS1, and the PS2 Dark section); read it before UI work.
+  after session 52's install opens in Dark. **PS2 Dark is finished**: all three of the
+  user's build sessions are done (52; 53 did the glows and the polish pass), and
+  `design/ps2-dark/screenshots/` shows every window in both themes.
+  `design/progress.md` holds every design decision (PS1, and the PS2 Dark section);
+  read it before UI work.
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
@@ -151,6 +152,15 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   now hands shadow colours over as scRGB (black, every other shadow, is unaffected).
   Light 0 pixels different from HEAD in 17 renders and at 125% and 150%; Dark different
   only in the title bar and round Play/Pause; live switches identical to a fresh start.
+  Then **build session 3 of 3**, the polish pass: every window, prompt, menu and tooltip
+  in both themes at 100%, 125% and 150% (144 renders): no colour from the other theme in
+  any pixel or brush dump, no gaps, live switches identical to fresh starts; §8's 29
+  contrast figures confirmed. The user's calls: Statistics' warning bars **stay standby
+  red** in Dark; the search box's text selection is `text.muted` like the dialogs' fields
+  (it was the Windows accent blue in both themes). ThemeLab's `--dpi` now lays dialogs,
+  prompts, menus and tooltips out at the scale too. `CLAUDE.md` describes both themes
+  (`claude-md-addition.md` merged); the PS1 spec's volume fill and Close hover corrected;
+  20 screenshots in `design/ps2-dark/screenshots/`.
 
 - **52** (2026-10-14): **PS2 Dark, build session 1 of 3** (the user's design in
   `design/ps2-dark/`). Two token sets with the same keys (parity tests), the §9 rename
@@ -729,7 +739,7 @@ ThemeLab.exe --output "Exclusive · 176.4 kHz · DSD over PCM"   # the output re
 ThemeLab.exe --libshot libs.png --scale 3   # the Libraries submenu, one folder ticked, one not
 ThemeLab.exe --window folders               # folder list: merging, relocation, unticked status, Remove
 ThemeLab.exe --window tokens --out tokens.png   # the central theme: lookups from MainWindow, XAML usage, fonts, specimen
-ThemeLab.exe --dpi 1.25 --w 1720 --h 1080   # laid out and drawn as on a 125% monitor (all monitors here are 100%)
+ThemeLab.exe --dpi 1.25 --w 1720 --h 1080   # laid out and drawn as on a 125% monitor (all monitors here are 100%); with --window, the dialog too (session 53)
 ThemeLab.exe --focus ShuffleButton --focusvisual 1   # draw the keyboard focus outline, which focus alone doesn't
 ThemeLab.exe --peers 1                      # the automation tree: what a screen reader reads for each control
 ThemeLab.exe --tabwalk 18                   # 18 real Tab presses from the search box; prints where focus lands
@@ -756,7 +766,11 @@ on an element (as `--window edit` does) skips WPF's Tab handling entirely, and
 `--dpi` is the real scaling test; `--scale` only enlarges the bitmap. It draws the
 window straight into the bitmap, because through the usual VisualBrush every vertical
 edge softens at an emulated DPI, which looks exactly like a scaling bug in the app
-(session 5 reported one, wrongly). `--focusvisual` sets WPF's internal "always show
+(session 5 reported one, wrongly). Since session 53 it reaches everything a case draws:
+`Save` lays a dialog, prompt, drop-down or tooltip out again at the scale before
+drawing it (`LayOutAt`), and sizes the bitmap from that layout when the case asked for
+the element's own size. Before, only the main window was laid out at the scale and the
+rest was drawn enlarged from its 100% layout. `--focusvisual` sets WPF's internal "always show
 focus visual" flag by reflection: WPF otherwise draws a FocusVisualStyle only after
 real keyboard input, so `--focus` alone renders no outline at all.
 
@@ -827,9 +841,16 @@ Three things it took a while to get right, all worth keeping if it is rebuilt:
   `Resources/logo.png` and `AudioFool.ico`, which `MainWindow.xaml` loads by relative URI.
 - **The harness paints `--bg` behind the window first** (dark grey by default).
   Both themes are opaque, so none of it should show; that is what makes
-  `--bg "#FF00FF"` a gap detector. (Today every main-window render has a 6 px magenta
-  strip at the right edge, and the 1720 × 1080 ones a larger area: the canvas is wider
-  than the window ThemeLab lays out. The same counts on HEAD; compare counts, not zero.)
+  `--bg "#FF00FF"` a gap detector. Every window render has 0 magenta pixels, at 100%,
+  125% and 150% (counted in session 53, which also found an older note here about a
+  6 px strip no longer true). A menu's drop-down or a tooltip drawn on its own shows the
+  backdrop in its shadow margin and round corners, the same in both themes.
+- **Windows are placed by their layout box** (session 53): the VisualBrush that draws
+  a window, or anything in one, has its `Viewbox` set to the window's own rectangle.
+  Placed by what it draws, as before, a shadow reaching past the left edge (Dark's
+  cover shadow in the art viewer) moved the whole render right. Drop-downs and
+  free-standing tooltips keep the old placement: one drawn without being opened still
+  carries its opening animation's offset, which that placement undoes.
 - **`--theme light|dark`** picks the theme every window is built in (light when not
   given, so old recipes render as before). **`--switch light|dark`** switches live,
   through `ThemeService.Switch`, just before the first render, once the case has built
@@ -1045,13 +1066,6 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
-- **PS2 Dark build session 3** (the user's plan; prompt in
-  `design/ps2-dark/session-prompts.md`, sessions 1 and 2's notes and decisions in
-  `design/progress.md` → PS2 Dark). Left for it: Statistics' warning bars borrow
-  `status.lastFmOff`, so they are standby red in Dark (yellow in Light), worth a look
-  in the eye check; the PS1 spec's §6.1 and colour table still say Close fills red on
-  hover, stale since the user made it grey on 2026-10-02 (the dark spec now says grey,
-  session 53), a fix for the docs pass.
 0. **Stutters (sessions 48–49)**: two causes fixed in session 49, the post-scan memory
    clean-up and event-driven exclusive mode. Ask the user whether stutters still
    happen, in Bit-Perfect especially. If the PC's own freezes (APP STARVED, no GC) grow
@@ -1065,8 +1079,8 @@ Open items only; finished ones are in `HISTORY.md`.
 1. **Release v0.6.0** when the user asks (suggested in session 51, not yet asked for).
    It would hold: session 49's two stutter fixes, session 50's DSF covers and the
    gentler "possibly fake hi-res" rule, session 51's DSD-under-Bit-Perfect and
-   sample-exact gapless, and sessions 52–53's PS2 Dark (better after its session 3, the
-   user's call). New features, so the middle number.
+   sample-exact gapless, and sessions 52–53's PS2 Dark, now finished. New features, so
+   the middle number.
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
 3. **A visible, editable queue view**: the most conspicuous missing player feature.

@@ -428,6 +428,9 @@
         <Setter Property="FontSize" Value="{theme:Token type.search.size}" />
         <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
         <Setter Property="CaretBrush" Value="{DynamicResource color.text.primary}" />
+        <!-- As the dialogs' text fields (theme.dialogTextBox): without it the
+             selection was the Windows accent blue, in both themes. -->
+        <Setter Property="SelectionBrush" Value="{DynamicResource color.text.muted}" />
         <Setter Property="Background" Value="{DynamicResource color.panel.bg}" />
         <Setter Property="BorderBrush" Value="{DynamicResource color.panel.border}" />
         <Setter Property="BorderThickness" Value="{theme:Thickness All=layout.panelBorder}" />
