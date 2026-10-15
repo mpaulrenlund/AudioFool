@@ -1516,41 +1516,35 @@
             </Button>
 
             <!--
-                Theme (PS2 Dark spec 3.1): names the theme on screen, with a moon
-                for Dark or a sun for Light, drawn like the refresh icon. A click
-                switches to the other one, as Ctrl+T does. An ordinary button whose
-                label changes, not a toggle; no tooltip.
+                Theme (PS2 Dark spec 3.1): the icon alone shows the theme on screen,
+                a moon for Dark or a sun for Light, drawn like the refresh icon (no
+                label; the accessible name says it). A click switches to the other
+                one, as Ctrl+T does. An ordinary button, not a toggle; no tooltip.
             -->
             <Button x:Name="ThemeButton" Grid.Column="3"
                     Style="{StaticResource theme.chip}"
                     Margin="{theme:Thickness Left=statusBar.chipGap}"
                     Command="{Binding ToggleThemeCommand}"
                     AutomationProperties.Name="{Binding ThemeAutomationName}">
-                <StackPanel Orientation="Horizontal">
-                    <Viewbox Width="{theme:Token statusBar.refreshIcon}"
-                             Height="{theme:Token statusBar.refreshIcon}"
-                             Margin="{theme:Thickness Right=statusBar.chipDotGap}">
-                        <Canvas Width="24" Height="24">
-                            <Path StrokeThickness="{theme:Token statusBar.refreshIconStrokeOn24Grid}">
-                                <Path.Style>
-                                    <Style TargetType="Path" BasedOn="{StaticResource theme.iconStroke}">
-                                        <!-- The sun: a circle of radius 4 and eight rays. -->
-                                        <Setter Property="Data"
-                                                Value="M 16,12 A 4,4 0 1 1 8,12 A 4,4 0 1 1 16,12 Z M 12,2.5 V 4.5 M 12,19.5 V 21.5 M 4.6,4.6 L 6,6 M 18,18 L 19.4,19.4 M 2.5,12 H 4.5 M 19.5,12 H 21.5 M 4.6,19.4 L 6,18 M 18,6 L 19.4,4.6" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
-                                                <Setter Property="Data" Value="M 20,14.5 A 8,8 0 0 1 9.5,4 A 8,8 0 1 0 20,14.5 Z" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Path.Style>
-                            </Path>
-                        </Canvas>
-                    </Viewbox>
-                    <TextBlock Text="{Binding ThemeLabel}"
-                               Style="{DynamicResource type.status}"
-                               VerticalAlignment="Center" />
-                </StackPanel>
+                <Viewbox Width="{theme:Token statusBar.refreshIcon}"
+                         Height="{theme:Token statusBar.refreshIcon}">
+                    <Canvas Width="24" Height="24">
+                        <Path StrokeThickness="{theme:Token statusBar.refreshIconStrokeOn24Grid}">
+                            <Path.Style>
+                                <Style TargetType="Path" BasedOn="{StaticResource theme.iconStroke}">
+                                    <!-- The sun: a circle of radius 4 and eight rays. -->
+                                    <Setter Property="Data"
+                                            Value="M 16,12 A 4,4 0 1 1 8,12 A 4,4 0 1 1 16,12 Z M 12,2.5 V 4.5 M 12,19.5 V 21.5 M 4.6,4.6 L 6,6 M 18,18 L 19.4,19.4 M 2.5,12 H 4.5 M 19.5,12 H 21.5 M 4.6,19.4 L 6,18 M 18,6 L 19.4,4.6" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDarkTheme}" Value="True">
+                                            <Setter Property="Data" Value="M 20,14.5 A 8,8 0 0 1 9.5,4 A 8,8 0 1 0 20,14.5 Z" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Path.Style>
+                        </Path>
+                    </Canvas>
+                </Viewbox>
             </Button>
 
             <!-- Bit-Perfect: the dot alone shows the state (no On/Off text);

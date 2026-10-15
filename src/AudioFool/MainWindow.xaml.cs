@@ -66,6 +66,7 @@ public partial class MainWindow : FluentWindow
         _slowClickTimer.Tick += SlowClickTimer_Tick;
         TrackGrid.PreviewMouseWheel += (_, _) => _slowClickTimer.Stop();
         TrackGrid.LostKeyboardFocus += TrackGrid_LostKeyboardFocus;
+        PreviewMouseDown += SaveEditOnClickOutside;
         HookReorder();
         HookShortcuts();
         HookSearchFocus();
@@ -1211,6 +1212,38 @@ public partial class MainWindow : FluentWindow
             return;
 
         TrackGrid.CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true);
+    }
+
+    /// <summary>
+    /// A press anywhere in the window outside the open edit box saves the edit
+    /// and closes the box, as Enter does but without moving on (the user's call,
+    /// 2026-10-15). Losing focus already did this, but a click on something that
+    /// takes no focus - empty space, the art, a label - left the box open. A press
+    /// inside the box, either button, is left to the box. Unchanged text writes
+    /// nothing; switching to another app still leaves the edit open.
+    /// </summary>
+    private void SaveEditOnClickOutside(object sender, MouseButtonEventArgs e)
+    {
+        if (TrackGrid.CurrentCell is not { Item: Track editing, Column: { } column }
+            || CellFor(editing, column) is not { IsEditing: true } cell
+            || FindDescendant<System.Windows.Controls.TextBox>(cell) is not { } box
+            || IsWithin(e.OriginalSource as DependencyObject, box))
+            return;
+
+        TrackGrid.CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true);
+    }
+
+    /// <summary>Like <see cref="IsInside"/>, but also climbs from a text element (a Run) that has no visual parent.</summary>
+    private static bool IsWithin(DependencyObject? node, DependencyObject ancestor)
+    {
+        while (node is not null)
+        {
+            if (ReferenceEquals(node, ancestor))
+                return true;
+            node = node is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(node) : LogicalTreeHelper.GetParent(node);
+        }
+
+        return false;
     }
 
     private static bool IsInside(DependencyObject node, DependencyObject ancestor)

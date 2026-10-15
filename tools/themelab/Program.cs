@@ -5534,6 +5534,40 @@ internal static class Program
             Press(threeBox, System.Windows.Input.Key.Escape);
         Log($"real click: Esc cancels -> editing={Cell(three, "SongColumn").IsEditing} title='{Row("Three").Title}'");
 
+        // 5b2. A click outside the box saves and closes it, even on something that
+        //      takes no focus (the now-playing title); a click inside leaves it open.
+        {
+            var nowTitle = (UIElement)main.FindName("NowPlayingTitle");
+            three = Row("Three");
+            Select(three, "ArtistColumn");
+            Press(Cell(three, "ArtistColumn"), System.Windows.Input.Key.F2);
+            var artistBox = Box(three, "ArtistColumn")!;
+            artistBox.Text = "Clicked Away";
+            Click(artistBox);
+            var insideOk = Cell(three, "ArtistColumn").IsEditing && artistBox.IsKeyboardFocused;
+            Log($"click outside: a click inside the box keeps it open? {insideOk} {(insideOk ? "OK" : "BROKEN")}");
+            before = vm.StatusText;
+            Click(nowTitle);
+            AwaitSave(before);
+            var closed = !Cell(Row("Three"), "ArtistColumn").IsEditing;
+            var saved = AudioFool.Core.Library.TagReader.Read(three.FilePath).Artist == "Clicked Away";
+            Log($"click outside: on the now-playing title (focusable={nowTitle.Focusable}) -> closed={closed} "
+                + $"status='{vm.StatusText}' saved={saved} {(closed && saved ? "OK" : "BROKEN")}");
+            Log("click outside: " + FileTags(three.FilePath));
+
+            // Unchanged: closes, writes nothing.
+            three = Row("Three");
+            Select(three, "SongColumn");
+            Press(Cell(three, "SongColumn"), System.Windows.Input.Key.F2);
+            var stamp = File.GetLastWriteTimeUtc(three.FilePath);
+            Click(nowTitle);
+            Settle(300);
+            var untouched = File.GetLastWriteTimeUtc(three.FilePath) == stamp;
+            var closedUnchanged = !Cell(Row("Three"), "SongColumn").IsEditing;
+            Log($"click outside: unchanged -> closed={closedUnchanged} file untouched={untouched} "
+                + $"{(closedUnchanged && untouched ? "OK" : "BROKEN")}");
+        }
+
         // 5c. Enter walks down the column: after the save rebuilds the rows, the
         //     next row is selected with # open for editing, and Enter goes on.
         var ordered = grid.Items.OfType<Track>().ToList();

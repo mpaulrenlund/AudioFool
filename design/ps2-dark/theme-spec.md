@@ -49,10 +49,10 @@ Settled in design review on 2026-10-14:
 ### 3.1 The control
 
 - **Status bar button**, immediately left of Bit-Perfect, 10 px apart (`statusBar.chipGap`). Same look as the other status bar buttons: 26 px tall, 4 px radius, `status.chipBg`, 1 px `status.chipBorder`, 12 px padding on both sides (`statusBar.chipPaddingX`, as Last.fm and Bit-Perfect; the user's call on 2026-10-14 over "10 px left and 12 px right").
-- Content: a 14 px icon, a 7 px gap (`statusBar.chipDotGap`), then the **current** theme's name in `text.status`: **"Dark"** with a moon, **"Light"** with a sun. Icons are drawn on the 24-unit grid with a 2.2 stroke, like the refresh icon:
+- Content: a 14 px icon alone, no label (the user's call, 2026-10-15): a moon in Dark, a sun in Light, showing the **current** theme. Icons are drawn on the 24-unit grid with a 2.2 stroke, like the refresh icon:
   - Moon: `M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z`
   - Sun: a circle at (12, 12) with radius 4, and rays `M12 2.5v2 M12 19.5v2 M4.6 4.6l1.4 1.4 M18 18l1.4 1.4 M2.5 12h2 M19.5 12h2 M4.6 19.4L6 18 M18 6l1.4-1.4`
-- One click switches to the other theme. Accessible name "Theme: Dark" or "Theme: Light". It's an ordinary button that changes its label, not a pressed/unpressed toggle. Tab order: before Bit-Perfect.
+- One click switches to the other theme. Accessible name "Theme: Dark" or "Theme: Light". It's an ordinary button that changes its icon, not a pressed/unpressed toggle. Tab order: before Bit-Perfect.
 - **Ctrl+T** does the same (a window shortcut like Ctrl+B for Bit-Perfect, so it's off while a song-table cell is being edited). Add it to README's shortcut table.
 - ~~Optional: a "Dark Theme" check item in the logo menu, beside Statistics… and Last.fm…, showing Ctrl+T as its shortcut.~~ Asked 2026-10-14: not wanted (the button and Ctrl+T only).
 
