@@ -1691,7 +1691,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 updated[track.FilePath] = track.WithFolderArt(cover);
         }
 
-        _artService.InvalidateAlbum(album);
+        InvalidateAlbumArt(album);
         if (updated.Count == 0)
             return;
 
@@ -1938,7 +1938,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // Bust the art cache even on partial failure - the tracks that DID write
         // still need their stale thumbnail/header/Now-Playing entries dropped.
         if (art is not null)
-            _artService.InvalidateAlbum(album);
+            InvalidateAlbumArt(album);
 
         if (updated.Count > 0)
         {
@@ -2305,6 +2305,29 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _scrobbler.TrackStarted(track, TimeSpan.FromSeconds(DurationSeconds));
 
         _ = LoadNowPlayingArtAsync(track);
+    }
+
+    /// <summary>
+    /// Drops an album's cached pictures after its cover changed, and reloads the
+    /// now-playing picture when the playing track is on it: that picture is
+    /// otherwise only loaded when a track starts. Yields first, so the reload sees
+    /// the saved tracks the caller swaps in before its next await.
+    /// </summary>
+    private void InvalidateAlbumArt(Album album)
+    {
+        _artService.InvalidateAlbum(album);
+
+        if (NowPlaying is { } playing
+            && album.Tracks.Any(t => string.Equals(t.FilePath, playing.FilePath, StringComparison.OrdinalIgnoreCase)))
+            _ = ReloadNowPlayingArtAsync(playing.FilePath);
+    }
+
+    private async Task ReloadNowPlayingArtAsync(string path)
+    {
+        await Task.Yield();
+
+        if (NowPlaying is { } current && string.Equals(current.FilePath, path, StringComparison.OrdinalIgnoreCase))
+            await LoadNowPlayingArtAsync(current);
     }
 
     private async Task LoadNowPlayingArtAsync(Track track)

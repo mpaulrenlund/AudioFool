@@ -325,7 +325,7 @@ internal static class Program
         {
             LoadCoversLibrary(vm, Arg(args, "--album") ?? @"D:\Music\Arch Echo\[2017] Arch Echo");
         }
-        else if (which is "edit" or "queue" or "clicks")
+        else if (which is "edit" or "queue" or "clicks" or "nowplayingart")
         {
             LoadTempLibrary(vm);
         }
@@ -1471,7 +1471,7 @@ internal static class Program
                 Arg(args, "--file") ?? throw new ArgumentException("--window themeswitch needs --file <audio file>"),
                 Arg(args, "--artfile"), outPath, w, h, scale);
 
-        if (which is "edit" or "queue" or "clicks" or "multiedit" or "albumeditor" or "trackeditor" or "covers" or "pngconvert")
+        if (which is "edit" or "queue" or "clicks" or "nowplayingart" or "multiedit" or "albumeditor" or "trackeditor" or "covers" or "pngconvert")
         {
             // Each save persists the library, and LibraryCache.CachePath is the
             // real library.json - so it is put back byte for byte afterwards.
@@ -1494,6 +1494,8 @@ internal static class Program
                     RunMultiEdit(main, vm, outPath, w, h, scale);
                 else if (which == "clicks")
                     RunClicks(main, vm);
+                else if (which == "nowplayingart")
+                    RunNowPlayingArt(vm);
                 else if (which == "queue")
                     RunQueueEdit(vm, engine);
                 else
@@ -4608,6 +4610,60 @@ internal static class Program
         Log($"unused answers: {answers.Count}");
         foreach (var file in Directory.EnumerateFiles(_scratchDir!).Order())
             Log($"  {Path.GetFileName(file)}: {File(Path.GetFileName(file))}");
+    }
+
+    /// <summary>
+    /// --window nowplayingart: the scratch album's second track in the now-playing
+    /// bar (as last time's track is restored, nothing played), then a new cover
+    /// saved album-wide through the album tag window's own save. The bar's picture
+    /// must follow without a track change: it was only loaded when a track started.
+    /// </summary>
+    private static void RunNowPlayingArt(MainViewModel vm)
+    {
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        const System.Reflection.BindingFlags Private = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+
+        var library = typeof(MainViewModel).GetField("_library", Private)!.GetValue(vm)!;
+        IReadOnlyList<Track> AllTracks() =>
+            ((IEnumerable<Track>)library.GetType().GetProperty("AllTracks")!.GetValue(library)!).ToList();
+        var playing = AllTracks().First(t => t.Title == "Two");
+
+        typeof(MainViewModel).GetMethod("ShowRestoredTrack", Private)!.Invoke(vm, [playing]);
+        Settle(500);
+        Console.WriteLine($"before: now playing '{vm.NowPlaying?.Title}', picture {(vm.NowPlayingArt is { } a ? $"{a.PixelWidth}px" : "none")}");
+
+        // A plain red 300 px JPEG.
+        var red = new System.Windows.Media.Imaging.WriteableBitmap(300, 300, 96, 96, System.Windows.Media.PixelFormats.Bgr32, null);
+        var pixels = Enumerable.Repeat(unchecked((int)0xFFE02020), 300 * 300).ToArray();
+        red.WritePixels(new Int32Rect(0, 0, 300, 300), pixels, 300 * 4, 0);
+        var encoder = new System.Windows.Media.Imaging.JpegBitmapEncoder { QualityLevel = 95 };
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(red));
+        using var jpeg = new MemoryStream();
+        encoder.Save(jpeg);
+
+        var album = AudioFool.Core.Library.LibraryScanner.Build(AllTracks().ToList()).Artists[0].Albums[0];
+        var edit = new AudioFool.Core.Library.AlbumTagEdit("Lab Artist", "Lab Artist", "Lab Album", 2020);
+        var save = (Task)typeof(MainViewModel).GetMethod("ApplyAlbumEditAsync", Private)!
+            .Invoke(vm, [album, edit, new AudioFool.Core.Library.ArtPayload(jpeg.ToArray(), "image/jpeg"), false])!;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (!save.IsCompleted && clock.ElapsedMilliseconds < 10000) Settle(50);
+        while (vm.NowPlayingArt is null && clock.ElapsedMilliseconds < 5000) Settle(50);
+        Settle(300);
+
+        var embedded = AudioFool.Core.Library.TagReader.ReadEmbeddedArt(playing.FilePath);
+        var art = vm.NowPlayingArt;
+        var redOk = false;
+        if (art is not null)
+        {
+            var px = new byte[4];
+            new System.Windows.Media.Imaging.FormatConvertedBitmap(art, System.Windows.Media.PixelFormats.Bgr32, null, 0)
+                .CopyPixels(new Int32Rect(art.PixelWidth / 2, art.PixelHeight / 2, 1, 1), px, 4, 0);
+            redOk = px[2] > 180 && px[1] < 80 && px[0] < 80;
+            Console.WriteLine($"  centre pixel R{px[2]} G{px[1]} B{px[0]}");
+        }
+        Console.WriteLine($"after: status='{vm.StatusText}' cover in file={(embedded is { Length: > 0 } ? $"{embedded.Length:N0} B" : "none")} "
+            + $"now playing '{vm.NowPlaying?.Title}' same file={vm.NowPlaying?.FilePath == playing.FilePath}, picture {(art is null ? "none" : $"{art.PixelWidth}px")} "
+            + $"{(redOk ? "OK" : "BROKEN")}");
     }
 
     private static void LoadTempLibrary(MainViewModel vm)

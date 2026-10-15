@@ -132,7 +132,12 @@ The notes are written for the user, grouped New / Improved / Fixed, from
   19 files): PS2 Dark and everything since v0.5.0. Installed.
 - **Session 54** (2026-10-15): the Theme button is icon only; a click anywhere outside
   an in-place edit box saves it and closes the box (`SaveEditOnClickOutside`, ThemeLab
-  `--window edit` step 5b2). Both in `design/progress.md`.
+  `--window edit` step 5b2). Both in `design/progress.md`. Then, after v0.6.0: **a
+  cover saved in the app now shows in the now-playing bar straight away** (it was only
+  loaded when a track started). The three cover-save paths call
+  `MainViewModel.InvalidateAlbumArt`, which reloads the bar's picture when the playing
+  track is on the album. ThemeLab `--window nowplayingart`: BROKEN before the fix, OK
+  after. Installed; unreleased.
 - **Two themes, PS1 Light and PS2 Dark, switched live** (session 52): the status bar's
   Theme button or Ctrl+T; saved; **Dark when nothing is saved**, so the first launch
   after session 52's install opens in Dark. **PS2 Dark is finished**: all three of the

@@ -290,7 +290,7 @@ public sealed partial class MainViewModel
 
         var before = _library.AllTracks.Where(t => updated.ContainsKey(t.FilePath)).ToList();
         foreach (var album in LibraryScanner.Build(before).Artists.SelectMany(a => a.Albums))
-            _artService.InvalidateAlbum(album);
+            InvalidateAlbumArt(album);
 
         ReplaceTracksInLibrary(updated);
         await PersistLibraryAsync();
