@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\AudioFool.Core\AudioFool.Core.csproj" />
@@ -25,7 +25,7 @@
     <AssemblyName>AudioFool</AssemblyName>
     <RootNamespace>AudioFool</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.5.0</Version>
+    <Version>0.6.0</Version>
     <Product>AudioFool</Product>
 
     <!--
