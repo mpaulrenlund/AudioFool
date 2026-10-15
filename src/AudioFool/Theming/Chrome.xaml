@@ -1084,6 +1084,35 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ButtonBase">
                     <Grid x:Name="Root" Background="Transparent">
+                        <!-- Play/Pause only (the Tag trigger below), PS2 Dark spec 7.3:
+                             a glow and a 1 px ring, behind the face so it keeps its
+                             own molded shadow. The glow comes from a disc one border
+                             width inside the face, which hides the disc whole; only
+                             the glow shows. Both are transparent in Light. The disc is
+                             left out while its glow can't be seen (the other buttons,
+                             and Light): even a transparent effect moved the button's
+                             own shadow by one colour level at 125%. -->
+                        <Ellipse x:Name="Glow"
+                                 Margin="{theme:Thickness All=layout.panelBorder}"
+                                 Fill="{DynamicResource color.control.face}">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Style.Triggers>
+                                        <Trigger Property="Effect" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </Trigger>
+                                        <DataTrigger Binding="{Binding Effect.Opacity, RelativeSource={RelativeSource Self}}" Value="0">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <Ellipse x:Name="Ring"
+                                 Visibility="Collapsed"
+                                 Margin="{theme:Thickness All=-layout.panelBorder}"
+                                 Stroke="{DynamicResource color.control.playRing}"
+                                 StrokeThickness="{theme:Token layout.panelBorder}" />
                         <theme:MoldedFace x:Name="Face"
                                           Face="{DynamicResource color.control.face}"
                                           Stroke="{DynamicResource color.control.faceBorder}"
@@ -1095,6 +1124,8 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="Tag" Value="shadow.playButton">
                             <Setter TargetName="Face" Property="Effect" Value="{DynamicResource shadow.playButton}" />
+                            <Setter TargetName="Glow" Property="Effect" Value="{DynamicResource shadow.playGlow}" />
+                            <Setter TargetName="Ring" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Face" Property="Face" Value="{DynamicResource color.control.faceHover}" />

@@ -206,12 +206,20 @@ public static class TokenResources
     /// CSS offsets are x right and y down; WPF's Direction is degrees anticlockwise
     /// from the right, so straight down is 270. CSS blur and WPF BlurRadius are both
     /// in pixels but not the same curve - compare against the screenshots by eye.
+    /// <para>
+    /// The colour goes in as scRGB. DropShadowEffect takes its colour's linear-light
+    /// (scRGB) values and draws them as if they were sRGB, which deepens every colour
+    /// but black and white: PS2 Dark's playback-blue glow, rgba(76,141,255,0.45),
+    /// came out as about (16,66,255) in both software and hardware rendering. Handing
+    /// it the token's sRGB values as its scRGB ones makes it draw the token's colour.
+    /// Black, the colour of every other shadow, is the same either way.
+    /// </para>
     /// </summary>
     private static DropShadowEffect Shadow(ShadowLayer s)
     {
         var effect = new DropShadowEffect
         {
-            Color = Color.FromRgb(s.Color.R, s.Color.G, s.Color.B),
+            Color = Color.FromScRgb(1, s.Color.R / 255f, s.Color.G / 255f, s.Color.B / 255f),
             Opacity = s.Color.Alpha,
             BlurRadius = s.Blur,
             ShadowDepth = Math.Sqrt(s.OffsetX * s.OffsetX + s.OffsetY * s.OffsetY),

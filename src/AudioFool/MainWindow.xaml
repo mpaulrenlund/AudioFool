@@ -277,6 +277,18 @@
                 IsHitTestVisible="False" />
 
         <!--
+            PS2 Dark's menu glow (PS2 Dark spec 7.1): a faint deep-blue haze at
+            the top centre, behind the title bar's content and over nothing else.
+            Its colour is transparent in Light, where it draws nothing.
+        -->
+        <theme:TitleGlow Grid.Row="0"
+                         Color="{DynamicResource color.window.titleGlow.value}"
+                         RadiusX="{theme:Token titleBar.glow.radiusX}"
+                         RadiusY="{theme:Token titleBar.glow.radiusY}"
+                         CenterY="{theme:Token titleBar.glow.centerY}"
+                         IsHitTestVisible="False" />
+
+        <!--
             6.1. The window buttons are WPF-UI's own, restyled by
             theme.windowButton; see Theming/Chrome.xaml for why they are not
             replaced. ButtonsBackground is the minimize/maximize hover, and

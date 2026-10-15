@@ -21,7 +21,7 @@ Settled in design review on 2026-10-14:
 | Question | Decision |
 |---|---|
 | Which color means playback? | **PS2 blue** (`#4C8DFF`) for playback. Artist names in a pale blue-white (`#A9C8FF`). |
-| Window buttons | **DualShock symbol colors**: Minimize in triangle green, Maximize in square pink, Close in cross blue. Hover is as in PS1: Close turns red with a white icon. |
+| Window buttons | **DualShock symbol colors**: Minimize in triangle green, Maximize in square pink, Close in cross blue. Hover is as in PS1: all three get the same faint grey, and Close's X stays cross blue (settled 2026-10-15; see §7.2). |
 | Bit-Perfect off | **Standby red** (`#FF5A5F`). On is power-light green (`#3DDC84`). |
 | Glow | **On the Play/Pause button only**: a soft blue glow and a 1 px blue ring. Nothing else glows. |
 | Transport buttons | **DualShock 2 black**: matte black faces with the same molded look as PS1. |
@@ -89,10 +89,10 @@ Names are token paths under `color` (`panel.bg` is `color.panel.bg`), as in the 
 | `window.bg` | `#BAB7B3` | `#111216` |  |
 | `window.minimize` | `#FFDA00` | `#3DD6A3` | triangle green |
 | `window.maximize` | `#006FCD` | `#F28FCB` | square pink |
-| `window.close` | `#E60012` | `#7AA7FF` | cross blue; hover still turns red (`closeHover`) |
-| `window.buttonHover` | `rgba(0,0,0,0.06)` | `rgba(255,255,255,0.08)` |  |
-| `window.closeHover` | `#C42B1C` | Same |  |
-| `window.closeHoverIcon` | `#FFFFFF` | Same |  |
+| `window.close` | `#E60012` | `#7AA7FF` | cross blue, on hover too (§7.2) |
+| `window.buttonHover` | `rgba(0,0,0,0.06)` | `rgba(255,255,255,0.08)` | hover for all three buttons, Close included |
+| `window.closeHover` | `#C42B1C` | Same | unused in both themes (§7.2) |
+| `window.closeHoverIcon` | `#FFFFFF` | Same | unused in both themes (§7.2) |
 
 ### `panel`
 
@@ -232,7 +232,7 @@ The result is a faint deep-navy haze along the top centre that has faded out by 
 
 ### 7.2 Window buttons
 
-Icons in their DualShock colors at rest: Minimize `window.minimize` (triangle green), Maximize `window.maximize` (square pink), Close `window.close` (cross blue). Hover as in PS1: Minimize and Maximize get `window.buttonHover`; Close fills `window.closeHover` (`#C42B1C`) with a white icon.
+Icons in their DualShock colors at rest: Minimize `window.minimize` (triangle green), Maximize `window.maximize` (square pink), Close `window.close` (cross blue). Hover as in PS1: all three get `window.buttonHover`, and the icons keep their colors, so Close's X stays cross blue. That is what PS1 has done since 2026-10-02 (the user's call, in `../progress.md`), not the red fill with a white icon that `../theme-spec.md` §6.1 still describes; settled for Dark on 2026-10-15. `window.closeHover` and `window.closeHoverIcon` are unused in both themes.
 
 ### 7.3 Transport buttons
 

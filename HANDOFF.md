@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-14, session 52. Read this alongside `README.md`: the README covers
+Updated 2026-10-15, session 53. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -129,16 +129,28 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 - **Everything in `README.md` is implemented and verified**, and the installed app is
   a build of `main`. **692 tests** pass.
 - **Last release: v0.5.0** (2026-10-13, session 48, tag on `a8bffb1`, 60.2 MB zip).
-  Sessions 49–52 are unreleased but installed.
+  Sessions 49–53 are unreleased but installed.
 - **Two themes, PS1 Light and PS2 Dark, switched live** (session 52): the status bar's
   Theme button or Ctrl+T; saved; **Dark when nothing is saved**, so the first launch
-  after session 52's install opens in Dark. PS2 Dark is build session 1 of 3: the two
-  glows (session 2) and the polish pass (session 3) are still to come, and the app is
-  consistent without them. `design/progress.md` holds every design decision (PS1, and
-  the PS2 Dark section); read it before UI work.
+  after session 52's install opens in Dark. PS2 Dark's build sessions 1 and 2 of 3 are
+  done (session 53 added the title bar's menu glow and Play/Pause's ring and glow); the
+  polish pass (session 3) is still to come. `design/progress.md` holds every design
+  decision (PS1, and the PS2 Dark section); read it before UI work.
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **53** (2026-10-15): **PS2 Dark, build session 2 of 3.** Every §7 colour in Dark
+  measured from ThemeLab renders: all as the spec says, apart from Close's hover, which
+  **stays grey in Dark too** (the user's call; the dark spec's §1, §4 and §7.2 said red
+  "as in PS1" and are corrected). Built: the **menu glow** (`Theming/TitleGlow.cs`, a
+  radial gradient behind `AppTitleBar`, nothing drawn while its colour is transparent)
+  and Play/Pause's **ring and glow** (in `theme.transportButton`'s template, behind the
+  face, Play/Pause only). Found on the way: **`DropShadowEffect` draws its colour's
+  linear-light values as sRGB**, so the blue glow came out far too deep; `TokenResources`
+  now hands shadow colours over as scRGB (black, every other shadow, is unaffected).
+  Light 0 pixels different from HEAD in 17 renders and at 125% and 150%; Dark different
+  only in the title bar and round Play/Pause; live switches identical to a fresh start.
 
 - **52** (2026-10-14): **PS2 Dark, build session 1 of 3** (the user's design in
   `design/ps2-dark/`). Two token sets with the same keys (parity tests), the §9 rename
@@ -346,7 +358,7 @@ in place alongside `MusicFolders[index]`.
 what differs). Same keys and sizes in both files; only `color.*` and `shadow.*` differ,
 and the parity tests in `ThemeTokensTests` hold them to that. **`design/progress.md` is
 the reference** for how screens use the tokens (the token-usage table), for every
-decision, and for where the PS2 Dark build sessions stand (two of three left).
+decision, and for where the PS2 Dark build sessions stand (one of three left).
 (Session 18 removed an earlier Dark and Vista; nothing of them was brought back.)
 
 - **The setting:** `AppSettings.Theme`, `Light` or `Dark` by name, **Dark when
@@ -369,8 +381,8 @@ decision, and for where the PS2 Dark build sessions stand (two of three left).
   (the view model relabels the button from it). Only resources change, so playback,
   selections, scroll positions and open dialogs stay put. About 80–110 ms in ThemeLab,
   layout and redraw included.
-- **What makes every colour follow:** `DynamicResource` everywhere (174 `color.*` and
-  12 `shadow.*` references); the `type.*` styles' text colour is a `DynamicResource`
+- **What makes every colour follow:** `DynamicResource` everywhere (178 `color.*` and
+  13 `shadow.*` references); the `type.*` styles' text colour is a `DynamicResource`
   too, so the 17 styles `BasedOn` them through `StaticResource` follow;
   `{theme:LiveColor color.x}` for the 11 brushes inside styles' own resources (WPF-UI
   keys for menus and title bars), which `DynamicResource` can't reach; code looks
@@ -611,6 +623,15 @@ for ($y=0; $y -lt 48; $y++) { for ($x=0; $x -lt 74; $x++) {
 Element rects are worth reading straight out of the live window too — UIA
 `BoundingRectangle` on the window, the menu item and `SearchBox` is how the title-bar
 geometry in this document was established, and it needs no screenshot at all.
+
+**Hardware rendering, off the desktop.** ThemeLab draws in WPF's software renderer;
+the app draws in hardware, and the two can differ (effects especially). A WPF window
+cloaked before it is first shown (`EnsureHandle`, then `DwmSetWindowAttribute`
+`DWMWA_CLOAK` = 13, checked with `DWMWA_CLOAKED` = 14; `ShowActivated = false`) is
+composed by DWM but never on screen and never active, and `PrintWindow` with flag 2
+captures it. A window parked off-screen at `Left = -20000` captures as solid black.
+Session 53 used this to check `DropShadowEffect` colours in hardware; the test app is
+not kept, so rebuild it (a dozen lines around those calls).
 
 **Three checks from session 17 for any theme change.** The scripts lived in that
 session's scratchpad, which is gone, so rebuild them. Each is a few lines of
@@ -991,6 +1012,17 @@ off-screen window, so focus rings can be reviewed.
 - **A file's audio region can end in tags.** An MP3 may end with an APEv2 tag and an
   ID3v1 tag, which TagLib re-renders on save; compare them as tags, not as audio
   (`CoverCleaner.AudioHash`).
+- **`DropShadowEffect` draws its colour's linear-light (scRGB) values as if they were
+  sRGB**, in software and hardware alike. Black can't show it, so no shadow did until
+  PS2 Dark's blue glow: (76,141,255) came out as about (16,66,255). `TokenResources`
+  hands every shadow colour over with `Color.FromScRgb` built from the token's sRGB
+  values, which draws the token's colour (session 53). A coloured effect made anywhere
+  else needs the same.
+- **Even a transparent effect can move pixels next to it.** A `DropShadowEffect` at
+  opacity 0 inside the Play/Pause button changed 76 pixels of the face's own shadow by
+  one colour level, at 125% only. Where a theme must render exactly as before, collapse
+  an element whose effect can't be seen (the glow's disc does, by a trigger on its
+  effect's opacity).
 
 ---
 
@@ -1013,13 +1045,13 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
-- **PS2 Dark build sessions 2 and 3** (the user's plan; prompts in
-  `design/ps2-dark/session-prompts.md`, session 1's notes and decisions in
-  `design/progress.md` → PS2 Dark). Left for them from session 1: Statistics' warning
-  bars borrow `status.lastFmOff`, so they are standby red in Dark (yellow in Light),
-  worth a look in session 3's eye check; §1/§7.2 say Close turns red on hover "as in
-  PS1", but PS1's Close hovers grey since 2026-10-02 (progress.md), so session 2 should
-  ask which Dark wants.
+- **PS2 Dark build session 3** (the user's plan; prompt in
+  `design/ps2-dark/session-prompts.md`, sessions 1 and 2's notes and decisions in
+  `design/progress.md` → PS2 Dark). Left for it: Statistics' warning bars borrow
+  `status.lastFmOff`, so they are standby red in Dark (yellow in Light), worth a look
+  in the eye check; the PS1 spec's §6.1 and colour table still say Close fills red on
+  hover, stale since the user made it grey on 2026-10-02 (the dark spec now says grey,
+  session 53), a fix for the docs pass.
 0. **Stutters (sessions 48–49)**: two causes fixed in session 49, the post-scan memory
    clean-up and event-driven exclusive mode. Ask the user whether stutters still
    happen, in Bit-Perfect especially. If the PC's own freezes (APP STARVED, no GC) grow
@@ -1033,8 +1065,8 @@ Open items only; finished ones are in `HISTORY.md`.
 1. **Release v0.6.0** when the user asks (suggested in session 51, not yet asked for).
    It would hold: session 49's two stutter fixes, session 50's DSF covers and the
    gentler "possibly fake hi-res" rule, session 51's DSD-under-Bit-Perfect and
-   sample-exact gapless, and session 52's theme switch (better after PS2 Dark's
-   sessions 2 and 3, the user's call). New features, so the middle number.
+   sample-exact gapless, and sessions 52–53's PS2 Dark (better after its session 3, the
+   user's call). New features, so the middle number.
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
 3. **A visible, editable queue view**: the most conspicuous missing player feature.

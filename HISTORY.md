@@ -3302,6 +3302,47 @@ padding on both sides (not §3.1's 10/12), no logo-menu item. Decisions in
 - A duplicate session started by mistake with the same prompt sent four review notes
   and stopped without editing; all four were already covered or checked here.
 
+### Session 53 (2026-10-15): PS2 Dark, build session 2 of 3 (dark-only details)
+
+The second prompt in `design/ps2-dark/session-prompts.md`: the title bar's menu glow
+(§7.1), Play/Pause's ring and glow (§7.3), and the rest of §7 checked against ThemeLab
+renders in Dark. Planned and approved, with the user's call on the one open question:
+**Close hovers grey in Dark too**, as Light has since 2026-10-02, though the dark spec
+said red with a white X "as in PS1"; its §1, §4 and §7.2 now say grey. Decisions and
+numbers in `design/progress.md` (PS2 Dark).
+
+- **§7 measured before any change**: every colour as the spec says (the window buttons,
+  Shuffle and Repeat and the repeat-one badge, the status lights, the now-playing row,
+  a liked heart, the waveform, the search box at rest and focused); only Close's hover
+  differed, now settled. `status.lastFmDot` is never drawn: the Last.fm chip hides while
+  connected.
+- **Menu glow**: `Theming/TitleGlow.cs`, a `FrameworkElement` drawing §7.1's radial
+  gradient (centre 40 px above the top, 900 × 130; stops 0, 0.45 at 40% of the alpha,
+  clear at 0.75, kept as constants in the class) from `color.window.titleGlow` and
+  `titleBar.glow.*`, behind `AppTitleBar` in `MainWindow.xaml`. The end stop is the same
+  blue at zero alpha, because WPF interpolates the colour channels too. Nothing is drawn
+  while the colour is transparent. Main window only.
+- **Play/Pause**: in `theme.transportButton`'s template, behind the face, switched on by
+  the `Tag = shadow.playButton` trigger: a ring (an `Ellipse` one border width outside
+  the face, in `color.control.playRing`) and the glow (`shadow.playGlow` on a disc one
+  border width inside the face, which hides it). The disc collapses while its effect is
+  missing or transparent: even a transparent `DropShadowEffect` in the button moved 76
+  pixels of the face's own shadow by one level at 125%.
+- **Found on the way: `DropShadowEffect` draws its colour's linear-light values as
+  sRGB.** The glow's (76,141,255) came out as about (16,66,255), in ThemeLab's software
+  renderer and in hardware (a test window cloaked with `DWMWA_CLOAK`, so never on
+  screen, captured with `PrintWindow`). `TokenResources.Shadow` now hands the token's
+  sRGB values over as scRGB (`Color.FromScRgb`), a straight blend of the token's colour
+  in both renderers; black shadows, all the others, are unaffected. WPF's blur is also
+  tighter than CSS's (18 fades out about 12 px past the edge, CSS's 18px about 22);
+  left at the token's value.
+- **Verified**: Light 0 pixels different from HEAD in 17 renders and at 125% and 150%;
+  Dark different only in the title bar and an 84 px square round Play/Pause, matching
+  the gradient and colours to within one level; a live switch both ways identical to a
+  fresh start; a brush dump fresh against switched identical; the token sheet passes
+  in both themes; 692 tests. Installed (the app wasn't running); a minimised launch
+  found the main window and no error, and closed through UI Automation.
+
 ---
 
 ## Reference notes retired from the handoff
