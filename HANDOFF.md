@@ -21,7 +21,7 @@ you need the story behind a piece of code, not at the start of every session.
 | Native BASS DLLs | `C:\MusicPlayer\lib\bass\x64\` (13 of them) |
 | Music library | `D:\Music` — external 4 TB SSD "Marc SSD", ~26,000 tracks, 692 GB |
 | Session history | `C:\MusicPlayer\HISTORY.md` (what each session changed, oldest first) |
-| Theme spec and decisions | `C:\MusicPlayer\design\` (`theme-spec.md`, `theme-tokens.json`, `progress.md`) |
+| Theme spec and decisions | `C:\MusicPlayer\design\` (`theme-spec.md`, `theme-tokens.json`, `progress.md`); PS2 Dark's in `design\ps2-dark\` (spec of differences, `theme-tokens.dark.json`, `screenshots\` of both themes) |
 
 **The single most important workflow fact:** `dotnet publish` writes to
 `C:\MusicPlayer\publish`, which is **not** the copy the user runs. Publishing without
@@ -160,7 +160,8 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   (it was the Windows accent blue in both themes). ThemeLab's `--dpi` now lays dialogs,
   prompts, menus and tooltips out at the scale too. `CLAUDE.md` describes both themes
   (`claude-md-addition.md` merged); the PS1 spec's volume fill and Close hover corrected;
-  20 screenshots in `design/ps2-dark/screenshots/`.
+  20 screenshots in `design/ps2-dark/screenshots/`. Committed as `21fe924` (build 2) and
+  `5f2942d` (build 3), both pushed. Installed; the user hasn't looked at it on screen yet.
 
 - **52** (2026-10-14): **PS2 Dark, build session 1 of 3** (the user's design in
   `design/ps2-dark/`). Two token sets with the same keys (parity tests), the §9 rename
@@ -1066,6 +1067,11 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
+- **PS2 Dark on screen** (session 53): the user hasn't yet looked at the menu glow, the
+  Play/Pause ring and glow, or the search box's muted selection in the installed app.
+  Ask, and take their notes one at a time. If the Play/Pause glow should spread wider,
+  the knob is `shadow.playGlow`'s blur in `theme-tokens.dark.json` (WPF's 18 fades
+  out about 12 px from the button where CSS's would reach about 22; `design/progress.md`).
 0. **Stutters (sessions 48–49)**: two causes fixed in session 49, the post-scan memory
    clean-up and event-driven exclusive mode. Ask the user whether stutters still
    happen, in Bit-Perfect especially. If the PC's own freezes (APP STARVED, no GC) grow

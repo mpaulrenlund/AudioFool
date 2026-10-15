@@ -3373,6 +3373,7 @@ box's selection matches the dialogs' fields.
   HANDOFF note about a 6 px magenta strip in every main-window render was no longer
   true and is replaced.
 - 692 tests. Installed; a minimised launch found the main window and no error.
+  Committed as `5f2942d`, after build session 2's `21fe924`; both pushed to origin.
 
 ---
 
