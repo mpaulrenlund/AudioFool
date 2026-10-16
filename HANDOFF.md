@@ -1090,7 +1090,35 @@ Open items only; finished ones are in `HISTORY.md`.
    full GC froze the app (find what forced it); APP STARVED with a late fill = the PC;
    LATE FILL alone with a fast fill = the driver's wake-up was late (the 8:24 case);
    SLOW FILL with little "busy" = waiting on the file (the SD card is slower than the
-   SSD); nothing logged = not ours (LatencyMon). Still available: decode ahead
+   SSD); nothing logged = not ours (LatencyMon). **2026-10-16 7:37** (Exclusive timer,
+   44.1 kHz FLAC from D:): "a few gaps" heard; the log has one LATE FILL (45 ms gap,
+   0 ms fill, 0 ms GC) at 7:37:37 with 180 ms still queued, the minute's minimum 170 ms,
+   and the file decodes clean with no silences. So the app's buffer was full: the gap
+   was below us (driver/USB, after a PC-wide hiccup). LatencyMon suggested. Same day:
+   LatencyMon flagged nvlddmkm.sys (4.6 ms DPC; ~30 apps on the NVIDIA GPU, no display on
+   it); the user set AudioFool to Power Saving and NVIDIA's global GPU to Auto-select,
+   rebooted: NVIDIA's peak fell to 0.6 ms. Then four ~120 ms AudioFool freezes at
+   8:46–8:47 (gap heard) while LatencyMon, running, saw at most 0.7 ms interrupt-to-process:
+   only our process stalled. **Listening test** (scratchpad `pauseprobe`, opens the DX5
+   exactly as Bit-Perfect does, a -30 dBFS tone, the feed callback frozen 20/50/80/110/
+   140/170/300 ms): the user heard nothing until the 300 ms control. **So the 200 ms
+   reserve covers a feed freeze up to ~170 ms on the DX5**; the gaps heard with reserve
+   left are not caused by our feed being late, but by something hitting the USB audio path
+   at the same moment. The DX5 goes through **three hubs in an AW-CU603 dock** (Fresco
+   Logic 1D5C:5801, then Realtek 0BDA:5480 and 0BDA:5485). Gaps also at 9:15:04 (a 126 ms
+   freeze, 110 ms left) and 9:19:08 (only 23 ms late, 180 ms left). Side note: at 7:37:37,
+   8:46:00 and 9:15:04, WMI loaded Provider_PlatformBios + StorageWMI +
+   Provider_DiagnosticsServices within a second before the freeze (a BIOS query by some
+   management tool, client not identified); not at 9:19 and not at the other 15-minute
+   loads, so not proven. **Then reproduced:** opening Task Manager (9:23:30) gave a 110 ms
+   freeze and a heard gap; `nvidia-smi` run three times 20 s apart (waking the sleeping
+   NVIDIA GPU) gave a 99, 109 and 107 ms AudioFool freeze ~0.33 s after each, 3 of 3,
+   and **the user heard all three gaps**.
+   **Cause: the laptop's NVIDIA GPU waking from deep sleep stalls the machine ~100 ms**,
+   and the USB audio drops with it (our reserve covers our side). Not fixable in
+   AudioFool; options are Windows/BIOS/driver side (see the session's notes to the user:
+   avoid waking it, hybrid graphics off in the BIOS, Dell BIOS and NVIDIA driver updates,
+   IT). The dock test is still worth doing as a cross-check. Still available: decode ahead
    (`BassFlags.AsyncFile` read-ahead, a decode-ahead buffer), MMCSS for the feed
    thread; a bigger device buffer needs the seek-bar latency fix from session 45.
 1. **Release v0.6.0** when the user asks (suggested in session 51, not yet asked for).
