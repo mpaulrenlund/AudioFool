@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-15, session 53. Read this alongside `README.md`: the README covers
+Updated 2026-10-19, session 55. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -148,9 +148,20 @@ The notes are written for the user, grouped New / Improved / Fixed, from
   `design/ps2-dark/screenshots/` shows every window in both themes.
   `design/progress.md` holds every design decision (PS1, and the PS2 Dark section);
   read it before UI work.
+- **Session 55** (2026-10-16): an investigation, no app change. The user's audio gaps
+  are the work laptop's NVIDIA GPU waking from sleep, which stalls the whole machine
+  ~100 ms (reproduced 3 of 3 with `nvidia-smi`, all three heard). The fix is on the
+  laptop (graphics setting, NVIDIA driver, BIOS), and the user was partway through it:
+  see item 0 under *Suggested next steps*.
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **55** (2026-10-16): **audio gaps traced to the NVIDIA GPU waking.** Read
+  `playback.log` for each gap the user heard; LatencyMon (NVIDIA's 4.6 ms DPC fixed by
+  Auto-select, nothing near 100 ms); a listening test proving the 200 ms reserve covers
+  a frozen feed up to 170 ms on the DX5; then the trigger reproduced with Task Manager and
+  `nvidia-smi`. Docs only (`8aec113`, then this update).
 
 - **53** (2026-10-15): **PS2 Dark, build session 2 of 3.** Every §7 colour in Dark
   measured from ThemeLab renders: all as the spec says, apart from Close's hover, which
@@ -950,6 +961,9 @@ off-screen window, so focus rings can be reviewed.
   the rest as pathspecs, and nothing is committed, although the `push` after it
   still reports "Everything up-to-date". Write the message to a scratchpad file and
   use `git commit -F <file>`.
+- **`git push` from Windows PowerShell reports exit code 255 when it worked.** Git
+  writes its progress to stderr, which PowerShell 5.1 counts as an error. Read the
+  output: a `abc..def  main -> main` line means the push went through.
 - **The sandbox guard also blocks `Remove-Item` on a path held in a variable**
   (`Remove-Item "$d\files\*"`), not only in combination with the PATH assignment.
   Overwrite with `Copy-Item -Force` instead, or spell the path out.
@@ -1083,49 +1097,42 @@ Open items only; finished ones are in `HISTORY.md`.
   Ask, and take their notes one at a time. If the Play/Pause glow should spread wider,
   the knob is `shadow.playGlow`'s blur in `theme-tokens.dark.json` (WPF's 18 fades
   out about 12 px from the button where CSS's would reach about 22; `design/progress.md`).
-0. **Stutters (sessions 48–49)**: two causes fixed in session 49, the post-scan memory
-   clean-up and event-driven exclusive mode. Ask the user whether stutters still
-   happen, in Bit-Perfect especially. If the PC's own freezes (APP STARVED, no GC) grow
-   past ~80 ms, LatencyMon is the next step (the user runs it). When they give a time, read `playback.log` around it: GC PAUSE = another
-   full GC froze the app (find what forced it); APP STARVED with a late fill = the PC;
-   LATE FILL alone with a fast fill = the driver's wake-up was late (the 8:24 case);
-   SLOW FILL with little "busy" = waiting on the file (the SD card is slower than the
-   SSD); nothing logged = not ours (LatencyMon). **2026-10-16 7:37** (Exclusive timer,
-   44.1 kHz FLAC from D:): "a few gaps" heard; the log has one LATE FILL (45 ms gap,
-   0 ms fill, 0 ms GC) at 7:37:37 with 180 ms still queued, the minute's minimum 170 ms,
-   and the file decodes clean with no silences. So the app's buffer was full: the gap
-   was below us (driver/USB, after a PC-wide hiccup). LatencyMon suggested. Same day:
-   LatencyMon flagged nvlddmkm.sys (4.6 ms DPC; ~30 apps on the NVIDIA GPU, no display on
-   it); the user set AudioFool to Power Saving and NVIDIA's global GPU to Auto-select,
-   rebooted: NVIDIA's peak fell to 0.6 ms. Then four ~120 ms AudioFool freezes at
-   8:46–8:47 (gap heard) while LatencyMon, running, saw at most 0.7 ms interrupt-to-process:
-   only our process stalled. **Listening test** (scratchpad `pauseprobe`, opens the DX5
-   exactly as Bit-Perfect does, a -30 dBFS tone, the feed callback frozen 20/50/80/110/
-   140/170/300 ms): the user heard nothing until the 300 ms control. **So the 200 ms
-   reserve covers a feed freeze up to ~170 ms on the DX5**; the gaps heard with reserve
-   left are not caused by our feed being late, but by something hitting the USB audio path
-   at the same moment. The DX5 goes through **three hubs in an AW-CU603 dock** (Fresco
-   Logic 1D5C:5801, then Realtek 0BDA:5480 and 0BDA:5485). Gaps also at 9:15:04 (a 126 ms
-   freeze, 110 ms left) and 9:19:08 (only 23 ms late, 180 ms left). Side note: at 7:37:37,
-   8:46:00 and 9:15:04, WMI loaded Provider_PlatformBios + StorageWMI +
-   Provider_DiagnosticsServices within a second before the freeze (a BIOS query by some
-   management tool, client not identified); not at 9:19 and not at the other 15-minute
-   loads, so not proven. **Then reproduced:** opening Task Manager (9:23:30) gave a 110 ms
-   freeze and a heard gap; `nvidia-smi` run three times 20 s apart (waking the sleeping
-   NVIDIA GPU) gave a 99, 109 and 107 ms AudioFool freeze ~0.33 s after each, 3 of 3,
-   and **the user heard all three gaps**.
-   **Cause: the laptop's NVIDIA GPU waking from deep sleep stalls the machine ~100 ms**,
-   and the USB audio drops with it (our reserve covers our side). Not fixable in
-   AudioFool; options are Windows/BIOS/driver side (see the session's notes to the user:
-   avoid waking it, hybrid graphics off in the BIOS, Dell BIOS and NVIDIA driver updates,
-   IT). The dock test is still worth doing as a cross-check. Still available: decode ahead
-   (`BassFlags.AsyncFile` read-ahead, a decode-ahead buffer), MMCSS for the feed
-   thread; a bigger device buffer needs the seek-bar latency fix from session 45.
-1. **Release v0.6.0** when the user asks (suggested in session 51, not yet asked for).
-   It would hold: session 49's two stutter fixes, session 50's DSF covers and the
-   gentler "possibly fake hi-res" rule, session 51's DSD-under-Bit-Perfect and
-   sample-exact gapless, and sessions 52–53's PS2 Dark, now finished. New features, so
-   the middle number.
+0. **Audio gaps: cause found (session 55), the fix is on the laptop, not in the app.**
+   On the user's work laptop (Dell Pro Max 14 MC14250, BIOS 1.19.2, Intel Arc 140T plus
+   an NVIDIA RTX PRO 500 Blackwell on driver **596.71**, Windows reports `32.0.15.9671`)
+   **waking the sleeping NVIDIA GPU stalls the whole machine ~100 ms**, and the USB audio
+   to the DX5 drops out with it. Reproduced on purpose: `nvidia-smi` three times, 20 s
+   apart, gave three ~100 ms freezes in `playback.log` ~0.33 s after each, and the user
+   heard all three. Opening Task Manager does the same (it reads the GPU). AudioFool is
+   not at fault: a listening test showed the 200 ms reserve covers a frozen feed up to
+   170 ms on the DX5 (only the 300 ms control was heard), and the gaps came with 90–180 ms
+   still in reserve. Don't build app changes for this. Full story in `HISTORY.md`,
+   session 55.
+   - **Where it stood (2026-10-16 afternoon):** AudioFool is set to Power Saving (Intel)
+     in Windows' per-app graphics settings; NVIDIA's global "Preferred graphics processor"
+     is **Auto-select** (was High-performance NVIDIA). Auto-select made the gaps *more*
+     frequent (the GPU sleeps more, so it is woken more), so reverting it was suggested
+     as the quick first fix. The user was about to install a newer NVIDIA driver (Windows
+     11, Production Branch, clean install); not done at 3:22 PM. Other options given:
+     hybrid graphics off in the BIOS (F2 → Display), if this model has it; fewer GPU
+     wakers (Task Manager; Dell TechHub's Instrumentation service is a likely one, but
+     it's a company-managed laptop, so leave Dell's and IT's services alone). The user is
+     an admin on the machine.
+   - **Next:** ask what changed (driver version: `Get-CimInstance Win32_VideoController`;
+     the NVIDIA global setting; BIOS). Then repeat the wake test while the user listens
+     (ask first: it makes gaps): run `nvidia-smi --query-gpu=pstate --format=csv,noheader`
+     three times 20 s apart, then read `playback.log` for a LATE FILL / APP STARVED
+     ~0.3 s after each. No freeze = the GPU stayed awake or the driver fixed it.
+   - **Reading `playback.log`:** an APP STARVED + LATE FILL of ~100–130 ms with reserve
+     left and 0 ms GC is this GPU wake. GC PAUSE = a full GC froze the app; SLOW FILL with
+     little "busy" = waiting on the file; LATE FILL alone with a fast fill = a late
+     driver wake-up. LatencyMon did not see these freezes (its worst was ~3 ms), so it
+     can't confirm them; the `nvidia-smi` test can.
+   - **Also open:** the DX5 sits behind three USB hubs in an AW-CU603 dock; plugging it
+     straight into the laptop is a cross-check not yet done.
+   - Still available if ever needed: decode ahead (`BassFlags.AsyncFile`, a decode-ahead
+     buffer), MMCSS for the feed thread; a bigger device buffer needs the seek-bar
+     latency fix from session 45.
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
 3. **A visible, editable queue view**: the most conspicuous missing player feature.

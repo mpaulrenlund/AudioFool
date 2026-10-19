@@ -3375,6 +3375,54 @@ box's selection matches the dialogs' fields.
 - 692 tests. Installed; a minimised launch found the main window and no error.
   Committed as `5f2942d`, after build session 2's `21fe924`; both pushed to origin.
 
+### Session 55 (2026-10-16): audio gaps traced to the NVIDIA GPU waking
+
+No code changed. The user heard gaps in Bit-Perfect (Exclusive, timer-driven,
+44.1 kHz FLAC from D:, Topping DX5) on their work laptop, a Dell Pro Max 14 MC14250
+(Intel Arc 140T and an NVIDIA RTX PRO 500 Blackwell, driver 596.71; company-managed:
+Intune, SentinelOne, Zscaler, Dell TechHub and Optimizer; the user is an admin).
+
+- **The log, gap by gap.** 7:37: one LATE FILL 45 ms with 180 ms queued, file clean
+  (ffmpeg: no decode errors, no silences). 7:50:50: a 47 ms late wake plus a 30 ms fill
+  with ~0 busy, as LatencyMon started. 8:24 ("very small bump"): nothing logged; the
+  track change at 8:24:28 joined two near-silent ends. 8:46–8:47 (just after a reboot)
+  and 9:15:04: freezes of 72–132 ms, APP STARVED with 0 ms GC, 50–110 ms left. 9:19:08:
+  only 23 ms late. 9:23:32: 110 ms, two seconds after the user opened Task Manager.
+- **LatencyMon.** First runs: `nvlddmkm.sys` DPC up to 4.6 ms, `ACPI.sys` ISR 0.86 ms.
+  The NVIDIA GPU activity icon showed ~30 apps on the NVIDIA GPU (AudioFool among them)
+  with no display connected to it, so every frame was copied across. The user set
+  AudioFool to Power Saving (Windows per-app graphics) and NVIDIA's global preferred GPU
+  to Auto-select, then rebooted: NVIDIA's peak fell to 0.6 ms. But LatencyMon, running
+  through the 8:47 freezes, saw at most 0.7 ms interrupt-to-process latency: it does not
+  see these freezes. AudioFool's threads: two at priority 22 and 24 (MMCSS range), the
+  rest normal; both the feed and the normal-priority watcher stalled together.
+- **Listening test** (`pauseprobe`, a scratch console app on ManagedBass 4.0.2 with
+  `bass.dll` and `basswasapi.dll`; not kept, rebuild if needed): opens the default
+  device as `OutputChain` does in Bit-Perfect (`BassWasapi.Init(dev, 44100, 2,
+  Exclusive | Buffer, 0.2f, 0.01f, proc)`), writes a 330 Hz tone at amplitude 0.03 in
+  the callback, and at 5 s intervals sleeps inside the callback for 20, 50, 80, 110,
+  140, 170 and 300 ms, logging `GetData(Available)` before and after. Silent dry run on
+  the Realtek speakers (`--amp 0 --device Realtek`) first; on the DX5 the user heard
+  nothing until the 300 ms control. **The 200 ms reserve covers a frozen feed up to
+  170 ms on the DX5**, so the gaps heard with reserve left came from something hitting
+  the USB audio at the same moment, not from AudioFool being late.
+- **The cause.** `nvidia-smi --query-gpu=pstate` run three times 20 s apart (waking the
+  sleeping NVIDIA GPU) gave freezes of 99, 109 and 107 ms in `playback.log`, ~0.33 s
+  after each start; **the user heard all three**. Task Manager wakes it too. Auto-select
+  made gaps more frequent (the GPU sleeps more, so it is woken more): before it, only
+  small hiccups; after it and the reboot, six ~100 ms freezes in 40 minutes.
+- **Leads not followed to the end.** WMI loaded `Provider_PlatformBios`, `StorageWMI`
+  and `Provider_DiagnosticsServices` within a second before the 7:37, 8:46:00 and
+  9:15:04 freezes (likely a Dell or IT tool querying the hardware, which would wake the
+  GPU); the BIOS provider also loads every ~15 minutes, mostly without a freeze, and the
+  client wasn't identified. The DX5 reaches the laptop through three USB hubs in an
+  AW-CU603 dock (Fresco Logic 1D5C:5801, Realtek 0BDA:5480 and 0BDA:5485); a direct
+  connection wasn't tried.
+- **Given to the user** (all theirs to do): revert the NVIDIA global setting to
+  High-performance (quickest); hybrid graphics off in the BIOS, if offered; a newer
+  NVIDIA driver (Windows 11, Production Branch, clean install; they were on the download
+  page); avoid GPU wakers such as Task Manager. Docs committed as `8aec113`.
+
 ---
 
 ## Reference notes retired from the handoff
