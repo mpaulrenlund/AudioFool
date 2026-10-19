@@ -134,13 +134,8 @@ public sealed class SpectrumAccumulator
         _fft = new Fft(_size);
         _hop = (int)Math.Clamp(_expectedFrames / columns, 64, _size);
 
-        _window = new double[_size];
-        for (var i = 0; i < _size; i++)
-            _window[i] = 0.5 - (0.5 * Math.Cos(2 * Math.PI * i / _size));
-
-        // A Hann window halves a sine's peak bin, so |X| = A * N / 4.
-        // Scaling by (4 / N)^2 makes a full-scale sine read 0 dB.
-        _scale = 16.0 / ((double)_size * _size);
+        _window = SpectrumScale.Hann(_size);
+        _scale = SpectrumScale.ZeroDb(_size);
 
         _ring = new float[channels][];
         for (var c = 0; c < channels; c++)
@@ -356,6 +351,5 @@ public sealed class SpectrumAccumulator
         };
     }
 
-    private static double ToDb(double power) =>
-        power <= 0 ? FloorDb : Math.Max(FloorDb, 10 * Math.Log10(power));
+    private static double ToDb(double power) => SpectrumScale.ToDb(power, FloorDb);
 }

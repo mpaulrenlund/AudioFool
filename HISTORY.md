@@ -3588,6 +3588,36 @@ Then step 3, **the conversion**. 754 tests (36 new).
   - **DSD's noise:** BASS's raw 88.2 kHz PCM carries it at 24–44 kHz (−56 to −57 dB of
     the audible power), and ours removes it.
   - **Cost:** 0.98 ms per 4,096-frame DSD128 window in Release.
+- Not installed: nothing in the app uses it yet. Committed (`c9761fe`).
+
+Then step 4, **the live analysis**. 776 tests (22 new).
+- **`Core/Analysis/SpectrumScale`:** the Hann window, `ZeroDb` (a full-scale sine's
+  peak bin reads 0 dB), `HannBins` (1.5) and `ToDb`, moved out of
+  `SpectrumAccumulator`. The formula is the same, so Analyze and Quality Check are
+  unchanged; their tests pass.
+- **`Core/Analysis/LiveSpectrum`:** one window a frame (2,048 points at 44.1 or
+  48 kHz), with the channels' powers averaged.
+  - **Bands:** 32 log-spaced from 20 Hz to 20 kHz. Each is its bins' sum over 1.5, so
+    a sine inside one reads its own dBFS. That's AES17's convention, so noise reads
+    3 dB over its mean square; the first test expected otherwise and was wrong. A band
+    narrower than a bin takes the nearest one.
+  - **`Bands`:** smoothed in dB, quick to rise and slow to fall.
+  - **`LevelDb`:** the whole of 20 Hz to 20 kHz.
+  - **`Bass`/`Mid`/`Treble`:** each power over its own ~3 s average, raised to
+    `Reaction`. Silence is 0 and usual is 1 at any intensity. The first version
+    (1 + (ratio − 1) × gain) gave silence 0.1; a test caught it.
+  - **`Intensity` 1–10:** attack 50 ms × 0.85ⁿ, release 600 ms × 0.8ⁿ, reaction
+    0.5 + 0.1n.
+- **Setting:** `AppSettings.VisualizerIntensity`, default 5, clamped on read.
+- **`AudioEngine.TryReadHeard(..., framesAhead)`** centres a window on what is heard.
+- **Probe** (`heardprobe x --live <dsf> <start s>`; decode only): 20 s of *Money*
+  (DSD128) at 60 frames a second, as its DoP and as BASS's 88.2 kHz PCM, each through
+  `TapConverter` and `LiveSpectrum` with windows centred on each frame.
+  - Bands under 10 kHz louder than −60 dB differ by 0.08 dB on average (worst 0.41).
+  - Bass, mid and treble correlate 1.000.
+  - The bass pulses every 0.5 s (*Money*'s bass line). Mid and treble reach 22–35×
+    usual on the till sounds, so step 6's picture will need to compress them.
+  - 0.71 ms a frame for both chains (Release).
 - Not installed: nothing in the app uses it yet. Committed.
 
 ---

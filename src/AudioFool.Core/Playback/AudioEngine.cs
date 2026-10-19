@@ -638,15 +638,17 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     /// <summary>
     /// Copies the frames the speakers have just played into
     /// <paramref name="destination"/>, the newest last, as the device was given
-    /// them before the volume (DoP stays DoP). False when they can't be had: the
-    /// tap off or just turned on, the device reopened, or the device unable to say
-    /// what it holds. Any thread.
+    /// them before the volume (DoP stays DoP). <paramref name="framesAhead"/> moves
+    /// the window that far past what is heard, into what the device holds but
+    /// hasn't played (up to its ~200 ms), so a window can be centred on now. False
+    /// when they can't be had: the tap off or just turned on, the device reopened,
+    /// or the device unable to say what it holds. Any thread.
     /// </summary>
-    public bool TryReadHeard(float[] destination, TapFormat format)
+    public bool TryReadHeard(float[] destination, TapFormat format, int framesAhead = 0)
     {
         var generation = _heard.Generation;
         var frame = HeardFrame();
-        return frame >= 0 && _tap.TryRead(frame, destination, format) && _heard.Generation == generation;
+        return frame >= 0 && _tap.TryRead(frame + Math.Max(0, framesAhead), destination, format) && _heard.Generation == generation;
     }
 
     public TimeSpan Duration

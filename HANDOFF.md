@@ -129,7 +129,7 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
-  a build of `main` up to the tap (`0ae9a86`); the conversion since is in Core only, unused, so not installed. **754 tests** pass.
+  a build of `main` up to the tap (`0ae9a86`); the conversion and live analysis since are in Core only, unused, so not installed. **776 tests** pass.
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
   day had PS2 Dark and everything since v0.5.0.
@@ -166,6 +166,10 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   - **Built: the tap** (`SampleTap`, `AudioEngine.TryReadHeard`), not used by anything
     yet. With it on, the probe found the DAC's samples bit-for-bit unchanged, PCM and
     DoP.
+  - **Built: the live analysis** (`Core/Analysis/LiveSpectrum`, the intensity
+    setting), not used by anything yet. On *Money*, DSD and BASS's PCM of it look the
+    same through the whole chain: bands within 0.08 dB, bass/mid/treble correlated
+    1.000.
   - **Built: the conversion** (`Core/Analysis/TapConverter`), not used by anything yet,
     so not installed. On *Dark Side of the Moon* (R2R, DSD128) it agrees with BASSDSD
     within 0.05 dB below 2 kHz. BASS's own conversion falls 2 dB at 16 kHz on a made
@@ -1208,9 +1212,19 @@ Open items only; finished ones are in `HISTORY.md`.
       - Fill `Input` with `InputFrames` from `TryReadHeard`, call `Convert`, read
         `Output`. It allocates nothing; about 1 ms per 4,096-frame DSD128 window in
         Release.
-   4. **Live analysis:** `Fft`, plus the Hann window and the 0 dB calibration lifted out
-      of `SpectrumAccumulator`. Bands from 20 Hz to 20 kHz, bass/mid/treble, a
-      quick-rise slow-fall, intensity 1–10 saved.
+   4. ~~Live analysis~~ Done in session 58: `Core/Analysis/LiveSpectrum`.
+      - **What it measures:** 32 log-spaced bands from 20 Hz to 20 kHz (in dBFS, a sine
+        reading its own level), the whole band's level, and bass/mid/treble (20–250 Hz,
+        250 Hz–4 kHz, 4–20 kHz). Bass/mid/treble are each against their own last
+        ~3 s: 1 is usual, 0 silence.
+      - **Smoothing:** quick to rise, slow to fall.
+      - **Intensity:** sets the rise (50→12 ms), the fall (600→80 ms) and how far
+        bass/mid/treble swing (raised to 0.5→1.4).
+      - **Shared with Analyze:** `SpectrumScale` holds the window and the 0 dB
+        calibration now, and Analyze's results are unchanged.
+      - **Settings:** `AppSettings.VisualizerIntensity`, 1–10, default 5.
+      - **Centring:** `TryReadHeard(..., framesAhead)` centres the window on what's
+        heard: read half a window ahead, which the device's buffer always holds.
    5. **A window** with Analyze's chrome:
       - **Opening it:** Ctrl+Shift+F, or an icon-only chip left of Theme. No logo-menu
         item.
