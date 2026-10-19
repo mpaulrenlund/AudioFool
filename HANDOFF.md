@@ -1124,9 +1124,13 @@ Open items only; finished ones are in `HISTORY.md`.
    - **Where it stood (2026-10-19, 8:40 AM):** TechHub was stopped for this boot only. I
      gave the user the steps to keep it off: `services.msc`, Dell TechHub, Startup type
      **Disabled**. It has no scheduled task that relaunches it. A Dell update or Intune
-     may re-enable it, and the user may tell IT first. **Not yet known** whether they
-     disabled it. The DX5 is plugged straight into the laptop; the user may move it back
-     to the dock, which didn't matter.
+     may re-enable it, and the user may tell IT first. The DX5 is plugged straight into
+     the laptop; the user may move it back to the dock, which didn't matter.
+   - **Session 57 (2026-10-19):** the user disabled it. Checked: `DellTechHub` StartMode
+     Disabled, Stopped; no `Dell.TechHub*` process; no VSS 8231 since 7:39:43 (same boot
+     as 7:06, so surviving a restart isn't proven yet). Other Dell software still runs:
+     Optimizer, SupportAssist Remediation, Client Management, Update and Digital Delivery
+     sub-agents, Pair, Trusted Device.
    - **Next:** ask whether TechHub was disabled and whether any pops came back. Check
      with `Get-CimInstance Win32_Service -Filter "Name='DellTechHub'"` (StartMode),
      `Get-Process Dell.TechHub*` (should be empty), and the Application log for VSS 8231
