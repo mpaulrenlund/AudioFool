@@ -84,12 +84,17 @@ internal sealed class OutputChain : IDisposable
     public Action? BeforePull { get; set; }
 
     /// <summary>
-    /// Runs on the device's thread once a pull has been handed over, with its
-    /// frame count and whether a seek was made at its end (the next pull starts at
-    /// the seek's target), so the engine can note what the device now holds (see
-    /// <see cref="HearingTimeline"/>).
+    /// Runs on the device's thread once a pull is in the device's buffer, before
+    /// the volume is applied: the buffer (to read, never to change), its frame
+    /// count, and whether a seek was made at its end (the next pull starts at the
+    /// seek's target). The engine notes what the device now holds
+    /// (<see cref="HearingTimeline"/>) and copies it for the visualizer
+    /// (<see cref="SampleTap"/>).
     /// </summary>
-    public Action<int, bool>? AfterPull { get; set; }
+    public Action<IntPtr, int, bool>? AfterPull { get; set; }
+
+    /// <summary>The channels in the buffer: the mixer's, which the device was opened with.</summary>
+    public int MixerChannels => _mixerChannels;
 
     public int SampleRate { get; private set; }
     public int Channels { get; private set; }
@@ -146,8 +151,8 @@ internal sealed class OutputChain : IDisposable
             _fadeInNext = seek.Fade;
         }
 
+        AfterPull?.Invoke(buffer, frames, seek is not null);
         ApplyGain(buffer, frames);
-        AfterPull?.Invoke(frames, seek is not null);
 
         // Only now is the seek no longer pending: until AfterPull has noted it,
         // PendingSeekBytes is what keeps the seek bar on the target. A seek asked

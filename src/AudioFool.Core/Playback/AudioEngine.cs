@@ -77,7 +77,8 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     // like _pullStream: the track and spot the current pull started at, and
     // where in it the END sync switched track.
     private readonly HearingTimeline _heard = new();
-    private readonly Action<int, bool> _notePullEnd;
+    private readonly SampleTap _tap = new();
+    private readonly Action<IntPtr, int, bool> _notePullEnd;
     private Track? _pullTrack;
     private double _pullStartSeconds;
     private long _joinFrames = -1;
@@ -620,6 +621,34 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         return -1;
     }
 
+    /// <summary>
+    /// Whether what the device is given is copied for the visualizer
+    /// (<see cref="SampleTap"/>). Off by default; off, the device's thread does
+    /// nothing extra.
+    /// </summary>
+    public bool TapEnabled
+    {
+        get => _tap.IsEnabled;
+        set => _tap.Enable(value);
+    }
+
+    /// <summary>The layout of the copy (the device's rate and channels), or null while off.</summary>
+    public TapFormat? TapFormat => _tap.Format;
+
+    /// <summary>
+    /// Copies the frames the speakers have just played into
+    /// <paramref name="destination"/>, the newest last, as the device was given
+    /// them before the volume (DoP stays DoP). False when they can't be had: the
+    /// tap off or just turned on, the device reopened, or the device unable to say
+    /// what it holds. Any thread.
+    /// </summary>
+    public bool TryReadHeard(float[] destination, TapFormat format)
+    {
+        var generation = _heard.Generation;
+        var frame = HeardFrame();
+        return frame >= 0 && _tap.TryRead(frame, destination, format) && _heard.Generation == generation;
+    }
+
     public TimeSpan Duration
     {
         get
@@ -1028,8 +1057,11 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     /// the next track or to silence during the pull. A seek made at the end of the
     /// pull is noted with its target, read back from the stream it moved.
     /// </summary>
-    private void NotePullEnd(int frames, bool sought)
+    private void NotePullEnd(IntPtr buffer, int frames, bool sought)
     {
+        // Numbered as the timeline numbers them: this block starts at its total.
+        _tap.Write(_heard.TotalFrames, buffer, frames);
+
         var join = _joinFrames;
         if (join >= 0 && join < frames)
         {
@@ -1229,6 +1261,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         // A new connection starts with an empty buffer: what it is given is
         // counted afresh, at its rate. It hasn't pulled anything yet.
         _heard.Reset(_output.SampleRate);
+        _tap.Reset(_output.SampleRate, _output.MixerChannels);
         return true;
     }
 

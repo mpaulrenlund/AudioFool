@@ -3522,7 +3522,37 @@ Built: step 1 of the groundwork, session 45's fix. 705 tests (13 new).
 - Found, not changed: a Bit-Perfect toggle or a save reopens the stream at the
   *decode* position, so the ~200 ms that was in the flushed buffer is skipped. With
   `Heard` it could reopen where you heard instead; not offered yet.
-- Published, installed (AudioFool closed normally first) and committed.
+- Published, installed (AudioFool closed normally first) and committed (`6baf2ea`).
+
+Then step 2, **the tap**. 718 tests (13 new).
+- **`Core/Playback/SampleTap`:**
+  - Keeps the last second of what the device is given, in memory set aside when it is
+    turned on, numbered as `HearingTimeline` numbers frames.
+  - One writer and lock-free readers; a reader may only start in the newest
+    three-quarters of the ring, so a block being written can't reach it.
+  - Off by default: then the device's thread does a null check and nothing else.
+  - Tested: copying a block allocates nothing, the source is left as it was, a
+    concurrent reader only ever sees whole runs of frames.
+- **The hook:** `OutputChain.AfterPull` now carries the buffer and runs *before*
+  `ApplyGain`, so the copy is full level whatever the volume. `MixerChannels` is the
+  buffer's layout.
+- **The engine:** `AudioEngine.TapEnabled`, `TapFormat`, and `TryReadHeard` (the frames
+  ending at the heard frame).
+- **Probe** (`heardprobe --tap`). The test file was 24-bit stereo noise of ±1–8 LSB
+  (−120 dBFS and below, so inaudible); the DAC's side was read from BASSWASAPI's copy of
+  its output (`BassWasapi.GetData`):
+  - **Exclusive, tap off and on:** 4,096 frames at the DAC matched the file exactly.
+  - **The tap:** the file's samples with 0 differing, and its window ends within 1 ms
+    of `Heard`.
+  - **Shared at volume 0:** the DAC got all zeros while the tap held the full-level
+    samples.
+  - **Paused:** the window holds still.
+  - **Cost:** 1.1–1.4 µs per 20 ms block at 352.8 kHz.
+  - **DoP:** 8,192 frames at the DAC, markers alternating `FA`/`05`, the idle payload
+    `9696` throughout (a DSF stores its bits LSB first; BASSDSD sends them MSB first,
+    so 0x69 arrives as 0x96). The tap holds the same words.
+  - The step 1 probe passed again.
+- Published, installed and committed.
 
 ---
 

@@ -129,7 +129,7 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
-  a build of `main`. **705 tests** pass.
+  a build of `main`. **718 tests** pass.
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
   day had PS2 Dark and everything since v0.5.0.
@@ -163,6 +163,9 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   - **Built: the hearing clock.** The seek bar, the time and the scrobbler follow what
     the speakers play (`AudioEngine.Heard`, via `Core/Playback/HearingTimeline`), not
     the decoder ~200 ms ahead.
+  - **Built: the tap** (`SampleTap`, `AudioEngine.TryReadHeard`), not used by anything
+    yet. With it on, the probe found the DAC's samples bit-for-bit unchanged, PCM and
+    DoP.
   - **At a gapless join,** `TrackChanged` fires when the new track is heard.
   - **Checked by a silent probe** in shared, exclusive and DoP. 705 tests.
   - Installed and committed. The user hasn't tried it yet.
@@ -1188,9 +1191,9 @@ Open items only; finished ones are in `HISTORY.md`.
    question settled.
 6. **The visualizer (session 58, under way).** The groundwork's steps, as agreed with the user:
    1. ~~A hearing clock~~ Done in session 58 (`AudioEngine.Heard`).
-   2. **A tap.** `AfterPull` copies each block into a ring set aside in advance. The copy
-      is taken before the volume, it only reads, and the probe proves the DAC's bytes are
-      unchanged, DoP included.
+   2. ~~A tap~~ Done in session 58. `Core/Playback/SampleTap` keeps the last second of
+      what the device is given, before the volume and numbered as the timeline is.
+      `AudioEngine.TapEnabled` (off by default), `TapFormat` and `TryReadHeard`.
    3. **Conversion on the visualizer's side**, only while its window is open: everything
       down to 44.1/48 kHz, cut at 20 kHz; DoP unwrapped and filtered to PCM, checked
       against BASSDSD's own conversion.
