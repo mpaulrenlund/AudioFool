@@ -86,6 +86,12 @@ public sealed class AppSettings
     private int _visualizerIntensity = Analysis.LiveSpectrum.DefaultIntensity;
 
     /// <summary>
+    /// Where the visualizer window was when it last closed (as a window, not
+    /// fullscreen); null until it has been closed once.
+    /// </summary>
+    public WindowBounds? VisualizerWindow { get; set; }
+
+    /// <summary>
     /// A personal API key from fanart.tv, for the tag dialog's "Search Internet".
     /// Without one that search uses the iTunes Store and the Cover Art Archive
     /// only. There is deliberately no UI for it: it is set once, by hand, here.

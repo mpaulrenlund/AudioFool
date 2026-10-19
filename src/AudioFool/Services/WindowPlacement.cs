@@ -90,6 +90,41 @@ public static class WindowPlacement
         return areas;
     }
 
+    /// <summary>The whole of the monitor the window is mostly on, taskbar included; null without a handle.</summary>
+    public static PixelRect? MonitorOf(Window window)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        var monitor = hwnd == IntPtr.Zero ? IntPtr.Zero : MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref info))
+            return null;
+
+        return new PixelRect(info.rcMonitor.Left, info.rcMonitor.Top, info.rcMonitor.Right, info.rcMonitor.Bottom);
+    }
+
+    /// <summary>Every connected monitor's whole rectangle.</summary>
+    public static List<PixelRect> Monitors()
+    {
+        var monitors = new List<PixelRect>();
+        EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (monitor, _, _, _) =>
+        {
+            var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+            if (GetMonitorInfo(monitor, ref info))
+                monitors.Add(new PixelRect(info.rcMonitor.Left, info.rcMonitor.Top, info.rcMonitor.Right, info.rcMonitor.Bottom));
+            return true;
+        }, IntPtr.Zero);
+        return monitors;
+    }
+
+    /// <summary>Puts the window exactly over <paramref name="rect"/>, in pixels, without activating it.</summary>
+    public static void Cover(Window window, PixelRect rect)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        if (hwnd != IntPtr.Zero)
+            SetWindowPos(hwnd, IntPtr.Zero, rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top,
+                SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+    }
+
     /// <summary>
     /// GetWindowPlacement's rectangle is in workspace coordinates, which are
     /// offset from screen coordinates when the taskbar sits on the top or left.
@@ -163,6 +198,9 @@ public static class WindowPlacement
 
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromRect(ref RECT lprc, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     [return: MarshalAs(UnmanagedType.Bool)]

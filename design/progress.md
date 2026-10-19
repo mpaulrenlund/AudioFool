@@ -294,6 +294,20 @@ _Record anything decided during implementation that isn't in the spec, or that c
 - **Tag windows grey their fields while reading** (2026-10-12, session 47; the spec is silent on dialogs' loading states). Album and selection tag windows open at once and read the files in the background; until then the fields grid is disabled, which draws the dialog text boxes at `layout.disabledOpacity` (their existing disabled look), and Save is off. No hint text (the user dislikes it) and no new tokens. Usually under a tenth of a second.
 - **ARTISTS · SIZE** (2026-10-12, session 47, the user's request; spec 6.3 updated). A third click on the header: ARTISTS → · RECENT → · SIZE (largest first, ties A–Z) → ARTISTS. A third fixed label built like RECENT; no new tokens. The header's old tooltip is gone (the user's call).
 - **No DSD passthrough item in the logo menu** (2026-10-14, session 51, the user's call). It is folded into Bit-Perfect: with the chip on, DSD goes to the DAC as DoP whenever the device can clock the rate, and is converted to PCM otherwise. The item, its tooltip and the separator under it are gone; the menu opens with Libraries. Rendered with `--menushot`.
+- **The visualizer window** (2026-10-19, session 58, the user's request; the spec is silent on it, and §6.8 now has its chip).
+  - **The user's calls:**
+    - The window follows Light/Dark; **the picture itself is exempt from the colour roles.** Its colours are tokens all the same, `color.visualizer.background` `#000000`, `.bar` `#D6D4D0` and `.level` `#BDBAB5`, identical in both files; a test holds them so.
+    - It opens from an **icon-only chip left of Theme** (three bars, like the sun and moon), and Ctrl+Shift+F. There's no logo-menu item.
+    - Up/Down show the intensity as **a small number that fades after a second**. The user chose this despite their no-hint-text rule.
+  - **Fullscreen:** double-click the picture or Alt+Enter covers the monitor. Escape leaves fullscreen, or closes the window.
+  - **The window:** not owned by the main window (it stays up when that is minimised, and the main window closes it). Title bar `theme.dialogTitleBar`, titled "Visualizer".
+  - **The picture** (a placeholder until projectM is tried): 32 bars.
+  - **Numbers:** `visualizer.*`: `width` 960, `height` 540, `minWidth` 320, `minHeight` 180, `bands` 32, `barGap` 2, `barFloorDb` −72, `barTopDb` −6, `levelMargin` 12, `levelShowMs` 1000, `levelFadeMs` 400, `cursorHideMs` 3000.
+  - **ThemeLab checks** (`--window visualizer --file <audio> [--fullscreen 1]`, real engine, silent):
+    - Both themes, 0 magenta.
+    - A Dark→Light switch matches a fresh Light start in the title strip (0 pixels).
+    - The main window, against HEAD in both themes: 0 pixels different above the status bar; in it, only the new chip and Last.fm moved left of it.
+    - The visualizer adds 17 bytes per frame on the UI thread against the same loop without it.
 
 ## Session notes
 

@@ -86,6 +86,11 @@
       "level4": "#F58A1F",
       "level5": "#FCE94F",
       "marker": "#F7F6F4"
+    },
+    "visualizer": {
+      "background": "#000000",
+      "bar": "#D6D4D0",
+      "level": "#BDBAB5"
     }
   },
   "shadow": {
@@ -196,6 +201,11 @@
     "markerThickness": 1, "markerDash": 4,
     "headerGap": 2, "sectionGap": 14, "findingGap": 6, "progressWidth": 240,
     "legendStepDb": 20, "timeLabelSpacing": 110, "freqLabelSpacing": 50
+  },
+  "visualizer": {
+    "width": 960, "height": 540, "minWidth": 320, "minHeight": 180,
+    "bands": 32, "barGap": 2, "barFloorDb": -72, "barTopDb": -6,
+    "levelMargin": 12, "levelShowMs": 1000, "levelFadeMs": 400, "cursorHideMs": 3000
   },
   "prompt": { "width": 400 },
   "artViewer": { "minSize": 280, "screenMargin": 80, "captionPaddingTop": 10, "captionPaddingBottom": 12 },

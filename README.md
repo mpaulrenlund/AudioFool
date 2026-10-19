@@ -302,6 +302,7 @@ These only apply when AudioFool has focus:
 | **Ctrl+W** | Statistics |
 | **Ctrl+Q** | Analyze the selected song, or the playing one if no song is selected |
 | **Ctrl+D** | Album-art viewer for the playing album, or the selected album if nothing is playing; Ctrl+D again closes it |
+| **Ctrl+Shift+F** | The [visualizer](#the-visualizer) (as the status bar's Visualizer button does); again to close it, from either window |
 
 Space is left to the text while you type in the search box or edit a cell, and to
 the name while you type to jump in Artists or Albums ("pink floyd"); otherwise it is
@@ -457,6 +458,35 @@ Right-click a song → **Open in Windows Explorer** opens its folder with the fi
 selected. With several rows selected, it opens the one you right-clicked. If the file
 has moved, the nearest folder that still exists opens instead; if the drive isn't
 connected, the status bar says so.
+
+---
+
+## The visualizer
+
+The status bar's **Visualizer** button (three bars, left of Theme) or **Ctrl+Shift+F**
+opens it in a window of its own; the same again closes it. For now it is a placeholder,
+32 bars from bass on the left to treble on the right, while the groundwork is
+checked; a MilkDrop-style picture (projectM) comes next.
+
+- **On time.** It draws what is coming out of the speakers, not what the decoder has
+  reached ~200 ms earlier: the window it analyses is centred on the moment you hear.
+- **It never touches the audio.** It reads a copy of what is sent to the DAC, taken
+  before the volume (so turning down doesn't shrink it), and only while the window is
+  open. In Bit-Perfect the DAC still gets exactly the same samples, DSD over PCM
+  included.
+- **DSD looks like the CD.** DoP is unwrapped and filtered back to PCM for the
+  picture, and everything above 20 kHz is left out, so DSD's ultrasonic noise and
+  hi-res content up there don't make it busier.
+- **Fullscreen:** double-click the picture or press **Alt+Enter**; again, or
+  **Escape**, to come back. It covers the monitor it is on, hides the cursor after
+  3 s still, and keeps the display awake while music plays. Unplug that monitor and
+  it comes back as a window. Escape in a window closes it.
+- **Up / Down:** livelier or calmer, 1 to 10 (saved). The level shows for a moment
+  in the bottom-right corner.
+- **Playback keys work in it too:** Space, Ctrl+Left/Right, Ctrl+Up/Down, Ctrl+M,
+  Ctrl+L, Ctrl+S, Ctrl+E, Ctrl+B and Ctrl+T.
+
+The window follows Light and Dark; the picture keeps its own colours in both.
 
 ---
 

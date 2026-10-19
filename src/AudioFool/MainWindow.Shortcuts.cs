@@ -17,7 +17,7 @@ public partial class MainWindow
     internal enum Shortcut
     {
         None, PlayPause, Statistics, Analyze, Art, Shuffle, Scan, Repeat, BitPerfect,
-        Search, Like, Mute, GoToPlaying, Previous, Next, VolumeUp, VolumeDown, Theme,
+        Search, Like, Mute, GoToPlaying, Previous, Next, VolumeUp, VolumeDown, Theme, Visualizer,
     }
 
     private const double VolumeStep = 0.05;
@@ -45,11 +45,34 @@ public partial class MainWindow
 
         // The ones that open a window wait for the key event to finish:
         // Statistics is modal, and nothing should open mid-keystroke.
-        if (shortcut is Shortcut.Statistics or Shortcut.Analyze or Shortcut.Art or Shortcut.Search)
+        if (shortcut is Shortcut.Statistics or Shortcut.Analyze or Shortcut.Art or Shortcut.Search or Shortcut.Visualizer)
             Dispatcher.BeginInvoke(() => RunShortcut(shortcut), DispatcherPriority.Input);
         else
             RunShortcut(shortcut);
 
+        return true;
+    }
+
+    /// <summary>The shortcuts the visualizer passes on: playback and the theme, nothing that works on the lists.</summary>
+    private static readonly HashSet<Shortcut> PlaybackShortcuts =
+    [
+        Shortcut.PlayPause, Shortcut.Previous, Shortcut.Next, Shortcut.VolumeUp, Shortcut.VolumeDown,
+        Shortcut.Mute, Shortcut.Like, Shortcut.Shuffle, Shortcut.Repeat, Shortcut.BitPerfect, Shortcut.Theme,
+    ];
+
+    /// <summary>
+    /// A key pressed in the visualizer window: runs it if it is one of
+    /// <see cref="PlaybackShortcuts"/>, as if pressed here with nothing focused.
+    /// True when it was one.
+    /// </summary>
+    internal bool HandlePlaybackShortcut(Key key, ModifierKeys modifiers, bool isRepeat)
+    {
+        var shortcut = ResolveShortcut(key, modifiers, focused: null);
+        if (!PlaybackShortcuts.Contains(shortcut))
+            return false;
+
+        if (!isRepeat || shortcut is Shortcut.VolumeUp or Shortcut.VolumeDown)
+            RunShortcut(shortcut);
         return true;
     }
 
@@ -75,6 +98,10 @@ public partial class MainWindow
 
         if (key == Key.Space && modifiers == ModifierKeys.None)
             return inText || _typeAheadBuffer.Length > 0 ? Shortcut.None : Shortcut.PlayPause;
+
+        // The one Ctrl+Shift shortcut, so it works in a text box and a cell edit too.
+        if (VisualizerWindow.ClosesOn(key, modifiers, isRepeat: false))
+            return Shortcut.Visualizer;
 
         if (modifiers != ModifierKeys.Control || inCellEdit)
             return Shortcut.None;
@@ -141,6 +168,9 @@ public partial class MainWindow
                 break;
             case Shortcut.Theme:
                 _viewModel.ToggleThemeCommand.Execute(null);
+                break;
+            case Shortcut.Visualizer:
+                ToggleVisualizer();
                 break;
             case Shortcut.Search:
                 SearchBox.Focus();

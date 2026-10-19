@@ -3618,7 +3618,71 @@ Then step 4, **the live analysis**. 776 tests (22 new).
   - The bass pulses every 0.5 s (*Money*'s bass line). Mid and treble reach 22–35×
     usual on the till sounds, so step 6's picture will need to compress them.
   - 0.71 ms a frame for both chains (Release).
-- Not installed: nothing in the app uses it yet. Committed.
+- Not installed: nothing in the app uses it yet. Committed (`18d5339`).
+
+Then step 5, **the window**, with step 6's placeholder bars. The plan was approved by
+the user first. 785 tests (9 new).
+- **`Core/Analysis/VisualizerFeed`:**
+  - **Each frame:** `TryReadHeard` half a window ahead (centred on now), then
+    `TapConverter`, then `LiveSpectrum`.
+  - **No sound** (paused, stopped, nothing to read): silence goes in, so the picture
+    sinks.
+  - **A new layout** gets a new converter, and a new analysis only when the converted
+    rate changes; the intensity carries over.
+  - Tested with a stand-in tap, allocation included.
+- **`VisualizerWindow`:**
+  - **The window:** not owned by the main one. `theme.dialogTitleBar`; bounds saved
+    (`AppSettings.VisualizerWindow`), else centred on the main window. Opening turns
+    the tap on, closing turns it off.
+  - **The bars:** 32 `Rectangle`s with a `ScaleTransform`, set from 1,025 boxed
+    heights made once, so no boxing each frame. Drawn from `CompositionTarget.Rendering`
+    while visible, not minimised and not locked (`SessionSwitch`).
+  - **Fullscreen:** `WindowPlacement.Cover` puts it over the monitor's whole
+    rectangle, in pixels. The title bar collapses, corners go square, resizing is off,
+    and `DWMWA_BORDER_COLOR` is set to none.
+  - **The cursor** hides after `visualizer.cursorHideMs` still; moves under 2 px
+    don't count.
+  - **The display:** `SetThreadExecutionState` keeps it awake while fullscreen and
+    playing.
+  - **A monitor gone** (`DisplaySettingsChanged`) ends fullscreen into a window.
+  - **Keys:** Escape, Alt+Enter, Ctrl+Shift+F (`ClosesOn`), and Up/Down (the
+    `LevelText` number, an opacity animation). Everything else goes to
+    `MainWindow.HandlePlaybackShortcut`: the playback and theme subset.
+- **`MainWindow`:**
+  - The Visualizer chip (column 3; Theme and Bit-Perfect moved to 4 and 5), opening
+    and closing it with `ToggleVisualizer`.
+  - Ctrl+Shift+F resolves before the plain-Ctrl checks, so it works in a text box
+    too.
+  - Closing the main window closes it, since `ShutdownMode` is the default and it
+    would keep the app alive.
+- **Tokens:** `color.visualizer.*`, the same in both files (a new test), and
+  `visualizer.*`. The colour count test is now 65.
+- **Shortcut guide:** a VISUALIZER group, and Ctrl+Shift+F under WINDOWS.
+- **ThemeLab `--window visualizer --file <audio> [--fullscreen 1]`:** real engine,
+  volume 0, the visualizer opened quietly off-screen, real settings put back.
+  - Opening turned the tap on, and closing turned it off.
+  - 64–72 frames a second, each with sound.
+  - Bars at the test tones (80 Hz, 1 kHz, 6 kHz).
+  - Up showed "6", gone 1.75 s later.
+  - Paused, it sank to −100 dB.
+  - Light and Dark, 0 magenta; a Dark→Light switch matched a fresh Light start in the
+    title strip, 0 pixels.
+  - **Allocation:** 11.4 KB per frame on the UI thread with or without the visualizer
+    (ThemeLab's own loop), so the visualizer adds 17 bytes.
+- **The main window, against a build of HEAD in a scratch worktree**, both themes:
+  0 pixels different above the status bar; in it, x 956–1152 only, the new chip and
+  Last.fm moved left.
+- **Click tracks for the user's timing test,** in `D:\Music\_AudioFool visualizer
+  timing test\` (the user agreed, on condition it's deleted afterwards): a 44.1 kHz WAV
+  and a DSD64 DSF, a 1 kHz ping and a 60 Hz thump on every whole second, 60 s, tagged.
+  `heardprobe x --clicks <folder>`; `--tones <file>` made ThemeLab's tone file.
+- **Not checked by me on screen:** fullscreen covering a monitor, the cursor, the display
+  kept awake, a monitor coming and going. ThemeLab can't cover a monitor without
+  showing on the user's.
+- Published and installed.
+- **The user's test (2026-10-19):** the click "seems to be on time", and Bit-Perfect, the
+  DSD file and fullscreen are "all fine". The click-track folder was then sent to D:'s
+  Recycle Bin. A monitor coming and going wasn't tried. Committed.
 
 ---
 

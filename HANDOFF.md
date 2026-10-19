@@ -129,7 +129,7 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
-  a build of `main` up to the tap (`0ae9a86`); the conversion and live analysis since are in Core only, unused, so not installed. **776 tests** pass.
+  a build of `main`. **785 tests** pass.
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
   day had PS2 Dark and everything since v0.5.0.
@@ -166,8 +166,12 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   - **Built: the tap** (`SampleTap`, `AudioEngine.TryReadHeard`), not used by anything
     yet. With it on, the probe found the DAC's samples bit-for-bit unchanged, PCM and
     DoP.
+  - **Built: the visualizer window** with placeholder bars. It opens from a new status
+    bar chip left of Theme, or Ctrl+Shift+F; fullscreen by double-click or Alt+Enter.
+    Installed and committed. **Confirmed by the user:** the bars land on the clicks,
+    and Bit-Perfect, DSD and fullscreen are "all fine". The click tracks are deleted.
   - **Built: the live analysis** (`Core/Analysis/LiveSpectrum`, the intensity
-    setting), not used by anything yet. On *Money*, DSD and BASS's PCM of it look the
+    setting), now used by the window. On *Money*, DSD and BASS's PCM of it look the
     same through the whole chain: bands within 0.08 dB, bass/mid/treble correlated
     1.000.
   - **Built: the conversion** (`Core/Analysis/TapConverter`), not used by anything yet,
@@ -1225,7 +1229,11 @@ Open items only; finished ones are in `HISTORY.md`.
       - **Settings:** `AppSettings.VisualizerIntensity`, 1–10, default 5.
       - **Centring:** `TryReadHeard(..., framesAhead)` centres the window on what's
         heard: read half a window ahead, which the device's buffer always holds.
-   5. **A window** with Analyze's chrome:
+   5. ~~A window~~ Built in session 58 (`VisualizerWindow`, `Core/Analysis/VisualizerFeed`,
+      `WindowPlacement.MonitorOf`/`Monitors`/`Cover`; ThemeLab `--window visualizer --file
+      <audio>`), as below. Fullscreen was checked by the user, not by ThemeLab, which
+      can't cover a monitor without showing on the user's screen.
+      With Analyze's chrome:
       - **Opening it:** Ctrl+Shift+F, or an icon-only chip left of Theme. No logo-menu
         item.
       - **Fullscreen:** double-click or Alt+Enter, Escape leaves. It covers the monitor
@@ -1234,8 +1242,10 @@ Open items only; finished ones are in `HISTORY.md`.
       - **Keys:** Up/Down change the intensity, with a level number that fades after a
         second. The playback shortcuts work there too.
       - **Nothing is drawn** while it's hidden or minimised, or the PC is locked.
-   6. **A placeholder spectrum.** Then the user judges the timing with a click track,
-      in shared, Bit-Perfect and DSD.
+   6. ~~A placeholder spectrum~~ Built with step 5 (32 bars). **The user judged the timing
+      on 2026-10-19:** "click seems to be on time", and Bit-Perfect, DSD and fullscreen are
+      "all fine". The click tracks (`heardprobe x --clicks <folder>` makes them again)
+      were deleted from `D:\Music` to the Recycle Bin.
    - **Then projectM:** libprojectM 4.1.x; MSYS2 has prebuilt Windows builds. Its
      knobs: hard cuts off, a soft-cut length, preset length and lock, beat
      sensitivity, and `projectm_set_frame_time` for slow motion. WPF can't draw over

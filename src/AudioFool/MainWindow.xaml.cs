@@ -24,6 +24,7 @@ public partial class MainWindow : FluentWindow
     private readonly GlobalHotkeys _hotkeys = new();
     private readonly TaskbarControls _taskbarControls;
     private ArtWindow? _artWindow;
+    private VisualizerWindow? _visualizer;
     private string _typeAheadBuffer = "";
     private ListBox? _typeAheadTarget;
     private readonly DispatcherTimer _typeAheadTimer;
@@ -185,6 +186,9 @@ public partial class MainWindow : FluentWindow
         Closing -= OnClosing;
         if (WindowPlacement.Capture(this) is { } bounds)
             _viewModel.SaveWindowBounds(bounds);
+
+        // Not owned by this window, so it would keep the app running.
+        _visualizer?.Close();
     }
 
     private void OnClosed(object? sender, EventArgs e)
@@ -544,6 +548,39 @@ public partial class MainWindow : FluentWindow
 
         _artWindow.Show();
     }
+
+    private void VisualizerButton_Click(object sender, RoutedEventArgs e) => ToggleVisualizer();
+
+    /// <summary>
+    /// Opens the visualizer, or closes it if it is open: the status bar's chip
+    /// and Ctrl+Shift+F, from either window (VisualizerWindow.ClosesOn).
+    /// <paramref name="quietly"/>, for ThemeLab: without taking focus or a taskbar button.
+    /// </summary>
+    public void ToggleVisualizer(bool quietly = false)
+    {
+        if (_visualizer is { } open)
+        {
+            _visualizer = null;
+            open.Close();
+            return;
+        }
+
+        _visualizer = new VisualizerWindow(_viewModel, _viewModel.Engine, this, HandlePlaybackShortcut);
+        if (quietly)
+        {
+            _visualizer.ShowActivated = false;
+            _visualizer.ShowInTaskbar = false;
+        }
+        _visualizer.Closed += (s, _) =>
+        {
+            if (ReferenceEquals(_visualizer, s))
+                _visualizer = null;
+        };
+        _visualizer.Show();
+    }
+
+    /// <summary>The open visualizer, for ThemeLab.</summary>
+    public VisualizerWindow? Visualizer => _visualizer;
 
     private void TrackGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {

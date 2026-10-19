@@ -2220,6 +2220,31 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _settings.Save();
     }
 
+    /// <summary>The engine, for the visualizer window's tap and feed.</summary>
+    internal AudioEngine Engine => _engine;
+
+    /// <summary>Where the visualizer window was when it last closed, if it has been opened before.</summary>
+    public WindowBounds? SavedVisualizerBounds => _settings.VisualizerWindow;
+
+    public void SaveVisualizerBounds(WindowBounds bounds)
+    {
+        _settings.VisualizerWindow = bounds;
+        _settings.Save();
+    }
+
+    /// <summary>The visualizer's intensity, 1 to 10, saved when it changes.</summary>
+    public int VisualizerIntensity
+    {
+        get => _settings.VisualizerIntensity;
+        set
+        {
+            if (_settings.VisualizerIntensity == value)
+                return;
+            _settings.VisualizerIntensity = value;
+            _settings.Save();
+        }
+    }
+
     /// <summary>
     /// Off, All or One. A three-way cycle rather than a checkbox, which is what
     /// the single button in the transport row can express.

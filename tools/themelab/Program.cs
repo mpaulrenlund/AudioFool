@@ -199,7 +199,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "analysis" or "clear" or "waveform" or "device" or "splice" or "themeswitch" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "analysis" or "clear" or "waveform" or "device" or "splice" or "themeswitch" or "visualizer" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -1465,6 +1465,13 @@ internal static class Program
                 double.Parse(Arg(args, "--at") ?? "0.4", CultureInfo.InvariantCulture), outPath, w, h, scale);
             return 0;
         }
+
+        // --window visualizer --file <audio> [--fullscreen 1]: plays it silently, opens the
+        // visualizer quietly off-screen, measures a frame, renders it, steps the
+        // intensity and renders the level number, then closes it (session 58).
+        if (which == "visualizer")
+            return RunVisualizer(main, vm, engine, Arg(args, "--file") ?? throw new ArgumentException("--window visualizer needs --file <audio file>"),
+                Arg(args, "--fullscreen") is not null, outPath, w, h, scale);
 
         if (which == "themeswitch")
             return RunThemeSwitch(main, vm, engine,
@@ -4871,6 +4878,115 @@ internal static class Program
     /// land in between, and the position is sampled throughout: it should go to
     /// 0 and stay there, not bounce back to where it was.
     /// </summary>
+    /// <summary>
+    /// The visualizer window (session 58) on the real engine, silent (volume 0;
+    /// the tap is taken before the volume, so the bars still move), off-screen and
+    /// never activated. Saves settings (bounds, intensity), so the real file is put
+    /// back afterwards.
+    /// </summary>
+    private static int RunVisualizer(MainWindow main, MainViewModel vm, AudioEngine engine, string file, bool fullscreen,
+        string outPath, double w, double h, double scale)
+    {
+        var settingsKept = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null;
+
+        // Its own log, never the user's playback.log.
+        PlaybackDiagnostics.LogPath = Path.Combine(Path.GetTempPath(), "themelab-visualizer-" + Guid.NewGuid().ToString("N")[..8] + ".log");
+        try
+        {
+            vm.Volume = 0;
+            engine.Play([AudioFool.Core.Library.TagReader.Read(file)], 0);
+            Settle(500);
+            Console.WriteLine($"tap before opening: {engine.TapEnabled}");
+
+            // Two seconds of frames: how many, whether they heard sound, and what the
+            // UI thread allocated from one frame to the next (ThemeLab's own loop and
+            // WPF's work included, hence the same count first without the visualizer).
+            VisualizerWindow? window = null;
+            (double PerSecond, int Heard, int Frames, long PerFrame) Measure()
+            {
+                var frames = 0;
+                var heard = 0;
+                long allocated = 0;
+                long before = 0;
+                EventHandler count = (_, _) =>
+                {
+                    var now = GC.GetAllocatedBytesForCurrentThread();
+                    if (frames > 0)
+                        allocated += now - before;
+                    frames++;
+                    if (window?.Feed.Heard == true)
+                        heard++;
+                    before = GC.GetAllocatedBytesForCurrentThread();
+                };
+                CompositionTarget.Rendering += count;
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                while (clock.ElapsedMilliseconds < 2000)
+                    Settle(5);
+                CompositionTarget.Rendering -= count;
+                return (frames / clock.Elapsed.TotalSeconds, heard, frames, allocated / Math.Max(1, frames - 1));
+            }
+
+            var baseline = Measure();
+            Console.WriteLine($"without it: {baseline.PerSecond:0} frames a second, {baseline.PerFrame} bytes allocated per frame on the UI thread");
+
+            main.ToggleVisualizer(quietly: true);
+            window = main.Visualizer ?? throw new InvalidOperationException("the visualizer didn't open");
+            window.Width = w;
+            window.Height = h;
+            Settle(1500);
+            Console.WriteLine($"opened at {window.Left:0},{window.Top:0} {window.ActualWidth:0}x{window.ActualHeight:0}; tap {engine.TapEnabled} {engine.TapFormat}; output '{engine.OutputDescription}'");
+
+            var open = Measure();
+            Console.WriteLine($"with it: {open.PerSecond:0} frames a second, {open.Heard} of {open.Frames} heard sound; " +
+                              $"{open.PerFrame} bytes allocated per frame, {open.PerFrame - baseline.PerFrame:+0;-0} against without");
+
+            if (window.Feed.Spectrum is { } spectrum)
+                Console.WriteLine("bands (dB, smoothed): " + string.Join(" ", spectrum.Bands.Select(b => b.ToString("0", CultureInfo.InvariantCulture))) +
+                                  $"; bass {spectrum.Bass:0.00} mid {spectrum.Mid:0.00} treble {spectrum.Treble:0.00}");
+
+            Save(window, outPath, w, h, scale);
+            Console.WriteLine($"saved {outPath}");
+
+            // The level number, just after Up.
+            var intensity = vm.VisualizerIntensity;
+            window.StepIntensity(+1);
+            Settle(150);
+            var level = (System.Windows.Controls.TextBlock)window.FindName("LevelText");
+            Console.WriteLine($"Up: intensity {intensity} -> {vm.VisualizerIntensity}, the number reads '{level.Text}' at opacity {level.Opacity:0.00}");
+            Save(window, Path.ChangeExtension(outPath, null) + "-level.png", w, h, scale);
+            Settle(1600);
+            Console.WriteLine($"1.75 s later: opacity {level.Opacity:0.00}");
+            window.StepIntensity(-1);
+
+            if (fullscreen)
+            {
+                // The look only: covering a monitor would put it on the user's screen.
+                window.ShowAsFullscreen(true);
+                Settle(300);
+                Save(window, Path.ChangeExtension(outPath, null) + "-fullscreen.png", w, h, scale);
+                window.ShowAsFullscreen(false);
+            }
+
+            engine.Pause();
+            Settle(1500);
+            if (window.Feed.Spectrum is { } rested)
+                Console.WriteLine($"paused 1.5 s: loudest band {rested.Bands.Max():0} dB (sinking to rest), heard {window.Feed.Heard}");
+
+            main.ToggleVisualizer();
+            Settle(200);
+            Console.WriteLine($"closed: visualizer {(main.Visualizer is null ? "gone" : "still open")}, tap {engine.TapEnabled}");
+            engine.Stop();
+            return 0;
+        }
+        finally
+        {
+            if (settingsKept is not null)
+                File.WriteAllBytes(AppSettings.SettingsPath, settingsKept);
+            else if (File.Exists(AppSettings.SettingsPath))
+                File.Delete(AppSettings.SettingsPath);
+        }
+    }
+
     private static void RunWaveform(MainWindow main, MainViewModel vm, AudioEngine engine, string file, double at,
         string outPath, double w, double h, double scale)
     {

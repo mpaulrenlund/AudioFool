@@ -1,0 +1,47 @@
+<ui:FluentWindow x:Class="AudioFool.VisualizerWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:theme="clr-namespace:AudioFool.Theming"
+                 Title="Visualizer"
+                 Icon="/Resources/AudioFool.ico"
+                 Width="{theme:Token visualizer.width}" Height="{theme:Token visualizer.height}"
+                 MinWidth="{theme:Token visualizer.minWidth}" MinHeight="{theme:Token visualizer.minHeight}"
+                 WindowStartupLocation="Manual"
+                 WindowBackdropType="None"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowCornerPreference="Round">
+
+    <!--
+        The visualizer (session 58). The window is the theme's, like Analyze: its
+        title bar and frame follow Light and Dark. The picture below it is not:
+        its colours (color.visualizer.*) are the same in both token files, the
+        user's call. Fullscreen hides the title bar and covers the monitor.
+    -->
+    <Grid Background="{DynamicResource color.window.bg}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar x:Name="Bar" Grid.Row="0"
+                     Style="{DynamicResource theme.dialogTitleBar}"
+                     Header="{DynamicResource theme.dialogTitle}" />
+
+        <!-- The placeholder: bass on the left, treble on the right, bars built in code. -->
+        <Grid x:Name="Picture" Grid.Row="1"
+              Background="{DynamicResource color.visualizer.background}"
+              ClipToBounds="True"
+              AutomationProperties.Name="Visualizer picture">
+            <UniformGrid x:Name="Bars" Rows="1" />
+
+            <TextBlock x:Name="LevelText"
+                       Style="{DynamicResource type.status}"
+                       Foreground="{DynamicResource color.visualizer.level}"
+                       HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                       Margin="{theme:Thickness Right=visualizer.levelMargin, Bottom=visualizer.levelMargin}"
+                       Opacity="0"
+                       IsHitTestVisible="False" />
+        </Grid>
+    </Grid>
+</ui:FluentWindow>
