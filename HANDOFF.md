@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-19, session 55. Read this alongside `README.md`: the README covers
+Updated 2026-10-19, session 56. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -148,14 +148,20 @@ The notes are written for the user, grouped New / Improved / Fixed, from
   `design/ps2-dark/screenshots/` shows every window in both themes.
   `design/progress.md` holds every design decision (PS1, and the PS2 Dark section);
   read it before UI work.
-- **Session 55** (2026-10-16): an investigation, no app change. The user's audio gaps
-  are the work laptop's NVIDIA GPU waking from sleep, which stalls the whole machine
-  ~100 ms (reproduced 3 of 3 with `nvidia-smi`, all three heard). The fix is on the
-  laptop (graphics setting, NVIDIA driver, BIOS), and the user was partway through it:
-  see item 0 under *Suggested next steps*.
+- **Sessions 55–56** (2026-10-16, 2026-10-19): investigations, no app change. The
+  user's audio gaps come from the work laptop, not AudioFool: first the NVIDIA GPU
+  waking (fixed by driver 597.16), then **Dell TechHub** (its snapshots of C: and their
+  cleanup). With TechHub stopped, 32 minutes passed with no pops. Whether the user
+  disabled it for good is open: see item 0 under *Suggested next steps*.
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **56** (2026-10-19): **remaining pops traced to Dell TechHub.** Driver 597.16 ended the
+  NVIDIA freezes. Four pops matched against `playback.log` (reserve full every time) and
+  the Windows event logs: TechHub's VSS snapshots and Windows deleting old ones. The
+  dock and the Topping driver were ruled out. With TechHub and its sub-agents stopped,
+  32 quiet minutes. Docs only.
 
 - **55** (2026-10-16): **audio gaps traced to the NVIDIA GPU waking.** Read
   `playback.log` for each gap the user heard; LatencyMon (NVIDIA's 4.6 ms DPC fixed by
@@ -1097,7 +1103,52 @@ Open items only; finished ones are in `HISTORY.md`.
   Ask, and take their notes one at a time. If the Play/Pause glow should spread wider,
   the knob is `shadow.playGlow`'s blur in `theme-tokens.dark.json` (WPF's 18 fades
   out about 12 px from the button where CSS's would reach about 22; `design/progress.md`).
-0. **Audio gaps: cause found (session 55), the fix is on the laptop, not in the app.**
+0. **Audio gaps, session 56 (2026-10-19): NVIDIA fixed, Dell TechHub is the remaining cause.**
+   NVIDIA driver 597.16 (`32.0.15.9716`) ended the ~100 ms GPU-wake freezes. The user still
+   heard pops at 7:28, 7:39, 7:42 and 7:49, with Bit-Perfect on and the DX5 plugged straight
+   into the laptop (the dock is ruled out). `playback.log` showed a full reserve each time.
+   At most a 45–50 ms LATE FILL, so these were whole-laptop hiccups that the USB audio
+   driver's small buffer can't ride out. 7:28 and 7:39 matched bursts of three VSS
+   snapshots of C: (Application log, VSS 8231). Each burst came from
+   `Dell.TechHub.Instrumentation.SubAgent` running `esentutl /vss` to copy the SRUM
+   database. 7:42 matched Windows deleting old snapshots (System log, Volsnap 33). 7:49
+   matched nothing logged. LatencyMon's worst was `storport.sys` 8.4 ms in one run and
+   `ACPI.sys` 3 ms in another, so firmware/SMI stalls from TechHub's hardware polling are
+   suspected but not proven. **Test:** the user stopped the Dell TechHub service and ended
+   its four sub-agents (Instrumentation, Instrumentation UserProcess, Analytics,
+   DataManager) at 8:03. From 8:03 to 8:35 there were no pops and no snapshots, and no
+   LATE FILL outside track and device changes. The sub-agents don't stop with the
+   service, and TechHub comes back on restart. Making it permanent is the user's or IT's
+   call (company-managed laptop). If pops return with TechHub gone, try Dell Optimizer
+   next.
+   - **Where it stood (2026-10-19, 8:40 AM):** TechHub was stopped for this boot only. I
+     gave the user the steps to keep it off: `services.msc`, Dell TechHub, Startup type
+     **Disabled**. It has no scheduled task that relaunches it. A Dell update or Intune
+     may re-enable it, and the user may tell IT first. **Not yet known** whether they
+     disabled it. The DX5 is plugged straight into the laptop; the user may move it back
+     to the dock, which didn't matter.
+   - **Next:** ask whether TechHub was disabled and whether any pops came back. Check
+     with `Get-CimInstance Win32_Service -Filter "Name='DellTechHub'"` (StartMode),
+     `Get-Process Dell.TechHub*` (should be empty), and the Application log for VSS 8231
+     since boot (any from `Dell.TechHub.Instrumentation.SubAgent` = it's back). For any pop
+     the user reports, read that minute of `playback.log` and both event logs. The
+     `nvidia-smi` wake test was not repeated on driver 597.16; there's no need unless
+     ~100 ms freezes reappear.
+   - **Ruled out on 2026-10-19:** the dock (pops continued with the DX5 direct), and the
+     Topping driver's buffer. Topping's control panel only offers ASIO buffer size (512,
+     Safe Mode on), which doesn't apply to AudioFool's WASAPI output, and Streaming
+     "Always On", which is right. `ToppingUsbAudio.sys` peaked at 0.5 ms.
+   - **Reading `playback.log`:** a full reserve with a 40–50 ms LATE FILL (or nothing at
+     all) while the user hears a pop = a laptop-wide hiccup downstream of the app. A
+     ~100–130 ms APP STARVED + LATE FILL with 0 ms GC = the old GPU wake. GC PAUSE = a
+     full GC froze the app. SLOW FILL with little "busy" = waiting on the file. LatencyMon
+     has no timestamps and misses firmware stalls, so the Windows event logs are the
+     better clue.
+   - Still available if ever needed: decode ahead (`BassFlags.AsyncFile`, a decode-ahead
+     buffer), MMCSS for the feed thread; a bigger device buffer needs the seek-bar
+     latency fix from session 45. None of these would help with downstream pops.
+
+   **Session 55 background (2026-10-16): the NVIDIA wake, now fixed by the driver.**
    On the user's work laptop (Dell Pro Max 14 MC14250, BIOS 1.19.2, Intel Arc 140T plus
    an NVIDIA RTX PRO 500 Blackwell on driver **596.71**, Windows reports `32.0.15.9671`)
    **waking the sleeping NVIDIA GPU stalls the whole machine ~100 ms**, and the USB audio
@@ -1107,32 +1158,9 @@ Open items only; finished ones are in `HISTORY.md`.
    not at fault: a listening test showed the 200 ms reserve covers a frozen feed up to
    170 ms on the DX5 (only the 300 ms control was heard), and the gaps came with 90–180 ms
    still in reserve. Don't build app changes for this. Full story in `HISTORY.md`,
-   session 55.
-   - **Where it stood (2026-10-16 afternoon):** AudioFool is set to Power Saving (Intel)
-     in Windows' per-app graphics settings; NVIDIA's global "Preferred graphics processor"
-     is **Auto-select** (was High-performance NVIDIA). Auto-select made the gaps *more*
-     frequent (the GPU sleeps more, so it is woken more), so reverting it was suggested
-     as the quick first fix. The user was about to install a newer NVIDIA driver (Windows
-     11, Production Branch, clean install); not done at 3:22 PM. Other options given:
-     hybrid graphics off in the BIOS (F2 → Display), if this model has it; fewer GPU
-     wakers (Task Manager; Dell TechHub's Instrumentation service is a likely one, but
-     it's a company-managed laptop, so leave Dell's and IT's services alone). The user is
-     an admin on the machine.
-   - **Next:** ask what changed (driver version: `Get-CimInstance Win32_VideoController`;
-     the NVIDIA global setting; BIOS). Then repeat the wake test while the user listens
-     (ask first: it makes gaps): run `nvidia-smi --query-gpu=pstate --format=csv,noheader`
-     three times 20 s apart, then read `playback.log` for a LATE FILL / APP STARVED
-     ~0.3 s after each. No freeze = the GPU stayed awake or the driver fixed it.
-   - **Reading `playback.log`:** an APP STARVED + LATE FILL of ~100–130 ms with reserve
-     left and 0 ms GC is this GPU wake. GC PAUSE = a full GC froze the app; SLOW FILL with
-     little "busy" = waiting on the file; LATE FILL alone with a fast fill = a late
-     driver wake-up. LatencyMon did not see these freezes (its worst was ~3 ms), so it
-     can't confirm them; the `nvidia-smi` test can.
-   - **Also open:** the DX5 sits behind three USB hubs in an AW-CU603 dock; plugging it
-     straight into the laptop is a cross-check not yet done.
-   - Still available if ever needed: decode ahead (`BassFlags.AsyncFile`, a decode-ahead
-     buffer), MMCSS for the feed thread; a bigger device buffer needs the seek-bar
-     latency fix from session 45.
+   session 55. Settings left from then: AudioFool on Power Saving (Intel) in Windows'
+   per-app graphics; NVIDIA's global preferred GPU on Auto-select (not reverted, and no
+   freezes on 597.16).
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
 3. **A visible, editable queue view**: the most conspicuous missing player feature.

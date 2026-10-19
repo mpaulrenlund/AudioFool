@@ -3423,6 +3423,44 @@ Intune, SentinelOne, Zscaler, Dell TechHub and Optimizer; the user is an admin).
   NVIDIA driver (Windows 11, Production Branch, clean install; they were on the download
   page); avoid GPU wakers such as Task Manager. Docs committed as `8aec113`.
 
+### Session 56 (2026-10-19): the remaining pops traced to Dell TechHub
+
+No code changed. The user had installed NVIDIA driver 597.16 (Windows: `32.0.15.9716`)
+and listened in Bit-Perfect with LatencyMon running.
+
+- **NVIDIA:** no ~100 ms freezes all morning; LatencyMon's worst for `nvlddmkm.sys` was
+  2.8 ms. The driver fixed session 55's GPU-wake stall. The `nvidia-smi` wake test
+  wasn't repeated.
+- **Pops heard at 7:28, 7:39, 7:42 and 7:49.** `playback.log` stayed at 170–190 ms
+  queued every time. 7:28 had nothing logged (worst gap 36.7 ms). 7:42:40 and 7:49:22
+  had a single 45–49 ms LATE FILL. So these were short laptop-wide hiccups that the USB
+  audio driver couldn't ride out, while AudioFool's reserve was untouched.
+- **Event logs.** 7:28:55–7:29:12 and 7:39:28–7:39:43: bursts of three VSS snapshots of
+  C: (Application, VSS 8231; System, Ntfs 98 "HarddiskVolumeShadowCopyN is healthy").
+  The caller stack was `esentutl.exe /y C:\windows\system32\sru\SRUDB.dat ... /vss` ←
+  `Dell.TechHub.Instrumentation.SubAgent.exe` ← `Dell.TechHub.exe`. Also at 7:08.
+  7:42:43 and 7:42:56: Volsnap 33, the oldest shadow copy deleted to stay under the
+  storage limit. 7:49: no snapshot; IsolationSession's start type flipped at 7:48:56
+  and 7:49:26 (cause unknown).
+- **LatencyMon** (its numbers have no timestamps): a run covering 7:28 showed
+  `storport.sys` DPC 8.4 ms and interrupt-to-process 7.6 ms. A run covering 7:42 and
+  7:49 showed nothing over 3 ms (`ACPI.sys` 3.0, `nvlddmkm.sys` 2.7). That suggests
+  firmware or SMI stalls, which LatencyMon can't attribute.
+- **Ruled out.** The dock: the DX5 was moved straight to the laptop before 7:39, and
+  pops continued. The Topping driver: its panel only has ASIO buffer size (512, Safe
+  Mode on; no effect on WASAPI) and Streaming (Always On, kept);
+  `ToppingUsbAudio.sys` peaked at 0.5 ms.
+- **The test.** The user stopped the Dell TechHub service. Its sub-agents kept running
+  under the same PIDs, so they were ended in Task Manager: Instrumentation,
+  Instrumentation's User Process, Analytics, Data Manager. From 8:03 to 8:35: no pops,
+  no VSS snapshots, and no LATE FILL apart from a device reopen at 8:13. One Volsnap 33
+  at 8:15:13 went unheard.
+- **Given to the user:** set Dell TechHub's startup type to Disabled in `services.msc`
+  (no scheduled task relaunches it). Caveats given: Dell updates or Intune may switch it
+  back on, it powers some SupportAssist and Dell update features, and the user may want
+  to tell IT. Dell Optimizer is the next suspect if pops return. Not known at the end of
+  the session whether the user disabled it.
+
 ---
 
 ## Reference notes retired from the handoff
