@@ -129,7 +129,7 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
-  a build of `main`. **718 tests** pass.
+  a build of `main` up to the tap (`0ae9a86`); the conversion since is in Core only, unused, so not installed. **754 tests** pass.
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
   day had PS2 Dark and everything since v0.5.0.
@@ -166,6 +166,10 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   - **Built: the tap** (`SampleTap`, `AudioEngine.TryReadHeard`), not used by anything
     yet. With it on, the probe found the DAC's samples bit-for-bit unchanged, PCM and
     DoP.
+  - **Built: the conversion** (`Core/Analysis/TapConverter`), not used by anything yet,
+    so not installed. On *Dark Side of the Moon* (R2R, DSD128) it agrees with BASSDSD
+    within 0.05 dB below 2 kHz. BASS's own conversion falls 2 dB at 16 kHz on a made
+    DSF; this one is flat.
   - **At a gapless join,** `TrackChanged` fires when the new track is heard.
   - **Checked by a silent probe** in shared, exclusive and DoP. 705 tests.
   - Installed and committed. The user hasn't tried it yet.
@@ -1194,9 +1198,16 @@ Open items only; finished ones are in `HISTORY.md`.
    2. ~~A tap~~ Done in session 58. `Core/Playback/SampleTap` keeps the last second of
       what the device is given, before the volume and numbered as the timeline is.
       `AudioEngine.TapEnabled` (off by default), `TapFormat` and `TryReadHeard`.
-   3. **Conversion on the visualizer's side**, only while its window is open: everything
-      down to 44.1/48 kHz, cut at 20 kHz; DoP unwrapped and filtered to PCM, checked
-      against BASSDSD's own conversion.
+   3. ~~Conversion on the visualizer's side~~ Done in session 58. `Core/Analysis/TapConverter`
+      takes one window of the tap at a time, with nothing carried over:
+      - **PCM:** halved down to 44.1 or 48 kHz through half-band filters (127 taps for
+        the last halving, 27 for earlier ones), flat to 20 kHz, ≥80 dB against anything
+        that would fold below it.
+      - **DoP:** detected from its markers, then a 128-tap filter over the bit stream
+        through byte tables, with 6 dB gain (BASSDSD's own).
+      - Fill `Input` with `InputFrames` from `TryReadHeard`, call `Convert`, read
+        `Output`. It allocates nothing; about 1 ms per 4,096-frame DSD128 window in
+        Release.
    4. **Live analysis:** `Fft`, plus the Hann window and the 0 dB calibration lifted out
       of `SpectrumAccumulator`. Bands from 20 Hz to 20 kHz, bass/mid/treble, a
       quick-rise slow-fall, intensity 1–10 saved.

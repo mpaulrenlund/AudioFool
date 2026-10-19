@@ -3552,7 +3552,43 @@ Then step 2, **the tap**. 718 tests (13 new).
     `9696` throughout (a DSF stores its bits LSB first; BASSDSD sends them MSB first,
     so 0x69 arrives as 0x96). The tap holds the same words.
   - The step 1 probe passed again.
-- Published, installed and committed.
+- Published, installed and committed (`0ae9a86`).
+
+Then step 3, **the conversion**. 754 tests (36 new).
+- **`Core/Analysis/TapConverter`:**
+  - **Interface:** one window of the tap at a time, nothing carried between windows.
+    Fill `Input` (`InputFrames`), call `Convert`, read `Output` (`OutputFrames` at
+    `OutputRate`). It allocates nothing.
+  - **PCM:** halved while the rate stays at 44.1/48 kHz or above, through Kaiser
+    half-band filters: 127 taps for the last halving (flat to 20 kHz, ≥90 dB from
+    24.1 kHz, the point that folds onto 20 kHz) and 27 for earlier ones. Odd rates
+    (32 kHz, 64 kHz) stay as they are.
+  - **DoP:** detected when nine frames in ten carry the same marker in every channel;
+    a frame without one is read as idle. The bits (16 a word, oldest first) go
+    through a 128-tap low-pass at the bit rate, done as 16 byte tables, then the
+    same halvings. Gain is 6 dB, so half modulation is full scale.
+  - **Delay:** under 1 ms, not compensated.
+- **Tests:**
+  - Output rates for every rate from 32 to 768 kHz.
+  - Below 20 kHz the level holds within ±0.05 dB, and nothing folds back from above
+    (at least 80 dB down, at 25 to 360 kHz).
+  - The channels stay apart.
+  - DSD from a second-order modulator (DSD64 and DSD128, 1 and 16 kHz) comes back
+    at PCM level ±0.2 dB, with the residual more than 60 dB under the sine.
+  - The idle pattern is silence, and PCM at a DoP rate isn't taken for DoP.
+- **Probe** (`heardprobe --convert <dsf> <start s>`; decode only, nothing played, the
+  file only read):
+  - **A made DSD64 DSF with 1 and 16 kHz tones:** ours gave +0.00 and +0.01 dB;
+    BASSDSD's own conversion to 88.2 kHz gave −0.03 and **−2.09 dB**. BASS's filter
+    rolls off; ours doesn't.
+  - ***Time* and *Money* (DSD128), 20 s each, third-octave bands:** within
+    0.02–0.05 dB of BASSDSD below 2 kHz, and +0.03/+0.04 dB overall from 20 Hz to
+    20 kHz. Ours is louder only in the treble (+0.5 dB at 10 kHz, +1.1 dB at 16 kHz),
+    which is BASS's roll-off.
+  - **DSD's noise:** BASS's raw 88.2 kHz PCM carries it at 24–44 kHz (−56 to −57 dB of
+    the audible power), and ours removes it.
+  - **Cost:** 0.98 ms per 4,096-frame DSD128 window in Release.
+- Not installed: nothing in the app uses it yet. Committed.
 
 ---
 
