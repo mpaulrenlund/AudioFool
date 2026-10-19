@@ -3461,6 +3461,69 @@ and listened in Bit-Perfect with LatencyMon running.
   to tell IT. Dell Optimizer is the next suspect if pops return. Not known at the end of
   the session whether the user disabled it.
 
+### Session 58 (2026-10-19): visualizer planning, then the hearing clock
+
+The user wants a visualizer, MilkDrop-like but calmer. Decided with the user:
+- **Theming:** the window follows Light/Dark; the visualization itself may use any
+  colours.
+- **Renderer:** build the shared groundwork first with a plain placeholder picture, then
+  try projectM in that window, and build our own only if projectM can't be calmed
+  enough.
+- **Controls:**
+  - Ctrl+Shift+F opens it, from an icon-only chip beside the Theme button.
+  - Up/Down change the intensity, with a small level number that fades after a second.
+  - Double-click or Alt+Enter toggles fullscreen (F11 is AudioFool's system-wide Next).
+- **The GPU choice doesn't matter:** the session 55 gaps were the NVIDIA chip waking,
+  not AudioFool running on it.
+
+Built: step 1 of the groundwork, session 45's fix. 705 tests (13 new).
+- **`Core/Playback/HearingTimeline`** (pure, tested):
+  - Every pull the device takes is appended with its track and start position.
+  - The heard frame is the total handed over less `OutputChain.QueuedFrames`
+    (`BASS_WASAPI_GetData(Available)`; float at the chain's layout, 70,560 bytes =
+    200 ms at 44.1 kHz stereo, from `playback.log`).
+  - It has one writer and lock-free readers: a ring, a count published after each
+    entry, and a generation for `Reset`.
+  - A seek is marked the moment the device applies it (`MarkSeek`). Until it is heard,
+    the lookup gives the target.
+- **`OutputChain`:**
+  - `AfterPull(frames, sought)`.
+  - A pending seek is now cleared only after `AfterPull`: a compare-exchange, so a newer
+    seek stays pending. This closed a 10–20 ms flick back to the old spot that the probe
+    caught.
+- **`AudioEngine`:**
+  - `Heard` (`HeardPoint`: track and position). It holds still while paused or while a
+    save has the file, and falls back to the decode position.
+  - `_playing` pairs the stream and its track for the device's thread
+    (`SetCurrentStream` everywhere `_currentStream` changes).
+  - The END sync records where in the pull the next track, a Repeat One restart or
+    silence begins.
+  - **At a gapless join, `TrackChanged` waits until the new track is heard**
+    (`WaitUntilHeardAsync`, at most 2 s of playing). It is dropped if a new play
+    (`_plays`) or another track superseded it; a save reopening the track doesn't.
+  - `Position` stays the decode position for the engine's own logic.
+- **`MainViewModel.OnPositionTick`:**
+  - The bar and the scrobbler use `Heard`.
+  - Right after a skip, while the speakers are still on the old track, the bar waits
+    (`_shownEngineTrack`).
+  - The duration refreshes only when heard and current agree.
+- **Probe** (scratch `heardprobe`, not kept; digital silence, DSD as the 0x69 idle
+  pattern, its own log). In shared, exclusive and DoP:
+  - Lag behind the decoder 170–219 ms; slope 1.0000; worst 0.6 ms (shared) and 5.2 ms
+    (exclusive) off a straight line; never backwards.
+  - A seek shows the target at once, never the old spot (~580,000 readings), and holds
+    207–227 ms.
+  - Pause is still, with no jump on resume.
+  - At a gapless join, the heard switch comes 177–203 ms after the decoder's, with
+    TrackChanged on it (±0 ms); the old track is heard to 3.998 s of 4.000.
+  - Repeat One never runs past the end and raises no TrackChanged; the end of the queue
+    goes silent.
+  - A 44.1→96 kHz rate change is announced once; the Bit-Perfect toggle works both ways.
+- Found, not changed: a Bit-Perfect toggle or a save reopens the stream at the
+  *decode* position, so the ~200 ms that was in the flushed buffer is skipped. With
+  `Heard` it could reopen where you heard instead; not offered yet.
+- Published, installed (AudioFool closed normally first) and committed.
+
 ---
 
 ## Reference notes retired from the handoff

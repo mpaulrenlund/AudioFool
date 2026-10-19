@@ -83,6 +83,14 @@ internal sealed class OutputChain : IDisposable
     /// </summary>
     public Action? BeforePull { get; set; }
 
+    /// <summary>
+    /// Runs on the device's thread once a pull has been handed over, with its
+    /// frame count and whether a seek was made at its end (the next pull starts at
+    /// the seek's target), so the engine can note what the device now holds (see
+    /// <see cref="HearingTimeline"/>).
+    /// </summary>
+    public Action<int, bool>? AfterPull { get; set; }
+
     public int SampleRate { get; private set; }
     public int Channels { get; private set; }
     public OutputMode Mode { get; }
@@ -129,7 +137,8 @@ internal sealed class OutputChain : IDisposable
             Fade(buffer, 0, fadeFrames, rising: true);
         }
 
-        if (Interlocked.Exchange(ref _pendingSeek, null) is { } seek)
+        var seek = Volatile.Read(ref _pendingSeek);
+        if (seek is not null)
         {
             if (seek.Fade)
                 Fade(buffer, frames - fadeFrames, fadeFrames, rising: false);
@@ -138,7 +147,29 @@ internal sealed class OutputChain : IDisposable
         }
 
         ApplyGain(buffer, frames);
+        AfterPull?.Invoke(frames, seek is not null);
+
+        // Only now is the seek no longer pending: until AfterPull has noted it,
+        // PendingSeekBytes is what keeps the seek bar on the target. A seek asked
+        // for meanwhile stays pending for the next pull.
+        if (seek is not null)
+            Interlocked.CompareExchange(ref _pendingSeek, null, seek);
         return got;
+    }
+
+    /// <summary>
+    /// The frames the device has been given and not yet played: what stands between
+    /// the decoder and the speakers. -1 when the device can't say.
+    /// </summary>
+    public long QueuedFrames
+    {
+        get
+        {
+            // The buffer is float at the chain's layout (measured: 200 ms at 44.1 kHz
+            // stereo is 70,560 bytes), whatever format the device itself takes.
+            var bytes = BassWasapi.GetData(IntPtr.Zero, (int)DataFlags.Available);
+            return bytes >= 0 ? bytes / (sizeof(float) * _mixerChannels) : -1;
+        }
     }
 
     private void ApplyGain(IntPtr buffer, int frames)

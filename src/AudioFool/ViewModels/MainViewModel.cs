@@ -41,6 +41,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private double? _pendingSeek;
     private bool _updatingPositionFromTimer;
 
+    // The engine's own copy of the track the bar shows (NowPlaying is the
+    // library's), to match against what the speakers are playing.
+    private Track? _shownEngineTrack;
+
     public MainViewModel(AudioEngine engine, BassRuntime runtime, AlbumArtService artService, AppSettings settings)
     {
         _engine = engine;
@@ -2289,6 +2293,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var track = LibraryCopyOf(engineTrack);
 
         _restoredQueue = null;
+        _shownEngineTrack = engineTrack;
         NowPlaying = track;
         RememberLastPlayed(track);
 
@@ -2372,22 +2377,31 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void OnPositionTick(object? sender, EventArgs e)
     {
+        // What the speakers are playing, not where the decoder is (~200 ms ahead).
+        var heard = _engine.Heard;
+
         // Before the seeking check: the tracker wants the position the audio is
         // really at, whatever the slider is doing.
-        _scrobbler.Advance(_engine.Position, _engine.CurrentTrack);
+        if (heard.Track is not null)
+            _scrobbler.Advance(heard.Position, heard.Track);
 
         if (IsSeeking)
             return;
 
+        // Just after a skip the speakers can still be on the old track for a
+        // moment; the bar waits for the new one rather than show the old spot.
+        if (!ReferenceEquals(heard.Track, _shownEngineTrack))
+            return;
+
         var duration = _engine.Duration.TotalSeconds;
-        if (duration > 0 && Math.Abs(duration - DurationSeconds) > 0.5)
+        if (duration > 0 && Math.Abs(duration - DurationSeconds) > 0.5 && ReferenceEquals(heard.Track, _engine.CurrentTrack))
         {
             DurationSeconds = duration;
             DurationDisplay = Display.Time(TimeSpan.FromSeconds(duration));
         }
 
         _updatingPositionFromTimer = true;
-        PositionSeconds = _engine.Position.TotalSeconds;
+        PositionSeconds = heard.Position.TotalSeconds;
         _updatingPositionFromTimer = false;
     }
 

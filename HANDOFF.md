@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-19, session 56. Read this alongside `README.md`: the README covers
+Updated 2026-10-19, session 58. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -129,7 +129,7 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, and the installed app is
-  a build of `main`. **692 tests** pass.
+  a build of `main`. **705 tests** pass.
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
   day had PS2 Dark and everything since v0.5.0.
@@ -156,6 +156,16 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **58** (2026-10-19): **visualizer planned; its first step built.**
+  - **The plan, settled with the user** (see next step 6): build the groundwork with a
+    placeholder picture, then try projectM.
+  - **Built: the hearing clock.** The seek bar, the time and the scrobbler follow what
+    the speakers play (`AudioEngine.Heard`, via `Core/Playback/HearingTimeline`), not
+    the decoder ~200 ms ahead.
+  - **At a gapless join,** `TrackChanged` fires when the new track is heard.
+  - **Checked by a silent probe** in shared, exclusive and DoP. 705 tests.
+  - Installed and committed. The user hasn't tried it yet.
 
 - **56** (2026-10-19): **remaining pops traced to Dell TechHub.** Driver 597.16 ended the
   NVIDIA freezes. Four pops matched against `playback.log` (reserve full every time) and
@@ -369,9 +379,8 @@ Standing preferences from the user that the code doesn't show:
   missing is a visible, editable queue.
 - Memory was profiled in session 43 (`HISTORY.md`). Still left: FLAC tag reads load the cover
   (TagLib ignores PictureLazy for FLAC), so a big scan still peaks high before the reclaim.
-- The seek bar reads ~200 ms ahead of what you hear (decode position versus device
-  buffer). Invisible in practice. Discussed with the user in session 45 and left alone;
-  see session 45 in `HISTORY.md` for the fix and why it waits for a feature that needs exact timing.
+- ~~The seek bar reads ~200 ms ahead of what you hear~~ Fixed in session 58
+  (`HearingTimeline`, `AudioEngine.Heard`), as the visualizer's first step.
 
 ---
 
@@ -1177,9 +1186,35 @@ Open items only; finished ones are in `HISTORY.md`.
    reports WRONG while the bug is open). Options offered: a log of WM_NC* messages
    around the buttons to catch the real cause, or the fallback again with the hover
    question settled.
-6. **MilkDrop 3 / projectM visualisation.** Scoped out in session 6 (LGPL-2.1, C API,
-   `GLWpfControl` for OpenGL-in-WPF, no prebuilt `libprojectM.dll`, source only).
-   Next step would be a spike build of `libprojectM.dll`. Nothing started.
+6. **The visualizer (session 58, under way).** The groundwork's steps, as agreed with the user:
+   1. ~~A hearing clock~~ Done in session 58 (`AudioEngine.Heard`).
+   2. **A tap.** `AfterPull` copies each block into a ring set aside in advance. The copy
+      is taken before the volume, it only reads, and the probe proves the DAC's bytes are
+      unchanged, DoP included.
+   3. **Conversion on the visualizer's side**, only while its window is open: everything
+      down to 44.1/48 kHz, cut at 20 kHz; DoP unwrapped and filtered to PCM, checked
+      against BASSDSD's own conversion.
+   4. **Live analysis:** `Fft`, plus the Hann window and the 0 dB calibration lifted out
+      of `SpectrumAccumulator`. Bands from 20 Hz to 20 kHz, bass/mid/treble, a
+      quick-rise slow-fall, intensity 1–10 saved.
+   5. **A window** with Analyze's chrome:
+      - **Opening it:** Ctrl+Shift+F, or an icon-only chip left of Theme. No logo-menu
+        item.
+      - **Fullscreen:** double-click or Alt+Enter, Escape leaves. It covers the monitor
+        it's on, hides the cursor after 3 s, keeps the display awake, and drops back to
+        a window if that monitor goes.
+      - **Keys:** Up/Down change the intensity, with a level number that fades after a
+        second. The playback shortcuts work there too.
+      - **Nothing is drawn** while it's hidden or minimised, or the PC is locked.
+   6. **A placeholder spectrum.** Then the user judges the timing with a click track,
+      in shared, Bit-Perfect and DSD.
+   - **Then projectM:** libprojectM 4.1.x; MSYS2 has prebuilt Windows builds. Its
+     knobs: hard cuts off, a soft-cut length, preset length and lock, beat
+     sensitivity, and `projectm_set_frame_time` for slow motion. WPF can't draw over
+     an OpenGL area, so the level number needs its own overlay there.
+   - **The user's theming call:** the window follows Light/Dark; the visualization
+     itself may use any colours (record it in `design/progress.md` when built). Session
+     6's scoping (LGPL-2.1, `GLWpfControl`) still stands.
 
 Confirmed by the user (2026-10-14, session 50): Edit Artist Tags on a big artist opens
 at once (session 47's background read).

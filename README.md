@@ -35,6 +35,10 @@ with nothing else in the way.
   you are and grey after, moving smoothly while it plays. It's read in the background
   when the track starts (well under a second for most files); until then the bar is plain.
 - Gapless playback.
+- The seek bar, the time and the now-playing song follow what you hear, not the decoder,
+  which runs about 200 ms ahead (the audio waiting in the device). At a gapless join the
+  title and cover change when the new song reaches the speakers; a seek still shows its
+  target straight away.
 - [Last.fm scrobbling](#lastfm-scrobbling), with plays kept offline until they can be sent.
 - Optional [bit-perfect output](#output-modes) — exclusive WASAPI at the source's own
   sample rate, with DSD-over-PCM passthrough for DACs that support it.
@@ -894,5 +898,3 @@ least-recently-used first.
   library). A post-scan compaction runs, and the cache means this only happens on a
   first run or after the cache is invalidated - but it is still worth profiling.
 - **Tracker formats** (MOD/S3M/XM/IT) load and play, but carry no useful tag metadata.
-- **The seek bar runs ~200 ms ahead of what you hear.** Position is read from the
-  decode mixer, which is that far ahead of the device buffer. Invisible in practice.

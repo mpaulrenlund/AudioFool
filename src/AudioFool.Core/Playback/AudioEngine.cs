@@ -72,6 +72,36 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     private int _pullStream;
     private long _pullStartBytes = -1;
 
+    // What the device has been given, so what is heard can be told from what is
+    // decoded (see Heard). The fields below it are the device's thread's own,
+    // like _pullStream: the track and spot the current pull started at, and
+    // where in it the END sync switched track.
+    private readonly HearingTimeline _heard = new();
+    private readonly Action<int, bool> _notePullEnd;
+    private Track? _pullTrack;
+    private double _pullStartSeconds;
+    private long _joinFrames = -1;
+    private Track? _joinTrack;
+
+    // The current stream and its track as one, written with _currentStream so the
+    // device's thread reads a matching pair without the lock.
+    private sealed record PlayingStream(int Stream, Track Track);
+    private PlayingStream? _playing;
+
+    // Counts the plays PlayCore starts, so an announcement waiting for the
+    // speakers can tell that one has superseded it.
+    private int _plays;
+
+    // What was heard when the device paused: it holds still until Resume.
+    private sealed record HeardAtPause(HeardPoint Point);
+    private HeardAtPause? _heardAtPause;
+
+    /// <summary>
+    /// How long a track change waits for the speakers to reach it, at most: well
+    /// past the device's 200 ms, in case the device can't say what it holds.
+    /// </summary>
+    private static readonly TimeSpan MaxHeardWait = TimeSpan.FromSeconds(2);
+
     // Files a save is writing, and files a stream is being opened on (a file can
     // be opened twice at once: the playing track and, on repeat, the next).
     // Both are guarded by _gate, which is also what waits on them.
@@ -85,6 +115,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         // Held in a field so the GC can't collect the delegate BASS is calling.
         _endSyncProc = OnCurrentStreamEnded;
         _notePullStart = NotePullStart;
+        _notePullEnd = NotePullEnd;
 
         // Captured so consumers get events on the thread that built the engine
         // (the UI thread) instead of a BASS worker thread.
@@ -331,7 +362,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
                 BassMix.MixerRemoveChannel(_currentStream);
                 FreeStream(_currentStream);
-                _currentStream = 0;
+                SetCurrentStream(0);
 
                 if (paused)
                 {
@@ -385,7 +416,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                     if (bytes > 0)
                         Bass.ChannelSetPosition(stream, bytes);
 
-                    _currentStream = stream;
+                    SetCurrentStream(stream);
                     BassMix.MixerAddChannel(_output.Mixer, stream, SourceFlags);
                     Bass.ChannelSetSync(stream, SyncFlags.End | SyncFlags.Mixtime, 0, _endSyncProc);
 
@@ -503,7 +534,12 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     /// <summary>Set when exclusive mode was asked for but the device refused.</summary>
     public string? OutputWarning { get; private set; }
 
-    /// <summary>Where we are in the current track, as the speakers hear it.</summary>
+    /// <summary>
+    /// Where the decoder is in the current track: about 200 ms ahead of what the
+    /// speakers play, the audio the device holds. What the engine itself works
+    /// from (Previous's three seconds, a save's reopen); for showing, see
+    /// <see cref="Heard"/>.
+    /// </summary>
     public TimeSpan Position
     {
         get
@@ -526,6 +562,62 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             var seconds = Bass.ChannelBytes2Seconds(stream, bytes);
             return seconds > 0 ? TimeSpan.FromSeconds(seconds) : TimeSpan.Zero;
         }
+    }
+
+    /// <summary>
+    /// What the speakers are playing now: the decode position less the audio the
+    /// device still holds (session 45's lead, ~200 ms), read through
+    /// <see cref="HearingTimeline"/>. Across a gapless join it is the old track
+    /// until its last frame is heard. A seek shows its target straight away, and a
+    /// pause or a save holds it still, as <see cref="Position"/> does. Falls back
+    /// to the decode position when the device can't say what it holds. Any thread.
+    /// </summary>
+    public HeardPoint Heard
+    {
+        get
+        {
+            var released = Interlocked.Read(ref _releasedAtTicks);
+            if (released >= 0)
+                return new HeardPoint(CurrentTrack, TimeSpan.FromTicks(released));
+
+            var stream = Volatile.Read(ref _currentStream);
+            if (stream != 0 && Volatile.Read(ref _output)?.PendingSeekBytes(stream) is not null)
+                return new HeardPoint(CurrentTrack, Position);
+
+            if (Volatile.Read(ref _heardAtPause) is { } paused)
+                return paused.Point;
+
+            var generation = _heard.Generation;
+            var frame = HeardFrame();
+            if (frame >= 0 && _heard.TryLookup(frame, out var track, out var seconds) && _heard.Generation == generation)
+                return new HeardPoint(track, TimeSpan.FromSeconds(Math.Max(0, seconds)));
+
+            return new HeardPoint(CurrentTrack, Position);
+        }
+    }
+
+    /// <summary>
+    /// The frame the speakers are at, counted as <see cref="HearingTimeline.TotalFrames"/>
+    /// is, or -1 when the device can't say. Read twice around the device's figure
+    /// so a pull landing in between doesn't skew it by a block.
+    /// </summary>
+    private long HeardFrame()
+    {
+        var output = Volatile.Read(ref _output);
+        if (output is null)
+            return -1;
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var total = _heard.TotalFrames;
+            var queued = output.QueuedFrames;
+            if (queued < 0)
+                return -1;
+            if (_heard.TotalFrames == total)
+                return Math.Max(0, total - queued);
+        }
+
+        return -1;
     }
 
     public TimeSpan Duration
@@ -609,7 +701,9 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
             _queue = [.. queue];
             _index = startIndex;
-            _currentStream = stream;
+            SetCurrentStream(stream);
+            Volatile.Write(ref _heardAtPause, null);
+            Interlocked.Increment(ref _plays);
 
             if (resetOrder || _order.Count != _queue.Count)
                 _order.Reset(_queue.Count, startIndex, _shuffle);
@@ -631,6 +725,9 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         {
             if (_state != PlaybackState.Playing || _output is null)
                 return;
+
+            // Read before the device stops: what it holds stays put until Resume.
+            Volatile.Write(ref _heardAtPause, new HeardAtPause(Heard));
             _output.Pause();
         }
 
@@ -644,6 +741,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             if (_state != PlaybackState.Paused || _output is null)
                 return;
             _output.Resume();
+            Volatile.Write(ref _heardAtPause, null);
         }
 
         SetState(PlaybackState.Playing);
@@ -664,6 +762,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             _output?.Stop();
             TeardownStreamsLocked();
             _index = -1;
+            Volatile.Write(ref _heardAtPause, null);
         }
 
         SetState(PlaybackState.Stopped);
@@ -788,6 +887,9 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         var reopenAtIndex = -1;
         var waitForSave = false;
         long spliceFrames = 0;
+        long joinFrame = 0;
+        var generation = _heard.Generation;
+        var plays = Volatile.Read(ref _plays);
 
         lock (_gate)
         {
@@ -797,6 +899,10 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
             if (_repeat == RepeatMode.One && _output is not null)
             {
+                // The rest of this pull is the same track from its start.
+                _joinFrames = FramesGivenThisPull(_currentStream);
+                _joinTrack = _pullTrack;
+
                 // Rewind and re-add the same channel; its END sync is still attached.
                 Bass.ChannelSetPosition(_currentStream, 0);
                 BassMix.MixerAddChannel(_output.Mixer, _currentStream, SourceFlags);
@@ -821,11 +927,17 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 _prefetchedStream = 0;
                 _prefetchedIndex = -1;
 
-                _currentStream = promoted;
                 _index = promotedIndex;
+                SetCurrentStream(promoted);
 
                 var delay = SpliceDelay(finished);
                 spliceFrames = delay / (sizeof(float) * _output!.Channels);
+
+                // Where the new track starts in what the device is given: the
+                // speakers reach it this far into this pull.
+                _joinFrames = spliceFrames;
+                _joinTrack = _playing?.Track;
+                joinFrame = _heard.TotalFrames + spliceFrames;
                 if (delay > 0)
                     BassMix.MixerAddChannel(_output!.Mixer, promoted, SourceFlags, delay, 0);
                 else
@@ -839,12 +951,16 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 else if (_releasedNextIndex >= 0)
                     waitForSave = _advanceAfterRelease = true;   // WhileReleased plays it
 
-                _currentStream = 0;
+                // Silence from here on in this pull.
+                _joinFrames = FramesGivenThisPull(finished);
+                _joinTrack = null;
+
+                SetCurrentStream(0);
             }
         }
 
         // Off the audio thread from here on.
-        Task.Run(() =>
+        Task.Run(async () =>
         {
             // BASSmix does not unplug a source when it reaches its end - it just
             // stalls, contributing silence. Freeing it unplugs it for us.
@@ -856,10 +972,17 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 PlaybackDiagnostics.Note(spliceFrames > 0
                     ? $"gapless: next track joined {spliceFrames} frames into the block"
                     : "gapless: next track joined at the block start (ended on a block edge, or resampled)");
-                if (track is not null)
-                    Raise(TrackChanged, track);
 
                 PrefetchAfter(promotedIndex);
+
+                // The old track is still playing from the device's buffer: announce
+                // the new one when it is heard, unless something else has started
+                // meanwhile (a save reopening this track doesn't count).
+                bool StillCurrent() => Volatile.Read(ref _plays) == plays && ReferenceEquals(CurrentTrack, track);
+
+                await WaitUntilHeardAsync(joinFrame, generation, StillCurrent);
+                if (track is not null && StillCurrent())
+                    Raise(TrackChanged, track);
             }
             else if (reopenAtIndex >= 0)
             {
@@ -888,9 +1011,87 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
     private void NotePullStart()
     {
-        var stream = Volatile.Read(ref _currentStream);
+        var playing = Volatile.Read(ref _playing);
+        var stream = playing?.Stream ?? 0;
         _pullStream = stream;
         _pullStartBytes = stream != 0 ? Bass.ChannelGetPosition(stream) : -1;
+
+        _pullTrack = _pullStartBytes >= 0 ? playing!.Track : null;
+        _pullStartSeconds = _pullStartBytes >= 0 ? Math.Max(0, Bass.ChannelBytes2Seconds(stream, _pullStartBytes)) : 0;
+        _joinFrames = -1;
+        _joinTrack = null;
+    }
+
+    /// <summary>
+    /// Notes what the device was just given (<see cref="HearingTimeline"/>): the
+    /// track it came from and where in it, split where the END sync switched to
+    /// the next track or to silence during the pull. A seek made at the end of the
+    /// pull is noted with its target, read back from the stream it moved.
+    /// </summary>
+    private void NotePullEnd(int frames, bool sought)
+    {
+        var join = _joinFrames;
+        if (join >= 0 && join < frames)
+        {
+            _heard.Append(_pullTrack, _pullStartSeconds, (int)join);
+            _heard.Append(_joinTrack, 0, frames - (int)join);
+        }
+        else
+        {
+            _heard.Append(_pullTrack, _pullStartSeconds, frames);
+        }
+
+        if (sought && Volatile.Read(ref _playing) is { } playing)
+        {
+            var bytes = Bass.ChannelGetPosition(playing.Stream);
+            if (bytes >= 0)
+                _heard.MarkSeek(playing.Track, Math.Max(0, Bass.ChannelBytes2Seconds(playing.Stream, bytes)));
+        }
+    }
+
+    /// <summary>
+    /// The mixer frames <paramref name="finished"/> gave in the pull under way
+    /// before it ran out: the same reading as <see cref="SpliceDelay"/>, but
+    /// scaled to the mixer's rate when resampled, since it only places the end
+    /// for <see cref="Heard"/>. 0 when it can't be worked out.
+    /// Device's thread, inside the END sync.
+    /// </summary>
+    private long FramesGivenThisPull(int finished)
+    {
+        if (_output is null || _pullStream != finished || _pullStartBytes < 0 || !Bass.ChannelGetInfo(finished, out var info)
+            || info.Frequency <= 0)
+            return 0;
+
+        var sourceFrames = (Bass.ChannelGetPosition(finished) - _pullStartBytes) / (sizeof(float) * info.Channels);
+        var frames = sourceFrames * _output.SampleRate / info.Frequency;
+        return frames > 0 && frames <= _output.SampleRate ? frames : 0;
+    }
+
+    /// <summary>
+    /// Returns once the speakers have reached <paramref name="frame"/>, the device
+    /// connection has changed, <paramref name="stillWanted"/> says the wait is
+    /// moot, or <see cref="MaxHeardWait"/> of playing has passed. A pause holds the
+    /// wait without using up that time.
+    /// </summary>
+    private async Task WaitUntilHeardAsync(long frame, int generation, Func<bool> stillWanted)
+    {
+        var playing = TimeSpan.Zero;
+        while (playing < MaxHeardWait && stillWanted() && _heard.Generation == generation)
+        {
+            var heard = HeardFrame();
+            if (heard < 0 || heard >= frame)
+                return;
+
+            var step = TimeSpan.FromMilliseconds(50);
+            if (State == PlaybackState.Playing)
+            {
+                var left = TimeSpan.FromSeconds((double)(frame - heard) / _heard.SampleRate);
+                step = left < step ? left + TimeSpan.FromMilliseconds(1) : step;
+                playing += step;
+            }
+
+            await Task.Delay(step);
+        }
     }
 
     /// <summary>
@@ -1023,7 +1224,25 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
         _output.SetVolume(_volume);
         _output.BeforePull = _notePullStart;
+        _output.AfterPull = _notePullEnd;
+
+        // A new connection starts with an empty buffer: what it is given is
+        // counted afresh, at its rate. It hasn't pulled anything yet.
+        _heard.Reset(_output.SampleRate);
         return true;
+    }
+
+    /// <summary>
+    /// Sets the playing stream, and the track it plays for the device's thread
+    /// (<see cref="_playing"/>). Caller holds <see cref="_gate"/>, with
+    /// <see cref="_index"/> already on the track.
+    /// </summary>
+    private void SetCurrentStream(int stream)
+    {
+        _currentStream = stream;
+        Volatile.Write(ref _playing, stream != 0 && _index >= 0 && _index < _queue.Count
+            ? new PlayingStream(stream, _queue[_index])
+            : null);
     }
 
     /// <summary>Sample rate of a decode channel, or 0 if it can't be determined.</summary>
@@ -1114,7 +1333,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         {
             BassMix.MixerRemoveChannel(_currentStream);
             FreeStream(_currentStream);
-            _currentStream = 0;
+            SetCurrentStream(0);
         }
 
         if (_prefetchedStream != 0)
