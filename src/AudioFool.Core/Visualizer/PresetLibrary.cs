@@ -6,18 +6,36 @@ namespace AudioFool.Core.Visualizer;
 /// found crashing or failing (<see cref="ScreenedOutPath"/>) and those the user
 /// skipped with Delete (<see cref="SkippedPath"/>). Both lists hold paths relative
 /// to the presets folder, one a line; anything after a tab is a note.
+/// <para>
+/// Two folders: the pack (presets, textures, the screen's list), which ships with
+/// the app beside its exe, and the user's own list, in their AppData, which the
+/// app writes. (The pack started in AppData, but files Claude's tools create
+/// there go into the Claude app's private copy of AppData, invisible to
+/// AudioFool: session 58.)
+/// </para>
 /// </summary>
-public sealed class PresetLibrary(string folder)
+public sealed class PresetLibrary(string packFolder, string userFolder)
 {
-    /// <summary><c>%LOCALAPPDATA%\AudioFool\visualizer</c>: outside the music, outside the repo.</summary>
-    public static string DefaultFolder { get; } = Path.Combine(
+    /// <summary><c>%LOCALAPPDATA%\AudioFool\visualizer</c>: the user's skip list.</summary>
+    public static string UserFolderDefault { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AudioFool", "visualizer");
 
-    public string Folder { get; } = folder;
-    public string PresetsFolder => Path.Combine(Folder, "presets");
-    public string TexturesFolder => Path.Combine(Folder, "textures");
-    public string ScreenedOutPath => Path.Combine(Folder, "screened-out.txt");
-    public string SkippedPath => Path.Combine(Folder, "skipped.txt");
+    /// <summary>
+    /// The pack beside the exe (<c>visualizer</c> next to AudioFool.exe); where
+    /// there's none, as in a development build, the user folder's.
+    /// </summary>
+    public static PresetLibrary Default()
+    {
+        var besideExe = Path.Combine(AppContext.BaseDirectory, "visualizer");
+        return new PresetLibrary(Directory.Exists(Path.Combine(besideExe, "presets")) ? besideExe : UserFolderDefault, UserFolderDefault);
+    }
+
+    public string PackFolder { get; } = packFolder;
+    public string UserFolder { get; } = userFolder;
+    public string PresetsFolder => Path.Combine(PackFolder, "presets");
+    public string TexturesFolder => Path.Combine(PackFolder, "textures");
+    public string ScreenedOutPath => Path.Combine(PackFolder, "screened-out.txt");
+    public string SkippedPath => Path.Combine(UserFolder, "skipped.txt");
 
     /// <summary>Every preset in the pack, sorted, full paths.</summary>
     public IReadOnlyList<string> All()
@@ -41,7 +59,7 @@ public sealed class PresetLibrary(string folder)
     /// <summary>Remembers that the user never wants <paramref name="presetPath"/> again.</summary>
     public void Skip(string presetPath)
     {
-        Directory.CreateDirectory(Folder);
+        Directory.CreateDirectory(UserFolder);
         File.AppendAllText(SkippedPath, Relative(presetPath) + Environment.NewLine);
     }
 

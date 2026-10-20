@@ -128,8 +128,9 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 ## State at handoff
 
-- **Everything in `README.md` is implemented and verified**, and the installed app is
-  a build of `main`. **785 tests** pass.
+- **Everything in `README.md` is implemented and verified**, apart from the projectM
+  trial (below). **790 tests** pass. The installed app is a build of `14cb44f` plus
+  the off-screen fix and logging (see session 58's "Where it stands").
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
   day had PS2 Dark and everything since v0.5.0.
@@ -157,7 +158,34 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
-- **58** (2026-10-19): **visualizer planned; its first step built.**
+- **58** (2026-10-19): **visualizer: groundwork built and confirmed; projectM trial
+  built, not yet seen working by the user.**
+  - **Where it stands right now (end of session 58; context ran out):**
+    1. **Committed** (the commit after `14cb44f`):
+       - The visualizer opened off-screen: `CentreOnMain` used a maximised main
+         window's restore position, which was on a gone monitor. Now it centres on
+         `WindowPlacement.RectOf(main)`, clamped to `WorkAreaOf(main)`.
+       - Visualizer log lines in `playback.log`: "opened at", "the bars (no …)",
+         "projectM added", "projectM's window".
+       - `PresetLibrary` takes two folders: the **pack beside the exe**
+         (`Programs\AudioFool\visualizer`: presets, textures, `screened-out.txt`) and
+         **the user's skip list** in `%LOCALAPPDATA%\AudioFool\visualizer`.
+         `PresetLibrary.Default()` falls back to the AppData folder when there's no
+         pack beside the exe (dev builds, ThemeLab). 790 tests.
+    2. **Published to `publish\` but NOT installed:** AudioFool was open. The installed
+       build is the one before the `PresetLibrary` change, so it still looks for
+       presets in AppData and shows the bars.
+    3. **The preset pack is already copied** to
+       `%LOCALAPPDATA%\Programs\AudioFool\visualizer` (9,795 presets, 68 textures,
+       67 screened out), checked real.
+    4. **Next:** ask the user to close AudioFool (or close it with their OK); install
+       `publish\`. The user presses Visualizer. Read `playback.log` for
+       "visualizer: projectM 4.1.6 on …" (or why not). Then the user judges the trial.
+       Then commit (its own commit), and update README's presets path (it still says
+       AppData) and HISTORY.
+  - **Why projectM never started for the user:** see *Claude's shells and AppData*
+    under Gotchas. The presets Claude cloned into AppData went into the Claude app's
+    private package storage, invisible to AudioFool.
   - **The plan, settled with the user** (see next step 6): build the groundwork with a
     placeholder picture, then try projectM.
   - **Built: the hearing clock.** The seek bar, the time and the scrobbler follow what
@@ -642,6 +670,28 @@ entries for Add folder bind their commands via
 `{Binding Source={StaticResource Proxy}, Path=Data.AddFolderCommand}`.
 
 ---
+
+## Claude's shells and AppData (found in session 58)
+
+Claude's tools run inside the **Claude desktop app's MSIX package**: PowerShell, Bash,
+`dangerouslyDisableSandbox` or not, and anything they launch (ThemeLab, probes).
+- **New AppData writes are redirected.** New files and folders they create under
+  `%LOCALAPPDATA%` or `%APPDATA%` go to the package's private store,
+  `C:\Users\MarcusRenlund\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\…`
+  (or `…\Roaming\…`).
+- **Reads go to those private copies.** Once a private copy exists, Claude's reads see
+  it. **AudioFool and the user never see any of it.** `Get-Item -Force <path>` shows
+  the redirect in `.Target`.
+- **Not redirected:** `%LOCALAPPDATA%\Programs\AudioFool` (which is why installs work),
+  `C:\MusicPlayer`, the music drives and temp folders.
+- **Stale private copies exist** of `settings.json`, `library.json`,
+  `library.json.beforemigration` and `playlists.json`, left by earlier sessions'
+  ThemeLab and probe runs. **So Claude's reads of the user's settings or library can be
+  stale.** Earlier "backups" of library.json made from Claude's shell were private
+  copies, not real backups. `playback.log` has no private copy, so its reads are real.
+- **The rule:** never place data AudioFool must read in AppData from Claude's shell;
+  ship it beside the exe. Clearing the stale private copies was offered to the user,
+  not done.
 
 ## Verifying UI changes without wrecking the user's desktop
 
@@ -1253,9 +1303,16 @@ Open items only; finished ones are in `HISTORY.md`.
        checked against MSYS2's published SHA-256), in `lib/projectm/x64` (**git-ignored
        while a trial**) and copied beside the exe by the csproj.
      - **The presets:** "Cream of the Crop" (9,795) and the MilkDrop texture pack,
-       cloned into `%LOCALAPPDATA%\AudioFool\visualizer\presets` and `textures`. Some
-       names pass Windows' path limit, so the clone needs `git config core.longpaths
-       true`.
+       shallow-cloned from projectM's GitHub. Some names pass Windows' path limit, so
+       the clone needs `git config core.longpaths true`.
+       - **Where AudioFool reads them:** beside the exe, in
+         `Programs\AudioFool\visualizer\presets` and `textures`, with
+         `screened-out.txt`.
+       - **The clone itself** sits in Claude's private AppData copy, at
+         `%LOCALAPPDATA%\AudioFool\visualizer` as Claude's shells see it, and was
+         copied from there with robocopy.
+       - **Not in `publish\`:** an install doesn't carry them, but doesn't delete them
+         either.
      - **Core:**
        - `Visualizer/ProjectMNative` (P/Invoke from the package's own headers).
        - `GlContext` (a Win32 window, `wglCreateContext`, `DwmFlush` pacing,

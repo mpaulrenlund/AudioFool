@@ -14,7 +14,7 @@ public sealed class PresetLibraryTests : IDisposable
 
     private PresetLibrary WithPresets(params string[] relative)
     {
-        var library = new PresetLibrary(_folder);
+        var library = new PresetLibrary(_folder, Path.Combine(_folder, "user"));
         foreach (var path in relative)
         {
             var full = Path.Combine(library.PresetsFolder, path);
@@ -35,10 +35,23 @@ public sealed class PresetLibraryTests : IDisposable
     }
 
     [Fact]
+    public void The_pack_and_the_user_s_skips_live_apart()
+    {
+        // The pack ships beside the exe; the user's list is in their AppData.
+        var library = WithPresets(@"Fractal\a.milk");
+        library.Skip(Path.Combine(library.PresetsFolder, @"Fractal\a.milk"));
+
+        Assert.StartsWith(library.PackFolder, library.ScreenedOutPath);
+        Assert.Equal(Path.Combine(_folder, "user", "skipped.txt"), library.SkippedPath);
+        Assert.True(File.Exists(library.SkippedPath));
+        Assert.Empty(library.Playable());
+    }
+
+    [Fact]
     public void No_folder_no_presets()
     {
-        Assert.Empty(new PresetLibrary(_folder).All());
-        Assert.Empty(new PresetLibrary(_folder).Playable());
+        Assert.Empty(new PresetLibrary(_folder, Path.Combine(_folder, "user")).All());
+        Assert.Empty(new PresetLibrary(_folder, Path.Combine(_folder, "user")).Playable());
     }
 
     [Fact]

@@ -467,7 +467,8 @@ The status bar's **Visualizer** button (three bars, left of Theme) or **Ctrl+Shi
 opens it in a window of its own; the same again closes it.
 
 **On trial: projectM**, the open-source MilkDrop. When its DLLs are in `lib/projectm/x64`
-(libprojectM 4.1.6 from MSYS2) and its presets in `%LOCALAPPDATA%\AudioFool\visualizer\`,
+(libprojectM 4.1.6 from MSYS2) and its presets in a `visualizer` folder beside
+`AudioFool.exe` (your Delete list goes to `%LOCALAPPDATA%\AudioFool\visualizer\skipped.txt`),
 the picture is projectM, set up calm: no sudden cuts on beats, 15 s blends between
 presets, each kept 90 s, the 9,795 "Cream of the Crop" presets shuffled. Presets that
 crashed, wouldn't load or were too slow when screened are left out

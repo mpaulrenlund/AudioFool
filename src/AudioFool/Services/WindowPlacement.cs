@@ -116,6 +116,32 @@ public static class WindowPlacement
         return monitors;
     }
 
+    /// <summary>Where the window is on screen now, in pixels (maximised: the monitor, overhang included).</summary>
+    public static PixelRect? RectOf(Window window)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        return hwnd != IntPtr.Zero && GetWindowRect(hwnd, out var r) ? new PixelRect(r.Left, r.Top, r.Right, r.Bottom) : null;
+    }
+
+    /// <summary>The work area (screen less taskbar) of the monitor the window is mostly on, in pixels.</summary>
+    public static PixelRect? WorkAreaOf(Window window)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        var monitor = hwnd == IntPtr.Zero ? IntPtr.Zero : MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref info))
+            return null;
+        return new PixelRect(info.rcWork.Left, info.rcWork.Top, info.rcWork.Right, info.rcWork.Bottom);
+    }
+
+    /// <summary>Moves the window's top-left corner to (<paramref name="x"/>, <paramref name="y"/>) in pixels, keeping its size, without activating it.</summary>
+    public static void MoveTo(Window window, int x, int y)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        if (hwnd != IntPtr.Zero)
+            SetWindowPos(hwnd, IntPtr.Zero, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+    }
+
     /// <summary>Puts the window exactly over <paramref name="rect"/>, in pixels, without activating it.</summary>
     public static void Cover(Window window, PixelRect rect)
     {
@@ -145,6 +171,7 @@ public static class WindowPlacement
     private const int SW_SHOWMINIMIZED = 2;
     private const int SW_SHOWMAXIMIZED = 3;
     private const int WPF_RESTORETOMAXIMIZED = 2;
+    private const uint SWP_NOSIZE = 0x0001;
     private const uint SWP_NOZORDER = 0x0004;
     private const uint SWP_NOACTIVATE = 0x0010;
     private const uint SWP_NOOWNERZORDER = 0x0200;

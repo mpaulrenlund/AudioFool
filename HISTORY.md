@@ -3737,6 +3737,34 @@ Then **the projectM trial**, planned and approved by the user, downloads include
   - **Not screened on the Intel chip.** projectM logs the renderer it gets
     ("visualizer: projectM 4.1.6 on …" in playback.log), so a run on Intel will show
     there.
+- Committed (`14cb44f`).
+
+Then **"the visualizer doesn't appear to be starting"** (the user):
+- **First problem: off-screen.** UI Automation, read-only, then one Invoke of the
+  Visualizer button with the user waiting for it. The window opened at x 2091 on a
+  1920-pixel screen. `CentreOnMain` used the maximised main window's Left/Top, which
+  are its restore position, on a monitor that had gone. Fixed: centred on the main
+  window's real rect (`WindowPlacement.RectOf`), clamped to its monitor's work area
+  (`WorkAreaOf`, `MoveTo`). The open window was moved into view with SetWindowPos
+  (no activation).
+- **Second problem: projectM never started.** No log line, no opengl32 in the process,
+  no child window. Added log lines and reinstalled (AudioFool closed with the user's
+  OK; the first CloseMainWindow closed only the visualizer). The user pressed it
+  again, and the log said "visualizer: the bars (no …\AudioFool\visualizer\presets)".
+- **The cause:** Claude's shells run inside the Claude desktop app's MSIX package.
+  New AppData folders they create are redirected to
+  `…\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Local\…` (`Get-Item .Target` shows it).
+  The presets, textures and screen results were all there, invisible to AudioFool.
+  - **Stray private copies:** `settings.json`, `library.json` and `playlists.json`
+    from earlier sessions are there too, so Claude's reads of them were stale.
+  - **Not redirected:** `Programs\AudioFool`, tested with a probe folder.
+- **The fix:**
+  - `PresetLibrary(packFolder, userFolder)`: the pack beside the exe, the skip list in
+    AppData. `Default()` falls back to AppData for dev builds. 790 tests (1 new).
+  - The pack copied with robocopy to `Programs\AudioFool\visualizer`: 9,795 presets,
+    68 textures, 67 screened out; checked real.
+  - Published and committed, **not installed** at the end of the session:
+    AudioFool was open. HANDOFF's session-58 entry has the next steps.
 
 ---
 

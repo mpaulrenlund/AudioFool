@@ -68,7 +68,7 @@ public partial class VisualizerWindow : FluentWindow
     private Point _lastMouse = new(double.NaN, double.NaN);
 
     // The projectM trial: projectM in the picture while it runs, the bars otherwise.
-    private readonly PresetLibrary _presets = new(PresetLibrary.DefaultFolder);
+    private readonly PresetLibrary _presets = PresetLibrary.Default();
     private readonly double _levelMargin;
     private ProjectMHost? _projectM;
     private Popup? _levelPopup;
@@ -131,6 +131,7 @@ public partial class VisualizerWindow : FluentWindow
         SourceInitialized += (_, _) => Place();
         Loaded += (_, _) =>
         {
+            PlaybackDiagnostics.Note($"visualizer: opened at {WindowPlacement.RectOf(this)}");
             _engine.TapEnabled = true;
             UpdateRendering();
             StartProjectM();
@@ -168,12 +169,23 @@ public partial class VisualizerWindow : FluentWindow
         CentreOnMain();
     }
 
+    /// <summary>
+    /// Centred on where the main window is on screen, kept inside that screen's work
+    /// area. In pixels: a maximised main window's Left and Top are where it would
+    /// restore to, which can be on a monitor that has gone (the bug the user found:
+    /// the visualizer opened past the right edge of the only screen).
+    /// </summary>
     private void CentreOnMain()
     {
-        var width = double.IsNaN(Width) ? ActualWidth : Width;
-        var height = double.IsNaN(Height) ? ActualHeight : Height;
-        Left = _main.Left + (_main.ActualWidth - width) / 2;
-        Top = _main.Top + (_main.ActualHeight - height) / 2;
+        if (WindowPlacement.RectOf(_main) is not { } main || WindowPlacement.WorkAreaOf(_main) is not { } area
+            || WindowPlacement.RectOf(this) is not { } own)
+            return;
+
+        var width = own.Right - own.Left;
+        var height = own.Bottom - own.Top;
+        var x = Math.Clamp((main.Left + main.Right - width) / 2, area.Left, Math.Max(area.Left, area.Right - width));
+        var y = Math.Clamp((main.Top + main.Bottom - height) / 2, area.Top, Math.Max(area.Top, area.Bottom - height));
+        WindowPlacement.MoveTo(this, x, y);
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -399,23 +411,43 @@ public partial class VisualizerWindow : FluentWindow
     // ------------------------------------------------------------ projectM (the trial)
 
     /// <summary>Whether projectM can run here: its DLL beside the exe and the presets downloaded.</summary>
-    private bool ProjectMAvailable =>
-        System.IO.File.Exists(System.IO.Path.Combine(AppContext.BaseDirectory, "libprojectM-4-4.dll")) && System.IO.Directory.Exists(_presets.PresetsFolder);
+    private static string ProjectMDll => System.IO.Path.Combine(AppContext.BaseDirectory, "libprojectM-4-4.dll");
 
-    /// <summary>projectM in the picture, over the bars; if it can't start, the bars stay.</summary>
+    /// <summary>
+    /// projectM in the picture, over the bars; if it can't start, the bars stay. Says
+    /// in playback.log which it is and why, as the user couldn't see why it didn't
+    /// start (session 58).
+    /// </summary>
     private void StartProjectM()
     {
-        if (_projectM is not null || !ProjectMAvailable)
+        if (_projectM is not null)
             return;
 
-        var host = new ProjectMHost(_engine) { Intensity = _feed.Intensity };
-        host.Failed += _ => StopProjectM();
-        host.DoubleClicked += ToggleFullscreen;
-        host.MouseMoved += ProjectMMouseMoved;
-        Picture.Children.Add(host);
-        Bars.Visibility = Visibility.Hidden;
-        _projectM = host;
-        UpdateRendering();
+        var dll = System.IO.File.Exists(ProjectMDll);
+        var presets = System.IO.Directory.Exists(_presets.PresetsFolder);
+        if (!dll || !presets)
+        {
+            PlaybackDiagnostics.Note($"visualizer: the bars ({(dll ? "" : $"no {ProjectMDll}")}{(dll || presets ? "" : ", ")}{(presets ? "" : $"no {_presets.PresetsFolder}")})");
+            return;
+        }
+
+        try
+        {
+            var host = new ProjectMHost(_engine) { Intensity = _feed.Intensity };
+            host.Failed += _ => StopProjectM();
+            host.DoubleClicked += ToggleFullscreen;
+            host.MouseMoved += ProjectMMouseMoved;
+            Picture.Children.Add(host);
+            Bars.Visibility = Visibility.Hidden;
+            _projectM = host;
+            UpdateRendering();
+            PlaybackDiagnostics.Note("visualizer: projectM added to the picture");
+        }
+        catch (Exception ex)
+        {
+            PlaybackDiagnostics.Note($"visualizer: projectM couldn't be added: {ex}");
+            StopProjectM();
+        }
     }
 
     private void StopProjectM()

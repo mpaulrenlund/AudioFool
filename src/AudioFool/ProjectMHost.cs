@@ -115,6 +115,7 @@ public sealed class ProjectMHost : HwndHost
     protected override HandleRef BuildWindowCore(HandleRef hwndParent)
     {
         _hwnd = GlContext.CreateWindow(hwndParent.Handle, _width, _height);
+        PlaybackDiagnostics.Note($"visualizer: projectM's window {_hwnd} in {hwndParent.Handle}");
         _stop = false;
         _thread = new Thread(Run) { IsBackground = true, Name = "projectM" };
         _thread.Start();
@@ -171,7 +172,7 @@ public sealed class ProjectMHost : HwndHost
                 return;
             }
 
-            var library = new PresetLibrary(PresetLibrary.DefaultFolder);
+            var library = PresetLibrary.Default();
             var presets = library.Playable();
             session = ProjectMSession.TryCreate(presets, [library.TexturesFolder], _width, _height, out error);
             if (session is null)
