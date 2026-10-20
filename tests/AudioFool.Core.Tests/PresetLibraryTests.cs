@@ -71,6 +71,22 @@ public sealed class PresetLibraryTests : IDisposable
     }
 
     [Fact]
+    public void Presets_that_dont_follow_the_beat_dont_play()
+    {
+        var library = WithPresets(@"Fractal\a.milk", @"Waveform\b.milk", @"Waveform\c.milk");
+        File.WriteAllLines(library.NoBeatPath,
+        [
+            "# found by the beat screen",
+            "Fractal\\a.milk\tR2 0.031",
+            "Waveform\\c.milk\tCRASH -1",
+        ]);
+
+        Assert.StartsWith(library.PackFolder, library.NoBeatPath);
+        Assert.Equal([@"Waveform\b.milk"], library.Playable().Select(library.Relative));
+        Assert.Equal(3, library.All().Count);
+    }
+
+    [Fact]
     public void Skips_add_up_and_ignore_case()
     {
         var library = WithPresets(@"Fractal\a.milk", @"Fractal\b.milk", @"Fractal\c.milk");

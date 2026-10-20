@@ -61,9 +61,6 @@ internal static class ProjectMNative
         [MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPStr)] string[] paths, nuint count);
 
     [DllImport(Core, CallingConvention = CallingConvention.Cdecl)]
-    public static extern void projectm_set_beat_sensitivity(IntPtr instance, float sensitivity);
-
-    [DllImport(Core, CallingConvention = CallingConvention.Cdecl)]
     public static extern void projectm_set_hard_cut_enabled(IntPtr instance, [MarshalAs(UnmanagedType.U1)] bool enabled);
 
     [DllImport(Core, CallingConvention = CallingConvention.Cdecl)]

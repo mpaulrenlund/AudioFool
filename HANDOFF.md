@@ -129,8 +129,8 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, apart from the projectM
-  trial (below). **790 tests** pass. The installed app is a build of `14cb44f` plus
-  the off-screen fix and logging (see session 58's "Where it stands").
+  trial (below). **803 tests** pass. The installed app has the beat shaper and reads
+  the no-beat list (see session 58's "Where it stands").
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
   day had PS2 Dark and everything since v0.5.0.
@@ -158,31 +158,49 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
-- **58** (2026-10-19): **visualizer: groundwork built and confirmed; projectM trial
-  built, not yet seen working by the user.**
-  - **Where it stands right now (end of session 58; context ran out):**
-    1. **Committed** (the commit after `14cb44f`):
-       - The visualizer opened off-screen: `CentreOnMain` used a maximised main
-         window's restore position, which was on a gone monitor. Now it centres on
-         `WindowPlacement.RectOf(main)`, clamped to `WorkAreaOf(main)`.
-       - Visualizer log lines in `playback.log`: "opened at", "the bars (no …)",
-         "projectM added", "projectM's window".
-       - `PresetLibrary` takes two folders: the **pack beside the exe**
-         (`Programs\AudioFool\visualizer`: presets, textures, `screened-out.txt`) and
-         **the user's skip list** in `%LOCALAPPDATA%\AudioFool\visualizer`.
-         `PresetLibrary.Default()` falls back to the AppData folder when there's no
-         pack beside the exe (dev builds, ThemeLab). 790 tests.
-    2. **Published to `publish\` but NOT installed:** AudioFool was open. The installed
-       build is the one before the `PresetLibrary` change, so it still looks for
-       presets in AppData and shows the bars.
-    3. **The preset pack is already copied** to
-       `%LOCALAPPDATA%\Programs\AudioFool\visualizer` (9,795 presets, 68 textures,
-       67 screened out), checked real.
-    4. **Next:** ask the user to close AudioFool (or close it with their OK); install
-       `publish\`. The user presses Visualizer. Read `playback.log` for
-       "visualizer: projectM 4.1.6 on …" (or why not). Then the user judges the trial.
-       Then commit (its own commit), and update README's presets path (it still says
-       AppData) and HISTORY.
+- **58** (2026-10-19): **visualizer: groundwork built and confirmed; projectM runs for
+  the user, who couldn't see it follow the beat; beats made visible (beat shaper, beat
+  screen) under way.**
+  - **Where it stands right now (session 58 continued after the context ran out;
+    2026-10-19, 21:00):**
+    1. **Committed, not pushed:** 8 commits, `6baf2ea` … `80a73ab` (the off-screen
+       fix, the visualizer's log lines, the pack beside the exe), then the commit after
+       it: `BeatShaper`, the no-beat list, `tools/presetscreen`, the docs.
+    2. **`80a73ab`'s build was installed at 19:15** (with the user's OK; its version
+       reads `+14cb44f`, built just before the commit). projectM runs for the user:
+       "projectM 4.1.6 on NVIDIA RTX PRO 500 … 9728 of 9795 presets", on screen, first
+       minute of playback clean. The pack is beside the exe (9,795 presets, 68
+       textures, 67 screened out, the six DLLs), not redirected.
+    3. **The user's verdict:** they "couldn't tell if the visualizer was doing anything
+       related to the beat". Measured why (details in HISTORY, session 58): our feed
+       is right and on time; projectM's bass/mid/treb are normal MilkDrop values; the
+       old Up/Down (beat sensitivity) changed nothing, as 4.1.6 uses it only for hard
+       cuts; only ~6 of 20 random presets clearly pulse on a drum loop.
+    4. **The user chose:** keep projectM, play only presets that pulse, make Up/Down
+       real. **Built:**
+       - **`BeatShaper`** (Core/Visualizer): Up/Down shape the copy of the sound
+         handed to projectM (never the DAC's). Each of projectM's three bands is turned
+         down while it's quieter than its loudest of the last ~2 s, by
+         (level / loudest)^(swing − 1). Swing 2.0 at 5, ×1.25 a step. On *Love*:
+         bass p10–p90 0.67–1.49 at 1, 0.47–1.55 at 5, 0.24–1.92 at 10 (unshaped
+         0.69–1.51). `ProjectMHost` uses it; `playback.log`'s projectM line ends
+         "beats shaped at intensity N".
+       - **`no-beat.txt`** in the pack, left out by `PresetLibrary.Playable()`.
+       - **`tools/presetscreen`**: see *The preset screens* under next step 6.
+       - 803 tests. **Installed at 21:28** with the user's OK (the 20:55 publish; all
+         25 files match). Its version reads `+80a73ab`: built before the commit.
+    5. **The beat screen is running** (started 20:55, ~36 presets a minute, ~4.5 h,
+       done about 01:30): `PresetScreen beat --workers 3`, work folder and `run.log`
+       in `%TEMP%\AudioFoolBeatScreen`. It keeps Windows awake while it runs (a closed
+       lid still sleeps). When done it writes `beat-screen.tsv` and `no-beat.txt` into
+       the pack; projectM reads them each time it starts, so no reinstall. If it
+       stopped, run the same command: it resumes.
+    6. **Next:** when the screen is done, read the summary at the end of `run.log`
+       (how many pass, by folder) and check `no-beat.txt` is in the pack. The user can
+       try Up/Down now; the screened list applies the next time the visualizer opens
+       after the screen finishes. Then the user watches again: does it follow the beat
+       now, and is 5 the right default? Record the verdict here and in HISTORY, and
+       ask about pushing.
   - **Why projectM never started for the user:** see *Claude's shells and AppData*
     under Gotchas. The presets Claude cloned into AppData went into the Claude app's
     private package storage, invisible to AudioFool.
@@ -1317,23 +1335,42 @@ Open items only; finished ones are in `HISTORY.md`.
        - `Visualizer/ProjectMNative` (P/Invoke from the package's own headers).
        - `GlContext` (a Win32 window, `wglCreateContext`, `DwmFlush` pacing,
          `ReadPixels`).
-       - `ProjectMSession` (calm settings, the playlist, intensity → beat sensitivity
-         1.2^(n−5)). **The host must call `glewInit`** first, as projectM's own
-         frontend does: without it `projectm_create` crashes on null GL pointers.
-       - `PresetLibrary` (the pack less `screened-out.txt` and `skipped.txt`).
+       - `ProjectMSession` (calm settings, the playlist). **The host must call
+         `glewInit`** first, as projectM's own frontend does: without it
+         `projectm_create` crashes on null GL pointers.
+       - `BeatShaper` (the intensity: the sound handed to projectM, its quiet between
+         beats turned down per band; see session 58's "Where it stands").
+       - `PresetLibrary` (the pack less `screened-out.txt`, `no-beat.txt` and
+         `skipped.txt`).
      - **App:** `ProjectMHost`, an `HwndHost` child window with projectM on its own
        thread and its own `VisualizerFeed`. It hands projectM the frames since the
-       last one, ending at what is heard.
+       last one, ending at what is heard, through a `BeatShaper`.
      - **4.1.6's limits:** it **always draws into framebuffer 0** (so OpenTK's
        GLWpfControl couldn't be used, and no NuGet packages were added), and it has
        **no `projectm_set_frame_time`**, so no speed knob. Both exist only in
        projectM's unreleased master, not in 4.1.7 or 4.1.8. Building master or 4.1.8
        needs Visual Studio's C++ tools and CMake, which this laptop doesn't have.
-     - **The preset screen** (scratch `heardprobe x --screen`): every preset in a
-       hidden window, a child process restarted after a crash. It writes
-       `screen-results.tsv` and `screened-out.txt`. On NVIDIA: 9,728 OK, 67 failed to
-       load (now skipped), none crashed, none slower than 40 ms. Not screened on
-       Intel.
+       **Its beat sensitivity only decides hard cuts** (measured: 0.48 and 2.49 give
+       presets the same bass/mid/treb), so it can't be the intensity.
+     - **The preset screens:**
+       - **Load and crash** (session 58, scratch `heardprobe x --screen`, not kept):
+         every preset in a hidden window, a child process restarted after a crash. It
+         wrote `screen-results.tsv` and `screened-out.txt`. On NVIDIA: 9,728 OK, 67
+         failed to load (now skipped), none crashed, none slower than 40 ms. Not
+         screened on Intel.
+       - **Beat** (`tools/presetscreen`, tracked, outside the solution; build it with
+         `dotnet build tools\presetscreen -c Release`): `PresetScreen beat [--workers 3]
+         [--limit N]` plays each preset a 120 BPM drum loop for 4 s at the default
+         intensity, through the real `VisualizerFeed` and `BeatShaper`, at 320×180,
+         reads every frame back, and scores how much of the picture's change follows
+         the beat (R², ~0.06 by chance). Resumable (`%TEMP%\AudioFoolBeatScreen`).
+         Writes `beat-screen.tsv` and `no-beat.txt` (R² < 0.25) into the pack;
+         `PresetScreen cutoff <R²>` rewrites the list. The same 30 presets twice: 27
+         the same verdict, the rest near the cutoff. Re-screen after changing
+         `BeatShaper`'s default or projectM's version.
+       - **Meter** (`PresetScreen meter [--music <file>] [--intensities 0,1,5,10]`):
+         projectM's own bass/mid/treb, painted into the border by `meter.milk` (and
+         `_att` by `meteratt.milk`) and read back. Intensity 0 is unshaped.
      - **ThemeLab `--window projectm --file <audio>`** reads frames back from the
        context.
      - **If projectM stays:**

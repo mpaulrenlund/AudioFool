@@ -19,7 +19,8 @@ namespace AudioFool;
 /// <see cref="VisualizerFeed"/> (the engine's tap may be read from any thread).
 /// The window talks to it through commands. Each frame it hands projectM the
 /// frames since the last one, ending at what is heard now (silence while paused),
-/// draws, and waits for the compositor's next frame.
+/// with their beats shaped to the intensity (<see cref="BeatShaper"/>), draws, and
+/// waits for the compositor's next frame.
 /// </para>
 /// <para>
 /// WPF can't draw over a child window, and doesn't see its mouse: double-clicks
@@ -57,14 +58,11 @@ public sealed class ProjectMHost : HwndHost
         set => _paused = value;
     }
 
+    /// <summary>How punchy the beats in the sound projectM is handed are (<see cref="BeatShaper"/>), 1 to 10.</summary>
     public int Intensity
     {
         get => _intensity;
-        set
-        {
-            _intensity = value;
-            _commands.Enqueue(session => session.SetIntensity(value));
-        }
+        set => _intensity = value;
     }
 
     /// <summary>Frames drawn so far, and the GPU drawing them: for ThemeLab and the log.</summary>
@@ -181,15 +179,15 @@ public sealed class ProjectMHost : HwndHost
                 return;
             }
 
-            session.SetIntensity(_intensity);
             Renderer = context.Renderer;
             Volatile.Write(ref _currentPreset, session.CurrentPreset);
             session.PresetStarted += path => Volatile.Write(ref _currentPreset, path);
             PlaybackDiagnostics.Note($"visualizer: projectM {ProjectMSession.LibraryVersion()} on {context.Renderer} ({context.Version}), " +
-                                     $"{presets.Count} of {library.All().Count} presets");
+                                     $"{presets.Count} of {library.All().Count} presets, beats shaped at intensity {_intensity}");
 
             var feed = VisualizerFeed.For(_engine);
             var silence = new float[(feed.PcmNow + 1) * 2];
+            BeatShaper? shaper = null;
             var clock = Stopwatch.StartNew();
             var last = clock.Elapsed;
             int width = 0, height = 0;
@@ -216,13 +214,21 @@ public sealed class ProjectMHost : HwndHost
                 var seconds = Math.Clamp((now - last).TotalSeconds, 0, 0.25);
                 last = now;
 
-                // The frames since the last one, ending at what is heard now.
+                // The frames since the last one, ending at what is heard now, shaped to the intensity.
                 feed.Next(seconds, _engine.State == PlaybackState.Playing);
                 var frames = Math.Clamp((int)Math.Round(seconds * Math.Max(1, feed.PcmRate)), 0, feed.PcmNow);
-                if (feed.Heard && feed.Pcm is { } pcm && feed.PcmChannels == 2)
-                    session.AddPcm(pcm, feed.PcmNow - frames, frames);
+                if (feed.Heard && feed.Pcm is { } pcm && feed.PcmChannels == 2 && frames > 0)
+                {
+                    if (shaper is null || shaper.SampleRate != feed.PcmRate)
+                        shaper = new BeatShaper(feed.PcmRate);
+                    shaper.Intensity = _intensity;
+                    shaper.Shape(pcm, feed.PcmNow - frames, frames);
+                    session.AddPcm(shaper.Output, 0, frames);
+                }
                 else
+                {
                     session.AddPcm(silence, 0, frames);
+                }
 
                 session.Render();
                 if (Interlocked.Exchange(ref _snapshot, null) is { } snapshot)

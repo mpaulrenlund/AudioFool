@@ -153,13 +153,6 @@ public sealed class ProjectMSession : IDisposable
         set => ProjectMNative.projectm_set_preset_locked(_projectM, value);
     }
 
-    /// <summary>
-    /// How hard it reacts to beats, from the visualizer's intensity 1 to 10: 1 is
-    /// projectM's own default at 5, about half at 1 and two and a half times at 10.
-    /// </summary>
-    public void SetIntensity(int intensity) =>
-        ProjectMNative.projectm_set_beat_sensitivity(_projectM, (float)Math.Pow(1.2, Math.Clamp(intensity, 1, 10) - 5));
-
     public void SetSize(int width, int height) =>
         ProjectMNative.projectm_set_window_size(_projectM, (nuint)Math.Max(1, width), (nuint)Math.Max(1, height));
 

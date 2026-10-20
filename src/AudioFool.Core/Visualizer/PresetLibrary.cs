@@ -3,8 +3,9 @@ namespace AudioFool.Core.Visualizer;
 /// <summary>
 /// Where the visualizer's MilkDrop presets live and which of them may play: every
 /// <c>.milk</c> under <see cref="PresetsFolder"/>, less those the preset screen
-/// found crashing or failing (<see cref="ScreenedOutPath"/>) and those the user
-/// skipped with Delete (<see cref="SkippedPath"/>). Both lists hold paths relative
+/// found crashing or failing (<see cref="ScreenedOutPath"/>), those the beat screen
+/// found not following the beat (<see cref="NoBeatPath"/>) and those the user
+/// skipped with Delete (<see cref="SkippedPath"/>). The lists hold paths relative
 /// to the presets folder, one a line; anything after a tab is a note.
 /// <para>
 /// Two folders: the pack (presets, textures, the screen's list), which ships with
@@ -35,6 +36,10 @@ public sealed class PresetLibrary(string packFolder, string userFolder)
     public string PresetsFolder => Path.Combine(PackFolder, "presets");
     public string TexturesFolder => Path.Combine(PackFolder, "textures");
     public string ScreenedOutPath => Path.Combine(PackFolder, "screened-out.txt");
+
+    /// <summary>The beat screen's list (<c>tools/presetscreen</c>): presets whose picture barely follows a drum loop.</summary>
+    public string NoBeatPath => Path.Combine(PackFolder, "no-beat.txt");
+
     public string SkippedPath => Path.Combine(UserFolder, "skipped.txt");
 
     /// <summary>Every preset in the pack, sorted, full paths.</summary>
@@ -48,10 +53,11 @@ public sealed class PresetLibrary(string packFolder, string userFolder)
             .ToList();
     }
 
-    /// <summary>The presets that may play: all less the screened-out and the skipped.</summary>
+    /// <summary>The presets that may play: all less the screened-out, the beatless and the skipped.</summary>
     public IReadOnlyList<string> Playable()
     {
         var excluded = new HashSet<string>(ReadList(ScreenedOutPath), StringComparer.OrdinalIgnoreCase);
+        excluded.UnionWith(ReadList(NoBeatPath));
         excluded.UnionWith(ReadList(SkippedPath));
         return All().Where(path => !excluded.Contains(Relative(path))).ToList();
     }

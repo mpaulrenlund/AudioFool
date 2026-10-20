@@ -472,11 +472,14 @@ opens it in a window of its own; the same again closes it.
 the picture is projectM, set up calm: no sudden cuts on beats, 15 s blends between
 presets, each kept 90 s, the 9,795 "Cream of the Crop" presets shuffled. Presets that
 crashed, wouldn't load or were too slow when screened are left out
-(`screened-out.txt`). **B** switches between projectM and 32 plain bars (bass on the
-left, treble on the right); **Right / Left** next and previous preset; **L** stays on
-one (again to move on); **Delete** never shows it again (`skipped.txt`). Up/Down set how
-hard it reacts to beats. Its speed can't be set: projectM 4.1.6 has no way to slow its
-clock. Without the DLLs or presets, the bars.
+(`screened-out.txt`), and so are those whose picture barely follows a drum beat
+(`no-beat.txt`, from `tools/presetscreen`'s beat screen). **B** switches between
+projectM and 32 plain bars (bass on the left, treble on the right); **Right / Left** next
+and previous preset; **L** stays on one (again to move on); **Delete** never shows it
+again (`skipped.txt`). **Up/Down** set how punchy the beats are in the copy of the sound
+projectM is given: higher turns the quiet between beats down further, so presets jump
+more on each beat; 1 is about the music as it is. Its speed can't be set: projectM 4.1.6
+has no way to slow its clock. Without the DLLs or presets, the bars.
 
 - **On time.** It draws what is coming out of the speakers, not what the decoder has
   reached ~200 ms earlier: the window it analyses is centred on the moment you hear.

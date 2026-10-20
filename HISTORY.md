@@ -3766,6 +3766,52 @@ Then **"the visualizer doesn't appear to be starting"** (the user):
   - Published and committed, **not installed** at the end of the session:
     AudioFool was open. HANDOFF's session-58 entry has the next steps.
 
+Then, in a new conversation the same evening (session 58 continued):
+- **Installed** with the user's OK. projectM ran for the user: "projectM 4.1.6 on NVIDIA
+  RTX PRO 500 … 9728 of 9795 presets", first minute of playback clean.
+- **The user's verdict:** after several songs and presets they "couldn't tell if the
+  visualizer was doing anything related to the beat".
+- **Measured** with a scratch probe: a fake tap through the real `VisualizerFeed` and
+  `ProjectMHost`'s slicing, projectM in a hidden window in real time, every frame read
+  back, frames grouped by where they fall in the beat (R² = the share of the picture's
+  change the beat explains; ~0.02–0.06 by chance).
+  - **Our feed is right.** A test preset whose brightness follows `bass` reacted the same
+    through the feed as fed directly (R² 0.44 / 0.46), peaking on the kick.
+  - **projectM's readings are normal MilkDrop ones.** Read with "meter" presets that
+    paint the border bass/mid/treb × 0.2 (now `tools/presetscreen/meter.milk`): on a
+    drum loop bass ~1.55 on the kick, ~0.7 between; on *Love* (Uppermost) p10–p90
+    0.69–1.51. A pure 60 Hz kick barely moves it: MilkDrop's "bass" is bins 0–85 of
+    512, 0–3.7 kHz, weighted towards the top. (A comp-shader meter drew nothing.)
+  - **The old intensity did nothing.** Beat sensitivity 0.48 and 2.49 gave the same
+    readings: in 4.1.6 it only decides hard cuts, which are off.
+  - **Most presets barely pulse.** 20 random presets on the drum loop: 6 clearly
+    beat-locked (R² ≥ 0.25), 10 nothing beyond chance.
+- **The user chose to keep projectM**, keep only presets that pulse, and make Up/Down
+  real (over building our own renderer).
+- **`BeatShaper`** (Core/Visualizer): the sound handed to projectM (never the DAC's)
+  split into projectM's three bands (Linkwitz–Riley at 85/1024 and 170/1024 of the rate,
+  measured through clean band-passes, applied through a split that adds back up
+  exactly); each band scaled by (level / its loudest of the last ~2 s)^(swing − 1).
+  Swing 2.0 at intensity 5, ×1.25 a step (0.82 at 1, 6.1 at 10); gain kept within
+  1/16–16. A first version turned the beats *up* and clipped loud music, squashing the
+  treble on every kick (a test caught it); this one turns the quiet down, so nothing
+  comes out louder than it went in. Measured on *Love*: bass p10–p90 0.67–1.49 at 1,
+  0.47–1.55 at 5, 0.24–1.92 at 10 (unshaped 0.69–1.51); on the drum loop, kick/between
+  ~3× at 1, ~8× at 5, ~25× at 10 (unshaped ~5×). `ProjectMSession.SetIntensity` and
+  the beat-sensitivity import are gone. 11 tests.
+- **`PresetLibrary.NoBeatPath`**: `no-beat.txt` in the pack, left out like the
+  screened-out. 1 test. 803 tests in all.
+- **`tools/presetscreen`** (tracked, outside the solution): `beat` screens the pack on a
+  120 BPM drum loop at the default intensity, 4 s a preset after 0.5 s, 320×180, three
+  workers, each preset in a child process restarted after a crash, resumable; writes
+  `beat-screen.tsv` and `no-beat.txt` (R² < 0.25 left out) into the pack. `cutoff`
+  rewrites the list; `meter` reads projectM's bass/mid/treb. Repeatability: the same 30
+  presets screened twice, 27 the same verdict (the 3 that flipped scored 0.15–0.37).
+  30 presets with shaping: 12 pass. The full run started at 20:55, ~36 a minute. Its
+  parent died after 93 presets: the minute's progress count read a results file a
+  child was writing (now read shared); the workers were stopped and the run resumed.
+- Installed at 21:28 with the user's OK, and committed. The user hasn't watched it yet.
+
 ---
 
 ## Reference notes retired from the handoff
