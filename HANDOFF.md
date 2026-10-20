@@ -189,18 +189,29 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
        - **`tools/presetscreen`**: see *The preset screens* under next step 6.
        - 803 tests. **Installed at 21:28** with the user's OK (the 20:55 publish; all
          25 files match). Its version reads `+80a73ab`: built before the commit.
-    5. **The beat screen is running** (started 20:55, ~36 presets a minute, ~4.5 h,
-       done about 01:30): `PresetScreen beat --workers 3`, work folder and `run.log`
-       in `%TEMP%\AudioFoolBeatScreen`. It keeps Windows awake while it runs (a closed
-       lid still sleeps). When done it writes `beat-screen.tsv` and `no-beat.txt` into
-       the pack; projectM reads them each time it starts, so no reinstall. If it
-       stopped, run the same command: it resumes.
-    6. **Next:** when the screen is done, read the summary at the end of `run.log`
-       (how many pass, by folder) and check `no-beat.txt` is in the pack. The user can
-       try Up/Down now; the screened list applies the next time the visualizer opens
-       after the screen finishes. Then the user watches again: does it follow the beat
-       now, and is 5 the right default? Record the verdict here and in HISTORY, and
-       ask about pushing.
+    5. **The beat screen is running** (~38 presets a minute): `PresetScreen beat
+       --workers 3 --work %TEMP%\AudioFoolBeatScreen`.
+       - **Its first run stopped at 21:40, 1,770 done:** it was a background shell of
+         Claude's session, and those end with the session (see *Background shells end
+         with the session* under Gotchas). That run's output is `run.log` in the work
+         folder.
+       - **Restarted 2026-10-20 07:27** in a Terminal panel tab titled "beat screen",
+         which doesn't depend on the session. It resumed at 1,806; at 07:42, 2,358 of
+         9,728, done about 10:50. Its progress and final summary print in that tab.
+       - It keeps Windows awake while it runs (a closed lid still sleeps). When done it
+         writes `beat-screen.tsv` and `no-beat.txt` into the pack; projectM reads them
+         each time it starts, so no reinstall. If it stops, run the same command in a
+         Terminal tab: it resumes.
+    6. **The user opened the visualizer at intensity 1** (2026-10-20 06:52, from
+       `playback.log`), probably left there by Down presses while Up/Down did nothing.
+       At 1 the shaping is about the music as it is. Told them to press Up; 5 is the
+       default.
+    7. **Next:** when the screen is done, read its summary (the Terminal tab, or
+       `PresetScreen cutoff 0.25` prints it again from `beat-screen.tsv`) and check
+       `no-beat.txt` is in the pack. The screened list applies the next time the
+       visualizer opens after that. Then the user watches again: does it follow the
+       beat now, and is 5 the right default? Record the verdict here and in HISTORY,
+       and ask about pushing (`main` is 8 commits ahead).
   - **Why projectM never started for the user:** see *Claude's shells and AppData*
     under Gotchas. The presets Claude cloned into AppData went into the Claude app's
     private package storage, invisible to AudioFool.
@@ -1168,6 +1179,11 @@ off-screen window, so focus rings can be reviewed.
   one colour level, at 125% only. Where a theme must render exactly as before, collapse
   an element whose effect can't be seen (the glow's disc does, by a trigger on its
   effect's opacity).
+- **Background shells end with the session** (session 58). A job Claude starts with
+  `run_in_background` is stopped, children included, when the conversation closes:
+  the beat screen died at 21:40 with three quarters to go. Start anything that runs
+  for hours in a Terminal panel tab (`run_in_terminal`), which outlives the session
+  and shows the user its progress, and make it resumable.
 
 ---
 
