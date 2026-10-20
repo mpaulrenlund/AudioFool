@@ -649,6 +649,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             StatusText = $"{_runtime.OutputDeviceName} does not support exclusive mode; using shared output.";
         }
 
+        // A song opened from Explorer at startup can play now, unless it waits for the library.
+        _engineReady = true;
+        OpenPendingWhenReady();
+
         await LoadLibraryAsync();
     }
 
@@ -965,10 +969,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         ApplyToView(keepSelection);
 
         // Once, on the first library with anything in it: the one shown at startup.
+        // Songs opened from Explorer while it loaded take the place of last time's.
         if (_restoreLastPlayed && library.AllTracks.Count > 0)
         {
             _restoreLastPlayed = false;
-            RestoreLastPlayed();
+            if (_pendingOpen is not null)
+                OpenPendingWhenReady();
+            else if (!_openedFiles)
+                RestoreLastPlayed();
         }
     }
 
@@ -990,24 +998,34 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (_settings.LastPlayed is not { } last || _library.Locate(last) is not { } found)
             return;
 
+        if (SelectInView(found) is { } shown)
+            ShowRestoredTrack(shown);
+    }
+
+    /// <summary>
+    /// Selects a found track's artist and album, and the track in the grid. The
+    /// track as the grid shows it, or null when any of them isn't in the view.
+    /// </summary>
+    private Track? SelectInView((ArtistGroup Artist, Album Album, Track? Track) found)
+    {
         var artist = Artists.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Name, found.Artist.Name));
         if (artist is null)
-            return;
+            return null;
 
         SelectedArtist = artist;
 
         var album = Albums.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Album.Title, found.Album.Title));
         if (album is null)
-            return;
+            return null;
 
         SelectedAlbum = album;
 
-        if (found.Track is { } track
-            && Tracks.FirstOrDefault(t => string.Equals(t.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase)) is { } shown)
-        {
-            RevealTrackRequested?.Invoke(this, shown);
-            ShowRestoredTrack(shown);
-        }
+        if (found.Track is not { } track
+            || Tracks.FirstOrDefault(t => string.Equals(t.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase)) is not { } shown)
+            return null;
+
+        RevealTrackRequested?.Invoke(this, shown);
+        return shown;
     }
 
     /// <summary>

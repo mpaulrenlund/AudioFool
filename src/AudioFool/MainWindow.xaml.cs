@@ -158,6 +158,28 @@ public partial class MainWindow : FluentWindow
         _viewModel.ReportHotkeys(_hotkeys.Unavailable);
     }
 
+    /// <summary>
+    /// Comes to the front when a later copy of the app hands over a song or was
+    /// started again (SingleInstance). A minimised window is restored to how it
+    /// was, maximised or not, which setting WindowState to Normal would lose.
+    /// </summary>
+    public void BringToFront()
+    {
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero)
+            return;
+
+        if (WindowState == WindowState.Minimized)
+            ShowWindow(hwnd, SwRestore);
+
+        Activate();
+    }
+
+    private const int SwRestore = 9;
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
     private void OnHotkeyPressed(object? sender, GlobalHotkeys.Action action)
     {
         switch (action)

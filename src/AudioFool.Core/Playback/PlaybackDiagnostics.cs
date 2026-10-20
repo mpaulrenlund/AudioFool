@@ -130,8 +130,15 @@ public static class PlaybackDiagnostics
         Write("device closed");
     }
 
-    /// <summary>A line from the app, such as a postponed memory clean-up.</summary>
-    public static void Note(string line) => Write(line);
+    /// <summary>
+    /// A line from the app, such as a postponed memory clean-up. Starts the
+    /// watcher, which writes the file, if nothing has played yet.
+    /// </summary>
+    public static void Note(string line)
+    {
+        Write(line);
+        EnsureWatcher();
+    }
 
     /// <summary>A track has started, by gapless handover or otherwise.</summary>
     public static void TrackStarted(string path) =>

@@ -11,10 +11,19 @@ public partial class App : Application
     private BassRuntime? _runtime;
     private AudioEngine? _engine;
     private MainViewModel? _viewModel;
+    private SingleInstance? _instance;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // One copy: a song opened from Explorer goes to the copy already running.
+        _instance = SingleInstance.Start(e.Args);
+        if (_instance is null)
+        {
+            Shutdown();
+            return;
+        }
 
         // A last-resort net so an unexpected fault shows a readable message
         // instead of vanishing the window with a Win32 exit code.
@@ -28,6 +37,9 @@ public partial class App : Application
 
             args.Handled = true;
         };
+
+        // Diagnostics for the X that sometimes ignores clicks; changes nothing.
+        TitleBarClickLog.Install();
 
         var settings = AppSettings.Load();
 
@@ -55,11 +67,16 @@ public partial class App : Application
 
         var window = new MainWindow(_viewModel);
         MainWindow = window;
+
+        _instance.Activated += window.BringToFront;
+        _instance.FilesOpened += _viewModel.OpenFiles;
+
         window.Show();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _instance?.Dispose();
         _viewModel?.Dispose();
         _engine?.Dispose();
         _runtime?.Shutdown();

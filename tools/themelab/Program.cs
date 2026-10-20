@@ -57,6 +57,20 @@ internal static class Program
         var app = new LabApp();
         app.InitializeComponent();
 
+        // --singleinstance <files...>: the app's one-copy handover under a test name,
+        // never the real app's. This copy becomes the one copy, starts others of
+        // ThemeLab with --singlechild, and prints what reaches it.
+        if (Arg(args, "--singleinstance") is not null)
+            return RunSingleInstance(args);
+        if (Arg(args, "--singlechild") is { } childName)
+        {
+            var files = args.SkipWhile(a => a != "--files").Skip(1).ToArray();
+            var started = AudioFool.Services.SingleInstance.Start(files, childName);
+            Console.WriteLine(started is null ? "handed over" : "became the one copy (WRONG for a child)");
+            started?.Dispose();
+            return 0;
+        }
+
         if (dumpPath is not null)
         {
             // After Apply, so the dump shows what the theme and
@@ -199,7 +213,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "rowclick" or "analysis" or "clear" or "waveform" or "device" or "splice" or "themeswitch" or "visualizer" or "projectm" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "rowclick" or "openfiles" or "analysis" or "clear" or "waveform" or "device" or "splice" or "themeswitch" or "visualizer" or "projectm" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -251,6 +265,12 @@ internal static class Program
             _direct = true;
             main.UpdateLayout();
             Console.WriteLine($"dpi {VisualTreeHelper.GetDpi(main).PixelsPerDip}");
+        }
+
+        if (which == "openfiles")
+        {
+            RunOpenFiles(main, vm, engine, runtime);
+            return 0;
         }
 
         if (which == "rowclick")
@@ -1350,8 +1370,14 @@ internal static class Program
             var libraryField = typeof(MainViewModel).GetField("_folderFilteredLibrary",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
             var library = (AudioFool.Core.Library.MusicLibrary)libraryField.GetValue(vm)!;
-            const uint NcHitTest = 0x84, NcDown = 0xA1, NcUp = 0xA2, NcLeave = 0x2A2;
-            const int HtClose = 20, HtCaption = 2;
+            const uint NcHitTest = 0x84, NcDown = 0xA1, NcUp = 0xA2, NcLeave = 0x2A2, ClientDown = 0x201, ClientUp = 0x202;
+            const int HtClose = 20, HtCaption = 2, Client = -1;
+
+            // The app's title-bar click log (TitleBarClickLog), to a scratch file
+            // printed at the end.
+            var clickLog = Path.Combine(Path.GetTempPath(), "themelab-closex-" + Guid.NewGuid().ToString("N")[..8] + ".log");
+            AudioFool.Core.Playback.PlaybackDiagnostics.LogPath = clickLog;
+            AudioFool.Services.TitleBarClickLog.Install();
 
             var cases = new (string Name, (uint Msg, int Hit)[] Steps, bool CancelFirstClose, bool ShouldClose)[]
             {
@@ -1359,6 +1385,9 @@ internal static class Program
                 ("click WPF-UI loses", [(NcDown, HtClose), (NcLeave, 0), (NcUp, HtClose)], false, true),
                 ("close the window cancels", [(NcDown, HtClose), (NcUp, HtClose)], true, false),
                 ("press on X, release on caption", [(NcDown, HtClose), (NcUp, HtCaption)], false, false),
+                // While something in the window holds the mouse captured, Windows
+                // sends a click on the X as a plain client click.
+                ("click on X as a client click (mouse captured)", [(ClientDown, Client), (ClientUp, Client)], false, true),
             };
 
             foreach (var test in cases)
@@ -1385,11 +1414,14 @@ internal static class Program
                     var onClose = (IntPtr)(((int)at.Y << 16) | ((int)at.X & 0xFFFF));
                     var caption = close.PointToScreen(new Point(-300, close.ActualHeight / 2));
                     var onCaption = (IntPtr)(((int)caption.Y << 16) | ((int)caption.X & 0xFFFF));
+                    var inClient = close.TranslatePoint(new Point(close.ActualWidth / 2, close.ActualHeight / 2), dialog);
+                    var onCloseClient = (IntPtr)(((int)inClient.Y << 16) | ((int)inClient.X & 0xFFFF));
 
                     NcSend(hwnd, NcHitTest, IntPtr.Zero, onClose);   // hover, as the pointer arriving does
                     foreach (var (msg, hit) in test.Steps)
                     {
-                        PostMessage(hwnd, msg, (IntPtr)hit, hit == HtCaption ? onCaption : onClose);
+                        PostMessage(hwnd, msg, hit == Client ? (IntPtr)1 : (IntPtr)hit,
+                            hit == Client ? onCloseClient : hit == HtCaption ? onCaption : onClose);
                         await Task.Delay(30);
                     }
 
@@ -1407,6 +1439,11 @@ internal static class Program
                 dialog.ShowDialog();
                 Settle(100);
             }
+
+            Settle(400);   // the log's writer flushes every few ms
+            Console.WriteLine("--- title-bar click log ---");
+            foreach (var line in File.Exists(clickLog) ? File.ReadAllLines(clickLog) : [])
+                Console.WriteLine(line);
             return 0;
         }
         if (which == "device")
@@ -2329,6 +2366,20 @@ internal static class Program
             {
                 LoadRealLibrary(vm);
                 vm.QualityCachePath = qualityPath;
+
+                // --fakeflags 1: results made up for the first 300 tracks (every
+                // tenth one flagged, rows taken in turn), written to that scratch
+                // file, for the section's rows and Clear All without a real check.
+                if (Arg(args, "--fakeflags") is not null)
+                {
+                    var made = AudioFool.Core.Analysis.QualityCache.Empty();
+                    var flags = AudioFool.Core.Analysis.QualityStatistics.Rows.Select(r => r.Flag).ToList();
+                    foreach (var (track, i) in vm.StatisticsTracks.Take(300).Select((t, i) => (t, i)))
+                        made.Set(track, i % 10 == 0
+                            ? new AudioFool.Core.Analysis.QualityResult(AudioFool.Core.Analysis.Verdict.Inconsistent, [flags[i / 10 % flags.Count]])
+                            : new AudioFool.Core.Analysis.QualityResult(AudioFool.Core.Analysis.Verdict.Consistent, []));
+                    made.Save(qualityPath);
+                }
                 if (Arg(args, "--qualitycheck") is not null)
                 {
                     var stopAfter = Arg(args, "--qualitystop") is { } s ? TimeSpan.FromSeconds(double.Parse(s, CultureInfo.InvariantCulture)) : (TimeSpan?)null;
@@ -2421,6 +2472,35 @@ internal static class Program
             Save(root, outPath, w, height, scale);
             Console.WriteLine($"  size {w}x{height} (content measured {root.DesiredSize.Height:0.##}, rows {Descendants<System.Windows.Controls.Button>(root).Count(b => b.DataContext is BarRow)})");
             PrintTitleBar(statsBar, root);
+
+            // --clearall 1 (with --qualitycache and --clearances scratch files): the
+            // Quality Check's Clear All, its prompt answered yes without opening it,
+            // then rendered again to <out>-cleared.png.
+            if (Arg(args, "--clearall") is not null)
+            {
+                var checkButton = (System.Windows.Controls.Button)dialog.FindName("QualityCheckButton");
+                var clearAll = (System.Windows.Controls.Button)dialog.FindName("QualityClearAllButton");
+                string Where(FrameworkElement e) => e.IsVisible || e.Visibility == Visibility.Visible
+                    ? $"at {e.TranslatePoint(new Point(0, 0), root).X:0},{e.TranslatePoint(new Point(0, 0), root).Y:0} {e.ActualWidth:0}x{e.ActualHeight:0}, {e.Visibility}"
+                    : e.Visibility.ToString();
+                Console.WriteLine($"  clear all: before, {quality.Flagged:N0} flagged, cleared row '{quality.ClearedRows.FirstOrDefault()?.Value}'; " +
+                                  $"'{checkButton.Content}' {Where(checkButton)}; 'Clear All' {Where(clearAll)}");
+
+                var asked = new List<int>();
+                QualitySectionViewModel.ConfirmClearAll = n => { asked.Add(n); return true; };
+                clearAll.Command.Execute(null);
+                Settle(300);
+                root.Measure(new Size(w, double.PositiveInfinity));
+                var after = Math.Ceiling(root.DesiredSize.Height);
+                root.Arrange(new Rect(0, 0, w, after));
+                root.UpdateLayout();
+                Save(root, Path.ChangeExtension(outPath, null) + "-cleared.png", w, after, scale);
+
+                var allNone = quality.Rows.All(r => r.Value == "None");
+                Console.WriteLine($"  clear all: asked [{string.Join(", ", asked)}], status '{vm.StatusText}'; after, {quality.Flagged} flagged, " +
+                                  $"rows all None {allNone}, cleared row '{quality.ClearedRows.FirstOrDefault()?.Value}', 'Clear All' {clearAll.Visibility} " +
+                                  $"-> {(asked.Count == 1 && allNone && quality.Flagged == 0 && clearAll.Visibility == Visibility.Collapsed ? "OK" : "WRONG")}");
+            }
             // No tooltips anywhere in the window (the user's call, session 46).
             var tipped = Descendants<FrameworkElement>(root).Where(f => f.ToolTip is not null).ToList();
             Console.WriteLine($"  tooltips: {tipped.Count} {(tipped.Count == 0 ? "OK" : "WRONG: " + string.Join(", ", tipped.Select(f => $"{f.GetType().Name} '{f.Name}' {f.ToolTip}")))}");
@@ -3931,6 +4011,191 @@ internal static class Program
                 return deeper;
         }
         return null;
+    }
+
+    /// <summary>
+    /// --singleinstance 1: the one-copy handover (SingleInstance) under a test name.
+    /// This copy becomes the one copy with a file of its own, then starts three
+    /// ThemeLab children at once with a file each, as Explorer does for three
+    /// songs, and later one with none, as the shortcut clicked again. All four
+    /// must hand over and quit; the four files must arrive as one batch; every
+    /// handover must ask for the window.
+    /// </summary>
+    private static int RunSingleInstance(string[] args)
+    {
+        var name = "AudioFoolThemeLab-" + Guid.NewGuid().ToString("N")[..8];
+        var dir = Path.Combine(Path.GetTempPath(), name);
+        Directory.CreateDirectory(dir);
+        string File(string fileName) => Path.Combine(dir, fileName);
+
+        var primary = AudioFool.Services.SingleInstance.Start([File("1 Own.flac")], name)
+            ?? throw new InvalidOperationException("the first copy handed over");
+        var activations = 0;
+        var batches = new List<IReadOnlyList<string>>();
+        primary.Activated += () => activations++;
+        primary.FilesOpened += files => batches.Add(files);
+
+        System.Diagnostics.Process Child(params string[] files)
+        {
+            var info = new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!)
+            {
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            info.ArgumentList.Add("--singlechild");
+            info.ArgumentList.Add(name);
+            info.ArgumentList.Add("--files");
+            foreach (var file in files)
+                info.ArgumentList.Add(file);
+            return System.Diagnostics.Process.Start(info)!;
+        }
+
+        void Await(params System.Diagnostics.Process[] children)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(20);
+            while (children.Any(c => !c.HasExited) && DateTime.UtcNow < deadline)
+                Settle(50);
+            foreach (var child in children)
+                Console.WriteLine($"  child {child.Id}: {child.StandardOutput.ReadToEnd().Trim()}");
+        }
+
+        Console.WriteLine("three songs opened at once:");
+        Await(Child(File("10 Ten.flac")), Child(File("2 Two.flac")), Child(File("3 Three.flac")));
+        Settle(1500);
+
+        Console.WriteLine("started again with no song:");
+        Await(Child());
+        Settle(1500);
+
+        for (var i = 0; i < batches.Count; i++)
+            Console.WriteLine($"batch {i + 1}: {string.Join(", ", batches[i].Select(Path.GetFileName))}" +
+                              $" -> plays as {string.Join(", ", AudioFool.Core.Library.OpenedFiles.InPlayOrder(batches[i]).Select(Path.GetFileName))}");
+
+        var ok = batches.Count == 1 && batches[0].Count == 4 && activations == 4;
+        Console.WriteLine($"{batches.Count} batch(es), {activations} activations -> {(ok ? "OK" : "WRONG")}");
+        primary.Dispose();
+        Directory.Delete(dir, recursive: true);
+        return ok ? 0 : 1;
+    }
+
+    /// <summary>
+    /// --window openfiles: songs opened from Explorer (MainViewModel.OpenFiles),
+    /// real library read-only, the engine silent. A song from outside the library
+    /// opened before the engine is ready, then once it is; a library song opened
+    /// before the library is shown, then from a search in playlist mode; several
+    /// songs at once; a text file.
+    /// </summary>
+    private static void RunOpenFiles(MainWindow main, MainViewModel vm, AudioEngine engine, BassRuntime runtime)
+    {
+        var scratch = Path.Combine(Path.GetTempPath(), "themelab-open-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(scratch);
+        var sample = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "tests", "AudioFool.Core.Tests", "TestData", "sample.flac");
+        string Copy(string fileName)
+        {
+            var path = Path.Combine(scratch, fileName);
+            File.Copy(sample, path);
+            return path;
+        }
+
+        var queueField = typeof(AudioEngine).GetField("_queue", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        List<Track> QueueTracks() => (List<Track>)queueField.GetValue(engine)!;
+        string Queue() => string.Join(", ", QueueTracks().Select(t => Path.GetFileName(t.FilePath)));
+        var grid = (System.Windows.Controls.DataGrid)main.FindName("TrackGrid");
+        var all = true;
+        void Expect(string what, bool ok)
+        {
+            all &= ok;
+            Console.WriteLine($"  {what} -> {(ok ? "OK" : "WRONG")}");
+        }
+
+        // The samples last about a second, so what started is recorded as it starts.
+        var started = new List<string>();
+        engine.TrackChanged += (_, t) => started.Add(Path.GetFileName(t.FilePath));
+        string Started()
+        {
+            var text = started.Count == 0 ? "nothing" : string.Join(", ", started);
+            started.Clear();
+            return text;
+        }
+
+        vm.Volume = 0;
+        engine.Volume = 0;
+
+        // 1. At startup, before the engine is set up: waits, then plays. The
+        //    window's Loaded has set the engine up already, so it is marked not
+        //    ready again, as it is before InitialiseAsync.
+        var engineReady = typeof(MainViewModel).GetField("_engineReady", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        engineReady.SetValue(vm, false);
+        var outside = Copy("Outside Song.flac");
+        Console.WriteLine("1. a song from outside the library, opened before the engine is ready:");
+        vm.OpenFiles([outside]);
+        Settle(500);
+        Expect($"waits: started {started.Count}", started.Count == 0);
+        var init = vm.InitialiseAsync();
+        while (!init.IsCompleted)
+            Settle(50);
+        Settle(500);
+        var firstStarted = Started();
+        Expect($"then plays: started {firstStarted}, queue [{Queue()}]", firstStarted == "Outside Song.flac" && Queue() == "Outside Song.flac");
+        Settle(1500);
+        Started();
+
+        // 2. A library song opened before the library is shown: waits for it, then
+        //    shows its album and plays from it.
+        var cached = AudioFool.Core.Library.LibraryCache.Load()!;
+        var library = AudioFool.Core.Library.LibraryScanner.Build(cached.Tracks);
+        var album = library.Artists.SelectMany(a => a.Albums).First(a => a.Tracks.Count >= 5 && a.Tracks.All(t => File.Exists(t.FilePath)));
+        var song = album.Tracks[2];
+        var folder = Path.GetDirectoryName(song.FilePath)!;
+        Console.WriteLine($"2. '{song.DisplayTitle}' ({album.ArtistName} / {album.Title}), opened before the library is shown:");
+        vm.MusicFolders.Add(folder);
+        vm.OpenFiles([song.FilePath]);
+        Settle(500);
+        Expect($"waits: started {started.Count}", started.Count == 0);
+        LoadRealLibrary(vm);
+        Settle(1000);
+        Expect($"then shows artist '{vm.SelectedArtist?.Name}', album '{vm.SelectedAlbum?.Album.Title}', row '{(grid.SelectedItem as Track)?.DisplayTitle}'",
+            vm.SelectedAlbum?.Album.Title == album.Title && (grid.SelectedItem as Track)?.FilePath == song.FilePath);
+        Expect($"plays it with its album: started {Started()}, {QueueTracks().Count} in the queue of {album.Tracks.Count}",
+            vm.NowPlaying?.FilePath == song.FilePath && QueueTracks().Count == album.Tracks.Count);
+        vm.MusicFolders.Remove(folder);
+
+        // 3. Another song of it, from a search in playlist mode: back to the library.
+        Console.WriteLine("3. a library song opened while searching, in playlist mode:");
+        vm.SearchQuery = "zzzz no such thing";
+        Settle(600);
+        vm.IsPlaylistMode = true;
+        Pump();
+        var other = album.Tracks[0];
+        vm.OpenFiles([other.FilePath]);
+        Settle(1000);
+        Expect($"search '{vm.SearchQuery}', playlist mode {vm.IsPlaylistMode}, album '{vm.SelectedAlbum?.Album.Title}', " +
+               $"row '{(grid.SelectedItem as Track)?.DisplayTitle}', started {Started()}",
+            vm.SearchQuery == "" && !vm.IsPlaylistMode && (grid.SelectedItem as Track)?.FilePath == other.FilePath
+            && vm.NowPlaying?.FilePath == other.FilePath);
+
+        // 4. Several songs at once, in no order: one queue, as Explorer lists them; the view stays.
+        Console.WriteLine("4. three songs from outside the library at once:");
+        var shownAlbum = vm.SelectedAlbum?.Album.Title;
+        vm.OpenFiles([Copy("10 Ten.flac"), Copy("2 Two.flac"), Copy("1 One.flac")]);
+        Settle(5000);
+        Expect($"queue [{Queue()}], started {Started()}, album still '{vm.SelectedAlbum?.Album.Title}'",
+            Queue() == "1 One.flac, 2 Two.flac, 10 Ten.flac" && vm.SelectedAlbum?.Album.Title == shownAlbum);
+
+        // 5. Not music.
+        Console.WriteLine("5. a text file:");
+        var text = Path.Combine(scratch, "notes.txt");
+        File.WriteAllText(text, "not music");
+        vm.OpenFiles([text]);
+        Settle(500);
+        var afterText = Started();
+        Expect($"status '{vm.StatusText}', started {afterText}", vm.StatusText.Contains("notes.txt") && afterText == "nothing");
+
+        engine.Stop();
+        Settle(300);
+        Console.WriteLine(all ? "all OK" : "SOME WRONG");
+        try { Directory.Delete(scratch, recursive: true); } catch (IOException) { }
     }
 
     /// <summary>
@@ -5684,7 +5949,7 @@ internal static class Program
 
         // And if the playing track ends while the next one's file is out, the
         // handover waits for the save rather than stopping.
-        engine.WhileReleased(two, () =>
+        engine.Saving(two, () => true, () =>
         {
             engine.Seek(engine.Duration - TimeSpan.FromMilliseconds(200));
             Thread.Sleep(1000);
