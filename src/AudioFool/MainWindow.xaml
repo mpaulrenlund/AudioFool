@@ -56,6 +56,8 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <!-- A clicked row stays where it is, even half in view. -->
+            <EventSetter Event="RequestBringIntoView" Handler="Row_RequestBringIntoView" />
         </Style>
 
         <Style x:Key="ArtistRow" TargetType="ListBoxItem" BasedOn="{StaticResource BrowserRow}">
@@ -922,7 +924,7 @@
                                 that base style's own unconditional Background setter paints
                                 every row solid white. The look is theme.songRowTemplate; this
                                 style adds what can only live here: the now-playing flag the
-                                row and its cells style from, a context menu and an event handler.
+                                row and its cells style from, a context menu and event handlers.
                             -->
                             <Style TargetType="DataGridRow">
                                 <Setter Property="Background" Value="Transparent" />
@@ -959,6 +961,7 @@
                                     row actually under the cursor.
                                 -->
                                 <EventSetter Event="PreviewMouseRightButtonDown" Handler="TrackGridRow_PreviewMouseRightButtonDown" />
+                                <EventSetter Event="RequestBringIntoView" Handler="Row_RequestBringIntoView" />
                                 <Setter Property="ContextMenu">
                                     <Setter.Value>
                                         <ContextMenu>

@@ -71,6 +71,7 @@ public partial class MainWindow : FluentWindow
         HookReorder();
         HookShortcuts();
         HookSearchFocus();
+        HookClickWithoutScroll();
         _viewModel.TracksChanging += OnTracksChanging;
         _viewModel.RevealTrackRequested += OnRevealTrackRequested;
 
@@ -347,6 +348,10 @@ public partial class MainWindow : FluentWindow
             _viewModel.SelectedAlbums = AlbumList.SelectedItems.OfType<AlbumItemViewModel>().ToList();
 
         if (sender is not ListBox list || list.SelectedItem is null)
+            return;
+
+        // A click leaves the row where it is (HookClickWithoutScroll).
+        if (ReferenceEquals(list, _pressedList))
             return;
 
         // A Ctrl- or Shift-click adds rows but leaves SelectedItem (the first) as
@@ -723,6 +728,39 @@ public partial class MainWindow : FluentWindow
 
         if (ItemsControl.ContainerFromElement(ArtistList, source) is ListBoxItem { DataContext: ArtistGroup artist })
             _viewModel.PlayArtistCommand.Execute(artist);
+    }
+
+    /// <summary>
+    /// The list a mouse press went into, until just after the button comes up.
+    /// Meanwhile its rows don't scroll themselves into view: a click on a row cut
+    /// off at the bottom scrolled it in, and the second click of a double-click
+    /// then landed on the row that had moved under the pointer and played that.
+    /// Arrow keys, type-ahead and the jump to the playing song still scroll.
+    /// </summary>
+    private Control? _pressedList;
+
+    private void HookClickWithoutScroll()
+    {
+        foreach (var list in new Control[] { ArtistList, PlaylistList, AlbumList, RecentAlbumList, TrackGrid })
+            list.AddHandler(PreviewMouseLeftButtonDownEvent,
+                new MouseButtonEventHandler((s, _) => _pressedList = (Control)s), handledEventsToo: true);
+
+        // Cleared once the release has been handled: a click on a row of a
+        // several-song selection in a playlist selects that row on the release.
+        AddHandler(PreviewMouseUpEvent,
+            new MouseButtonEventHandler((_, _) => Dispatcher.BeginInvoke(() => _pressedList = null, DispatcherPriority.Input)),
+            handledEventsToo: true);
+        AddHandler(PreviewKeyDownEvent, new KeyEventHandler((_, _) => _pressedList = null), handledEventsToo: true);
+    }
+
+    /// <summary>
+    /// A row asking to be scrolled into view, as it does when it takes focus:
+    /// refused while its list is being clicked (<see cref="_pressedList"/>).
+    /// </summary>
+    private void Row_RequestBringIntoView(object sender, RequestBringIntoViewEventArgs e)
+    {
+        if (_pressedList is { } list && list.IsAncestorOf((DependencyObject)sender))
+            e.Handled = true;
     }
 
     // ------------------------------------------------------ song table layout

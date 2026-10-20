@@ -199,7 +199,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "analysis" or "clear" or "waveform" or "device" or "splice" or "themeswitch" or "visualizer" or "projectm" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "rowclick" or "analysis" or "clear" or "waveform" or "device" or "splice" or "themeswitch" or "visualizer" or "projectm" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -251,6 +251,12 @@ internal static class Program
             _direct = true;
             main.UpdateLayout();
             Console.WriteLine($"dpi {VisualTreeHelper.GetDpi(main).PixelsPerDip}");
+        }
+
+        if (which == "rowclick")
+        {
+            RunRowClick(main, vm, engine, Arg(args, "--artist") ?? "Nhato");
+            return 0;
         }
 
         if (which == "click" || Arg(args, "--typeahead") is not null)
@@ -3925,6 +3931,140 @@ internal static class Program
                 return deeper;
         }
         return null;
+    }
+
+    /// <summary>
+    /// --window rowclick [--artist Nhato]: a double-click on the row cut off at the
+    /// bottom of each list (Artists, Albums, the song table, Playlists, Recently
+    /// Added's albums), delivered as the mouse delivers it: two presses at the same
+    /// point, the second with ClickCount 2, each on whatever is under that point at
+    /// the time. A press must not scroll the list, and the double-click must land
+    /// on the row that was under the pointer for the first press. The app's
+    /// double-click handlers run too; ThemeLab can't decode the music, so nothing
+    /// plays.
+    /// </summary>
+    private static void RunRowClick(MainWindow main, MainViewModel vm, AudioEngine engine, string artistName)
+    {
+        LoadRealLibrary(vm);
+        vm.Volume = 0;
+        engine.Volume = 0;
+        var clickCount = typeof(System.Windows.Input.MouseButtonEventArgs).GetProperty("ClickCount")!;
+        var all = true;
+
+        static string Label(object? item) => item switch
+        {
+            ArtistGroup a => a.Name,
+            AlbumItemViewModel a => a.Title,
+            PlaylistItemViewModel p => p.Name,
+            Track t => t.DisplayTitle,
+            null => "nothing",
+            _ => item.ToString() ?? "?",
+        };
+
+        static FrameworkElement? RowOf(DependencyObject? node)
+        {
+            while (node is not null and not System.Windows.Controls.ListBoxItem and not System.Windows.Controls.DataGridRow)
+                node = VisualTreeHelper.GetParent(node);
+            return node as FrameworkElement;
+        }
+
+        void Check(string name, System.Windows.Controls.Primitives.Selector list)
+        {
+            Pump();
+            Settle(400);
+            var scroller = FindFirst<System.Windows.Controls.ScrollViewer>(list)!;
+
+            // The row that is only partly in view at the bottom.
+            FrameworkElement? cut = null;
+            double cutTop = 0;
+            for (var i = 0; i < list.Items.Count && cut is null; i++)
+            {
+                if (list.ItemContainerGenerator.ContainerFromIndex(i) is not FrameworkElement row || !row.IsVisible)
+                    continue;
+                var top = row.TranslatePoint(new Point(0, 0), scroller).Y;
+                if (top < scroller.ActualHeight - 4 && top + row.ActualHeight > scroller.ActualHeight)
+                    (cut, cutTop) = (row, top);
+            }
+            if (cut is null)
+            {
+                Console.WriteLine($"{name}: no row is cut off at the bottom ({list.Items.Count} rows), skipped");
+                return;
+            }
+
+            var point = new Point(Math.Min(cut.ActualWidth / 2, 120), cutTop + 2);
+            string Under() => Label(RowOf(scroller.InputHitTest(point) as DependencyObject)?.DataContext);
+
+            void Press(int count)
+            {
+                var target = (UIElement)scroller.InputHitTest(point);
+                foreach (var routed in new[]
+                         {
+                             System.Windows.Input.Mouse.PreviewMouseDownEvent, System.Windows.Input.Mouse.MouseDownEvent,
+                             System.Windows.Input.Mouse.PreviewMouseUpEvent, System.Windows.Input.Mouse.MouseUpEvent,
+                         })
+                {
+                    var a = new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, Environment.TickCount,
+                        System.Windows.Input.MouseButton.Left) { RoutedEvent = routed };
+                    clickCount.SetValue(a, count);
+                    target.RaiseEvent(a);
+                }
+                Pump();
+                Settle(300);
+            }
+
+            // The row the app's handlers look up: the one holding the press.
+            var doubleClicked = new List<string>();
+            System.Windows.Input.MouseButtonEventHandler record = (_, e) => doubleClicked.Add(Label(RowOf(e.OriginalSource as DependencyObject)?.DataContext));
+            ((System.Windows.Controls.Control)list).MouseDoubleClick += record;
+
+            var clicked = Under();
+            var offset = scroller.VerticalOffset;
+            Press(1);
+            var moved = scroller.VerticalOffset != offset;
+            var selected = Label(list.SelectedItem);
+            Press(2);
+            ((System.Windows.Controls.Control)list).MouseDoubleClick -= record;
+            var afterClicks = scroller.VerticalOffset;
+
+            // Down from the clicked row still scrolls: the next row is out of view.
+            System.Windows.Input.InputManager.Current.ProcessInput(new System.Windows.Input.KeyEventArgs(
+                System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(main), Environment.TickCount, System.Windows.Input.Key.Down)
+            { RoutedEvent = System.Windows.Input.Keyboard.PreviewKeyDownEvent });
+            Pump();
+            Settle(300);
+            var keyScrolled = scroller.VerticalOffset > afterClicks;
+
+            var ok = !moved && selected == clicked && doubleClicked.SequenceEqual([clicked]) && keyScrolled;
+            all &= ok;
+            Console.WriteLine($"{name}: cut-off row '{clicked}'; first press selected '{selected}', " +
+                              $"offset {offset} -> {afterClicks}{(moved ? " (scrolled)" : "")}; " +
+                              $"double-click on [{string.Join(", ", doubleClicked)}]; " +
+                              $"Down selects '{Label(list.SelectedItem)}', offset -> {scroller.VerticalOffset}{(keyScrolled ? "" : " (DIDN'T SCROLL)")} -> {(ok ? "OK" : "WRONG")}");
+        }
+
+        var artistList = (System.Windows.Controls.ListBox)main.FindName("ArtistList");
+        vm.SelectedArtist = vm.Artists.FirstOrDefault(a => a.Name == artistName)
+            ?? throw new InvalidOperationException($"no artist '{artistName}'");
+        Check("Artists", artistList);
+
+        vm.SelectedArtist = vm.Artists.FirstOrDefault(a => a.Name == artistName);
+        Check("Albums", (System.Windows.Controls.ListBox)main.FindName("AlbumList"));
+
+        // The album with the most songs, for a song table taller than its panel.
+        var longest = vm.Artists.SelectMany(a => a.Albums).MaxBy(a => a.Tracks.Count)!;
+        vm.SelectedArtist = vm.Artists.First(a => a.Albums.Contains(longest));
+        Pump();
+        vm.SelectedAlbum = vm.Albums.First(a => ReferenceEquals(a.Album, longest));
+        Check("Songs", (System.Windows.Controls.DataGrid)main.FindName("TrackGrid"));
+
+        vm.IsPlaylistMode = true;
+        Check("Playlists", (System.Windows.Controls.ListBox)main.FindName("PlaylistList"));
+
+        vm.SelectedPlaylist = vm.Playlists.First(p => p.IsRecentlyAdded);
+        Check("Recently Added albums", (System.Windows.Controls.ListBox)main.FindName("RecentAlbumList"));
+
+        engine.Stop();
+        Console.WriteLine(all ? "all OK" : "SOME WRONG");
     }
 
     private static void LoadRealLibrary(MainViewModel vm)

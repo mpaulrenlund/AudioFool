@@ -131,6 +131,9 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 - **Everything in `README.md` is implemented and verified**, apart from the projectM
   trial (below). **803 tests** pass. The installed app has the beat shaper and reads
   the no-beat list (see session 58's "Where it stands").
+- **Session 59** (2026-10-20): **a click never scrolls a list**, so a double-click on
+  a row cut off at the bottom plays that row, not the one below (`_pressedList`,
+  `Row_RequestBringIntoView`; ThemeLab `--window rowclick`). In `design/progress.md`.
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
   day had PS2 Dark and everything since v0.5.0.
@@ -888,6 +891,7 @@ ThemeLab.exe --window trackeditor --w 1720 --h 1080 # the song tag window follow
 ThemeLab.exe --theme dark                       # every window built in PS2 Dark (light by default)
 ThemeLab.exe --theme light --switch dark        # built in Light, switched live before the first render: must match --theme dark pixel for pixel
 ThemeLab.exe --window themeswitch --file <audio> --artfile <image> [--theme dark]   # switch by the Theme button and back by Ctrl+T with the real library, the file playing silently, the art viewer and Analyze open; checks playback, selection, scroll, dialogs, settings.json (restored)
+ThemeLab.exe --window rowclick --w 1180 --h 1240 [--artist Nhato]   # double-click the row cut off at the bottom of each list: must not scroll, must land on that row; then Down must scroll (session 59)
 ```
 
 
