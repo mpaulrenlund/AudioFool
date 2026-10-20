@@ -3811,6 +3811,75 @@ Then, in a new conversation the same evening (session 58 continued):
   parent died after 93 presets: the minute's progress count read a results file a
   child was writing (now read shared); the workers were stopped and the run resumed.
 - Installed at 21:28 with the user's OK, and committed. The user hasn't watched it yet.
+- **The beat screen ran into the next day.** As a background shell of Claude's session
+  it ended with the session at 21:40 (1,770 done). Restarted 2026-10-20 07:27 in a
+  Terminal panel tab; that stopped at 09:25 at ~6,410 (the tab was gone, most likely
+  sleep); restarted 12:56 in a new tab (resumed at 6,447), **done 14:19**, 1.4 h in all.
+  All 9,728 OK. **5,005 keep playing (R² ≥ 0.25), 4,723 in `no-beat.txt`.** Kept at
+  other cutoffs: 0.10 6,789 · 0.15 6,077 · 0.20 5,538 · 0.30 4,485 · 0.40 3,496 ·
+  0.50 2,380. Kept by category: Sparkle 575/790, Dancer 896/1,336, Waveform 826/1,279,
+  Supernova 228/377, Hypnotic 155/280, Geometric 508/1,018, Particles 166/389, Drawing
+  464/1,143, Fractal 533/1,331, Reaction 654/1,781, Transition 0/4. projectM printed
+  shader compile errors for some presets ("Syntax error: expected ';' near '*'"); they
+  rendered and scored anyway. No reinstall: the visualizer reads the list each time it
+  opens.
+
+### Session 59 (2026-10-20): clicks don't scroll, songs from Explorer, Clear All, a close-X log
+
+- **A click never scrolls a list.** The user's report: double-clicking the album cut
+  off at the bottom of the Albums list played the album below it. The first click
+  scrolled the half-visible row into view (its focus asked to be brought into view, and
+  `BrowserList_SelectionChanged` scrolled to the selection), so the second click landed
+  on the row that moved under the pointer. The user's calls: don't scroll at all (over
+  scrolling after the double-click time), in all five lists. `MainWindow._pressedList`
+  is the list a press went into, until just after the release (cleared by any key);
+  `Row_RequestBringIntoView` (EventSetters on `BrowserRow` and the grid's row style)
+  refuses a row's bring-into-view meanwhile, and the selection's own scroll is skipped.
+  ThemeLab `--window rowclick` presses the cut-off row twice at one point, as a mouse
+  does: before, Artists, Albums, Songs and Recently Added all scrolled and
+  double-clicked the next row (Nhato: *Gekka* → *Atlas*); after, none, and Down still
+  scrolls the next row in. **Confirmed by the user** ("works now"). `df67a6b`.
+- **PS2 Dark seen on a real screen** (the menu glow, Play/Pause's ring and glow, the
+  search box's muted selection): "looks good".
+- **The close X that ignores clicks.** The window buttons do highlight on hover, but
+  in tag windows and Statistics the X sometimes ignores several clicks in a row. From
+  WPF-UI 4.3.0's source: it clicks the X only from WM_NCLBUTTONDOWN/UP, and while
+  anything in the window holds the mouse captured, Windows sends clicks there as
+  client WM_LBUTTONDOWN/UP instead, which it ignores. The user chose a log first:
+  `Services/TitleBarClickLog` writes `titlebar:` lines to `playback.log` (installed in
+  `App.OnStartup`, read off the thread's queue so the X's state is as before WPF-UI saw
+  each message). `PlaybackDiagnostics.Note` now starts the log's writer itself. ThemeLab
+  `--window closex` prints the log and adds a client-click case (WRONG, as the
+  lost-click case is, while the bug is open).
+- **Songs opened from Explorer play, in one AudioFool.** A double-click on a song
+  started a second copy that ignored the file. `Services/SingleInstance`: the first copy
+  owns a named mutex and listens on a named pipe (per user SID and session,
+  `PipeOptions.CurrentUserOnly`); a later copy calls `AllowSetForegroundWindow`, sends
+  its files, one path per line, and quits; the files are batched until 500 ms pass with
+  none (Explorer starts one copy per file). `MainWindow.BringToFront` restores a
+  minimised window as it was. `MainViewModel.OpenFiles`: the user's calls, a library
+  song shown in its album (out of playlists, search or filter) and played with the album
+  after it; several as one queue, sorted by folder then natural name
+  (`Core/Library/OpenedFiles`, 6 tests). A song from elsewhere plays on its own, isn't
+  added to the library and isn't remembered as last played. At startup an opened song
+  waits for the engine, and for the library when it is under a music folder; it takes
+  the place of last time's song. ThemeLab `--singleinstance 1` (children started at
+  once arrived as one batch, out of order, four activations) and `--window openfiles`
+  (all five cases) OK. Not verified: a real double-click in Explorer.
+- **Clear All in the Quality Check section** (the user's request and calls: beside
+  Check quality, asks first, hidden when nothing is left).
+  `QualityStatistics.Flagged` / `Uncleared`, `MainViewModel.ClearAllQuality`,
+  `QualitySectionViewModel.ClearAll` through `PromptWindow.Confirm`. 2 tests. ThemeLab
+  `--window stats --fakeflags 1 --clearall 1`, both themes: 30 flagged, all rows None,
+  Cleared by you 159 → 189, the button gone. `18d4ef3`.
+- **A test audit** (the user asked whether there were too many or outdated tests): 811
+  run in ~3 s, and every Core type and method they call is used by the app, except
+  `SortRules.SortArtistNames`, which only the A-Z artist tests called; they now go
+  through `SortArtists`, and it's gone. Removed as unused: `BassRuntime.SupportsDopFor`,
+  `AudioEngine.WhileReleased` (ThemeLab's queue test calls `Saving`, which it wrapped),
+  `SpectrumAccumulator.FrequencyOf`. `9bcc1e8`.
+- Committed as `df67a6b`, `18d4ef3`, `9bcc1e8`, `91e0de9` and `fe53900` (docs), all
+  pushed. Installed. 811 tests. Unreleased (the last release is v0.6.1).
 
 ---
 

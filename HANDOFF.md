@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-19, session 58. Read this alongside `README.md`: the README covers
+Updated 2026-10-20, session 59. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -129,32 +129,28 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, apart from the projectM
-  trial (below). **811 tests** pass. The installed app has the beat shaper and reads
-  the no-beat list (see session 58's "Where it stands").
-- **Session 59** (2026-10-20): **a click never scrolls a list**, so a double-click on
-  a row cut off at the bottom plays that row, not the one below (`_pressedList`,
-  `Row_RequestBringIntoView`; ThemeLab `--window rowclick`). In `design/progress.md`.
-  The user has now seen PS2 Dark's glows and search selection on screen: "looks good".
-  Then a log for the close X that ignores clicks (next steps, 5), installed 13:31.
-  Then **songs opened from Explorer play, and only one AudioFool runs** (README,
-  *Opening songs from Explorer*): `Services/SingleInstance` (named mutex + pipe per
-  user and session, a 500 ms batch for Explorer's one-copy-per-file),
-  `MainViewModel.OpenFiles` (waits for the engine, and for the library when the song
-  is in a music folder), `Core/Library/OpenedFiles` (6 tests). ThemeLab
-  `--singleinstance 1` and `--window openfiles`: all OK. 809 tests. Installed 13:43
-  (the app wasn't running). Not verified: a real double-click in Explorer.
-  Then **Clear All** in Statistics' Quality Check (README, *Clearing a song you know is
-  genuine*; `design/progress.md`): `QualityStatistics.Flagged` / `Uncleared`,
-  `MainViewModel.ClearAllQuality`, `QualitySectionViewModel.ClearAll` (asks through
-  `PromptWindow.Confirm`; `ConfirmClearAll` is settable for ThemeLab). 811 tests.
-  Installed 14:08. Not verified: a real click and the prompt on screen.
-  Then a test audit (the user asked whether tests were outdated): all 811 run in ~3 s
-  and test code the app uses, except `ArtistOrderingTests`, which tested
-  `SortRules.SortArtistNames`, never called by the app; they now test `SortArtists`,
-  as the Artists list sorts, and the helper is gone. Also removed, unused anywhere:
-  `BassRuntime.SupportsDopFor`, `AudioEngine.WhileReleased` (ThemeLab's queue test
-  now calls `Saving(path, () => true, ...)`, which it wrapped), and
-  `SpectrumAccumulator.FrequencyOf`. Not reinstalled: nothing the app runs changed.
+  trial (below). **811 tests** pass. Everything is committed and pushed (last commit
+  `fe53900`, *Docs: session 59*); the installed app is session 59's build.
+- **Session 59** (2026-10-20), all installed and pushed (details in `HISTORY.md`):
+  - **A click never scrolls a list** (`df67a6b`): a double-click on a row cut off at
+    the bottom plays that row, not the one below. **Confirmed by the user.**
+  - **Songs opened from Explorer play, in one AudioFool** (`91e0de9`; README, *Opening
+    songs from Explorer*): `Services/SingleInstance`, `MainViewModel.OpenFiles`,
+    `Core/Library/OpenedFiles`. **The user hasn't tried a real double-click yet.**
+  - **Clear All** in Statistics' Quality Check (`18d4ef3`; README, *Clearing a song you
+    know is genuine*). Not yet seen by the user on screen.
+  - **A log for the close X that ignores clicks** (`91e0de9`;
+    `Services/TitleBarClickLog`): waiting for the user to say when it happens (next
+    steps, 4).
+  - **A test audit** (`9bcc1e8`): the tests are fine and fast; one helper only the
+    tests used, and three unused methods, removed.
+  - **The beat screen finished** (14:19): 5,005 of 9,728 presets kept. The visualizer
+    waits on the user's verdict (next steps, 5).
+  - The user has seen PS2 Dark's glows and search selection on screen: "looks good".
+- **Unreleased since v0.6.1:** sessions 55–59, so the visualizer (with the projectM
+  trial), the click fix, songs from Explorer, Clear All and the click log. A release
+  waits on the projectM decision, which changes the release's file list (next steps,
+  5).
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
   day had PS2 Dark and everything since v0.5.0.
@@ -173,86 +169,62 @@ The notes are written for the user, grouped New / Improved / Fixed, from
   `design/ps2-dark/screenshots/` shows every window in both themes.
   `design/progress.md` holds every design decision (PS1, and the PS2 Dark section);
   read it before UI work.
-- **Sessions 55–56** (2026-10-16, 2026-10-19): investigations, no app change. The
-  user's audio gaps come from the work laptop, not AudioFool: first the NVIDIA GPU
+- **Sessions 55–57** (2026-10-16, 2026-10-19): investigations, no app change, **closed**.
+  The user's audio gaps came from the work laptop, not AudioFool: first the NVIDIA GPU
   waking (fixed by driver 597.16), then **Dell TechHub** (its snapshots of C: and their
-  cleanup). With TechHub stopped, 32 minutes passed with no pops. Whether the user
-  disabled it for good is open: see item 0 under *Suggested next steps*.
+  cleanup), which the user disabled in session 57. Don't raise it again; the full story
+  is in `HISTORY.md` (sessions 55 and 56). If pops are ever reported again:
+  - **Reading `playback.log`:** a full reserve with a 40–50 ms LATE FILL (or nothing at
+    all) while the user hears a pop = a laptop-wide hiccup downstream of the app. A
+    ~100–130 ms APP STARVED + LATE FILL with 0 ms GC = the old GPU wake. GC PAUSE = a
+    full GC froze the app. SLOW FILL with little "busy" = waiting on the file. Read the
+    Windows event logs for that minute too (VSS 8231 in Application, Volsnap 33 in
+    System): LatencyMon has no timestamps and misses firmware stalls.
+  - Check TechHub is still off: `Get-CimInstance Win32_Service -Filter
+    "Name='DellTechHub'"` (StartMode Disabled), `Get-Process Dell.TechHub*` (empty).
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
-- **58** (2026-10-19): **visualizer: groundwork built and confirmed; projectM runs for
-  the user, who couldn't see it follow the beat; beats made visible (beat shaper, beat
-  screen) under way.**
-  - **Where it stands right now (session 58 continued after the context ran out;
-    2026-10-20, 07:45):**
-    1. **All of session 58 is committed and pushed** (2026-10-20, with the user's
-       go-ahead): `6baf2ea` … `80a73ab` (the off-screen fix, the visualizer's log
-       lines, the pack beside the exe), `06f0d8a` (`BeatShaper`, the no-beat list,
-       `tools/presetscreen`), then docs.
-    2. **`80a73ab`'s build was installed at 19:15** (with the user's OK; its version
-       reads `+14cb44f`, built just before the commit). projectM runs for the user:
-       "projectM 4.1.6 on NVIDIA RTX PRO 500 … 9728 of 9795 presets", on screen, first
-       minute of playback clean. The pack is beside the exe (9,795 presets, 68
-       textures, 67 screened out, the six DLLs), not redirected.
-    3. **The user's verdict:** they "couldn't tell if the visualizer was doing anything
-       related to the beat". Measured why (details in HISTORY, session 58): our feed
-       is right and on time; projectM's bass/mid/treb are normal MilkDrop values; the
-       old Up/Down (beat sensitivity) changed nothing, as 4.1.6 uses it only for hard
-       cuts; only ~6 of 20 random presets clearly pulse on a drum loop.
-    4. **The user chose:** keep projectM, play only presets that pulse, make Up/Down
-       real. **Built:**
-       - **`BeatShaper`** (Core/Visualizer): Up/Down shape the copy of the sound
-         handed to projectM (never the DAC's). Each of projectM's three bands is turned
-         down while it's quieter than its loudest of the last ~2 s, by
-         (level / loudest)^(swing − 1). Swing 2.0 at 5, ×1.25 a step. On *Love*:
-         bass p10–p90 0.67–1.49 at 1, 0.47–1.55 at 5, 0.24–1.92 at 10 (unshaped
-         0.69–1.51). `ProjectMHost` uses it; `playback.log`'s projectM line ends
-         "beats shaped at intensity N".
-       - **`no-beat.txt`** in the pack, left out by `PresetLibrary.Playable()`.
-       - **`tools/presetscreen`**: see *The preset screens* under next step 6.
-       - 803 tests. **Installed at 21:28** with the user's OK (the 20:55 publish; all
-         25 files match). Its version reads `+80a73ab`: built before the commit.
-    5. **The beat screen is running** (~38 presets a minute): `PresetScreen beat
-       --workers 3 --work %TEMP%\AudioFoolBeatScreen`.
-       - **Its first run stopped at 21:40, 1,770 done:** it was a background shell of
-         Claude's session, and those end with the session (see *Background shells end
-         with the session* under Gotchas). That run's output is `run.log` in the work
-         folder.
-       - **Restarted 2026-10-20 07:27** in a Terminal panel tab titled "beat screen",
-         which doesn't depend on the session. It resumed at 1,806; at 07:42, 2,358 of
-         9,728, done about 10:50. Its progress and final summary print in that tab.
-       - **Stopped again at 09:25 at ~6,410** (tab gone; cause unknown, likely sleep
-         or the tab closed). **Restarted 12:56** in a new "beat screen" tab, resumed at
-         6,447, ~36 a minute, about 1.5 h left.
-       - **Done 2026-10-20 14:19.** All 9,728 OK. `beat-screen.tsv` and `no-beat.txt`
-         are in `Programs\AudioFool\visualizer` (the pack folder, where
-         `PresetLibrary.NoBeatPath` reads it). **4,723 left out at R² < 0.25; 5,005
-         keep playing.** Kept at other cutoffs: 0.10 6,789 · 0.15 6,077 · 0.20 5,538
-         · 0.30 4,485 · 0.40 3,496 · 0.50 2,380. By category, kept of total: Dancer
-         896/1,336, Waveform 826/1,279, Sparkle 575/790, Reaction 654/1,781, Fractal
-         533/1,331, Geometric 508/1,018, Drawing 464/1,143, Supernova 228/377,
-         Particles 166/389, Hypnotic 155/280, Transition 0/4. The tab also showed
-         projectM shader compile errors ("Syntax error: expected ';' near '*'") for
-         some presets; they still rendered and scored (none failed).
-       - It keeps Windows awake while it runs (a closed lid still sleeps). When done it
-         writes `beat-screen.tsv` and `no-beat.txt` into the pack; projectM reads them
-         each time it starts, so no reinstall. If it stops, run the same command in a
-         Terminal tab: it resumes.
-    6. **The user opened the visualizer at intensity 1** (2026-10-20 06:52, from
+- **59** (2026-10-20): **a click never scrolls a list** (confirmed by the user);
+  **songs opened from Explorer play, in one AudioFool**; **Clear All** in the Quality
+  Check; **a log for the close X**; a test audit; the beat screen finished. See *State
+  at handoff* above and `HISTORY.md`.
+
+- **58** (2026-10-19, finished 2026-10-20): **visualizer: groundwork built and
+  confirmed; projectM runs for the user; beats made visible.**
+  - **Where it stands:**
+    1. projectM runs for the user: "projectM 4.1.6 on NVIDIA RTX PRO 500 … 9728 of
+       9795 presets". The pack is beside the exe (9,795 presets, 68 textures, 67
+       screened out, the six DLLs).
+    2. **The user's first verdict:** they "couldn't tell if the visualizer was doing
+       anything related to the beat". Measured why (HISTORY, session 58): the feed is
+       right and on time, the old Up/Down did nothing in 4.1.6, and only ~6 of 20
+       random presets clearly pulse.
+    3. **The user chose:** keep projectM, play only presets that pulse, make Up/Down
+       real. Built: **`BeatShaper`** (Up/Down turn the quiet between beats down in the
+       copy of the sound handed to projectM, never the DAC's; swing 2.0 at 5, ×1.25 a
+       step; `playback.log`'s projectM line ends "beats shaped at intensity N"),
+       **`no-beat.txt`** (left out by `PresetLibrary.Playable()`), and
+       **`tools/presetscreen`** (see *The preset screens* under next step 5).
+    4. **The beat screen is done** (2026-10-20 14:19, after two restarts; HISTORY has
+       the story): all 9,728 OK, **5,005 kept at R² ≥ 0.25**, 4,723 in `no-beat.txt`.
+       Kept at other cutoffs: 0.10 6,789 · 0.15 6,077 · 0.20 5,538 · 0.30 4,485 ·
+       0.40 3,496 · 0.50 2,380. `PresetScreen cutoff <R²>` rewrites the list in
+       seconds, no rescreen. The visualizer reads it each time it opens; no reinstall.
+    5. The user last opened the visualizer at intensity 1 (2026-10-20 06:52, from
        `playback.log`), probably left there by Down presses while Up/Down did nothing.
-       At 1 the shaping is about the music as it is. Told them to press Up; 5 is the
-       default.
-    7. **Next:** when the screen is done, read its summary (the Terminal tab, or
-       `PresetScreen cutoff 0.25` prints it again from `beat-screen.tsv`) and check
-       `no-beat.txt` is in the pack. The screened list applies the next time the
-       visualizer opens after that. Then the user watches again: does it follow the
-       beat now, and is 5 the right default? Record the verdict here and in HISTORY.
+       5 is the default; told them to press Up.
+    6. **Next:** the user watches again. Does it follow the beat now, and is 5 the right
+       default? Record the verdict here and in HISTORY, then decide whether projectM
+       stays (next steps, 5).
+  - **A long job belongs in a Terminal tab**, not a background shell of Claude's
+    session: those end with the session (see *Background shells end with the session*
+    under Gotchas). A closed lid or sleep stops it too.
   - **Why projectM never started for the user:** see *Claude's shells and AppData*
     under Gotchas. The presets Claude cloned into AppData went into the Claude app's
     private package storage, invisible to AudioFool.
-  - **The plan, settled with the user** (see next step 6): build the groundwork with a
+  - **The plan, settled with the user** (see next step 5): build the groundwork with a
     placeholder picture, then try projectM.
   - **Built: the hearing clock.** The seek bar, the time and the scrobbler follow what
     the speakers play (`AudioEngine.Heard`, via `Core/Playback/HearingTimeline`), not
@@ -308,7 +280,8 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   prompts, menus and tooltips out at the scale too. `CLAUDE.md` describes both themes
   (`claude-md-addition.md` merged); the PS1 spec's volume fill and Close hover corrected;
   20 screenshots in `design/ps2-dark/screenshots/`. Committed as `21fe924` (build 2) and
-  `5f2942d` (build 3), both pushed. Installed; the user hasn't looked at it on screen yet.
+  `5f2942d` (build 3), both pushed. Installed; seen on screen by the user 2026-10-20:
+  "looks good".
 
 - **52** (2026-10-14): **PS2 Dark, build session 1 of 3** (the user's design in
   `design/ps2-dark/`). Two token sets with the same keys (parity tests), the §9 rename
@@ -1223,7 +1196,10 @@ off-screen window, so focus rings can be reviewed.
   `run_in_background` is stopped, children included, when the conversation closes:
   the beat screen died at 21:40 with three quarters to go. Start anything that runs
   for hours in a Terminal panel tab (`run_in_terminal`), which outlives the session
-  and shows the user its progress, and make it resumable.
+  and shows the user its progress, and make it resumable. A Terminal tab isn't safe
+  either: on 2026-10-20 the beat screen's tab was gone after about two hours (most
+  likely sleep), and a restart in a new tab picked it up. Pass full paths to
+  `run_in_terminal`: it refuses variables such as `$env:TEMP`.
 
 ---
 
@@ -1246,95 +1222,40 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
-0. **Audio gaps, session 56 (2026-10-19): NVIDIA fixed, Dell TechHub is the remaining cause.**
-   NVIDIA driver 597.16 (`32.0.15.9716`) ended the ~100 ms GPU-wake freezes. The user still
-   heard pops at 7:28, 7:39, 7:42 and 7:49, with Bit-Perfect on and the DX5 plugged straight
-   into the laptop (the dock is ruled out). `playback.log` showed a full reserve each time.
-   At most a 45–50 ms LATE FILL, so these were whole-laptop hiccups that the USB audio
-   driver's small buffer can't ride out. 7:28 and 7:39 matched bursts of three VSS
-   snapshots of C: (Application log, VSS 8231). Each burst came from
-   `Dell.TechHub.Instrumentation.SubAgent` running `esentutl /vss` to copy the SRUM
-   database. 7:42 matched Windows deleting old snapshots (System log, Volsnap 33). 7:49
-   matched nothing logged. LatencyMon's worst was `storport.sys` 8.4 ms in one run and
-   `ACPI.sys` 3 ms in another, so firmware/SMI stalls from TechHub's hardware polling are
-   suspected but not proven. **Test:** the user stopped the Dell TechHub service and ended
-   its four sub-agents (Instrumentation, Instrumentation UserProcess, Analytics,
-   DataManager) at 8:03. From 8:03 to 8:35 there were no pops and no snapshots, and no
-   LATE FILL outside track and device changes. The sub-agents don't stop with the
-   service, and TechHub comes back on restart. Making it permanent is the user's or IT's
-   call (company-managed laptop). If pops return with TechHub gone, try Dell Optimizer
-   next.
-   - **Where it stood (2026-10-19, 8:40 AM):** TechHub was stopped for this boot only. I
-     gave the user the steps to keep it off: `services.msc`, Dell TechHub, Startup type
-     **Disabled**. It has no scheduled task that relaunches it. A Dell update or Intune
-     may re-enable it, and the user may tell IT first. The DX5 is plugged straight into
-     the laptop; the user may move it back to the dock, which didn't matter.
-   - **Session 57 (2026-10-19):** the user disabled it. Checked: `DellTechHub` StartMode
-     Disabled, Stopped; no `Dell.TechHub*` process; no VSS 8231 since 7:39:43 (same boot
-     as 7:06, so surviving a restart isn't proven yet). Other Dell software still runs:
-     Optimizer, SupportAssist Remediation, Client Management, Update and Digital Delivery
-     sub-agents, Pair, Trusted Device.
-   - **Next:** ask whether TechHub was disabled and whether any pops came back. Check
-     with `Get-CimInstance Win32_Service -Filter "Name='DellTechHub'"` (StartMode),
-     `Get-Process Dell.TechHub*` (should be empty), and the Application log for VSS 8231
-     since boot (any from `Dell.TechHub.Instrumentation.SubAgent` = it's back). For any pop
-     the user reports, read that minute of `playback.log` and both event logs. The
-     `nvidia-smi` wake test was not repeated on driver 597.16; there's no need unless
-     ~100 ms freezes reappear.
-   - **Ruled out on 2026-10-19:** the dock (pops continued with the DX5 direct), and the
-     Topping driver's buffer. Topping's control panel only offers ASIO buffer size (512,
-     Safe Mode on), which doesn't apply to AudioFool's WASAPI output, and Streaming
-     "Always On", which is right. `ToppingUsbAudio.sys` peaked at 0.5 ms.
-   - **Reading `playback.log`:** a full reserve with a 40–50 ms LATE FILL (or nothing at
-     all) while the user hears a pop = a laptop-wide hiccup downstream of the app. A
-     ~100–130 ms APP STARVED + LATE FILL with 0 ms GC = the old GPU wake. GC PAUSE = a
-     full GC froze the app. SLOW FILL with little "busy" = waiting on the file. LatencyMon
-     has no timestamps and misses firmware stalls, so the Windows event logs are the
-     better clue.
-   - Still available if ever needed: decode ahead (`BassFlags.AsyncFile`, a decode-ahead
-     buffer), MMCSS for the feed thread; a bigger device buffer needs the seek-bar
-     latency fix from session 45. None of these would help with downstream pops.
-
-   **Session 55 background (2026-10-16): the NVIDIA wake, now fixed by the driver.**
-   On the user's work laptop (Dell Pro Max 14 MC14250, BIOS 1.19.2, Intel Arc 140T plus
-   an NVIDIA RTX PRO 500 Blackwell on driver **596.71**, Windows reports `32.0.15.9671`)
-   **waking the sleeping NVIDIA GPU stalls the whole machine ~100 ms**, and the USB audio
-   to the DX5 drops out with it. Reproduced on purpose: `nvidia-smi` three times, 20 s
-   apart, gave three ~100 ms freezes in `playback.log` ~0.33 s after each, and the user
-   heard all three. Opening Task Manager does the same (it reads the GPU). AudioFool is
-   not at fault: a listening test showed the 200 ms reserve covers a frozen feed up to
-   170 ms on the DX5 (only the 300 ms control was heard), and the gaps came with 90–180 ms
-   still in reserve. Don't build app changes for this. Full story in `HISTORY.md`,
-   session 55. Settings left from then: AudioFool on Power Saving (Intel) in Windows'
-   per-app graphics; NVIDIA's global preferred GPU on Auto-select (not reverted, and no
-   freezes on 597.16).
+1. **Ask the user to try session 59's changes**, which were checked off-screen only:
+   - **Double-click a song in Explorer:** one from `Downloads` (plays on its own, the
+     view stays) and one from `D:\Music` (goes to its album and plays with the album
+     after it), with AudioFool open and with it closed. Also several songs at once.
+   - **Clear All** in Statistics' Quality Check: the prompt, then every row None.
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
 3. **A visible, editable queue view**: the most conspicuous missing player feature.
-4. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
-   are confirmed; edge scrolling hasn't been tried (asked 2026-10-20: not yet tested).
-5. **The close X that sometimes does nothing** (session 51). **Session 59
-   (2026-10-20):** the buttons do highlight on hover (the user likes it), but in tag
-   windows and Statistics the X still ignores **several clicks in a row**. The user
-   chose a log over the fallback. **Built and installed:** `Services/TitleBarClickLog`
-   (installed in `App.OnStartup`) writes `titlebar:` lines to `playback.log`: every
-   WM_NCLBUTTON down/up, any client click over a title-bar button, a WM_NCMOUSELEAVE
-   while the X is marked pressed, WPF-UI's CloseClicked, and after each release on
-   the X whether the window is still open. Each line has the X's `_isClickedDown` and
-   `IsHovered`, Win32 and WPF mouse capture, enabled, active and modal.
-   `PlaybackDiagnostics.Note` now starts the log writer itself, so lines are saved
-   with nothing playing.
-   - **Leading suspect (from WPF-UI 4.3.0's source):** while anything in the window
-     holds the mouse captured, Windows sends clicks on the X as client
-     WM_LBUTTONDOWN/UP, which WPF-UI ignores: that would lose every click until the
-     capture goes. The log would show "client down ... over Close; capture this
-     window" and the WPF element holding it. The other way: "NC mouse leave" with X
-     pressed True between the down and up.
-   - ThemeLab `--window closex` now runs the log and prints it, and has a fifth case,
-     a client click on the X (WRONG while the bug is open, as is "click WPF-UI loses").
+4. **The close X that sometimes ignores clicks** (sessions 51 and 59). In tag windows
+   and Statistics the X sometimes ignores **several clicks in a row**; the window
+   buttons do highlight on hover (the user likes that). The user chose a log over the
+   old fallback (session 51's `CloseButtonFallback`, removed the same day).
+   - **The log:** `Services/TitleBarClickLog` (installed in `App.OnStartup`) writes
+     `titlebar:` lines to `playback.log`: every WM_NCLBUTTON down/up, any client click
+     over a title-bar button, a WM_NCMOUSELEAVE while the X is marked pressed, WPF-UI's
+     CloseClicked, and after each release on the X whether the window is still open.
+     Each line has the X's `_isClickedDown` and `IsHovered`, Win32 and WPF mouse
+     capture, enabled, active and modal. It changes nothing.
+   - **Leading suspect (WPF-UI 4.3.0's source):** while anything in the window holds
+     the mouse captured, Windows sends clicks on the X as client WM_LBUTTONDOWN/UP,
+     which WPF-UI ignores, so every click is lost until the capture goes. The log would
+     show "client down ... over Close; capture this window" and the WPF element holding
+     it. The other way to lose one: "NC mouse leave" with X pressed True between the
+     down and the up.
+   - ThemeLab `--window closex` prints the log; its "click WPF-UI loses" and client-click
+     cases report WRONG while the bug is open.
    - **Next:** when the user says it happened, read the `titlebar:` lines around that
      time and fix the real cause.
-6. **The visualizer (session 58, under way).** The groundwork's steps, as agreed with the user:
+   - Also open: **edge scrolling while dragging in a playlist** (session 39). Real drags
+     are confirmed; edge scrolling hasn't been tried (asked 2026-10-20: not yet).
+5. **The visualizer (sessions 58–59, waiting on the user).** **Next:** the user watches
+   it again with the screened presets: does it follow the beat now, and is intensity 5
+   right? Then decide whether projectM stays (its to-do list is at the end of this
+   item). The groundwork's steps, as agreed with the user:
    1. ~~A hearing clock~~ Done in session 58 (`AudioEngine.Heard`).
    2. ~~A tap~~ Done in session 58. `Core/Playback/SampleTap` keeps the last second of
       what the device is given, before the volume and numbered as the timeline is.
