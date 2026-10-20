@@ -162,10 +162,11 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   the user, who couldn't see it follow the beat; beats made visible (beat shaper, beat
   screen) under way.**
   - **Where it stands right now (session 58 continued after the context ran out;
-    2026-10-19, 21:00):**
-    1. **Committed, not pushed:** 8 commits, `6baf2ea` … `80a73ab` (the off-screen
-       fix, the visualizer's log lines, the pack beside the exe), then the commit after
-       it: `BeatShaper`, the no-beat list, `tools/presetscreen`, the docs.
+    2026-10-20, 07:45):**
+    1. **All of session 58 is committed and pushed** (2026-10-20, with the user's
+       go-ahead): `6baf2ea` … `80a73ab` (the off-screen fix, the visualizer's log
+       lines, the pack beside the exe), `06f0d8a` (`BeatShaper`, the no-beat list,
+       `tools/presetscreen`), then docs.
     2. **`80a73ab`'s build was installed at 19:15** (with the user's OK; its version
        reads `+14cb44f`, built just before the commit). projectM runs for the user:
        "projectM 4.1.6 on NVIDIA RTX PRO 500 … 9728 of 9795 presets", on screen, first
@@ -210,8 +211,7 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
        `PresetScreen cutoff 0.25` prints it again from `beat-screen.tsv`) and check
        `no-beat.txt` is in the pack. The screened list applies the next time the
        visualizer opens after that. Then the user watches again: does it follow the
-       beat now, and is 5 the right default? Record the verdict here and in HISTORY,
-       and ask about pushing (`main` is 8 commits ahead).
+       beat now, and is 5 the right default? Record the verdict here and in HISTORY.
   - **Why projectM never started for the user:** see *Claude's shells and AppData*
     under Gotchas. The presets Claude cloned into AppData went into the Claude app's
     private package storage, invisible to AudioFool.
