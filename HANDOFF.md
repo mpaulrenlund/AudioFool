@@ -129,11 +129,32 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ## State at handoff
 
 - **Everything in `README.md` is implemented and verified**, apart from the projectM
-  trial (below). **803 tests** pass. The installed app has the beat shaper and reads
+  trial (below). **811 tests** pass. The installed app has the beat shaper and reads
   the no-beat list (see session 58's "Where it stands").
 - **Session 59** (2026-10-20): **a click never scrolls a list**, so a double-click on
   a row cut off at the bottom plays that row, not the one below (`_pressedList`,
   `Row_RequestBringIntoView`; ThemeLab `--window rowclick`). In `design/progress.md`.
+  The user has now seen PS2 Dark's glows and search selection on screen: "looks good".
+  Then a log for the close X that ignores clicks (next steps, 5), installed 13:31.
+  Then **songs opened from Explorer play, and only one AudioFool runs** (README,
+  *Opening songs from Explorer*): `Services/SingleInstance` (named mutex + pipe per
+  user and session, a 500 ms batch for Explorer's one-copy-per-file),
+  `MainViewModel.OpenFiles` (waits for the engine, and for the library when the song
+  is in a music folder), `Core/Library/OpenedFiles` (6 tests). ThemeLab
+  `--singleinstance 1` and `--window openfiles`: all OK. 809 tests. Installed 13:43
+  (the app wasn't running). Not verified: a real double-click in Explorer.
+  Then **Clear All** in Statistics' Quality Check (README, *Clearing a song you know is
+  genuine*; `design/progress.md`): `QualityStatistics.Flagged` / `Uncleared`,
+  `MainViewModel.ClearAllQuality`, `QualitySectionViewModel.ClearAll` (asks through
+  `PromptWindow.Confirm`; `ConfirmClearAll` is settable for ThemeLab). 811 tests.
+  Installed 14:08. Not verified: a real click and the prompt on screen.
+  Then a test audit (the user asked whether tests were outdated): all 811 run in ~3 s
+  and test code the app uses, except `ArtistOrderingTests`, which tested
+  `SortRules.SortArtistNames`, never called by the app; they now test `SortArtists`,
+  as the Artists list sorts, and the helper is gone. Also removed, unused anywhere:
+  `BassRuntime.SupportsDopFor`, `AudioEngine.WhileReleased` (ThemeLab's queue test
+  now calls `Saving(path, () => true, ...)`, which it wrapped), and
+  `SpectrumAccumulator.FrequencyOf`. Not reinstalled: nothing the app runs changed.
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
   day had PS2 Dark and everything since v0.5.0.
@@ -202,6 +223,19 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
        - **Restarted 2026-10-20 07:27** in a Terminal panel tab titled "beat screen",
          which doesn't depend on the session. It resumed at 1,806; at 07:42, 2,358 of
          9,728, done about 10:50. Its progress and final summary print in that tab.
+       - **Stopped again at 09:25 at ~6,410** (tab gone; cause unknown, likely sleep
+         or the tab closed). **Restarted 12:56** in a new "beat screen" tab, resumed at
+         6,447, ~36 a minute, about 1.5 h left.
+       - **Done 2026-10-20 14:19.** All 9,728 OK. `beat-screen.tsv` and `no-beat.txt`
+         are in `Programs\AudioFool\visualizer` (the pack folder, where
+         `PresetLibrary.NoBeatPath` reads it). **4,723 left out at R² < 0.25; 5,005
+         keep playing.** Kept at other cutoffs: 0.10 6,789 · 0.15 6,077 · 0.20 5,538
+         · 0.30 4,485 · 0.40 3,496 · 0.50 2,380. By category, kept of total: Dancer
+         896/1,336, Waveform 826/1,279, Sparkle 575/790, Reaction 654/1,781, Fractal
+         533/1,331, Geometric 508/1,018, Drawing 464/1,143, Supernova 228/377,
+         Particles 166/389, Hypnotic 155/280, Transition 0/4. The tab also showed
+         projectM shader compile errors ("Syntax error: expected ';' near '*'") for
+         some presets; they still rendered and scored (none failed).
        - It keeps Windows awake while it runs (a closed lid still sleeps). When done it
          writes `beat-screen.tsv` and `no-beat.txt` into the pack; projectM reads them
          each time it starts, so no reinstall. If it stops, run the same command in a
@@ -848,7 +882,7 @@ ThemeLab.exe --dump out.txt --dumpkeys keys.txt   # resolve the keys listed in k
 ThemeLab.exe --brushdump 1 --out shot.png   # also writes shot.brushes.txt: every brush and corner radius in the tree, hover/press ones included
 ThemeLab.exe --menu               # does the logo open the menu?
 ThemeLab.exe --menu --menutree   # sizes and clips under the menu item
-ThemeLab.exe --window stats --w 900 # statistics, from the real library.json
+ThemeLab.exe --window stats --w 900 # statistics, from the real library.json (add --qualitycache <scratch> --fakeflags 1 --clearances <scratch> --clearall 1 for Clear All, session 59)
 ThemeLab.exe --window click --click Year        # click a Statistics row, render the result
 ThemeLab.exe --window click --click Rush --search Buckethead
 ThemeLab.exe --window click --click Year --fix 1964   # simulate fixing the selected album
@@ -863,7 +897,7 @@ ThemeLab.exe --rows 1,2,3,4       # several selected grid rows
 ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
 ThemeLab.exe --window queue       # edit queued and playing tracks while the real engine plays silently
 ThemeLab.exe --window queue --long "D:/Music/x/a.flac;D:/Music/y/b.dsf" [--longcomment 3000000]   # also save to real tracks (copied to scratch) while they play
-ThemeLab.exe --window closex          # Statistics' close button: normal click, a click WPF-UI loses (WRONG = the open bug), a cancelled close, press-and-slide-off (posted WM_NC* messages)
+ThemeLab.exe --window closex          # Statistics' close button: normal click, a click WPF-UI loses and a client click while captured (both WRONG = the open bug), a cancelled close, press-and-slide-off (posted messages); prints the title-bar click log
 ThemeLab.exe --window splice --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a gapless join through the real engine, silent; prints the log's "gapless:" line (needs the device free, and both at the shared mix rate for an exact join)
 ThemeLab.exe --window device --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a change of default output device, simulated: playing, paused, stopped, next track
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
@@ -892,6 +926,8 @@ ThemeLab.exe --theme dark                       # every window built in PS2 Dark
 ThemeLab.exe --theme light --switch dark        # built in Light, switched live before the first render: must match --theme dark pixel for pixel
 ThemeLab.exe --window themeswitch --file <audio> --artfile <image> [--theme dark]   # switch by the Theme button and back by Ctrl+T with the real library, the file playing silently, the art viewer and Analyze open; checks playback, selection, scroll, dialogs, settings.json (restored)
 ThemeLab.exe --window rowclick --w 1180 --h 1240 [--artist Nhato]   # double-click the row cut off at the bottom of each list: must not scroll, must land on that row; then Down must scroll (session 59)
+ThemeLab.exe --singleinstance 1                # the one-copy handover under a test name: three children at once with a song each, one with none; one batch, four activations (session 59)
+ThemeLab.exe --window openfiles               # songs opened from Explorer, real library, silent: before the engine is ready, a library song before the library shows, from a search in playlist mode, three at once, a text file (session 59)
 ```
 
 
@@ -1210,11 +1246,6 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
-- **PS2 Dark on screen** (session 53): the user hasn't yet looked at the menu glow, the
-  Play/Pause ring and glow, or the search box's muted selection in the installed app.
-  Ask, and take their notes one at a time. If the Play/Pause glow should spread wider,
-  the knob is `shadow.playGlow`'s blur in `theme-tokens.dark.json` (WPF's 18 fades
-  out about 12 px from the button where CSS's would reach about 22; `design/progress.md`).
 0. **Audio gaps, session 56 (2026-10-19): NVIDIA fixed, Dell TechHub is the remaining cause.**
    NVIDIA driver 597.16 (`32.0.15.9716`) ended the ~100 ms GPU-wake freezes. The user still
    heard pops at 7:28, 7:39, 7:42 and 7:49, with Bit-Perfect on and the DX5 plugged straight
@@ -1281,14 +1312,28 @@ Open items only; finished ones are in `HISTORY.md`.
    happy with the converted covers.
 3. **A visible, editable queue view**: the most conspicuous missing player feature.
 4. **Ask once**: edge scrolling while dragging in a playlist (session 39). Real drags
-   are confirmed; edge scrolling hasn't been tried.
-5. **The close X that sometimes does nothing** (session 51): the user will test further.
-   First ask whether the three window buttons highlight on hover in the installed app
-   now that the fallback is gone; if they don't, that is a separate, older problem.
-   ThemeLab `--window closex` reproduces a lost click (its "click WPF-UI loses" case
-   reports WRONG while the bug is open). Options offered: a log of WM_NC* messages
-   around the buttons to catch the real cause, or the fallback again with the hover
-   question settled.
+   are confirmed; edge scrolling hasn't been tried (asked 2026-10-20: not yet tested).
+5. **The close X that sometimes does nothing** (session 51). **Session 59
+   (2026-10-20):** the buttons do highlight on hover (the user likes it), but in tag
+   windows and Statistics the X still ignores **several clicks in a row**. The user
+   chose a log over the fallback. **Built and installed:** `Services/TitleBarClickLog`
+   (installed in `App.OnStartup`) writes `titlebar:` lines to `playback.log`: every
+   WM_NCLBUTTON down/up, any client click over a title-bar button, a WM_NCMOUSELEAVE
+   while the X is marked pressed, WPF-UI's CloseClicked, and after each release on
+   the X whether the window is still open. Each line has the X's `_isClickedDown` and
+   `IsHovered`, Win32 and WPF mouse capture, enabled, active and modal.
+   `PlaybackDiagnostics.Note` now starts the log writer itself, so lines are saved
+   with nothing playing.
+   - **Leading suspect (from WPF-UI 4.3.0's source):** while anything in the window
+     holds the mouse captured, Windows sends clicks on the X as client
+     WM_LBUTTONDOWN/UP, which WPF-UI ignores: that would lose every click until the
+     capture goes. The log would show "client down ... over Close; capture this
+     window" and the WPF element holding it. The other way: "NC mouse leave" with X
+     pressed True between the down and up.
+   - ThemeLab `--window closex` now runs the log and prints it, and has a fifth case,
+     a client click on the X (WRONG while the bug is open, as is "click WPF-UI loses").
+   - **Next:** when the user says it happened, read the `titlebar:` lines around that
+     time and fix the real cause.
 6. **The visualizer (session 58, under way).** The groundwork's steps, as agreed with the user:
    1. ~~A hearing clock~~ Done in session 58 (`AudioEngine.Heard`).
    2. ~~A tap~~ Done in session 58. `Core/Playback/SampleTap` keeps the last second of

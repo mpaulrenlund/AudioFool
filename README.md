@@ -461,6 +461,26 @@ connected, the status bar says so.
 
 ---
 
+## Opening songs from Explorer
+
+Double-click a song (with AudioFool as its app, or through **Open with**) and it plays
+at once, in place of what was playing. Only one AudioFool runs: a song opened while
+it's open goes to it, and its window comes to the front; starting it again just
+brings the window forward.
+
+- **A song in the library** plays as a double-click on its row does: AudioFool goes
+  to its artist and album (leaving playlists, a search or a Statistics filter) and
+  plays it with the rest of the album after it.
+- **A song from anywhere else** plays on its own; the library view stays where it
+  was. It isn't added to the library and isn't remembered as the last song played.
+- **Several songs opened together** play as one queue, by folder and then by name as
+  Explorer lists them ("2" before "10").
+
+Opened while AudioFool is starting, a song waits for the audio engine, and a song in
+a music folder also for the library, so it can be shown in its album.
+
+---
+
 ## The visualizer
 
 The status bar's **Visualizer** button (three bars, left of Theme) or **Ctrl+Shift+F**
@@ -573,6 +593,10 @@ Clearing takes the song out of **that row only**: a song cleared from Fake 24-bi
 shows under Fake hi-res. A row and its *possibly* twin count as one (both say the hi-res
 isn't real, for instance). Cleared songs are counted in a grey **Cleared by you** row
 under the others; click it, then right-click → **Put Back in Quality Check** to undo.
+
+- **All at once.** **Clear All**, beside the check's button, clears every song still in
+  a row from every row it's in, after asking. It shows only while there is something
+  to clear. Songs a later check flags (new or changed files) show up as usual.
 
 Clearances are kept in `%LOCALAPPDATA%\AudioFool\quality-cleared.json`, apart from the
 check's results, so a retag (here or in Mp3tag) or a later change to the check's rules
