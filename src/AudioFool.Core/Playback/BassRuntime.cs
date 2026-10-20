@@ -308,13 +308,6 @@ public sealed class BassRuntime
         DsdConversionRate = best;
     }
 
-    /// <summary>
-    /// Whether the device can clock DoP for a given DSD rate. DoP carries the
-    /// bitstream at one sixteenth of the DSD rate.
-    /// </summary>
-    public bool SupportsDopFor(int dsdRate) =>
-        dsdRate > 0 && ExclusiveRates.Contains(dsdRate / 16);
-
     /// <summary>Rate DSD is decoded to when the DAC can't take DSD directly.</summary>
     public int DsdConversionRate { get; private set; } = 88200;
 

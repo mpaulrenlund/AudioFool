@@ -57,40 +57,39 @@ public class ArtistSortKeyTests
     }
 }
 
+/// <summary>
+/// The Artists list's A-Z order, through <see cref="SortRules.SortArtists"/> as
+/// the app sorts it: artist groups on the sort key the library gives them.
+/// </summary>
 public class ArtistOrderingTests
 {
+    private static string[] Sorted(params string[] names) =>
+        SortRules.SortArtists(names.Select(n => new ArtistGroup { Name = n, SortKey = SortRules.ArtistSortKey(n) }))
+            .Select(a => a.Name)
+            .ToArray();
+
     [Fact]
     public void The_bands_file_under_their_second_word()
     {
-        string[] input = ["Zebra", "The Beatles", "ABBA", "Beck", "The Cure", "Cake"];
-
-        var sorted = SortRules.SortArtistNames(input).ToArray();
-
         Assert.Equal(
             ["ABBA", "The Beatles", "Beck", "Cake", "The Cure", "Zebra"],
-            sorted);
+            Sorted("Zebra", "The Beatles", "ABBA", "Beck", "The Cure", "Cake"));
     }
 
     [Fact]
     public void Thelonious_sorts_after_The_Beatles_because_only_one_is_an_article()
     {
-        string[] input = ["Thelonious Monk", "The Beatles", "The Zombies"];
-
         // Keys are Beatles, Thelonious Monk, Zombies.
         Assert.Equal(
             ["The Beatles", "Thelonious Monk", "The Zombies"],
-            SortRules.SortArtistNames(input).ToArray());
+            Sorted("Thelonious Monk", "The Beatles", "The Zombies"));
     }
 
     [Fact]
     public void Ordering_is_stable_for_names_sharing_a_sort_key()
     {
-        string[] input = ["The Beatles", "Beatles"];
-
-        var sorted = SortRules.SortArtistNames(input).ToArray();
-
         // Same key, so the tie-break on the display name decides: "Beatles" < "The Beatles".
-        Assert.Equal(["Beatles", "The Beatles"], sorted);
+        Assert.Equal(["Beatles", "The Beatles"], Sorted("The Beatles", "Beatles"));
     }
 }
 

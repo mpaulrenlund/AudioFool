@@ -54,9 +54,6 @@ public sealed class SpectrumAnalysis
     /// </summary>
     public double? ExtraBitsShare { get; init; }
 
-    /// <summary>Hz at the centre of a bin.</summary>
-    public double FrequencyOf(int bin) => bin * BinWidth;
-
     /// <summary>The bin a frequency falls in, clamped to the spectrum.</summary>
     public int BinOf(double hz) => Math.Clamp((int)Math.Round(hz / BinWidth), 0, Average.Length - 1);
 }

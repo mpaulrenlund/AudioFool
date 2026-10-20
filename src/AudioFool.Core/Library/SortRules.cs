@@ -55,14 +55,6 @@ public static class SortRules
         return trimmed;
     }
 
-    /// <summary>Artist names A-Z, leading articles ignored.</summary>
-    public static IEnumerable<string> SortArtistNames(
-        IEnumerable<string> names,
-        IReadOnlyList<string>? articles = null) =>
-        names
-            .OrderBy(n => ArtistSortKey(n, articles), NameComparer)
-            .ThenBy(n => n, NameComparer);
-
     /// <summary>Artist groups A-Z on their precomputed sort key.</summary>
     public static IEnumerable<ArtistGroup> SortArtists(IEnumerable<ArtistGroup> artists) =>
         artists

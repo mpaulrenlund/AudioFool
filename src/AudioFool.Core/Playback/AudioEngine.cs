@@ -260,12 +260,6 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         }
     }
 
-    /// <summary>
-    /// <see cref="Saving{T}"/> with the stream let go whenever the file is held:
-    /// for a write the caller already knows would disturb it.
-    /// </summary>
-    public T WhileReleased<T>(string path, Func<T> write) => Saving(path, () => true, write);
-
     private void EndWriting(string path)
     {
         lock (_gate)
@@ -307,7 +301,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     /// <paramref name="mode"/>: the caller has worked out whether the new device
     /// can do exclusive mode. The device connection is closed and opened again,
     /// and the playing track carries on from where it was (paused stays paused),
-    /// the same way <see cref="WhileReleased{T}"/> brings it back. Its stream is
+    /// the same way <see cref="Saving{T}"/> brings it back. Its stream is
     /// opened again too, since the device decides what DSD becomes.
     /// </summary>
     public void SwitchDevice(OutputMode mode)
@@ -980,7 +974,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 if (_prefetchedStream != 0)
                     reopenAtIndex = _prefetchedIndex;
                 else if (_releasedNextIndex >= 0)
-                    waitForSave = _advanceAfterRelease = true;   // WhileReleased plays it
+                    waitForSave = _advanceAfterRelease = true;   // Saving plays it
 
                 // Silence from here on in this pull.
                 _joinFrames = FramesGivenThisPull(finished);
