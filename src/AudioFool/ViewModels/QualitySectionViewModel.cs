@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AudioFool.Core.Analysis;
@@ -73,6 +74,31 @@ public sealed partial class QualitySectionViewModel : ObservableObject, IDisposa
 
     partial void OnRowsChanged(IReadOnlyList<BarRow> value) => OnPropertyChanged(nameof(HasRows));
 
+    /// <summary>Songs still in a row; Clear All shows only while there are some.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanClearAll))]
+    private int _flagged;
+
+    public bool CanClearAll => Flagged > 0;
+
+    /// <summary>
+    /// Asks before Clear All, with the number of songs; true to go ahead. Settable
+    /// so ThemeLab can answer without opening the prompt.
+    /// </summary>
+    public static Func<int, bool> ConfirmClearAll { get; set; } = count =>
+        Application.Current.Windows.OfType<StatisticsWindow>().FirstOrDefault() is { } owner
+        && PromptWindow.Confirm(owner, "Clear All",
+            $"Clear all {Plural(count)} the Quality Check flagged? They move to Cleared by you, where you can put them back.",
+            "Clear All");
+
+    /// <summary>Every flagged song out of every row it is in, after a yes.</summary>
+    [RelayCommand]
+    private void ClearAll()
+    {
+        if (Flagged > 0 && ConfirmClearAll(Flagged))
+            _main.ClearAllQuality();
+    }
+
     [RelayCommand(CanExecute = nameof(CanToggle))]
     private void Toggle()
     {
@@ -97,6 +123,7 @@ public sealed partial class QualitySectionViewModel : ObservableObject, IDisposa
     private void Refresh()
     {
         Rows = _stats.Checked == 0 ? [] : [.. _stats.Gaps.Select(Row)];
+        Flagged = _stats.Flagged;
         ClearedRows = _stats.Cleared == 0 || _stats.ClearedFilter is null
             ? []
             :

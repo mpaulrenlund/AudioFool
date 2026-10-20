@@ -224,4 +224,51 @@ public class QualityClearanceTests : IDisposable
         store.PutBack([a]);
         Assert.Equal(2, filter.Apply([a, b]).Count);
     }
+
+    [Fact]
+    public void Flagged_counts_each_song_still_in_a_row_once()
+    {
+        var a = Hires(@"D:\Music\a.flac");
+        var b = Hires(@"D:\Music\b.flac");
+        var c = Hires(@"D:\Music\c.flac");
+        var d = Hires(@"D:\Music\d.flac");
+        var cache = QualityCache.Empty();
+        cache.Set(a, new QualityResult(Verdict.Inconsistent, [QualityFlag.Upsampled, QualityFlag.Padded24Bit]));
+        cache.Set(b, new QualityResult(Verdict.Inconsistent, [QualityFlag.Padded24Bit]));
+        cache.Set(c, new QualityResult(Verdict.Consistent, []));
+        cache.Set(d, new QualityResult(Verdict.Suspect, [QualityFlag.PossiblyUpsampled]));
+        var store = QualityClearances.Empty(FilePath);
+        store.Clear([b], QualityFlag.Padded24Bit, Stamp);
+
+        // a is in two rows and counts once; b is cleared; c was never flagged.
+        Assert.Equal(2, QualityStatistics.Compute([a, b, c, d], cache, store).Flagged);
+    }
+
+    [Fact]
+    public void Clearing_everything_uncleared_empties_every_row()
+    {
+        var a = Hires(@"D:\Music\a.flac");
+        var b = Hires(@"D:\Music\b.flac");
+        var c = Mp3(@"D:\Music\c.mp3");
+        var tracks = new[] { a, b, c };
+        var cache = QualityCache.Empty();
+        cache.Set(a, new QualityResult(Verdict.Inconsistent, [QualityFlag.Upsampled, QualityFlag.Padded24Bit]));
+        cache.Set(b, new QualityResult(Verdict.Inconsistent, [QualityFlag.Padded24Bit]));
+        cache.Set(c, new QualityResult(Verdict.Suspect, [QualityFlag.PossiblyReEncodedLossy]));
+        var store = QualityClearances.Empty(FilePath);
+        store.Clear([b], QualityFlag.Padded24Bit, Stamp);
+
+        var pending = QualityStatistics.Uncleared(tracks, cache, store);
+        Assert.Equal(3, pending.Count);
+        Assert.DoesNotContain((b, QualityFlag.Padded24Bit), pending);
+
+        foreach (var (track, flag) in pending)
+            store.Clear([track], flag, Stamp);
+
+        var stats = QualityStatistics.Compute(tracks, cache, store);
+        Assert.All(stats.Gaps, gap => Assert.Equal(0, gap.Tracks));
+        Assert.Equal(0, stats.Flagged);
+        Assert.Equal(3, stats.Cleared);
+        Assert.Empty(QualityStatistics.Uncleared(tracks, cache, store));
+    }
 }

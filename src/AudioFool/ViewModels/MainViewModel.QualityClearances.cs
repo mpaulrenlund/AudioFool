@@ -109,6 +109,25 @@ public sealed partial class MainViewModel
             : $"Cleared {Songs(added)} from {row}.");
     }
 
+    /// <summary>
+    /// Statistics' Clear All: every song still in a Quality Check row, out of each
+    /// row it is in, over what Statistics counts (the ticked folders). They go to
+    /// Cleared by you, where they can be put back. Returns how many songs.
+    /// </summary>
+    public int ClearAllQuality()
+    {
+        var pending = QualityStatistics.Uncleared(_folderFilteredLibrary.AllTracks, QualityResults, Clearances);
+        if (pending.Count == 0)
+            return 0;
+
+        foreach (var row in pending.GroupBy(p => QualityClearances.RowOf(p.Flag)))
+            Clearances.Clear([.. row.Select(p => p.Track)], row.Key, Now);
+
+        var songs = pending.Select(p => p.Track).Distinct().Count();
+        AfterClearancesChanged($"Cleared {Songs(songs)} from the Quality Check.");
+        return songs;
+    }
+
     /// <summary>Puts these songs back in <paramref name="flag"/>'s row, or in every row they were cleared from.</summary>
     public void PutBackQuality(IReadOnlyList<Track> tracks, QualityFlag? flag = null)
     {

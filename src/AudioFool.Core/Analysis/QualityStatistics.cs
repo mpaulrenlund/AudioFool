@@ -25,6 +25,9 @@ public sealed class QualityStatistics
     /// <summary>Songs the user has cleared from at least one row.</summary>
     public int Cleared { get; init; }
 
+    /// <summary>Songs still in at least one row: what Clear All would clear.</summary>
+    public int Flagged { get; init; }
+
     /// <summary>Narrows the library to the cleared songs, so they can be put back.</summary>
     public TrackFilter? ClearedFilter { get; init; }
 
@@ -50,6 +53,22 @@ public sealed class QualityStatistics
         Compute(tracks, cache, null);
 
     /// <summary>
+    /// Each song still in a row, with each row it is in (as the row's own flag):
+    /// what Clear All clears. Only the rows Statistics shows.
+    /// </summary>
+    public static IReadOnlyList<(Track Track, QualityFlag Flag)> Uncleared(
+        IReadOnlyList<Track> tracks, QualityCache cache, QualityClearances clearances)
+    {
+        var shown = Rows.Select(r => r.Flag).ToHashSet();
+        return
+        [
+            .. cache.For(tracks).SelectMany(r => r.Value.Flags
+                .Where(f => shown.Contains(f) && !clearances.IsCleared(r.Key, f))
+                .Select(f => (r.Key, f))),
+        ];
+    }
+
+    /// <summary>
     /// The rows leave out what the user has cleared. Their filters ask
     /// <paramref name="clearances"/> again each time they're applied, so a song
     /// cleared while a row's filter is on leaves the library view at once.
@@ -57,6 +76,7 @@ public sealed class QualityStatistics
     public static QualityStatistics Compute(IReadOnlyList<Track> tracks, QualityCache cache, QualityClearances? clearances)
     {
         var results = cache.For(tracks);
+        var flagged = new HashSet<string>(StringComparer.Ordinal);
 
         var gaps = Rows.Select(row =>
         {
@@ -67,6 +87,7 @@ public sealed class QualityStatistics
                                           && clearances?.IsCleared(r.Key, row.Flag) != true)
                 .Select(r => QualityCache.KeyOf(r.Key))
                 .ToHashSet(StringComparer.Ordinal);
+            flagged.UnionWith(keys);
 
             return new QualityGap(row.Label, row.Flag, keys.Count,
                 tracks.Count == 0 ? 0 : (double)keys.Count / tracks.Count, row.Note)
@@ -87,6 +108,7 @@ public sealed class QualityStatistics
             Checked = results.Count,
             Gaps = gaps,
             Cleared = cleared,
+            Flagged = flagged.Count,
             ClearedFilter = clearances is null
                 ? null
                 : new TrackFilter(ClearedLabel, clearances.IsClearedFromAny) { ShowsQualityClearances = true },

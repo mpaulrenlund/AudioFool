@@ -242,12 +242,22 @@
                                               Style="{StaticResource SectionList}"
                                               Margin="0"
                                               Visibility="{Binding HasClearedRows, Converter={StaticResource BoolToVisibility}}" />
-                                <Button x:Name="QualityCheckButton"
-                                        Content="{Binding ButtonText}"
-                                        Command="{Binding ToggleCommand}"
-                                        Style="{StaticResource theme.dialogButton}"
-                                        HorizontalAlignment="Left"
-                                        Margin="{theme:Thickness Bottom=statistics.sectionPaddingY}" />
+                                <!-- Clear All beside it, only while songs are still in a row
+                                     (the user's calls); it asks first. -->
+                                <StackPanel Orientation="Horizontal"
+                                            HorizontalAlignment="Left"
+                                            Margin="{theme:Thickness Bottom=statistics.sectionPaddingY}">
+                                    <Button x:Name="QualityCheckButton"
+                                            Content="{Binding ButtonText}"
+                                            Command="{Binding ToggleCommand}"
+                                            Style="{StaticResource theme.dialogButton}" />
+                                    <Button x:Name="QualityClearAllButton"
+                                            Content="Clear All"
+                                            Command="{Binding ClearAllCommand}"
+                                            Style="{StaticResource theme.dialogButton}"
+                                            Margin="{theme:Thickness Left=dialog.buttonGap}"
+                                            Visibility="{Binding CanClearAll, Converter={StaticResource BoolToVisibility}}" />
+                                </StackPanel>
                             </StackPanel>
                         </HeaderedContentControl>
 
