@@ -128,6 +128,28 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 ## State at handoff
 
+### Start of the next session
+
+Nothing is running and nothing is uncommitted: everything is pushed to `origin/main`.
+The installed app is session 59's 14:08 build, which is HEAD less `9bcc1e8`'s removal of
+unused code, so it behaves the same; reinstall with the next change anyway. The beat
+screen's Terminal tab ("beat screen") has finished and can be closed.
+
+Open with the user, in this order (each is under *Suggested next steps*):
+
+1. **The visualizer** (step 5): with the screened presets, does it follow the beat now,
+   and is intensity 5 right? Then whether projectM stays, which decides the next
+   release's file list.
+2. **The close X** (step 4): has it ignored clicks again? If so, roughly when; read the
+   `titlebar:` lines in `playback.log` around then.
+3. **Session 59's untried changes** (step 1): double-clicking songs in Explorer (from
+   Downloads and from `D:\Music`, AudioFool open and closed), and Clear All.
+
+Then a release can follow (sessions 55–59 are unreleased); confirm the version and notes
+with the user first (see *Releases*).
+
+### Where things are
+
 - **Everything in `README.md` is implemented and verified**, apart from the projectM
   trial (below). **811 tests** pass. Everything is committed and pushed (last commit
   `fe53900`, *Docs: session 59*); the installed app is session 59's build.
@@ -450,6 +472,12 @@ Standing preferences from the user that the code doesn't show:
 
 - **No tooltips or hint text** (2026-10-12). Keep accessible names.
 - **Grey is primary; colour only in its spec role** (`design/theme-spec.md`).
+- **Explain plainly.** Findings first in everyday words, with an analogy where it
+  helps; the technical names second.
+- **The user is learning git.** When committing, pushing or releasing, say what each
+  step does and why. Commit and push only when asked.
+- **Ask before closing AudioFool to install:** it stops whatever is playing. When the
+  app isn't running, install without asking.
 - The features under *Dropped* in the next steps are dropped for good: don't build or
   suggest them.
 
@@ -707,6 +735,50 @@ WPF's `MenuItem` cannot mix `ItemsSource` items with static child items. The wor
 A `CollectionViewSource` bound through the proxy feeds the folder items. Static `MenuItem`
 entries for Add folder bind their commands via
 `{Binding Source={StaticResource Proxy}, Path=Data.AddFolderCommand}`.
+
+### One copy, and songs opened from Explorer (session 59)
+- **`Services/SingleInstance.Start(e.Args)`** runs first in `App.OnStartup`. The first
+  copy owns the mutex `Local\AudioFool-<user SID>-<session id>.instance` and listens on
+  the pipe `AudioFool-<SID>-<session>.open` (`PipeOptions.CurrentUserOnly`, on a
+  background thread). A later copy calls `AllowSetForegroundWindow(ASFW_ANY)` (only the
+  process the user just started may take the foreground, so it passes that on), sends
+  full paths one per line, and quits; an empty message (the shortcut again) only brings
+  the window forward. If the first copy doesn't answer within 5 s, the later one starts
+  normally rather than doing nothing.
+- **Explorer starts one copy per file**, in no order, so files are batched until 500 ms
+  pass with none (a `DispatcherTimer`), the first copy's own files included, and
+  `OpenedFiles.InPlayOrder` sorts them (folder, then natural name).
+- **`MainViewModel.OpenFiles`** waits (`_pendingOpen`) for the engine (`_engineReady`,
+  set in `InitialiseAsync`) and, for a song under a music folder, for the first library
+  (`ApplyLibrary`), so it can be shown in its album. Something opened skips
+  `RestoreLastPlayed`. A song outside the library plays as a queue of its own;
+  `RememberLastPlayed` already ignores tracks the library doesn't hold.
+- **Testing:** `Start` takes a name, so ThemeLab's `--singleinstance` runs under a test
+  name and never touches the user's running copy. ThemeLab doesn't run `App.OnStartup`
+  at all, so no other mode is affected. Don't launch the real app from Claude's shell
+  to test it: it would show on the user's screen and read stale AppData (see below).
+
+### Clicks don't scroll the lists (session 59)
+- A press on a row that's only half in view used to scroll it in, so the second click
+  of a double-click hit the row that moved under the pointer. **`_pressedList`** (in
+  `MainWindow.xaml.cs`) is the list a left press went into, from the press until just
+  after the release (cleared by any key). While it's set, **`Row_RequestBringIntoView`**
+  (an `EventSetter` on `BrowserRow`, which every list row style is based on, and on
+  the grid's row style) refuses the row's bring-into-view, and
+  `BrowserList_SelectionChanged` skips its own scroll to the selection.
+- The handler has to sit on the **row**: `RequestBringIntoView` bubbles, and the
+  list's `ScrollViewer` handles it before the event reaches the list itself.
+- Keys, type-ahead and the jump to the playing song still scroll. A new list with
+  double-click needs the same: a row style based on `BrowserRow` and an entry in
+  `HookClickWithoutScroll`.
+
+### The title-bar click log (session 59, diagnostic)
+- `Services/TitleBarClickLog`, installed in `App.OnStartup`, reads mouse messages off
+  the thread's queue (`ComponentDispatcher.ThreadPreprocessMessage`) for any window
+  with a WPF-UI `TitleBar`, and writes `titlebar:` lines through
+  `PlaybackDiagnostics.Note`. It reads the X's private `_isClickedDown` by reflection
+  (WPF-UI 4.3.0; a newer WPF-UI may rename it, and the log then says False). It never
+  handles a message. Once the close-X bug is fixed, it can go.
 
 ---
 
