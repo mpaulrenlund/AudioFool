@@ -1246,13 +1246,48 @@ Open items only; finished ones are in `HISTORY.md`.
       on 2026-10-19:** "click seems to be on time", and Bit-Perfect, DSD and fullscreen are
       "all fine". The click tracks (`heardprobe x --clicks <folder>` makes them again)
       were deleted from `D:\Music` to the Recycle Bin.
-   - **Then projectM:** libprojectM 4.1.x; MSYS2 has prebuilt Windows builds. Its
-     knobs: hard cuts off, a soft-cut length, preset length and lock, beat
-     sensitivity, and `projectm_set_frame_time` for slow motion. WPF can't draw over
-     an OpenGL area, so the level number needs its own overlay there.
+   - **The projectM trial (session 58, built; the user to judge whether projectM
+     stays).**
+     - **The DLLs:** libprojectM **4.1.6**, the newest any prebuilt has. From MSYS2's
+       UCRT64 packages (libprojectm, glew, libgcc, libstdc++, libwinpthread; each
+       checked against MSYS2's published SHA-256), in `lib/projectm/x64` (**git-ignored
+       while a trial**) and copied beside the exe by the csproj.
+     - **The presets:** "Cream of the Crop" (9,795) and the MilkDrop texture pack,
+       cloned into `%LOCALAPPDATA%\AudioFool\visualizer\presets` and `textures`. Some
+       names pass Windows' path limit, so the clone needs `git config core.longpaths
+       true`.
+     - **Core:**
+       - `Visualizer/ProjectMNative` (P/Invoke from the package's own headers).
+       - `GlContext` (a Win32 window, `wglCreateContext`, `DwmFlush` pacing,
+         `ReadPixels`).
+       - `ProjectMSession` (calm settings, the playlist, intensity → beat sensitivity
+         1.2^(n−5)). **The host must call `glewInit`** first, as projectM's own
+         frontend does: without it `projectm_create` crashes on null GL pointers.
+       - `PresetLibrary` (the pack less `screened-out.txt` and `skipped.txt`).
+     - **App:** `ProjectMHost`, an `HwndHost` child window with projectM on its own
+       thread and its own `VisualizerFeed`. It hands projectM the frames since the
+       last one, ending at what is heard.
+     - **4.1.6's limits:** it **always draws into framebuffer 0** (so OpenTK's
+       GLWpfControl couldn't be used, and no NuGet packages were added), and it has
+       **no `projectm_set_frame_time`**, so no speed knob. Both exist only in
+       projectM's unreleased master, not in 4.1.7 or 4.1.8. Building master or 4.1.8
+       needs Visual Studio's C++ tools and CMake, which this laptop doesn't have.
+     - **The preset screen** (scratch `heardprobe x --screen`): every preset in a
+       hidden window, a child process restarted after a crash. It writes
+       `screen-results.tsv` and `screened-out.txt`. On NVIDIA: 9,728 OK, 67 failed to
+       load (now skipped), none crashed, none slower than 40 ms. Not screened on
+       Intel.
+     - **ThemeLab `--window projectm --file <audio>`** reads frames back from the
+       context.
+     - **If projectM stays:**
+       - Move it into its own process, so a crash can't stop the music.
+       - Package the DLLs (the release file list grows by six).
+       - Ship the LGPL notice and the other licences (in the MSYS2 packages:
+         `share/licenses`).
+       - Decide about the presets folder.
+       - Consider building 4.1.8 or master, for the crash fixes and the speed knob.
    - **The user's theming call:** the window follows Light/Dark; the visualization
-     itself may use any colours (record it in `design/progress.md` when built). Session
-     6's scoping (LGPL-2.1, `GLWpfControl`) still stands.
+     itself may use any colours (recorded in `design/progress.md`).
 
 Confirmed by the user (2026-10-14, session 50): Edit Artist Tags on a big artist opens
 at once (session 47's background read).

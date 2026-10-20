@@ -50,6 +50,10 @@ public static class ShortcutGuide
                 new("Double-click or Alt+Enter", "Fullscreen, and back"),
                 new("Escape", "Leave fullscreen, or close it"),
                 new("Up / Down", "Livelier / calmer"),
+                new("B", "projectM / the bars"),
+                new("Right / Left", "projectM: next / previous preset"),
+                new("L", "projectM: stay on this preset, or move on again"),
+                new("Delete", "projectM: never show this preset again"),
                 new("Space, Ctrl+arrows and the rest", "Playback, as in the main window"),
             ]),
         ];

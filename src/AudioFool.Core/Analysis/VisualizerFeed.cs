@@ -45,6 +45,20 @@ public sealed class VisualizerFeed
     /// <summary>Whether the last frame had sound to read, rather than silence fed in.</summary>
     public bool Heard { get; private set; }
 
+    /// <summary>
+    /// The last frame's sound as plain PCM (<see cref="TapConverter.Output"/>), for a
+    /// renderer that analyses it itself, such as projectM; null until the tap has
+    /// said what it holds. Stale when <see cref="Heard"/> is false.
+    /// </summary>
+    public float[]? Pcm => _converter?.Output;
+
+    public int PcmRate => _converter?.OutputRate ?? 0;
+
+    public int PcmChannels => _converter?.Format.Channels ?? 0;
+
+    /// <summary>The frame of <see cref="Pcm"/> being heard now: the window is centred on it.</summary>
+    public int PcmNow => _fftSize / 2;
+
     /// <summary>1 (calm) to 10 (lively), passed to the analysis; see <see cref="LiveSpectrum.Intensity"/>.</summary>
     public int Intensity
     {

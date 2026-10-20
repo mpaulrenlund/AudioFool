@@ -3682,7 +3682,61 @@ the user first. 785 tests (9 new).
 - Published and installed.
 - **The user's test (2026-10-19):** the click "seems to be on time", and Bit-Perfect, the
   DSD file and fullscreen are "all fine". The click-track folder was then sent to D:'s
-  Recycle Bin. A monitor coming and going wasn't tried. Committed.
+  Recycle Bin. A monitor coming and going wasn't tried. Committed (`f619811`).
+
+Then **the projectM trial**, planned and approved by the user, downloads included.
+- **Downloads** (each in a new folder; checked against MSYS2's published SHA-256):
+  - From MSYS2's UCRT64 repository: libprojectm 4.1.6-1, glew 2.3.1-4, libgcc and
+    libstdc++ 16.2.0-6, libwinpthread 14.0.0.r495. gcc-libs and cc-libs were fetched
+    first; they turned out to be meta-packages.
+  - Unpacked with Windows' own `tar` (libarchive reads zstd): six DLLs, 4.6 MB, in
+    `lib/projectm/x64`, git-ignored.
+  - "Cream of the Crop" (9,795 presets, 161 MB on disk) and the MilkDrop texture pack
+    (68 files), shallow-cloned from projectM's GitHub into
+    `%LOCALAPPDATA%\AudioFool\visualizer\`. The first checkout stopped on long names;
+    `core.longpaths` and a restore fixed it.
+  - OpenTK was not needed after all.
+- **Found in projectM's own code (4.1.6):**
+  - `RenderFrame` ends with `glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0)`, under "ToDo:
+    Allow external apps to provide a custom target framebuffer". So projectM draws into
+    a native child window with its own WGL context, not into WPF.
+  - `projectm_set_frame_time` (speed) exists only in master; not in 4.1.6, 4.1.7 or
+    4.1.8. **No speed knob in the trial.**
+  - The host must call `glewInit`, as projectM's SDL frontend does; the first try
+    crashed in `projectm_create` with an access violation without it.
+- **Built:**
+  - Core `Visualizer/`: `ProjectMNative`, `GlContext`, `ProjectMSession`,
+    `PresetLibrary` (4 tests).
+  - `VisualizerFeed.Pcm`, `PcmRate` and `PcmNow`.
+  - The app's `ProjectMHost` (its own thread and feed; commands from the UI;
+    `DwmFlush` pacing). It passes double-clicks, mouse moves and cursor hiding through
+    to the window.
+  - `VisualizerWindow`: projectM when the DLLs and presets are there, the bars
+    otherwise or on failure. The keys are B, Right/Left, L and Delete. The level text
+    goes in a `Popup` over projectM.
+  - The shortcut guide, README, HANDOFF and progress.md.
+- **Smoke test** (scratch `heardprobe x --pm-smoke`, hidden window): it ran on the
+  **NVIDIA RTX PRO 500** (OpenGL 4.6, driver 597.16). Idle picture 4.75 ms a frame; a
+  preset loaded in 77 ms.
+- **ThemeLab `--window projectm`** (off-screen, silent, the real engine):
+  - projectM drew after 1.9 s, at 60 frames a second, while WPF ran 54 a second on the
+    UI thread.
+  - A frame read back, 1200×615 (960×492 DIPs at 125%), 38% lit: *Serge mashup002*.
+  - Right changed the preset; L locked and unlocked; B went to the bars and back
+    (drawing again after 0.97 s); closing turned the tap off.
+- **Installed:** 25 files, the 19 plus six DLLs.
+- **The preset screen, the whole pack** (scratch `heardprobe x --screen`):
+  - Every preset loaded in a hidden window on the NVIDIA chip, 30 frames each at
+    960×540, in 12.3 minutes.
+  - **9,728 OK, 67 failed to load, 0 crashed, 0 slower than 40 ms.** All 67 gave
+    `std::exception`, probably the HLSL-parser bugs 4.1.8 fixed.
+  - Frames averaged 1.39 ms; the slowest was 18.7 ms (*ye olde rotgasm*); 20 were
+    over 10 ms.
+  - Written to `screen-results.tsv` and `screened-out.txt` (the 67) in the
+    visualizer folder.
+  - **Not screened on the Intel chip.** projectM logs the renderer it gets
+    ("visualizer: projectM 4.1.6 on …" in playback.log), so a run on Intel will show
+    there.
 
 ---
 

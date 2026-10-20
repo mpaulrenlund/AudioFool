@@ -23,3 +23,6 @@ src/AudioFool/Resources/icon_preview.png
 # ThemeLab's default render, written to whatever folder it runs from (--window tokens
 # writes its specimen there). The leading slash keeps it to the repo root.
 /shot.png
+
+# projectM trial (session 58): the native DLLs stay out of git until projectM is kept.
+lib/projectm/

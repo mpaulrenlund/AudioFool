@@ -308,6 +308,9 @@ _Record anything decided during implementation that isn't in the spec, or that c
     - A Dark→Light switch matches a fresh Light start in the title strip (0 pixels).
     - The main window, against HEAD in both themes: 0 pixels different above the status bar; in it, only the new chip and Last.fm moved left of it.
     - The visualizer adds 17 bytes per frame on the UI thread against the same loop without it.
+- **The projectM trial in the visualizer** (2026-10-19, session 58, the user's go-ahead).
+  - **The picture:** projectM's, in a native child window (`ProjectMHost`). WPF can't draw over that, so the level number shows in a transparent `Popup` at the same place, same style and fade, closed once faded.
+  - **Trial keys:** B switches projectM and the bars. Right/Left, L and Delete control presets. L shows "Locked" / "Unlocked" and Delete "Skipped" in the level spot, words the user hasn't seen yet; they say which way a toggle went. No new tokens.
 
 ## Session notes
 

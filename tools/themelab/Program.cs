@@ -199,7 +199,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "analysis" or "clear" or "waveform" or "device" or "splice" or "themeswitch" or "visualizer" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "analysis" or "clear" or "waveform" or "device" or "splice" or "themeswitch" or "visualizer" or "projectm" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -1469,6 +1469,12 @@ internal static class Program
         // --window visualizer --file <audio> [--fullscreen 1]: plays it silently, opens the
         // visualizer quietly off-screen, measures a frame, renders it, steps the
         // intensity and renders the level number, then closes it (session 58).
+        // --window projectm --file <audio>: the projectM trial in the visualizer, off-screen
+        // and silent; reads back its picture (ThemeLab can't capture a native window).
+        if (which == "projectm")
+            return RunProjectM(main, vm, engine, Arg(args, "--file") ?? throw new ArgumentException("--window projectm needs --file <audio file>"),
+                outPath, w, h);
+
         if (which == "visualizer")
             return RunVisualizer(main, vm, engine, Arg(args, "--file") ?? throw new ArgumentException("--window visualizer needs --file <audio file>"),
                 Arg(args, "--fullscreen") is not null, outPath, w, h, scale);
@@ -4975,6 +4981,124 @@ internal static class Program
             main.ToggleVisualizer();
             Settle(200);
             Console.WriteLine($"closed: visualizer {(main.Visualizer is null ? "gone" : "still open")}, tap {engine.TapEnabled}");
+            engine.Stop();
+            return 0;
+        }
+        finally
+        {
+            if (settingsKept is not null)
+                File.WriteAllBytes(AppSettings.SettingsPath, settingsKept);
+            else if (File.Exists(AppSettings.SettingsPath))
+                File.Delete(AppSettings.SettingsPath);
+        }
+    }
+
+    /// <summary>
+    /// The projectM trial (session 58): opens the visualizer quietly off-screen on
+    /// the real engine at volume 0, waits for projectM to draw, saves frames read
+    /// back from its context, steps through presets and the B switch, and measures
+    /// the UI thread meanwhile. Settings and the skip list are put back.
+    /// </summary>
+    private static int RunProjectM(MainWindow main, MainViewModel vm, AudioEngine engine, string file, string outPath, double w, double h)
+    {
+        var settingsKept = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null;
+        PlaybackDiagnostics.LogPath = Path.Combine(Path.GetTempPath(), "themelab-projectm-" + Guid.NewGuid().ToString("N")[..8] + ".log");
+        try
+        {
+            vm.Volume = 0;
+            engine.Play([AudioFool.Core.Library.TagReader.Read(file)], 0);
+            Settle(500);
+
+            main.ToggleVisualizer(quietly: true);
+            var window = main.Visualizer ?? throw new InvalidOperationException("the visualizer didn't open");
+            window.Width = w;
+            window.Height = h;
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while ((window.ProjectM?.FramesDrawn ?? 0) < 60 && clock.ElapsedMilliseconds < 20000)
+                Settle(20);
+            var host = window.ProjectM;
+            if (host is null || host.FramesDrawn == 0)
+            {
+                Console.WriteLine($"projectM DIDN'T DRAW after {clock.ElapsedMilliseconds} ms: host {(host is null ? "gone (fell back to the bars)" : "there")}");
+                foreach (var line in File.Exists(PlaybackDiagnostics.LogPath) ? File.ReadLines(PlaybackDiagnostics.LogPath) : [])
+                    Console.WriteLine("log: " + line);
+                return 1;
+            }
+            Console.WriteLine($"projectM drawing after {clock.ElapsedMilliseconds} ms on {host.Renderer}; preset {Path.GetFileName(host.CurrentPreset)}");
+
+            // Two seconds: projectM's frames, WPF's frames on the UI thread, and the UI thread's allocation.
+            var uiFrames = 0;
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            EventHandler count = (_, _) => uiFrames++;
+            CompositionTarget.Rendering += count;
+            var drawnBefore = host.FramesDrawn;
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            while (watch.ElapsedMilliseconds < 2000)
+                Settle(5);
+            CompositionTarget.Rendering -= count;
+            Console.WriteLine($"projectM {(host.FramesDrawn - drawnBefore) / watch.Elapsed.TotalSeconds:0} frames a second; " +
+                              $"WPF {uiFrames / watch.Elapsed.TotalSeconds:0} a second on the UI thread, {(GC.GetAllocatedBytesForCurrentThread() - before) / Math.Max(1, uiFrames)} bytes a frame (ThemeLab's loop included)");
+
+            async Task SaveFrame(string path)
+            {
+                var (pixels, width, height) = await host.SnapshotAsync();
+                var stride = width * 4;
+                var flipped = new byte[pixels.Length];
+                for (var y = 0; y < height; y++)
+                    Array.Copy(pixels, (height - 1 - y) * stride, flipped, y * stride, stride);
+                for (var i = 0; i < flipped.Length; i += 4)
+                    (flipped[i], flipped[i + 2]) = (flipped[i + 2], flipped[i]);   // RGBA to BGRA
+                var image = BitmapSource.Create(width, height, 96, 96, PixelFormats.Bgra32, null, flipped, stride);
+                var lit = 0;
+                for (var i = 0; i < flipped.Length; i += 4)
+                    if (flipped[i] + flipped[i + 1] + flipped[i + 2] > 60) lit++;
+                using var stream = File.Create(path);
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(image));
+                encoder.Save(stream);
+                Console.WriteLine($"saved {path}: {width}x{height}, {100.0 * lit / (width * height):0.0}% of it lit");
+            }
+
+            void Wait(Task task)
+            {
+                var waited = System.Diagnostics.Stopwatch.StartNew();
+                while (!task.IsCompleted && waited.ElapsedMilliseconds < 10000)
+                    Settle(10);
+                task.GetAwaiter().GetResult();
+            }
+
+            Wait(SaveFrame(outPath));
+
+            var first = host.CurrentPreset;
+            host.Next();
+            Settle(1500);
+            Console.WriteLine($"Right: {Path.GetFileName(first)} -> {Path.GetFileName(host.CurrentPreset)}");
+            Wait(SaveFrame(Path.ChangeExtension(outPath, null) + "-next.png"));
+
+            var locked = (bool?)null;
+            host.ToggleLock(l => locked = l);
+            Settle(300);
+            Console.WriteLine($"L: locked {locked}");
+            host.ToggleLock(l => locked = l);
+            Settle(300);
+            Console.WriteLine($"L again: locked {locked}");
+
+            window.SwitchPicture();
+            Settle(500);
+            Console.WriteLine($"B: projectM {(window.ProjectM is null ? "gone, bars showing" : "STILL THERE")}");
+            window.SwitchPicture();
+            clock.Restart();
+            while ((window.ProjectM?.FramesDrawn ?? 0) < 30 && clock.ElapsedMilliseconds < 20000)
+                Settle(20);
+            Console.WriteLine($"B again: projectM drawing again after {clock.ElapsedMilliseconds} ms");
+
+            main.ToggleVisualizer();
+            Settle(300);
+            Console.WriteLine($"closed: tap {engine.TapEnabled}");
+            foreach (var line in File.Exists(PlaybackDiagnostics.LogPath) ? File.ReadLines(PlaybackDiagnostics.LogPath) : [])
+                if (line.Contains("visualizer") || line.Contains("LATE") || line.Contains("STARVED"))
+                    Console.WriteLine("log: " + line);
             engine.Stop();
             return 0;
         }

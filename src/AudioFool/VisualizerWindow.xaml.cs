@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -13,6 +14,7 @@ using Wpf.Ui.Controls;
 using AudioFool.Core.Analysis;
 using AudioFool.Core.Playback;
 using AudioFool.Core.Settings;
+using AudioFool.Core.Visualizer;
 using AudioFool.Services;
 using AudioFool.Theming;
 using AudioFool.ViewModels;
@@ -65,6 +67,14 @@ public partial class VisualizerWindow : FluentWindow
     private bool _keepingAwake;
     private Point _lastMouse = new(double.NaN, double.NaN);
 
+    // The projectM trial: projectM in the picture while it runs, the bars otherwise.
+    private readonly PresetLibrary _presets = new(PresetLibrary.DefaultFolder);
+    private readonly double _levelMargin;
+    private ProjectMHost? _projectM;
+    private Popup? _levelPopup;
+    private System.Windows.Controls.TextBlock? _popupText;
+    private System.Drawing.Point _lastCursor = new(int.MinValue, int.MinValue);
+
     public VisualizerWindow(MainViewModel viewModel, AudioEngine engine, Window main,
         Func<Key, ModifierKeys, bool, bool> playbackShortcut)
     {
@@ -81,6 +91,7 @@ public partial class VisualizerWindow : FluentWindow
         _topDb = n["visualizer.barTopDb"];
         _levelShow = TimeSpan.FromMilliseconds(n["visualizer.levelShowMs"]);
         _levelFade = TimeSpan.FromMilliseconds(n["visualizer.levelFadeMs"]);
+        _levelMargin = n["visualizer.levelMargin"];
 
         _feed = VisualizerFeed.For(engine, bands);
         _feed.Intensity = viewModel.VisualizerIntensity;
@@ -110,8 +121,11 @@ public partial class VisualizerWindow : FluentWindow
         _cursorTimer.Tick += (_, _) =>
         {
             _cursorTimer.Stop();
-            if (_fullscreen)
-                Cursor = Cursors.None;
+            if (!_fullscreen)
+                return;
+            Cursor = Cursors.None;
+            if (_projectM is not null)
+                _projectM.HideCursor = true;
         };
 
         SourceInitialized += (_, _) => Place();
@@ -119,6 +133,7 @@ public partial class VisualizerWindow : FluentWindow
         {
             _engine.TapEnabled = true;
             UpdateRendering();
+            StartProjectM();
         };
         IsVisibleChanged += (_, _) => UpdateRendering();
         StateChanged += (_, _) => UpdateRendering();
@@ -132,6 +147,12 @@ public partial class VisualizerWindow : FluentWindow
 
     /// <summary>The analysis the bars are drawn from, for ThemeLab.</summary>
     public VisualizerFeed Feed => _feed;
+
+    /// <summary>projectM while it runs in the picture (the trial), for ThemeLab.</summary>
+    public ProjectMHost? ProjectM => _projectM;
+
+    /// <summary>What B does: projectM or the bars. For ThemeLab.</summary>
+    public void SwitchPicture() => ToggleProjectM();
 
     /// <summary>Ctrl+Shift+F, the shortcut that opens it, closes it from here too (as Ctrl+D does the art viewer).</summary>
     internal static bool ClosesOn(Key key, ModifierKeys modifiers, bool isRepeat) =>
@@ -171,6 +192,9 @@ public partial class VisualizerWindow : FluentWindow
         if (_rendering)
             CompositionTarget.Rendering -= OnRendering;
         _rendering = false;
+        StopProjectM();
+        if (_levelPopup is not null)
+            _levelPopup.IsOpen = false;
         _engine.TapEnabled = false;
         KeepAwake(false);
         _cursorTimer.Stop();
@@ -185,6 +209,8 @@ public partial class VisualizerWindow : FluentWindow
     private void UpdateRendering()
     {
         var wanted = IsVisible && WindowState != WindowState.Minimized && !_locked;
+        if (_projectM is not null)
+            _projectM.Paused = !wanted;
         if (wanted == _rendering)
             return;
 
@@ -206,9 +232,13 @@ public partial class VisualizerWindow : FluentWindow
         _lastFrame = time;
 
         var playing = _engine.State == PlaybackState.Playing;
-        _feed.Next(seconds, playing);
         KeepAwake(_fullscreen && playing);
 
+        // projectM reads its own sound, on its own thread.
+        if (_projectM is not null)
+            return;
+
+        _feed.Next(seconds, playing);
         if (_feed.Spectrum is not { } spectrum)
             return;
 
@@ -258,6 +288,8 @@ public partial class VisualizerWindow : FluentWindow
         _fullscreen = false;
         _cursorTimer.Stop();
         Cursor = null;
+        if (_projectM is not null)
+            _projectM.HideCursor = false;
         KeepAwake(false);
         ShowAsFullscreen(false);
         if (_restoreTo is not { } bounds || !WindowPlacement.Apply(this, bounds))
@@ -337,12 +369,74 @@ public partial class VisualizerWindow : FluentWindow
         if (Math.Abs(at.X - _lastMouse.X) < 2 && Math.Abs(at.Y - _lastMouse.Y) < 2)
             return;
         _lastMouse = at;
+        CursorMoved();
+    }
 
+    private void CursorMoved()
+    {
         if (!_fullscreen)
             return;
         Cursor = null;
+        if (_projectM is not null)
+            _projectM.HideCursor = false;
         _cursorTimer.Stop();
         _cursorTimer.Start();
+    }
+
+    /// <summary>
+    /// A move over projectM's window, which WPF doesn't see. Windows sends a move
+    /// when nothing moved too (a window appearing under the cursor), so the cursor's
+    /// position decides.
+    /// </summary>
+    private void ProjectMMouseMoved()
+    {
+        if (!GetCursorPos(out var at) || (Math.Abs(at.X - _lastCursor.X) < 2 && Math.Abs(at.Y - _lastCursor.Y) < 2))
+            return;
+        _lastCursor = at;
+        CursorMoved();
+    }
+
+    // ------------------------------------------------------------ projectM (the trial)
+
+    /// <summary>Whether projectM can run here: its DLL beside the exe and the presets downloaded.</summary>
+    private bool ProjectMAvailable =>
+        System.IO.File.Exists(System.IO.Path.Combine(AppContext.BaseDirectory, "libprojectM-4-4.dll")) && System.IO.Directory.Exists(_presets.PresetsFolder);
+
+    /// <summary>projectM in the picture, over the bars; if it can't start, the bars stay.</summary>
+    private void StartProjectM()
+    {
+        if (_projectM is not null || !ProjectMAvailable)
+            return;
+
+        var host = new ProjectMHost(_engine) { Intensity = _feed.Intensity };
+        host.Failed += _ => StopProjectM();
+        host.DoubleClicked += ToggleFullscreen;
+        host.MouseMoved += ProjectMMouseMoved;
+        Picture.Children.Add(host);
+        Bars.Visibility = Visibility.Hidden;
+        _projectM = host;
+        UpdateRendering();
+    }
+
+    private void StopProjectM()
+    {
+        if (_projectM is not { } host)
+            return;
+
+        _projectM = null;
+        Picture.Children.Remove(host);
+        host.Dispose();
+        Bars.Visibility = Visibility.Visible;
+        _lastFrame = TimeSpan.MinValue;
+    }
+
+    /// <summary>B: projectM or the bars, to compare.</summary>
+    private void ToggleProjectM()
+    {
+        if (_projectM is not null)
+            StopProjectM();
+        else
+            StartProjectM();
     }
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)
@@ -374,6 +468,31 @@ public partial class VisualizerWindow : FluentWindow
             StepIntensity(key == Key.Up ? 1 : -1);
             e.Handled = true;
         }
+        else if (key == Key.B && modifiers == ModifierKeys.None)
+        {
+            if (!e.IsRepeat)
+                ToggleProjectM();
+            e.Handled = true;
+        }
+        else if (_projectM is { } projectM && modifiers == ModifierKeys.None && key is Key.Right or Key.Left or Key.L or Key.Delete)
+        {
+            // The trial's preset keys: next, previous, stay on this one, never again.
+            if (!e.IsRepeat)
+            {
+                if (key == Key.Right)
+                    projectM.Next();
+                else if (key == Key.Left)
+                    projectM.Previous();
+                else if (key == Key.L)
+                    projectM.ToggleLock(locked => ShowLevel(locked ? "Locked" : "Unlocked"));
+                else
+                {
+                    projectM.SkipCurrent(_presets);
+                    ShowLevel("Skipped");
+                }
+            }
+            e.Handled = true;
+        }
         else if (_playbackShortcut(key, modifiers, e.IsRepeat))
         {
             e.Handled = true;
@@ -387,11 +506,65 @@ public partial class VisualizerWindow : FluentWindow
     {
         _feed.Intensity += step;
         _viewModel.VisualizerIntensity = _feed.Intensity;
+        if (_projectM is not null)
+            _projectM.Intensity = _feed.Intensity;
 
-        LevelText.Text = _feed.Intensity.ToString(CultureInfo.CurrentCulture);
-        LevelText.BeginAnimation(OpacityProperty, null);
-        LevelText.Opacity = 1;
-        LevelText.BeginAnimation(OpacityProperty, new DoubleAnimation(1, 0, _levelFade) { BeginTime = _levelShow });
+        ShowLevel(_feed.Intensity.ToString(CultureInfo.CurrentCulture));
+    }
+
+    /// <summary>
+    /// Shows <paramref name="text"/> in the bottom-right corner for a moment. Over
+    /// projectM's window WPF can't draw, so there it goes in a popup, its own little
+    /// window, closed once the text has faded.
+    /// </summary>
+    private void ShowLevel(string text)
+    {
+        if (_projectM is null)
+        {
+            LevelText.Text = text;
+            Fade(LevelText);
+            return;
+        }
+
+        if (_levelPopup is null)
+        {
+            _popupText = new System.Windows.Controls.TextBlock { IsHitTestVisible = false };
+            _popupText.SetResourceReference(StyleProperty, "type.status");
+            _popupText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, "color.visualizer.level");
+            _levelPopup = new Popup
+            {
+                Child = _popupText,
+                AllowsTransparency = true,
+                PlacementTarget = Picture,
+                Placement = PlacementMode.Relative,
+                IsHitTestVisible = false,
+                Focusable = false,
+            };
+        }
+
+        _popupText!.Text = text;
+        _popupText.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        _levelPopup.HorizontalOffset = Picture.ActualWidth - _popupText.DesiredSize.Width - _levelMargin;
+        _levelPopup.VerticalOffset = Picture.ActualHeight - _popupText.DesiredSize.Height - _levelMargin;
+        _levelPopup.IsOpen = true;
+
+        var fade = Fade(_popupText);
+        var popup = _levelPopup;
+        fade.Completed += (_, _) =>
+        {
+            if (ReferenceEquals(_popupText?.Text, text))
+                popup.IsOpen = false;
+        };
+    }
+
+    /// <summary>Full opacity now, faded out after the show time.</summary>
+    private DoubleAnimation Fade(UIElement element)
+    {
+        var fade = new DoubleAnimation(1, 0, _levelFade) { BeginTime = _levelShow };
+        element.BeginAnimation(OpacityProperty, null);
+        element.Opacity = 1;
+        element.BeginAnimation(OpacityProperty, fade);
+        return fade;
     }
 
     // ------------------------------------------------------------ Win32
@@ -401,6 +574,9 @@ public partial class VisualizerWindow : FluentWindow
     private const int DwmwaBorderColour = 34;
     private const uint DwmColourNone = 0xFFFFFFFE;
     private const uint DwmColourDefault = 0xFFFFFFFF;
+
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out System.Drawing.Point point);
 
     [DllImport("kernel32.dll")]
     private static extern uint SetThreadExecutionState(uint flags);
