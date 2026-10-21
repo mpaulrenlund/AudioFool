@@ -421,7 +421,7 @@
                     after it, so the box keeps its right edge level with Albums.
                     Clicking anywhere on the chip clears it. The spec has no filter
                     chip; it borrows the status-bar chip's colours and corners, and
-                    its hover: control.faceHover, held while pressed, with the
+                    its hover: status.chipHover, held while pressed, with the
                     border and text unchanged (theme.chip).
                 -->
                 <ui:Button x:Name="LibraryFilterChip"
@@ -429,8 +429,8 @@
                            Height="{theme:Token titleBar.search.height}"
                            VerticalAlignment="Center"
                            Background="{DynamicResource color.status.chipBg}"
-                           MouseOverBackground="{DynamicResource color.control.faceHover}"
-                           PressedBackground="{DynamicResource color.control.faceHover}"
+                           MouseOverBackground="{DynamicResource color.status.chipHover}"
+                           PressedBackground="{DynamicResource color.status.chipHover}"
                            BorderBrush="{DynamicResource color.status.chipBorder}"
                            MouseOverBorderBrush="{DynamicResource color.status.chipBorder}"
                            PressedBorderBrush="{DynamicResource color.status.chipBorder}"

@@ -1389,7 +1389,8 @@
 
     <!--
         6.8: Refresh, Last.fm and Bit-Perfect. Chip grey, a 1 px border, 4 px
-        corners, 26 px tall. Hover brightens the face like a transport button's.
+        corners, 26 px tall. Hover brightens the face (status.chipHover; the
+        transport buttons' faceHover was invisible on chipBg in Dark).
     -->
     <Style x:Key="theme.chip" TargetType="ButtonBase">
         <Setter Property="Height" Value="{theme:Token statusBar.chipHeight}" />
@@ -1417,7 +1418,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Chip" Property="Background" Value="{DynamicResource color.control.faceHover}" />
+                            <Setter TargetName="Chip" Property="Background" Value="{DynamicResource color.status.chipHover}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="{theme:Token layout.disabledOpacity}" />

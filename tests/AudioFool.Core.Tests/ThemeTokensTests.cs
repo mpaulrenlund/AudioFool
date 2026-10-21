@@ -145,8 +145,9 @@ public class ThemeTokensTests
         // 48, plus control.faceHover and status.lastFmOff, scanTrack and scanFill (session 4),
         // plus the spectrogram's six levels and marker (the Analyze window), plus
         // window.titleGlow and control.playRing (PS2 Dark's effects), plus the
-        // visualizer's background, bar and level (session 58; the same in both).
-        Assert.Equal(65, t.Colors.Count);
+        // visualizer's background, bar and level (session 58; the same in both),
+        // plus status.chipHover (session 61).
+        Assert.Equal(66, t.Colors.Count);
         // 19, plus statValue (dialogs, Statistics).
         Assert.Equal(20, t.TextStyles.Count);
         // 8, plus playGlow (PS2 Dark).

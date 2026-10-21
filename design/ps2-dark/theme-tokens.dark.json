@@ -64,6 +64,7 @@
     "status": {
       "chipBg": "#1A1C22",
       "chipBorder": "#2F333C",
+      "chipHover": "#272A32",
       "libraryDot": "#3DDC84",
       "lastFmDot": "#3DDC84",
       "lastFmOff": "#FF5A5F",
