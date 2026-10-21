@@ -808,6 +808,21 @@ right when you might be clicking around, so a rebuild re-selects the same artist
 album by name rather than throwing you back to the top of the list — and when nothing
 changed it doesn't touch the collections at all.
 
+**Saving tags without risking the song.** A tag change that fits the room a file's tag
+has (most text edits) changes a few kilobytes, and only those bytes are written: if
+the save is stopped partway, the audio is untouched. One that doesn't fit (a new
+cover, a long field) means moving the whole song along the file, so it is made on a
+copy beside the song, checked (the same audio, byte for byte for FLAC, MP3 and DSF),
+and swapped in, keeping the song's creation date. A save is first made against a
+stand-in that reads the file and keeps the writes in memory, which is how AudioFool
+knows which kind it is (`DryRunStream`, `TagWriter.SaveTags`). Keep Best Cover and
+Convert PNG Covers swap their checked copies in the same way (`FileSwap`), keeping
+the original under a backup name until the copy is in place. Closing AudioFool during
+a save keeps the window open until it is done ("Finishing saving"), then closes. A
+working copy a crash leaves (`.audiofool-*.part`) is deleted by the next scan; a
+backup a broken-off swap couldn't put back is never deleted, and the status bar
+names it.
+
 **Opening where you left off.** Each time a song starts, its path, artist and album go
 into `settings.json` (`LastPlayed`). On the next launch, once the cached library is
 shown, the Artists and Albums lists select that artist and album and the song is

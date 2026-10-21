@@ -151,7 +151,7 @@ with the user first (see *Releases*).
 ### Where things are
 
 - **Everything in `README.md` is implemented and verified**, apart from the projectM
-  trial (below). **832 tests** pass. The installed app is session 60's build.
+  trial (below). **846 tests** pass. The installed app is session 60's build.
 - **Session 60** (2026-10-20): a review of the whole app (open findings: *Suggested
   next steps*, step 6), then three data-safety fixes, installed (details in
   `HISTORY.md`):
@@ -170,8 +170,18 @@ with the user first (see *Releases*).
     mode splice whatever the track's rate; `SpliceDelay` scales a resampled join to
     the mixer's rate; ThemeLab `--window splice` on Au5 3-03 → 3-04, 44.1 → 48: joined
     164 frames in, resampled) and **a new output starts at the volume set**
-    (`OutputChain._appliedGain` starts unset). Installed. **The user to hear both:**
-    Bit-Perfect off across a rate change, and a first play at a low volume.
+    (`OutputChain._appliedGain` starts unset). **Confirmed by the user** ("seems to be
+    working well", 2026-10-21).
+  - **Then (2026-10-21): safer tag saves.** A save is rehearsed against
+    `DryRunStream` (reads the file, keeps writes in memory). One that keeps the size
+    writes only the pages it changed; one that moves the audio is made on a
+    `.audiofool-save-*.part` copy beside the song, checked (`CoverCleaner.SameAudio`)
+    and swapped in by `FileSwap.Replace`, which keeps a backup until the copy is in
+    place (Keep Best Cover and PNG conversion use it too). Closing waits for a save
+    (`MainViewModel.Writes.cs`, "Finishing saving"). The scan deletes old `.part`
+    leftovers and names a `.bak` in the status bar. ThemeLab `--window safesave
+    --long "a;b"` checks it on copies of real songs. Installed 2026-10-21 08:29; see
+    `git status` for whether it's committed.
 - **Session 59** (2026-10-20), all installed and pushed (details in `HISTORY.md`):
   - **A click never scrolls a list** (`df67a6b`): a double-click on a row cut off at
     the bottom plays that row, not the one below. **Confirmed by the user.**
@@ -962,7 +972,8 @@ ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
 ThemeLab.exe --window queue       # edit queued and playing tracks while the real engine plays silently
 ThemeLab.exe --window queue --long "D:/Music/x/a.flac;D:/Music/y/b.dsf" [--longcomment 3000000]   # also save to real tracks (copied to scratch) while they play
 ThemeLab.exe --window closex          # Statistics' close button: normal click, a click WPF-UI loses and a client click while captured (both WRONG = the open bug), a cancelled close, press-and-slide-off (posted messages); prints the title-bar click log
-ThemeLab.exe --window splice --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a gapless join through the real engine, silent; prints the log's "gapless:" line (needs the device free, and both at the shared mix rate for an exact join)
+ThemeLab.exe --window splice --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a gapless join through the real engine, silent; prints the log's "gapless:" line (needs the device free; since session 60 any rates join in shared mode, "(resampled)" when they differ)
+ThemeLab.exe --window safesave --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # copies of one album's songs (never the songs) given a new cover through the album save, the window closed mid-save; checks the window waited, the audio is identical, one cover, creation date kept, no leftovers ("ALL OK")
 ThemeLab.exe --window device --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a change of default output device, simulated: playing, paused, stopped, next track
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
 ThemeLab.exe --w 1300 --h 700 --lastfm failing   # the status-bar indicator
@@ -1477,11 +1488,8 @@ Open items only; finished ones are in `HISTORY.md`.
        first track (`TagWriter.WriteAlbumTrackTags`, `TagEditViewModel` ctor): a
        compilation's artists collapse to track 1's, "Unknown Album" is written
        literally, and the year becomes the earliest.
-     - **Tag saves rewrite in place** (`TagLib.File.Save`), and closing the app doesn't
-       wait for a save in progress (`MainViewModel.Dispose`, `App.OnExit`).
-     - **`File.Replace(result, path, null)`** with no backup in `CoverCleaner` (~201,
-       ~268), and the `finally` deletes the result: on ERROR_UNABLE_TO_MOVE_REPLACEMENT
-       the song is gone.
+     - (Tag saves in place, closing during a save, and `CoverCleaner`'s swap without a
+       backup: fixed 2026-10-21, safer tag saves.)
      - **`WriteFolderArt`** deletes the old cover before writing the new one, writes
        in place, and writes to every folder holding a track of the album.
      - **`ReleaseDate`**: `\d` matches non-ASCII digits, which `int.Parse` refuses, so

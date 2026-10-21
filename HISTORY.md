@@ -3958,7 +3958,56 @@ Then, in a new conversation the same evening (session 58 continued):
     frames, each playing on into the next track. 832 tests (the allocation test failed
     once more on the first run after a build, then passed). Installed. Not verified:
     the first block's level, which nothing off-screen measures (the tap is before the
-    volume); the user to hear it.
+    volume); the user to hear it. **Confirmed by the user** ("seems to be working
+    well", 2026-10-21).
+- **Then safer tag saves** (the review's next item, the user's pick).
+  - **The problem:** `TagLib.File.Save()` rewrites in place. An edit that fits the
+    tag's room changes a few KB; one that doesn't (a new cover, a long field) moves
+    the audio along the file, rewriting the whole song, and anything stopping it
+    partway (closing, sleep, the SSD pulled) left the song damaged. Closing didn't
+    wait for a save. For a file playback held, the whole save was first tried on a
+    copy in %TEMP% (`TrialSave`) to learn which kind it was.
+  - **A rehearsal first:** `Core/Library/DryRunStream`, a stream over the file that
+    serves reads from it and keeps writes in 4 KB pages in memory. TagLib saves
+    against it (`TagWriter.Rehearse`). Kept the size and never truncated: the pages
+    are written into the real file, shared, flushed (`WriteInPlace`). Otherwise, or
+    past 32 MB of writes (`TooMuchRewrittenException`, only a save that moves the
+    audio gets there): `SaveOnCopy`, a `.audiofool-save-<guid>.part` beside the song,
+    TagLib told the format, flushed, `CoverCleaner.SameAudio` (TagLib's length, rate
+    and channels the same; the audio's bytes by SHA-256 where `TagPadding` knows the
+    layout), then `FileSwap.Replace`. The rehearsal's answer is also the holder's
+    `needsRelease`, so `TrialSave` and its %TEMP% copies are gone. A file changed
+    between the rehearsal and the save isn't written ("try again").
+  - **`FileSwap.Replace`:** `File.Replace` with a backup
+    (`.audiofool-backup-<guid>-<name>.bak`), deleted once the copy is in place; if
+    the swap breaks off with the original under the backup name, it is moved back.
+    `CoverCleaner` (Keep Best Cover, KeepOnly, ReplaceCover, so PNG conversion too)
+    used `File.Replace(result, path, null)`, which in ERROR_UNABLE_TO_MOVE_REPLACEMENT
+    leaves only the copy, which its `finally` then deleted.
+  - **Closing waits:** `MainViewModel.Writes.cs`. Every tag save, Keep Best Cover and
+    PNG conversion holds a `BeginWrite()` scope for its whole method; `MainWindow
+    .OnClosing` cancels the close while `IsWriting`, says "Finishing saving -
+    AudioFool will close when it's done.", stops Keep and PNG after the song in hand,
+    and closes once the count reaches 0. `Dispose` now cancels `_pngCts` too.
+  - **Leftovers:** the scan collects files beside songs starting `.audiofool-`
+    (`ScanResult.Leftovers`). Working copies (`.part`) not written for 10 minutes are
+    deleted (`FileSwap.DeleteLeftovers`; a save can be running during a scan); a
+    backup is never deleted, and the status bar names it.
+  - **Checked:** 14 new tests (`SafeTagSaveTests`, `DryRunStreamTests`,
+    `LeftoverTests`), 846 in all. A save that fits and one that moves the audio,
+    FLAC, MP3 and DSF, each byte for byte what TagLib's own save makes, the path
+    taken confirmed through the holder's question, creation dates kept, nothing left
+    behind; a refused swap leaves the song untouched. ThemeLab `--window safesave`
+    (new): copies of Au5 3-03..3-06 given a 900 KB cover album-wide through
+    `ApplyAlbumEditAsync`, the window closed straight after: it stayed open with the
+    message and closed when the save ended; each copy +803 KB, audio identical, one
+    cover, creation date kept, no leftovers. `nowplayingart`, `pngconvert` and
+    `queue` (saves to files the real engine is playing, gapless and Next onto files
+    being saved) all OK; `queue`'s "after saves, playback resumes ... Stopped" line is
+    the same on the previous build (its last fixture is 0.6 s long). `covers` needs an
+    album with extra covers, which the library no longer has: run on a scratch album
+    of two Arch Echo copies given a second cover, both down to one, no leftovers.
+    Installed (AudioFool closed for it at the user's word).
 
 ---
 
