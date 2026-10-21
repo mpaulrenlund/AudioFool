@@ -55,9 +55,12 @@ internal sealed class OutputChain : IDisposable
     private bool _fadeInNext;
 
     // The volume asked for, and the one the last block ended on. Fill glides from
-    // one to the other across a block, so a drag or Mute doesn't click.
+    // one to the other across a block, so a drag or Mute doesn't click. None has
+    // ended on anything before the first block, which starts at the volume asked
+    // for: starting at 1 played a new chain's first block (up to the whole 200 ms
+    // prefill) from full volume down to a low setting.
     private float _gain = 1f;
-    private float _appliedGain = 1f;
+    private float _appliedGain = float.NaN;
     private float[] _gainScratch = [];
 
     private int _mixer;
@@ -68,6 +71,7 @@ internal sealed class OutputChain : IDisposable
         _mixer = mixer;
         _wasapiProc = Fill;
         _mixerChannels = channels;
+        MixerRate = sampleRate;
         _fadeFrames = Math.Max(1, (int)(sampleRate * SeekFadeSeconds));
         _fadeScratch = new float[_fadeFrames * channels];
         SampleRate = sampleRate;
@@ -95,6 +99,13 @@ internal sealed class OutputChain : IDisposable
 
     /// <summary>The channels in the buffer: the mixer's, which the device was opened with.</summary>
     public int MixerChannels => _mixerChannels;
+
+    /// <summary>
+    /// The rate the mixer runs at, which every source is resampled to: the rate
+    /// the device was opened with. <see cref="SampleRate"/> is what the device
+    /// reports, which is the same unless shared mode landed elsewhere.
+    /// </summary>
+    public int MixerRate { get; }
 
     public int SampleRate { get; private set; }
     public int Channels { get; private set; }
@@ -179,8 +190,9 @@ internal sealed class OutputChain : IDisposable
 
     private void ApplyGain(IntPtr buffer, int frames)
     {
-        var from = _appliedGain;
         var to = Volatile.Read(ref _gain);
+        var from = float.IsNaN(_appliedGain) ? to : _appliedGain;
+        _appliedGain = to;
         if (from == 1f && to == 1f)
             return;
 
@@ -196,7 +208,6 @@ internal sealed class OutputChain : IDisposable
                 _gainScratch[f * _mixerChannels + c] *= gain;
         }
         Marshal.Copy(_gainScratch, 0, buffer, samples);
-        _appliedGain = to;
     }
 
     /// <summary>A raised-cosine gain over <paramref name="count"/> frames from <paramref name="firstFrame"/>.</summary>

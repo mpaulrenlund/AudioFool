@@ -912,6 +912,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         var reopenAtIndex = -1;
         var waitForSave = false;
         long spliceFrames = 0;
+        var resampledJoin = false;
         long joinFrame = 0;
         var generation = _heard.Generation;
         var plays = Volatile.Read(ref _plays);
@@ -936,14 +937,17 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
             finished = _currentStream;
 
-            // The next track can only be spliced in if the device is already
-            // running at its rate. In shared mode that's always true. In exclusive
-            // mode a 44.1 kHz track following a 96 kHz one means re-clocking the
-            // DAC, which cannot be done without a gap - so hand it to a worker to
-            // reopen the device rather than pretending otherwise.
+            // In shared mode the mixer runs at Windows' rate and resamples every
+            // track to it, so any track can be spliced in. In exclusive mode the
+            // device runs at the track's own rate: a 44.1 kHz track following a
+            // 96 kHz one means re-clocking the DAC, which cannot be done without a
+            // gap - so hand it to a worker to reopen the device rather than
+            // pretending otherwise. (Until session 60 shared mode was held to the
+            // same rule, and a track at another rate than Windows' lost the last
+            // 0.2 s of the one before it to a reopen.)
             var canSplice = _prefetchedStream != 0
                             && _output is not null
-                            && RateOf(_prefetchedStream) == _output.SampleRate;
+                            && (_output.Mode == OutputMode.Shared || RateOf(_prefetchedStream) == _output.MixerRate);
 
             if (canSplice)
             {
@@ -956,7 +960,8 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 SetCurrentStream(promoted);
 
                 var delay = SpliceDelay(finished);
-                spliceFrames = delay / (sizeof(float) * _output!.Channels);
+                spliceFrames = delay / (sizeof(float) * _output!.MixerChannels);
+                resampledJoin = RateOf(promoted) != _output.MixerRate || RateOf(finished) != _output.MixerRate;
 
                 // Where the new track starts in what the device is given: the
                 // speakers reach it this far into this pull.
@@ -994,9 +999,10 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             if (promoted != 0)
             {
                 var track = CurrentTrack;
+                var resampled = resampledJoin ? " (resampled)" : "";
                 PlaybackDiagnostics.Note(spliceFrames > 0
-                    ? $"gapless: next track joined {spliceFrames} frames into the block"
-                    : "gapless: next track joined at the block start (ended on a block edge, or resampled)");
+                    ? $"gapless: next track joined {spliceFrames} frames into the block{resampled}"
+                    : $"gapless: next track joined at the block start (ended on a block edge){resampled}");
 
                 PrefetchAfter(promotedIndex);
 
@@ -1130,23 +1136,29 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     /// in PCM, but in DoP the sum destroys the markers and the DAC drops out of DSD
     /// for a moment: a gap between DSD tracks (session 51, measured on real DSFs).
     /// The frames <paramref name="finished"/> gave in this block are where it was
-    /// before the pull to its end. Only without resampling, where its frames are the
-    /// mixer's; 0 (the old behaviour) when it can't be worked out.
+    /// before the pull to its end. Exact without resampling, where its frames are
+    /// the mixer's. Resampled (shared mode, a track at another rate than Windows'),
+    /// they are scaled to the mixer's rate, which is within the resampler's few
+    /// frames of filter delay; DoP is never resampled. 0 (the old behaviour) when
+    /// it can't be worked out.
     /// Caller holds <see cref="_gate"/>, on the device's thread.
     /// </summary>
     private long SpliceDelay(int finished)
     {
         if (_output is null || _pullStream != finished || _pullStartBytes < 0
-            || RateOf(finished) != _output.SampleRate || !Bass.ChannelGetInfo(finished, out var info))
+            || !Bass.ChannelGetInfo(finished, out var info) || info.Frequency <= 0)
             return 0;
 
-        var frames = (Bass.ChannelGetPosition(finished) - _pullStartBytes) / (sizeof(float) * info.Channels);
+        var sourceFrames = (Bass.ChannelGetPosition(finished) - _pullStartBytes) / (sizeof(float) * info.Channels);
+        var frames = info.Frequency == _output.MixerRate
+            ? sourceFrames
+            : sourceFrames * _output.MixerRate / info.Frequency;
 
         // A pull is a few hundredths of a second; more than a second is a stale reading.
-        if (frames <= 0 || frames > _output.SampleRate)
+        if (frames <= 0 || frames > _output.MixerRate)
             return 0;
 
-        return frames * sizeof(float) * _output.Channels;
+        return frames * sizeof(float) * _output.MixerChannels;
     }
 
     /// <summary>
