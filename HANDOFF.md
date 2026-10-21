@@ -122,7 +122,14 @@ it publishes a tag. Middle number for new features, last for fixes only.
    playback, so say so).
 
 The notes are written for the user, grouped New / Improved / Fixed, from
-`git log v<old>..HEAD` with the Docs and ThemeLab commits left out.
+`git log v<old>..HEAD` with the Docs and ThemeLab commits left out. **One exception:**
+`275921e` "Docs: the Bit-Perfect rate-change tail" also holds the code fix (a rate
+change in Bit-Perfect no longer cuts the old track's last ~0.2 s); its own commit
+failed on the message's quotes. Include it under Fixed.
+
+Write commit messages to a file and use `git commit -F <file>`: in Windows
+PowerShell 5.1 a double quote inside a here-string message breaks the argument
+and the commit fails, as it did for `275921e`.
 
 ---
 
