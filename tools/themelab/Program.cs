@@ -60,14 +60,31 @@ internal static class Program
         // --singleinstance <files...>: the app's one-copy handover under a test name,
         // never the real app's. This copy becomes the one copy, starts others of
         // ThemeLab with --singlechild, and prints what reaches it.
+        if (Arg(args, "--singleinstance") is "exit")
+            return RunSingleExit();
         if (Arg(args, "--singleinstance") is not null)
             return RunSingleInstance(args);
         if (Arg(args, "--singlechild") is { } childName)
         {
             var files = args.SkipWhile(a => a != "--files").Skip(1).ToArray();
+            var takeOver = Arg(args, "--takeover") is "1";
             var started = AudioFool.Services.SingleInstance.Start(files, childName);
-            Console.WriteLine(started is null ? "handed over" : "became the one copy (WRONG for a child)");
-            started?.Dispose();
+            if (started is null)
+            {
+                Console.WriteLine(takeOver ? "handed over (WRONG: the first copy was closing)" : "handed over");
+                return 0;
+            }
+
+            // A copy that became the one copy stays a while, as the app would, so
+            // a fault on its listener shows. With --takeover it reports what it
+            // was handed: its own files, and those of a copy started after it.
+            var received = new List<string>();
+            started.FilesOpened += f => received.AddRange(f);
+            Settle(int.TryParse(Arg(args, "--stay"), out var stay) ? stay : 1500);
+            Console.WriteLine(takeOver
+                ? $"took over; files: {string.Join(", ", received.Select(Path.GetFileName))}"
+                : "became the one copy (WRONG for a child)");
+            started.Dispose();
             return 0;
         }
 
@@ -4086,6 +4103,95 @@ internal static class Program
         Console.WriteLine($"{batches.Count} batch(es), {activations} activations -> {(ok ? "OK" : "WRONG")}");
         primary.Dispose();
         Directory.Delete(dir, recursive: true);
+        return ok ? 0 : 1;
+    }
+
+    /// <summary>
+    /// --singleinstance exit: a copy started while the one copy is closing. The
+    /// first copy lets go as App.OnExit does (Dispose) and stays alive a while, as
+    /// the app does while it saves; a copy started then must take over with its
+    /// song, and not fault.
+    /// </summary>
+    private static int RunSingleExit()
+    {
+        var name = "AudioFoolThemeLab-" + Guid.NewGuid().ToString("N")[..8];
+        var dir = Path.Combine(Path.GetTempPath(), name);
+        Directory.CreateDirectory(dir);
+        string File(string fileName) => Path.Combine(dir, fileName);
+
+        System.Diagnostics.Process Child(bool takeOver, params string[] files)
+        {
+            var info = new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            foreach (var arg in (string[])["--singlechild", name, "--takeover", takeOver ? "1" : "0", "--stay", "4000", "--files", .. files])
+                info.ArgumentList.Add(arg);
+            return System.Diagnostics.Process.Start(info)!;
+        }
+
+        bool Report(System.Diagnostics.Process child, string expected)
+        {
+            var deadline = DateTime.UtcNow.AddSeconds(20);
+            while (!child.HasExited && DateTime.UtcNow < deadline)
+                Settle(50);
+            var output = child.StandardOutput.ReadToEnd().Trim();
+            var error = child.StandardError.ReadToEnd().Trim();
+            var ok = child.HasExited && child.ExitCode == 0 && output == expected && error.Length == 0;
+            var cpu = child.HasExited ? $" cpu={child.TotalProcessorTime.TotalMilliseconds:F0} ms" : "";
+            Console.WriteLine($"  child: '{output}' exit={(child.HasExited ? child.ExitCode.ToString("X") : "still running")}{cpu}"
+                + (error.Length > 0 ? $" stderr: {error.Split('\n')[0].Trim()}" : "") + $" -> {(ok ? "OK" : "WRONG")}");
+            if (!child.HasExited)
+                child.Kill();
+            return ok;
+        }
+
+        Console.WriteLine("started while the first copy is closing (let go, still saving):");
+        var first = AudioFool.Services.SingleInstance.Start([], name)
+            ?? throw new InvalidOperationException("the first copy handed over");
+        first.Dispose();
+        // The next copy takes over; one more, started while the first is still
+        // saving, must reach the new one copy, not the one closing.
+        var taker = Child(true, File("1 One.flac"));
+        Settle(1000);
+        var later = Child(false, File("2 Two.flac"));
+        var ok = Report(later, "handed over");
+        ok &= Report(taker, "took over; files: 1 One.flac, 2 Two.flac");
+
+        Console.WriteLine("started after the window closed, before the first copy let go:");
+        first = AudioFool.Services.SingleInstance.Start([], name)
+            ?? throw new InvalidOperationException("the first copy handed over");
+        var lost = new List<string>();
+        first.FilesOpened += f => lost.AddRange(f);
+        first.StopListening();
+        var waiter = Child(true, File("3 Three.flac"));
+        Settle(2000);
+        first.Dispose();
+        ok &= Report(waiter, "took over; files: 3 Three.flac");
+        Settle(700);
+        Console.WriteLine($"  reached the closing copy: {(lost.Count == 0 ? "nothing -> OK" : string.Join(", ", lost) + " -> WRONG")}");
+        ok &= lost.Count == 0;
+
+        Console.WriteLine("handed over while the first copy's UI thread is busy for 1 s:");
+        first = AudioFool.Services.SingleInstance.Start([], name)
+            ?? throw new InvalidOperationException("the first copy handed over");
+        var received = new List<string>();
+        first.FilesOpened += f => received.AddRange(f);
+        var busy = Child(false, File("4 Four.flac"));
+        Thread.Sleep(300);
+        Thread.Sleep(1000);
+        ok &= Report(busy, "handed over");
+        Settle(700);
+        Console.WriteLine($"  the one copy got: {string.Join(", ", received.Select(Path.GetFileName))}"
+            + (received.Count == 1 ? " -> OK" : " -> WRONG"));
+        ok &= received.Count == 1;
+        first.Dispose();
+
+        Directory.Delete(dir, recursive: true);
+        Console.WriteLine(ok ? "ALL OK" : "WRONG");
         return ok ? 0 : 1;
     }
 

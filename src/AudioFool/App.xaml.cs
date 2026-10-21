@@ -17,26 +17,40 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // A last-resort net so an unexpected fault shows a readable message
+        // instead of vanishing the window with a Win32 exit code. With no window
+        // left to go back to, the app ends rather than living on unseen.
+        DispatcherUnhandledException += (_, args) =>
+        {
+            ShowError(args.Exception);
+            args.Handled = true;
+            if (Windows.Count == 0)
+                Shutdown(1);
+        };
+
+        try
+        {
+            Launch(e.Args);
+        }
+        catch (Exception ex)
+        {
+            // Before the window is up. Carrying on would leave a copy with no
+            // window holding the one-copy lock, and every later start would hand
+            // its songs to it and show nothing (session 61).
+            ShowError(ex);
+            Shutdown(1);
+        }
+    }
+
+    private void Launch(string[] args)
+    {
         // One copy: a song opened from Explorer goes to the copy already running.
-        _instance = SingleInstance.Start(e.Args);
+        _instance = SingleInstance.Start(args);
         if (_instance is null)
         {
             Shutdown();
             return;
         }
-
-        // A last-resort net so an unexpected fault shows a readable message
-        // instead of vanishing the window with a Win32 exit code.
-        DispatcherUnhandledException += (_, args) =>
-        {
-            MessageBox.Show(
-                args.Exception.ToString(),
-                "AudioFool hit an unexpected error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-
-            args.Handled = true;
-        };
 
         // Diagnostics for the X that sometimes ignores clicks; changes nothing.
         TitleBarClickLog.Install();
@@ -70,16 +84,28 @@ public partial class App : Application
 
         _instance.Activated += window.BringToFront;
         _instance.FilesOpened += _viewModel.OpenFiles;
+        // From here on the app only saves and exits. (Closing can still be
+        // put off while a tag save finishes; a song opened then is lost.)
+        window.Closed += (_, _) => _instance.StopListening();
 
         window.Show();
     }
 
+    private static void ShowError(Exception ex) => MessageBox.Show(
+        ex.ToString(),
+        "AudioFool hit an unexpected error",
+        MessageBoxButton.OK,
+        MessageBoxImage.Error);
+
     protected override void OnExit(ExitEventArgs e)
     {
-        _instance?.Dispose();
         _viewModel?.Dispose();
         _engine?.Dispose();
         _runtime?.Shutdown();
+
+        // Last, once everything is saved: a copy started meanwhile has been
+        // waiting, and takes over now.
+        _instance?.Dispose();
 
         base.OnExit(e);
     }
