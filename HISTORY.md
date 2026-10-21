@@ -3881,6 +3881,61 @@ Then, in a new conversation the same evening (session 58 continued):
 - Committed as `df67a6b`, `18d4ef3`, `9bcc1e8`, `91e0de9` and `fe53900` (docs), all
   pushed. Installed. 811 tests. Unreleased (the last release is v0.6.1).
 
+### Session 60 (2026-10-20): a review of the whole app; three data-safety fixes
+
+- **A review of the whole app** (the user asked for one): eight read-only reviewers,
+  one per area (playback, library, file writes, the main view model, windows and
+  services, UI against the specs, analysis/visualizer/Last.fm, product). The serious
+  findings were checked against the code; the shared-mode gapless one also against
+  `playback.log`. The open ones are in HANDOFF's *Suggested next steps*, step 6. The
+  user chose the data-safety fixes first.
+- **settings.json can't be wiped.** It was the one file written in place
+  (`File.WriteAllText`), and `RememberLastPlayed` (every track change) and
+  `SaveVolumeOnly` (at close) re-read it and saved what they got: defaults when the
+  read failed. Defaults drop `D:\Music` and the Last.fm login, and the next scan then
+  drops every track of the real folders from library.json. Now:
+  - `Save` writes `settings.json.tmp`, flushes it to the disk and swaps it in with
+    `File.Replace`, keeping the save before as `settings.json.bak`.
+  - `Load(path, now)` tries a locked file three times 100 ms apart. An unreadable one
+    (bad JSON, `null`, `MusicFolders: null`) is moved aside to
+    `settings.unreadable-<time>.json`, as playlists.json is, and the backup is read.
+  - A file still locked after the retries: the session runs on the backup, or on
+    defaults, with `IsReadOnly` set. `Save` then does nothing, `SaveCacheAsync` skips
+    library.json, and the status bar says the settings file couldn't be read.
+  - `TryLoadCurrent(whenMissing, out settings)` for the two one-value saves: false when
+    the file can't be read, so nothing is written; with no file yet, the settings in use
+    are saved whole.
+- **A drive lost mid-scan is unplugged, not blank or deleted.** Each file's stamp was
+  taken before its tags were read, so a file the scan couldn't open was stored blank
+  ("Unknown Artist") with its real size and date, and never read again; files the
+  listing hadn't reached were taken as deleted. Now:
+  - `TagReader.Read(path, stamp, out couldNotOpen)`: an `IOException` or
+    `UnauthorizedAccessException` opening the file gives the track an unknown stamp, so
+    no cache trusts it. A file that opens but can't be parsed keeps its real stamp, as
+    before.
+  - The scanner keeps a known track's cached tags when its file couldn't be opened
+    (`ScanSummary.Unopened`; a re-read for a new cache version stays unfinished, like a
+    missing drive).
+  - A root whose listing threw, or that is gone once the tags are read, joins
+    `UnavailableFolders`: its tracks come from the cache, what was read of it is
+    dropped, and nothing in it counts as removed. Removed is now counted as cached paths
+    missing from the result.
+- **Edits made during a scan are kept.** The scan works from the library as it was
+  when it started, and its result replaced the whole library, undoing tag saves, adopted
+  folder covers and Keep Best Cover commits made meanwhile. `ReplaceTracksInLibrary`
+  (every library edit goes through it) notes each song while `IsScanning`, and
+  `Core/Library/EditsDuringScan.Apply` puts those copies over the scan's when it lands,
+  unless the scan read the file changed later still. A tie goes to the edit (an adopted
+  cover doesn't change the audio file's stamp).
+- **Checked:** 21 new tests (`SettingsFileTests`, `DriveLostMidScanTests`,
+  `EditsDuringScanTests`), 832 in all, three runs. The mid-scan drive loss is a real
+  scan whose folder is deleted from its first progress report, after the listing and
+  before the tags; on the old code it would return the new file and no unavailable
+  folder. Locked files are `FileShare.None` streams. Not verified: a real SSD pulled
+  mid-scan. Installed (not running at the time). The first full run of the session also
+  failed `LiveSpectrumTests.An_update_allocates_nothing` once (7,264 bytes on a cold
+  run after a build); it passed every run since, and `Update` allocates nothing.
+
 ---
 
 ## Reference notes retired from the handoff

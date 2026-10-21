@@ -236,6 +236,22 @@ removed, and the cache was overwritten with nothing. There are now tests for bot
 halves of the distinction: an *unreachable* folder preserves its tracks, while a
 folder that is present and genuinely empty still reports them as removed.
 
+The same holds when the drive goes **during** a scan. A folder whose listing breaks
+off, or that is gone by the time the tags have been read, is treated as unplugged
+from the start, and the status bar says so. A song whose file can't be opened (the
+drive going, or the file locked) keeps the tags it had; a new one is listed by its
+file name and read properly at the next scan. Anything saved in AudioFool while a
+scan runs (tags, a cover) is kept when the scan finishes.
+
+### The settings file
+
+`%APPDATA%\AudioFool\settings.json` holds the music folders and the Last.fm login.
+Each save is written beside it first and then swapped in, and the one before is kept
+as `settings.json.bak`. A damaged file is moved aside as
+`settings.unreadable-<time>.json` and the backup is used. If the file is there but
+locked for more than a moment at startup, AudioFool runs without saving anything
+that session (the status bar says so) rather than write defaults over it.
+
 ### Playback
 
 Nothing special is needed. BASS reads through ordinary Windows file I/O, so any drive

@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-20, session 59. Read this alongside `README.md`: the README covers
+Updated 2026-10-20, session 60. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -130,10 +130,10 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 ### Start of the next session
 
-Nothing is running and nothing is uncommitted: everything is pushed to `origin/main`.
-The installed app is session 59's 14:08 build, which is HEAD less `9bcc1e8`'s removal of
-unused code, so it behaves the same; reinstall with the next change anyway. The beat
-screen's Terminal tab ("beat screen") has finished and can be closed.
+Session 60's three data-safety fixes (settings.json, a drive lost mid-scan, edits
+during a scan; see *Where things are*) are installed. Whether they are committed and
+pushed: check `git status`. The rest of session 60's review is *Suggested next steps*,
+step 6, in the order the user may want to take it.
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
@@ -151,8 +151,21 @@ with the user first (see *Releases*).
 ### Where things are
 
 - **Everything in `README.md` is implemented and verified**, apart from the projectM
-  trial (below). **811 tests** pass. Everything is committed and pushed (last commit
-  `fe53900`, *Docs: session 59*); the installed app is session 59's build.
+  trial (below). **832 tests** pass. The installed app is session 60's build.
+- **Session 60** (2026-10-20): a review of the whole app (open findings: *Suggested
+  next steps*, step 6), then three data-safety fixes, installed (details in
+  `HISTORY.md`):
+  - **settings.json** is written beside itself and swapped in, keeping
+    `settings.json.bak`; a damaged one falls back to the backup; a locked one makes the
+    session `IsReadOnly` (no settings or library.json saves, a status-bar warning); the
+    two re-read-then-save paths (`TryLoadCurrent`) skip the write when the read fails.
+  - **A drive lost mid-scan** is treated as unplugged (`LibraryScanner`: a root whose
+    listing threw or that is gone after the tags), and a file that can't be opened
+    keeps its cached tags (`TagReader.Read(..., out couldNotOpen)`, unknown stamp for a
+    new one).
+  - **Edits during a scan** are kept (`_editedDuringScan`, `EditsDuringScan.Apply`).
+  - Not verified on real hardware: a real SSD pulled mid-scan, a real locked
+    settings.json. The tests stand in for both.
 - **Session 59** (2026-10-20), all installed and pushed (details in `HISTORY.md`):
   - **A click never scrolls a list** (`df67a6b`): a double-click on a row cut off at
     the bottom plays that row, not the one below. **Confirmed by the user.**
@@ -1440,6 +1453,75 @@ Open items only; finished ones are in `HISTORY.md`.
        - Consider building 4.1.8 or master, for the crash fixes and the speed knob.
    - **The user's theming call:** the window follows Light/Dark; the visualization
      itself may use any colours (recorded in `design/progress.md`).
+
+6. **Session 60's review: open findings** (checked against the code unless marked
+   "reported"; the review's full text is not kept, so these are the leads). Ask the
+   user which to take next.
+   - **Playback:**
+     - **Shared-mode gapless fails when a track's rate isn't the Windows mix rate**
+       (`AudioEngine.cs` ~944: `canSplice` compares the source rate with
+       `_output.SampleRate`, which in shared mode is `SharedMixRate`). The track
+       goes through `JumpTo` → `PlayCore` → `_output.Stop()`, which flushes ~200 ms of
+       the old track's tail. In `playback.log` on 2026-10-20 (shared 44.1 kHz), Au5
+       3-03 → 3-04 (48 kHz) has no "gapless:" line. At a 96 kHz shared format, no
+       44.1 kHz album would splice.
+     - **The first block of a new output chain starts at full gain**
+       (`OutputChain._appliedGain = 1f`, `SetVolume` writes only `_gain`), so a new
+       chain at a low volume starts loud and ramps down.
+     - Reported: DoP played through shared mode as noise if the exclusive open fails;
+       a next track that won't open stops the queue and Next can't pass it; Pause →
+       Stop → Play plays the old buffer; the DAC stays held exclusively after Stop in
+       Bit-Perfect; reopens resume from the decode position, not `Heard`.
+   - **File writes:**
+     - **The album dialog always writes Artist, Album Artist, Album and Year** from the
+       first track (`TagWriter.WriteAlbumTrackTags`, `TagEditViewModel` ctor): a
+       compilation's artists collapse to track 1's, "Unknown Album" is written
+       literally, and the year becomes the earliest.
+     - **Tag saves rewrite in place** (`TagLib.File.Save`), and closing the app doesn't
+       wait for a save in progress (`MainViewModel.Dispose`, `App.OnExit`).
+     - **`File.Replace(result, path, null)`** with no backup in `CoverCleaner` (~201,
+       ~268), and the `finally` deletes the result: on ERROR_UNABLE_TO_MOVE_REPLACEMENT
+       the song is gone.
+     - **`WriteFolderArt`** deletes the old cover before writing the new one, writes
+       in place, and writes to every folder holding a track of the album.
+     - **`ReleaseDate`**: `\d` matches non-ASCII digits, which `int.Parse` refuses, so
+       one such date tag fails every scan.
+     - Reported: an image's format taken from its extension; a FLAC with a front ID3
+       tag keeps a new cover only in the ID3 tag; artists with several values cut to
+       the first; a bad APIC frame aborting an album save silently.
+   - **Startup and windows:**
+     - **`SingleInstance`**: the mutex is released in `OnExit` while the pipe listener
+       lives on; the listener catches only `IOException`. A copy started while the
+       old one exits can crash.
+     - **A startup exception** leaves a windowless process holding the mutex
+       (`DispatcherUnhandledException` sets `Handled`).
+     - **The visualizer keeps the display awake** after a lock or minimise from
+       fullscreen (`KeepAwake` is only called from `OnRendering`).
+     - Reported: dialogs centred on the maximised owner's restore bounds, and Analyze
+       clamped to the primary monitor; a drive plugged in while running isn't picked
+       up; "format may need an add-on" for a missing drive; Ctrl+J does nothing under
+       a search; a Quality Check clearance matching the other disc's same-named file;
+       Analyze crashing on files under ~46 ms; new scrobbles ignoring the backoff.
+   - **UI (against the specs):**
+     - **17 tooltips remain** besides the album-title one (Repeat, Shuffle, volume,
+       Refresh, search, filter chip, Last.fm chip, device line, Remove folder, eight in
+       the tag window, ArtSearch tiles, the search clear ×). Ask before removing.
+     - **The chip hover is invisible in Dark** (`status.chipBg` #1A1C22 →
+       `control.faceHover` #1B1D23).
+     - Mixed "..." and "…"; "Add folder…"/"Remove folder" in sentence case; three
+       window-title separators; dialog button order and Escape differ between dialogs.
+     - The filter chip text is `text.primary`, not `text.status` (progress.md says
+       they match); the tag window says covers of 1,000 × 1,000, but the code accepts 600.
+     - Spec drift: theme-spec §6.8 (Last.fm chip), §6.5, §6.7; the Dark screenshots
+       predate the visualizer chip.
+   - **Project:**
+     - `publish\` holds 25 files with the six projectM DLLs (LGPL, no notice).
+     - `AudioEngine` has no tests.
+     - The Last.fm secret is in plain text.
+     - `LiveSpectrumTests.An_update_allocates_nothing` failed once on a cold run.
+   - **Left out of session 60 on purpose (the user may want them):** a folder added
+     during a scan is never scanned; flush-to-disk before the swap for playlists.json
+     and library.json.
 
 Confirmed by the user (2026-10-14, session 50): Edit Artist Tags on a big artist opens
 at once (session 47's background read).
