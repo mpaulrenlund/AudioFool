@@ -21,7 +21,9 @@ public static class LibraryScanner
     /// <para>
     /// Folders that aren't reachable - an unplugged portable drive, most often - are
     /// reported rather than reconciled. Their tracks are carried over untouched, so
-    /// a disconnected drive can never be mistaken for a deleted library.
+    /// a disconnected drive can never be mistaken for a deleted library. A folder
+    /// that goes during the scan is treated the same way, and so is a file that
+    /// can't be opened: it keeps the tags it had rather than a blank stand-in.
     /// </para>
     /// <para>
     /// <paramref name="rereadTags"/> re-reads every reachable file even when it
@@ -50,44 +52,30 @@ public static class LibraryScanner
                 unavailable.Add(folder);
         }
 
-        var files = await Task.Run(() => EnumerateAudioFiles(reachable), cancellationToken)
+        var brokenOff = new List<string>();
+        var files = await Task.Run(() => EnumerateAudioFiles(reachable, brokenOff), cancellationToken)
             .ConfigureAwait(false);
 
         return await Task.Run(
-            () => ScanFiles(files, unavailable, known, progress, rereadTags, cancellationToken),
+            () => ScanFiles(files, reachable, unavailable, brokenOff, known, progress, rereadTags, cancellationToken),
             cancellationToken).ConfigureAwait(false);
     }
 
     private static ScanResult ScanFiles(
         List<string> files,
+        List<string> reachableFolders,
         List<string> unavailableFolders,
+        List<string> brokenOffFolders,
         IReadOnlyDictionary<string, Track>? known,
         IProgress<ScanProgress>? progress,
         bool rereadTags,
         CancellationToken cancellationToken)
     {
-        // Tracks on an unreachable drive are kept exactly as they were. Without
-        // this, unplugging a drive would report the whole library as removed and
-        // the cache would be overwritten with nothing.
-        var carriedOver = new List<Track>();
-        if (known is not null && unavailableFolders.Count > 0)
-        {
-            foreach (var track in known.Values)
-            {
-                if (unavailableFolders.Any(folder => LibraryRelocator.IsUnder(track.FilePath, folder)))
-                    carriedOver.Add(track);
-            }
-        }
-
         // Decide reuse-or-read for every file we can actually see. Statting 26,000
         // files costs about a second against ~18 seconds to read their tags, so this
         // pass pays for itself even when nothing turns out to be reusable.
         var reusable = new List<Track>();
         var toRead = new List<(string Path, FileStamp Stamp)>();
-
-        // Counted separately from "reusable": a file whose tags need re-reading has
-        // still been *seen*, and must not also be counted as removed.
-        var seenBefore = 0;
         var backfilled = 0;
 
         foreach (var file in files)
@@ -97,9 +85,6 @@ public static class LibraryScanner
             var stamp = FileStamp.For(file);
             var cached = default(Track);
             var wasKnown = known is not null && known.TryGetValue(file, out cached);
-
-            if (wasKnown)
-                seenBefore++;
 
             if (wasKnown && !rereadTags && cached!.MatchesFile(stamp.Length, stamp.ModifiedUtc))
             {
@@ -119,31 +104,84 @@ public static class LibraryScanner
             }
         }
 
-        // Removed means a cached entry we looked for and could not find - not one
-        // that merely changed. Carried-over tracks live on folders we could not
-        // reach, so they were never looked for either.
-        var removed = known is null
-            ? 0
-            : Math.Max(0, known.Count - seenBefore - carriedOver.Count);
-
-
         // Progress counts only the files actually being read, so the bar reflects
         // the work left rather than sitting near 100% through a cached start.
         progress?.Report(new ScanProgress(toRead.Count, 0));
 
-        var freshlyRead = toRead.Count == 0
-            ? []
-            : ReadTags(toRead, progress, cancellationToken);
+        var freshlyRead = new List<Track>(toRead.Count);
+        var unopened = 0;
+        if (toRead.Count > 0)
+        {
+            foreach (var (track, couldNotOpen) in ReadTags(toRead, progress, cancellationToken))
+            {
+                // A file that couldn't be opened (its drive gone mid-scan, or locked)
+                // keeps the tags it had: a blank stand-in would replace them in the
+                // cache, and in every playlist entry that names the song.
+                if (couldNotOpen && known is not null && known.TryGetValue(track.FilePath, out var had))
+                {
+                    reusable.Add(had);
+                    unopened++;
+                }
+                else
+                {
+                    freshlyRead.Add(track);
+                }
+            }
+        }
+
+        // A folder whose listing broke off, or that is gone now the tags are read,
+        // was unplugged mid-scan. What was seen of it is only part of it, so it is
+        // treated as unplugged from the start: its tracks come from the cache, and
+        // the files it no longer showed are not taken as deleted.
+        var lost = reachableFolders
+            .Where(folder => brokenOffFolders.Contains(folder, StringComparer.OrdinalIgnoreCase) || !DirectoryReachable(folder))
+            .ToList();
+
+        if (lost.Count > 0)
+        {
+            bool OnLost(Track track) => lost.Any(folder => LibraryRelocator.IsUnder(track.FilePath, folder));
+
+            reusable.RemoveAll(OnLost);
+            freshlyRead.RemoveAll(OnLost);
+            unavailableFolders = [.. unavailableFolders, .. lost];
+        }
+
+        // Tracks on an unreachable drive are kept exactly as they were. Without
+        // this, unplugging a drive would report the whole library as removed and
+        // the cache would be overwritten with nothing.
+        var carriedOver = new List<Track>();
+        if (known is not null && unavailableFolders.Count > 0)
+        {
+            foreach (var track in known.Values)
+            {
+                if (unavailableFolders.Any(folder => LibraryRelocator.IsUnder(track.FilePath, folder)))
+                    carriedOver.Add(track);
+            }
+        }
 
         var all = new List<Track>(reusable.Count + freshlyRead.Count + carriedOver.Count);
         all.AddRange(reusable);
         all.AddRange(freshlyRead);
         all.AddRange(carriedOver);
 
+        // Removed means a cached entry we looked for and could not find - not one
+        // that merely changed, which is still here under the same path. Carried-over
+        // tracks live on folders we could not reach, so they were never looked for.
+        var removed = 0;
+        if (known is not null)
+        {
+            var kept = all.Select(t => t.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            removed = known.Keys.Count(path => !kept.Contains(path));
+        }
+
         return new ScanResult
         {
             Library = Build(all),
-            Summary = new ScanSummary(reusable.Count + carriedOver.Count, freshlyRead.Count, removed) { Backfilled = backfilled },
+            Summary = new ScanSummary(reusable.Count + carriedOver.Count, freshlyRead.Count, removed)
+            {
+                Backfilled = backfilled,
+                Unopened = unopened,
+            },
             UnavailableFolders = unavailableFolders,
         };
     }
@@ -166,7 +204,14 @@ public static class LibraryScanner
 
 
     /// <summary>Recursive file walk, skipping folders we aren't allowed to read.</summary>
-    public static List<string> EnumerateAudioFiles(IReadOnlyList<string> rootFolders)
+    public static List<string> EnumerateAudioFiles(IReadOnlyList<string> rootFolders) =>
+        EnumerateAudioFiles(rootFolders, brokenOff: []);
+
+    /// <summary>
+    /// As above, adding to <paramref name="brokenOff"/> each root whose listing
+    /// stopped partway (its drive pulled, most likely), so only part of it is listed.
+    /// </summary>
+    private static List<string> EnumerateAudioFiles(IReadOnlyList<string> rootFolders, List<string> brokenOff)
     {
         var options = new EnumerationOptions
         {
@@ -180,8 +225,15 @@ public static class LibraryScanner
 
         foreach (var root in rootFolders)
         {
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            if (string.IsNullOrWhiteSpace(root))
                 continue;
+
+            // Reachable a moment ago, so gone since: nothing of it was listed.
+            if (!Directory.Exists(root))
+            {
+                brokenOff.Add(root);
+                continue;
+            }
 
             try
             {
@@ -193,19 +245,21 @@ public static class LibraryScanner
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                // A root that vanished or locked mid-scan shouldn't kill the whole scan.
+                // A root that vanished or locked mid-scan shouldn't kill the whole
+                // scan, and what was listed of it is only part of it.
+                brokenOff.Add(root);
             }
         }
 
         return results;
     }
 
-    private static List<Track> ReadTags(
+    private static List<(Track Track, bool CouldNotOpen)> ReadTags(
         List<(string Path, FileStamp Stamp)> files,
         IProgress<ScanProgress>? progress,
         CancellationToken cancellationToken)
     {
-        var bag = new ConcurrentBag<Track>();
+        var bag = new ConcurrentBag<(Track, bool)>();
         var read = 0;
 
         var parallelOptions = new ParallelOptions
@@ -216,7 +270,8 @@ public static class LibraryScanner
 
         Parallel.ForEach(files, parallelOptions, file =>
         {
-            bag.Add(TagReader.Read(file.Path, file.Stamp));
+            var track = TagReader.Read(file.Path, file.Stamp, out var couldNotOpen);
+            bag.Add((track, couldNotOpen));
 
             // Report roughly every 1%, so a 50k-file scan doesn't drown the UI thread.
             var done = Interlocked.Increment(ref read);

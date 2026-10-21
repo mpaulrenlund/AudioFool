@@ -15,11 +15,22 @@ public static class TagReader
     /// Reads one file. Pass <paramref name="stamp"/> when the caller has already
     /// stat'ed the file, to avoid hitting the filesystem for it twice.
     /// </summary>
-    public static Track Read(string path, FileStamp? stamp)
+    public static Track Read(string path, FileStamp? stamp) => Read(path, stamp, out _);
+
+    /// <summary>
+    /// As <see cref="Read(string, FileStamp?)"/>, and says whether the file couldn't
+    /// be opened at all: its drive gone, or the file locked. Such a track has only
+    /// what its path gives, and its size and date are left unknown, so a cache never
+    /// takes it as up to date and the next scan reads it again. A file that opens
+    /// but can't be parsed is different: it reads the same next time, so it keeps
+    /// its real stamp and isn't retried at every scan.
+    /// </summary>
+    public static Track Read(string path, FileStamp? stamp, out bool couldNotOpen)
     {
         var kind = AudioFormats.KindFor(path);
         var folderArt = FindFolderArt(path);
         var fileStamp = stamp ?? FileStamp.For(path);
+        couldNotOpen = false;
 
         TagLib.File? file = null;
         try
@@ -32,11 +43,14 @@ public static class TagReader
         }
         catch (Exception ex) when (ex is TagLib.UnsupportedFormatException
                                      or TagLib.CorruptFileException
-                                     or IOException
-                                     or UnauthorizedAccessException
                                      or NotSupportedException)
         {
             // Fall through to the header-only / filename-only path below.
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            couldNotOpen = true;
+            fileStamp = FileStamp.Unknown with { CreatedUtc = fileStamp.CreatedUtc };
         }
 
         try

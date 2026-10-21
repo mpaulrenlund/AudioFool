@@ -119,6 +119,12 @@ public readonly record struct ScanSummary(int Reused, int Read, int Removed)
     /// </summary>
     public int Backfilled { get; init; }
 
+    /// <summary>
+    /// Known files that couldn't be opened to be read (locked, or the drive going),
+    /// which kept the tags the cache had for them. Counted in <see cref="Reused"/>.
+    /// </summary>
+    public int Unopened { get; init; }
+
     public bool AnyChanges => Read > 0 || Removed > 0 || Backfilled > 0;
 
     /// <summary>True when every track came straight from the cache.</summary>

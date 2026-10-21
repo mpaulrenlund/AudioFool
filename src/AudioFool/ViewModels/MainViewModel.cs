@@ -756,7 +756,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // Keeps the loaded version: relocating is not a re-read, and stamping an
         // older cache current here would stop the scan that follows from filling it.
         _cache = LibraryCache.From(MusicFolders, tracks, _cache.Version);
-        await Task.Run(_cache.Save, CancellationToken.None);
+        await SaveCacheAsync();
 
         var first = moves[0];
         StatusText = moves.Count == 1
@@ -916,16 +916,23 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             UnavailableFolders = result.UnavailableFolders;
 
+            // Saved in the app while the scan ran: those copies win over the scan's.
+            // On the UI thread, as the saves are, so none can land in between.
+            var library = _editedDuringScan.Count == 0
+                ? result.Library
+                : LibraryScanner.Build(EditsDuringScan.Apply(result.Library.AllTracks, _editedDuringScan));
+            _editedDuringScan.Clear();
+
             // Nothing changed on disk, so leave the view - and whatever the user has
             // selected in it - completely alone.
             if (refreshing && !result.Summary.AnyChanges)
             {
-                _library = result.Library;
+                _library = library;
                 StatusText = DescribeStatus(result.Summary);
                 return;
             }
 
-            ApplyLibrary(result.Library, keepSelection: refreshing);
+            ApplyLibrary(library, keepSelection: refreshing);
             StatusText = DescribeStatus(result.Summary);
 
             // Safe to persist even with a drive missing: the scanner carries those
@@ -933,9 +940,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             // A re-read that could not reach a drive carried that drive's tracks
             // over without the new field, so the cache keeps its old version and
             // the next start reads again.
-            var version = reread && result.UnavailableFolders.Count > 0 ? _cache!.Version : LibraryCache.CurrentVersion;
+            // The same goes for a file that couldn't be opened to be re-read.
+            var version = reread && (result.UnavailableFolders.Count > 0 || result.Summary.Unopened > 0)
+                ? _cache!.Version
+                : LibraryCache.CurrentVersion;
             _cache = LibraryCache.From(MusicFolders, _library.AllTracks, version);
-            await Task.Run(_cache.Save, CancellationToken.None);
+            await SaveCacheAsync();
         }
         catch (OperationCanceledException)
         {
@@ -947,6 +957,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
         finally
         {
+            // A cancelled or failed scan left the library as the saves made it.
+            _editedDuringScan.Clear();
             IsScanning = false;
             ScanFraction = 0;
             ReclaimScanMemory();
@@ -1084,7 +1096,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         _settings.LastPlayed = last;
 
-        var onDisk = AppSettings.Load();
+        // Unreadable just now: skip it rather than write defaults over the file.
+        if (!AppSettings.TryLoadCurrent(_settings, out var onDisk))
+            return;
+
         onDisk.LastPlayed = last;
         onDisk.Save();
     }
@@ -1218,6 +1233,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private string DescribeStatus(ScanSummary summary)
     {
+        // Nothing this session changes will be kept, which outranks everything.
+        if (_settings.IsReadOnly)
+            return "⚠ The settings file couldn't be read, so nothing is saved this session. Restart AudioFool to try again.";
+
         // A missing drive is the headline: the tracks are still listed but none of
         // them will play, and that needs saying before any counts.
         if (UnavailableFolders.Count > 0)
@@ -1999,6 +2018,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         ApplyLibrary(LibraryScanner.Build(newAll), keepSelection: true);
 
+        // A scan running now started from the library before this, and its result
+        // would put the old copies back; it takes these instead when it lands.
+        if (IsScanning)
+        {
+            foreach (var (path, track) in updatedByPath)
+                _editedDuringScan[path] = track;
+        }
+
         // The now-playing note and the window title compare by reference, so
         // they would lose the playing track once its old copy left the library.
         // The scrobbler holds its own copy, which would scrobble the old tags.
@@ -2067,12 +2094,28 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private readonly SemaphoreSlim _inlineSave = new(1, 1);
 
+    /// <summary>Songs saved while a scan runs, by path: see <see cref="EditsDuringScan"/>.</summary>
+    private readonly Dictionary<string, Track> _editedDuringScan = new(StringComparer.OrdinalIgnoreCase);
+
     private async Task PersistLibraryAsync()
     {
         // A tag edit made while an older cache is still being re-read must not
         // mark it current; the re-read saves the new version when it finishes.
         _cache = LibraryCache.From(MusicFolders, _library.AllTracks, _cache?.Version ?? LibraryCache.CurrentVersion);
-        await Task.Run(_cache.Save, CancellationToken.None);
+        await SaveCacheAsync();
+    }
+
+    /// <summary>
+    /// Writes library.json, unless settings.json couldn't be read this session:
+    /// the music folders may then be defaults, and a cache of those would drop
+    /// every track the real folders hold.
+    /// </summary>
+    private async Task SaveCacheAsync()
+    {
+        if (_cache is not { } cache || _settings.IsReadOnly)
+            return;
+
+        await Task.Run(cache.Save, CancellationToken.None);
     }
 
     private static IEnumerable<string> AlbumDirectories(Album album) =>
@@ -2508,7 +2551,18 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// </summary>
     private void SaveVolumeOnly()
     {
-        var onDisk = AppSettings.Load();
+        // Unreadable just now: losing the volume is better than writing defaults
+        // over the music folders and the Last.fm login.
+        if (!AppSettings.TryLoadCurrent(_settings, out var onDisk))
+            return;
+
+        // With no file yet, onDisk is _settings itself, which already has the volume.
+        if (ReferenceEquals(onDisk, _settings))
+        {
+            _settings.Save();
+            return;
+        }
+
         if (Math.Abs(onDisk.Volume - _settings.Volume) < 0.0001)
             return;
 
