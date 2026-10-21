@@ -4007,7 +4007,36 @@ Then, in a new conversation the same evening (session 58 continued):
     the same on the previous build (its last fixture is 0.6 s long). `covers` needs an
     album with extra covers, which the library no longer has: run on a scratch album
     of two Arch Echo copies given a second cover, both down to one, no leftovers.
-    Installed (AudioFool closed for it at the user's word).
+    Installed (AudioFool closed for it at the user's word). Committed `5e8799a`.
+- **Then the album window keeps what isn't changed** (the review's next item, the
+  user's pick).
+  - **The problem:** the album window filled Artist, Album Artist, Album and Year from
+    the first track (Year from `Album.Year`, the earliest; Album from `Album.Title`,
+    so "Unknown Album" for an untagged album), and `WriteAlbumTrackTags` wrote all
+    four to every track whatever was changed. A compilation's artists became track
+    1's, an untagged album got the words "Unknown Album", mixed years became the
+    earliest, and an empty first track blanked the rest (`Clean` gives "", so the
+    `?? album.ArtistName` fallback never ran).
+  - **The fix:** `AlbumTagEdit` is all optional (`Artist`, `AlbumArtist`, `Album`, a
+    `DateEdit? Date` in place of `Year` + `Date`); `WriteAlbumTrackTags` and
+    `Track.WithAlbumTags` keep what it leaves null, as the selection edit does.
+    `TagEditViewModel.FillSharedFields`, shared with the selection window, fills each
+    of the four only when every track agrees (Year from `ReleaseDate ?? Year`, the
+    cache's full date), and `BuildAlbumEdit` sets each only when changed. The album
+    date special case in `ReadDetailsAsync` went with it. An empty Album box may be
+    saved when it started empty (`Revalidate`). `SearchArtist` falls back to the name
+    the album is listed under when both artist boxes start empty.
+  - **Checked:** 6 new tests (`AlbumEditKeepsTests`: a genre-only save on a
+    two-artist, two-year compilation, FLAC and MP3, keeps every track's own; the
+    library copy too; no album tag stays none; a typed album and year reach every
+    track; an emptied album artist clears), the 16 places building an album edit
+    moved to the new form. 852 tests. ThemeLab `--window albumkeep` (new): the real
+    window and `ApplyAlbumEditAsync` on scratch albums, all OK (the compilation opens
+    with Artist and Year varying, Album Artist and Album filled; Genre alone saved
+    and every artist and year kept; the untagged album opens with an empty, savable
+    Album box and stays untagged; a typed album reaches every track). `--window tags
+    --scratch` rendered in both themes (design/progress.md). Installed (AudioFool
+    closed through its own window close, so it saved its place and volume).
 
 ---
 

@@ -180,7 +180,15 @@ with the user first (see *Releases*).
     place (Keep Best Cover and PNG conversion use it too). Closing waits for a save
     (`MainViewModel.Writes.cs`, "Finishing saving"). The scan deletes old `.part`
     leftovers and names a `.bak` in the status bar. ThemeLab `--window safesave
-    --long "a;b"` checks it on copies of real songs. Installed 2026-10-21 08:29; see
+    --long "a;b"` checks it on copies of real songs. Installed 2026-10-21 08:29;
+    committed `5e8799a`, pushed.
+  - **Then (2026-10-21): the album window keeps what isn't changed.** Artist, Album
+    Artist, Album and Year fill only when every track agrees ("Varies by track - kept
+    unless changed" otherwise, as in the selection window) and are written only when
+    changed: `AlbumTagEdit`'s four fields are optional (`Date` is a `DateEdit`), and
+    `TagEditViewModel.FillSharedFields` serves both windows. An album with no album
+    tag opens with an empty Album box that saves. ThemeLab `--window albumkeep`
+    checks it through the real window and save. Installed 2026-10-21 09:05; see
     `git status` for whether it's committed.
 - **Session 59** (2026-10-20), all installed and pushed (details in `HISTORY.md`):
   - **A click never scrolls a list** (`df67a6b`): a double-click on a row cut off at
@@ -683,9 +691,10 @@ renamed, the new identity has no cache entry and decodes fresh automatically.
 
 **Session 11 added "keep" semantics to part of the edit.** The rule to remember is
 this: an album edit must never write a value the user did not choose to every track.
-Artist, Album Artist, Album and Year are the old exception — always written
-album-wide, pre-filled from the first track. Everything added since follows three
-rules:
+Since session 60 every field of the album window follows it, Artist, Album Artist,
+Album and Year included (until then those four were written album-wide from the first
+track: a compilation lost its artists, an untagged album got "Unknown Album"). The
+three rules:
 
 - **Pre-filled only when every track agrees.** Otherwise the field shows a "Varies"
   placeholder (`Shared` in `TagEditViewModel`).
@@ -973,6 +982,7 @@ ThemeLab.exe --window queue       # edit queued and playing tracks while the rea
 ThemeLab.exe --window queue --long "D:/Music/x/a.flac;D:/Music/y/b.dsf" [--longcomment 3000000]   # also save to real tracks (copied to scratch) while they play
 ThemeLab.exe --window closex          # Statistics' close button: normal click, a click WPF-UI loses and a client click while captured (both WRONG = the open bug), a cancelled close, press-and-slide-off (posted messages); prints the title-bar click log
 ThemeLab.exe --window splice --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a gapless join through the real engine, silent; prints the log's "gapless:" line (needs the device free; since session 60 any rates join in shared mode, "(resampled)" when they differ)
+ThemeLab.exe --window albumkeep   # the album tag window on scratch albums (a compilation, an untagged album) through its real save; checks nothing unchanged is written ("ALL OK")
 ThemeLab.exe --window safesave --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # copies of one album's songs (never the songs) given a new cover through the album save, the window closed mid-save; checks the window waited, the audio is identical, one cover, creation date kept, no leftovers ("ALL OK")
 ThemeLab.exe --window device --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a change of default output device, simulated: playing, paused, stopped, next track
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
@@ -1484,10 +1494,8 @@ Open items only; finished ones are in `HISTORY.md`.
        Stop → Play plays the old buffer; the DAC stays held exclusively after Stop in
        Bit-Perfect; reopens resume from the decode position, not `Heard`.
    - **File writes:**
-     - **The album dialog always writes Artist, Album Artist, Album and Year** from the
-       first track (`TagWriter.WriteAlbumTrackTags`, `TagEditViewModel` ctor): a
-       compilation's artists collapse to track 1's, "Unknown Album" is written
-       literally, and the year becomes the earliest.
+     - (The album window always writing Artist, Album Artist, Album and Year: fixed
+       2026-10-21, those four now keep unless changed.)
      - (Tag saves in place, closing during a save, and `CoverCleaner`'s swap without a
        backup: fixed 2026-10-21, safer tag saves.)
      - **`WriteFolderArt`** deletes the old cover before writing the new one, writes
