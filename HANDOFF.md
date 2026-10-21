@@ -152,8 +152,8 @@ Open with the user, in this order (each is under *Suggested next steps*):
 2. **The close X** (step 4): has it ignored clicks again? If so, roughly when; read the
    `titlebar:` lines in `playback.log` around then.
 3. **Changes the user hasn't tried on screen yet** (step 1): from session 59,
-   double-clicking songs in Explorer and Clear All; from session 60, an album save with
-   a new cover (the copy-and-swap path, and closing mid-save) and the album window on a
+   double-clicking songs in Explorer and Clear All; from session 60, closing mid-save
+   (cover saves themselves are confirmed, session 62) and the album window on a
    compilation ("Varies" in Artist and Year); from session 61, the cover's source line
    in the album tag window and the status-bar buttons' hover in Dark.
 4. **What to take next from session 60's review** (step 6). What's left are code
@@ -183,7 +183,8 @@ projectM decision (step 5). Confirm the version and notes with the user first (s
     shared with `WriteFolderArt`. `FolderArtTargets.HoldsOtherAlbums` has a songs
     overload for Keep Best Cover, whose folder can hold two albums' songs. ThemeLab
     `--window folderart` steps 3 and 4: ALL OK. 873 tests.
-  - Not seen by the user on screen yet.
+  - **The user tried cover saves in the app: "looks good"** (2026-10-21). Not said
+    which windows; a shared folder's message not reported.
 - **Session 61** (2026-10-21): **the tooltip clean-up**, the user's call on each. Left
   in the app: the album title's (when cut off), the greyed-out volume's and the output
   readout's device name; the rest are gone. The tag window's cover source, which only
@@ -1421,9 +1422,9 @@ Open items only; finished ones are in `HISTORY.md`.
      once.
    - **Session 59, Clear All** in Statistics' Quality Check: the prompt, then every row
      None.
-   - **Session 60, an album save with a new cover:** about as quick as before, the
-     cover in every track; closing AudioFool during it keeps the window open with
-     "Finishing saving" until it's done.
+   - **Session 60, closing AudioFool during an album save with a new cover:** keeps
+     the window open with "Finishing saving" until it's done. (Cover saves themselves
+     tried by the user in session 62: "looks good".)
    - **Session 60, the album window on a compilation** (or any album whose tracks
      differ in artist or year): those boxes start empty with "Varies by track - kept
      unless changed", and saving another field leaves each track's own.

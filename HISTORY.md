@@ -4169,7 +4169,10 @@ before any edit.
     so only the shared rule keeps it: ALL OK, Blue CD1's cover.jpg written both
     times, Singles' still Red's, the message and status naming the shared folder,
     every song left with its front cover only, no leftovers.
-  - Installed (not running). Not seen by the user on screen yet.
+  - Installed (not running).
+- Committed as `a829f40` (date), `0fc3305` (covers) and `11c7784` (docs), pushed.
+- **The user tried cover saves in the app: "looks good"** (2026-10-21). Which windows
+  wasn't said; a shared folder's message not reported.
 
 ---
 
