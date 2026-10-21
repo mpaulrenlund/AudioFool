@@ -1,0 +1,37 @@
+<Window x:Class="AudioFool.IntroWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About AudioFool"
+        Icon="/Resources/AudioFool.ico"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        WindowStartupLocation="Manual"
+        Background="{DynamicResource color.intro.playstation}">
+
+    <!--
+        The About intro (session 64, the user's request): the PlayStation's
+        start-up over the main window, the Sony screen and then the PlayStation
+        screen, timed to its sound (IntroTimeline). Black shows between them, as on
+        the console. Like the visualizer's picture, its colours are its own and the
+        same in both themes: each screen's backdrop is its picture's background, so
+        a window of another shape shows no edge. A click or any key ends it.
+    -->
+    <Grid Background="{DynamicResource color.intro.playstation}">
+        <Grid x:Name="SonyScreen" Opacity="0"
+              Background="{DynamicResource color.intro.sony}">
+            <Image Source="pack://application:,,,/AudioFool;component/Resources/Intro/sony.jpg"
+                   Stretch="Uniform"
+                   RenderOptions.BitmapScalingMode="HighQuality"
+                   AutomationProperties.Name="Sony Computer Entertainment" />
+        </Grid>
+
+        <Grid x:Name="PlayStationScreen" Opacity="0"
+              Background="{DynamicResource color.intro.playstation}">
+            <Image Source="pack://application:,,,/AudioFool;component/Resources/Intro/playstation.jpg"
+                   Stretch="Uniform"
+                   RenderOptions.BitmapScalingMode="HighQuality"
+                   AutomationProperties.Name="PlayStation" />
+        </Grid>
+    </Grid>
+</Window>

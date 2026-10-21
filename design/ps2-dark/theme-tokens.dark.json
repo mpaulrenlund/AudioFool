@@ -88,6 +88,10 @@
       "level5": "#FCE94F",
       "marker": "#F7F6F4"
     },
+    "intro": {
+      "sony": "#FDFDFD",
+      "playstation": "#000000"
+    },
     "visualizer": {
       "background": "#000000",
       "bar": "#D6D4D0",
@@ -208,6 +212,7 @@
     "bands": 32, "barGap": 2, "barFloorDb": -72, "barTopDb": -6,
     "levelMargin": 12, "levelShowMs": 1000, "levelFadeMs": 400, "cursorHideMs": 3000
   },
+  "intro": { "logoAtMs": 7300, "fadeMs": 400, "endFadeMs": 900, "lengthMs": 14900 },
   "prompt": { "width": 400 },
   "findReplace": {
     "ownerMarginX": 48, "height": 620, "minWidth": 640, "minHeight": 420,

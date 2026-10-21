@@ -123,6 +123,21 @@ public static class WindowPlacement
         return hwnd != IntPtr.Zero && GetWindowRect(hwnd, out var r) ? new PixelRect(r.Left, r.Top, r.Right, r.Bottom) : null;
     }
 
+    /// <summary>
+    /// What of the window shows on screen, in pixels: without the invisible
+    /// resize borders <see cref="RectOf"/> counts, and maximised without the
+    /// overhang. <see cref="RectOf"/>'s rectangle if DWM can't say.
+    /// </summary>
+    public static PixelRect? VisibleRectOf(Window window)
+    {
+        var hwnd = new WindowInteropHelper(window).Handle;
+        if (hwnd != IntPtr.Zero
+            && DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, out var r, Marshal.SizeOf<RECT>()) == 0)
+            return new PixelRect(r.Left, r.Top, r.Right, r.Bottom);
+
+        return RectOf(window);
+    }
+
     /// <summary>The work area (screen less taskbar) of the monitor the window is mostly on, in pixels.</summary>
     public static PixelRect? WorkAreaOf(Window window)
     {
@@ -176,6 +191,7 @@ public static class WindowPlacement
     private const uint SWP_NOACTIVATE = 0x0010;
     private const uint SWP_NOOWNERZORDER = 0x0200;
     private const uint MONITOR_DEFAULTTONEAREST = 2;
+    private const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct RECT
@@ -236,4 +252,7 @@ public static class WindowPlacement
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, MonitorEnumProc lpfnEnum, IntPtr dwData);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
 }

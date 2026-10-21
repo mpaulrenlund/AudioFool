@@ -45,6 +45,16 @@
   </ItemGroup>
 
   <!--
+    The About intro (session 64). The pictures are WPF resources; the sound is
+    embedded and written to the temp folder when played, as MediaPlayer needs a file.
+  -->
+  <ItemGroup>
+    <Resource Include="Resources\Intro\sony.jpg" />
+    <Resource Include="Resources\Intro\playstation.jpg" />
+    <EmbeddedResource Include="Resources\Intro\intro.mp3" LogicalName="AudioFool.intro.mp3" />
+  </ItemGroup>
+
+  <!--
     The two themes. design/theme-tokens.json (PS1 Light) and
     design/ps2-dark/theme-tokens.dark.json (PS2 Dark) are the only copies of the
     values; Theming/TokenResources reads the one in use from the assembly.

@@ -319,6 +319,37 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         }
     }
 
+    /// <summary>
+    /// Closes the device connection so another sound can play through the device
+    /// (the About intro, session 64): in exclusive mode nothing else can while
+    /// AudioFool holds it, even paused or stopped. Meant for paused or stopped;
+    /// the track keeps its place, as for <see cref="SwitchDevice"/>. Disposing the
+    /// result takes the device back: the track is opened again where it was,
+    /// paused staying paused, unless playback has moved on meanwhile.
+    /// </summary>
+    public IDisposable LendDevice()
+    {
+        Released? released;
+        lock (_releaseGate)
+            released = Release(_ => true, closeDevice: true);
+
+        return new DeviceLoan(this, released);
+    }
+
+    private sealed class DeviceLoan(AudioEngine engine, Released? released) : IDisposable
+    {
+        private int _returned;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _returned, 1) != 0)
+                return;
+
+            lock (engine._releaseGate)
+                engine.Reacquire(released);
+        }
+    }
+
     private sealed record Released(List<Track> Queue, int Index, TimeSpan At, bool Paused);
 
     /// <summary>

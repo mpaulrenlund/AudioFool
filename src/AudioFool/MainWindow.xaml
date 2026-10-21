@@ -394,6 +394,12 @@
                             <MenuItem Header="Last.fm…"
                                       Icon="{ui:SymbolIcon Live24}"
                                       Command="{Binding ShowLastFmCommand}" />
+
+                            <Separator />
+
+                            <MenuItem Header="About"
+                                      Icon="{ui:SymbolIcon Info24}"
+                                      Command="{Binding ShowAboutCommand}" />
                         </MenuItem>
                     </Menu>
 

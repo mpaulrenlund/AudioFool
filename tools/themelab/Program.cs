@@ -230,7 +230,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "rowclick" or "openfiles" or "analysis" or "clear" or "waveform" or "device" or "splice" or "ratechange" or "themeswitch" or "visualizer" or "projectm" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "rowclick" or "openfiles" or "analysis" or "clear" or "waveform" or "device" or "splice" or "ratechange" or "lend" or "themeswitch" or "visualizer" or "projectm" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -1452,6 +1452,14 @@ internal static class Program
             return ok ? 0 : 1;
         }
 
+        // --window lend: the About intro's loan of the device (session 64), through the
+        // real engine and default device in Bit-Perfect, on digital silence. Playing,
+        // paused, lent: the device must open exclusively for someone else; returned:
+        // still paused at the same place, Bit-Perfect again, and Resume plays on.
+        // Then the same from stopped. "ALL OK". Takes the DAC for a few seconds.
+        if (which == "lend")
+            return RunLend(engine, runtime);
+
         // --window closex: the Statistics dialog, modal and off-screen, with mouse
         // messages for its close button posted to the thread's queue as real input
         // arrives (WPF-UI clicks title-bar buttons from WM_NC* messages). Cases: a
@@ -1678,6 +1686,9 @@ internal static class Program
             }
             return 0;
         }
+
+        if (which == "intro")
+            return RunIntro(main, outPath, w, h, scale);
 
         if (which == "artview")
         {
@@ -7445,6 +7456,168 @@ internal static class Program
         writer.Write(dataBytes);
         writer.Write(new byte[dataBytes]);
         return path;
+    }
+
+    /// <summary>
+    /// --window intro: the About intro (session 64) at moments along its timeline,
+    /// one render each (&lt;out&gt;-&lt;ms&gt;.png). Never shown, so its sound never opens:
+    /// laid out by hand at the main window's size and stepped through ShowAt. Prints
+    /// each screen's opacity and the colour at the centre and a corner.
+    /// </summary>
+    private static int RunIntro(MainWindow main, string outPath, double w, double h, double scale)
+    {
+        // Drawn straight into the bitmap: through the VisualBrush an unshown plain
+        // Window (not a FluentWindow) draws nothing.
+        _direct = true;
+        var intro = new IntroWindow(main, 0);
+        intro.ApplyTemplate();
+        var root = (FrameworkElement)intro.Content;
+        root.Measure(new Size(w, h));
+        root.Arrange(new Rect(0, 0, w, h));
+        root.UpdateLayout();
+
+        var showAt = typeof(IntroWindow).GetMethod("ShowAt", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var sony = (FrameworkElement)intro.FindName("SonyScreen");
+        var playStation = (FrameworkElement)intro.FindName("PlayStationScreen");
+        Console.WriteLine($"intro: window would cover {intro.Left:0.#},{intro.Top:0.#} {intro.Width:0.#}x{intro.Height:0.#} (main window off-screen)");
+        Console.WriteLine($"intro: content {root.ActualWidth:0.#}x{root.ActualHeight:0.#}, screens {sony.ActualWidth:0.#} / {playStation.ActualWidth:0.#}, backdrops {((System.Windows.Controls.Panel)sony).Background} / {((System.Windows.Controls.Panel)playStation).Background}");
+
+        foreach (var ms in new[] { 0, 200, 3000, 7100, 7300, 7500, 10000, 14450, 14900 })
+        {
+            showAt.Invoke(intro, [TimeSpan.FromMilliseconds(ms)]);
+            root.UpdateLayout();
+            Settle(50);
+            var path = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(outPath))!,
+                $"{Path.GetFileNameWithoutExtension(outPath)}-{ms}.png");
+            Save(root, path, w, h, scale);
+
+            BitmapSource bitmap;
+            using (var file = File.OpenRead(path))
+                bitmap = new FormatConvertedBitmap(BitmapFrame.Create(file, BitmapCreateOptions.None, BitmapCacheOption.OnLoad), PixelFormats.Bgra32, null, 0);
+            string At(int x, int y)
+            {
+                var px = new byte[4];
+                bitmap.CopyPixels(new Int32Rect(x, y, 1, 1), px, 4, 0);
+                return $"#{px[2]:X2}{px[1]:X2}{px[0]:X2}";
+            }
+            Console.WriteLine($"intro {ms,5} ms: sony {sony.Opacity:0.00}  playstation {playStation.Opacity:0.00}  centre {At(bitmap.PixelWidth / 2, bitmap.PixelHeight / 2)}  corner {At(2, 2)}  -> {Path.GetFileName(path)}");
+        }
+
+        // The sound: unpacked from the exe and opened as the intro opens it, never played.
+        var soundFile = (string?)typeof(IntroWindow).GetMethod("SoundFile", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(null, null);
+        Console.WriteLine($"intro sound: {soundFile} ({(soundFile is null ? 0 : new FileInfo(soundFile).Length):N0} B)");
+        if (soundFile is not null)
+        {
+            var player = new MediaPlayer { Volume = 0 };
+            string? outcome = null;
+            player.MediaOpened += (_, _) => outcome = $"opened, {player.NaturalDuration}";
+            player.MediaFailed += (_, e) => outcome = $"FAILED: {e.ErrorException.Message}";
+            player.Open(new Uri(soundFile));
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (outcome is null && clock.ElapsedMilliseconds < 5000)
+                Settle(50);
+            Console.WriteLine($"intro sound: {outcome ?? "not opened in 5 s"} in {clock.ElapsedMilliseconds} ms");
+            player.Close();
+        }
+
+        intro.Close();
+        return 0;
+    }
+
+    private static int RunLend(AudioEngine engine, BassRuntime runtime)
+    {
+        // Never the real playback.log (see HANDOFF, Claude's shells and AppData).
+        AudioFool.Core.Playback.PlaybackDiagnostics.LogPath =
+            Path.Combine(Path.GetTempPath(), "themelab-lend-" + Guid.NewGuid().ToString("N")[..8] + ".log");
+        var ready = runtime.Initialise();
+        Console.WriteLine($"init {ready} {runtime.InitError}, exclusive {runtime.SupportsExclusive}, rates {string.Join(",", runtime.ExclusiveRates)}");
+        if (!runtime.SupportsExclusive || !runtime.ExclusiveRates.Contains(44100))
+        {
+            Console.WriteLine("the default device can't play 44.1 kHz exclusively: nothing to check");
+            return 1;
+        }
+
+        var dir = Path.Combine(Path.GetTempPath(), "themelab-lend-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(dir);
+        var file = WriteSilentWav(Path.Combine(dir, "Silence 44100.wav"), 44100, seconds: 20);
+        var tracks = new List<Track> { AudioFool.Core.Library.TagReader.Read(file) };
+        var failures = new List<string>();
+        void Expect(string what, object? actual, object? expected)
+        {
+            var ok = Equals(actual, expected);
+            Console.WriteLine($"  {what}: {actual} {(ok ? "OK" : $"WRONG (expected {expected})")}");
+            if (!ok)
+                failures.Add(what);
+        }
+
+        // Someone else opening the device exclusively, as the intro's sound needs
+        // it free (OutputChain is internal: reached by reflection, a dev tool).
+        var chainType = typeof(AudioEngine).Assembly.GetType("AudioFool.Core.Playback.OutputChain")!;
+        var tryCreate = chainType.GetMethod("TryCreate")!;
+        bool OthersCanOpen()
+        {
+            var call = new object?[] { OutputMode.Exclusive, 44100, 2, null };
+            var chain = tryCreate.Invoke(null, call) as IDisposable;
+            chain?.Dispose();
+            if (chain is null)
+                Console.WriteLine($"  (open refused: {call[3]})");
+            return chain is not null;
+        }
+
+        try
+        {
+            engine.OutputMode = OutputMode.Exclusive;
+            Console.WriteLine($"play {engine.Play(tracks, 0)}, bit-perfect {engine.IsBitPerfect}, output '{engine.OutputDescription}'");
+            Settle(1500);
+
+            Console.WriteLine("paused, then lent:");
+            engine.Pause();
+            Settle(200);
+            var at = engine.Position;
+            Expect("others can open it before the loan", OthersCanOpen(), false);
+            var loan = engine.LendDevice();
+            Expect("output open while lent", engine.HasOutput, false);
+            Expect("others can open it while lent", OthersCanOpen(), true);
+            Expect("state while lent", engine.State, PlaybackState.Paused);
+            Expect("position held while lent", Math.Abs((engine.Position - at).TotalMilliseconds) < 1, true);
+            Settle(500);
+
+            Console.WriteLine("returned:");
+            loan.Dispose();
+            loan.Dispose();
+            Expect("state", engine.State, PlaybackState.Paused);
+            Expect("bit-perfect", engine.IsBitPerfect, true);
+            Expect("same place (within 50 ms)", Math.Abs((engine.Position - at).TotalMilliseconds) < 50, true);
+            Expect("others can open it after", OthersCanOpen(), false);
+
+            Console.WriteLine("resumed:");
+            engine.Resume();
+            Settle(1000);
+            var moved = (engine.Position - at).TotalMilliseconds;
+            Console.WriteLine($"  moved {moved:0} ms in 1 s");
+            Expect("state", engine.State, PlaybackState.Playing);
+            Expect("plays on (600 to 1400 ms in 1 s)", moved is > 600 and < 1400, true);
+
+            Console.WriteLine("stopped, then lent:");
+            engine.Stop();
+            Settle(200);
+            var stoppedLoan = engine.LendDevice();
+            Expect("others can open it while lent", OthersCanOpen(), true);
+            stoppedLoan.Dispose();
+            Expect("state after", engine.State, PlaybackState.Stopped);
+            Expect("nothing reopened", engine.HasOutput, false);
+        }
+        finally
+        {
+            engine.Stop();
+            engine.OutputMode = OutputMode.Shared;
+            Settle(300);
+            Directory.Delete(dir, recursive: true);
+        }
+
+        Console.WriteLine(failures.Count == 0 ? "ALL OK" : "FAILED: " + string.Join(", ", failures));
+        return failures.Count == 0 ? 0 : 1;
     }
 
     private static void Settle(int milliseconds)

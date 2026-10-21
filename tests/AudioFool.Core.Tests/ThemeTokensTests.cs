@@ -146,8 +146,9 @@ public class ThemeTokensTests
         // plus the spectrogram's six levels and marker (the Analyze window), plus
         // window.titleGlow and control.playRing (PS2 Dark's effects), plus the
         // visualizer's background, bar and level (session 58; the same in both),
-        // plus status.chipHover (session 61).
-        Assert.Equal(66, t.Colors.Count);
+        // plus status.chipHover (session 61), plus the About intro's two
+        // backdrops (session 64; the same in both).
+        Assert.Equal(68, t.Colors.Count);
         // 19, plus statValue (dialogs, Statistics).
         Assert.Equal(20, t.TextStyles.Count);
         // 8, plus playGlow (PS2 Dark).
@@ -164,6 +165,19 @@ public class ThemeTokensTests
         var keys = light.Colors.Keys.Where(k => k.StartsWith("color.visualizer.", StringComparison.Ordinal)).ToList();
 
         Assert.Equal(3, keys.Count);
+        foreach (var key in keys)
+            Assert.Equal(light.Colors[key], dark.Colors[key]);
+    }
+
+    [Fact]
+    public void The_intro_s_colours_are_the_same_in_both_themes()
+    {
+        // The pictures' own backgrounds (session 64), whatever the theme.
+        var light = Real(LightFile);
+        var dark = Real(DarkFile);
+        var keys = light.Colors.Keys.Where(k => k.StartsWith("color.intro.", StringComparison.Ordinal)).ToList();
+
+        Assert.Equal(2, keys.Count);
         foreach (var key in keys)
             Assert.Equal(light.Colors[key], dark.Colors[key]);
     }
