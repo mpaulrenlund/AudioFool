@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-21, session 61. Read this alongside `README.md`: the README covers
+Updated 2026-10-21, session 62. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -137,11 +137,12 @@ and the commit fails, as it did for `275921e`.
 
 ### Start of the next session
 
-Nothing is running and nothing is uncommitted: everything is pushed to `origin/main`.
+Session 62 fixed the folder cover file and the date tag that failed scans (see *Where
+things are*). The installed app is that build (installed 2026-10-21 12:03). 873 tests
+pass. Whether it is committed and pushed: check `git status` (the user decides when).
 Session 61 did the tooltip clean-up, the Dark chip hover, two launch fixes and the
-Bit-Perfect rate-change tail (see *Where things are*). The installed app is that build
-(installed 2026-10-21 11:27). 852 tests pass. The beat screen's Terminal tab, if still
-open, can be closed.
+Bit-Perfect rate-change tail. The beat screen's Terminal tab, if still open, can be
+closed.
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
@@ -165,7 +166,24 @@ projectM decision (step 5). Confirm the version and notes with the user first (s
 ### Where things are
 
 - **Everything in `README.md` is implemented and verified**, apart from the projectM
-  trial (below). **852 tests** pass. The installed app is session 61's build.
+  trial (below). **873 tests** pass. The installed app is session 62's build.
+- **Session 62** (2026-10-21), two fixes from session 60's review (details in
+  `HISTORY.md`, README *The folder's cover file*):
+  - **The folder cover file** (`TagWriter.WriteFolderArt`, `FolderArtTargets`): written
+    beside the old one and renamed over it; an old file of the other format goes to the
+    Recycle Bin after the new one is in (the user's call), kept with a warning where
+    there's no bin; a folder holding another album's songs gets no file, named in the
+    status bar. ThemeLab `--window folderart`: ALL OK, the PNG found in the real bin.
+  - **A date tag in other digits no longer fails every scan** (`ReleaseDate`: `[0-9]`,
+    not `\d`). The new tests failed on the old code with the reported FormatException.
+  - **Then the same for *Save Embedded Art* and Keep Best Cover's cover.jpg** (found on
+    the way; the user said fix it): `EmbeddedArtExtractor.ExtractToFolders` takes a
+    `sharedFolder` check (new outcome `Shared`, named in the window's message line and
+    counted in Keep Best Cover's status) and writes through `FileSwap.WriteWhole`, now
+    shared with `WriteFolderArt`. `FolderArtTargets.HoldsOtherAlbums` has a songs
+    overload for Keep Best Cover, whose folder can hold two albums' songs. ThemeLab
+    `--window folderart` steps 3 and 4: ALL OK. 873 tests.
+  - Not seen by the user on screen yet.
 - **Session 61** (2026-10-21): **the tooltip clean-up**, the user's call on each. Left
   in the app: the album title's (when cut off), the greyed-out volume's and the output
   readout's device name; the rest are gone. The tag window's cover source, which only
@@ -274,6 +292,11 @@ projectM decision (step 5). Confirm the version and notes with the user first (s
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **62** (2026-10-21): **the folder cover file** (album save, Save Embedded Art, Keep
+  Best Cover) written safely and never into a folder shared with another album; **a
+  date tag in other digits** no longer fails every scan.
+  See *Where things are* above.
 
 - **60** (2026-10-20 and 21): **a review of the whole app**, then **six fixes**:
   settings.json can't be wiped, a drive lost mid-scan, edits during a scan, shared-mode
@@ -711,13 +734,21 @@ tuple. `TagWriteResult` and `FolderArtWriteResult` are the result records; they 
 across the boundary.
 
 `WriteFolderArt` is pure filesystem (no TagLib). It writes `cover.jpg` or `cover.png` based
-on the picked image's actual format. If an existing cover has a different extension it deletes
-the old file first — never leaving two competing cover files, never writing bytes under a
-mismatched extension.
+on the picked image's MIME type. Since session 62 the bytes go to a `.audiofool-cover-*.part`
+working file, flushed, then `File.Move(..., overwrite: true)` over the target, so a cut-off
+write leaves the old cover whole. An existing cover of a different extension goes through
+the `recycle` callback (`RecycleBin.Send`) **after** the new one is in place; if the bin
+refuses it (no bin on the drive) it is kept, `FolderArtWriteResult.Warning` says so, and
+the path returned is whichever file `TagReader.FindFolderArt` would pick.
 
 An album can span multiple physical directories (multi-disc sets, stray compilations).
 `AlbumDirectories(Album)` collects distinct `Path.GetDirectoryName` values across all
-`album.Tracks`. Folder art is written to every one of them, not just `Album.FolderArtPath`.
+`album.Tracks`. Folder art is written to each of them, not just `Album.FolderArtPath`,
+**except** one holding another album's song (`FolderArtTargets.HoldsOtherAlbums`, session
+62): the same album name counts as this album, an empty one never does. A skipped folder
+is named in the status bar; its songs still get the embedded cover. *Save Embedded Art*
+and Keep Best Cover (`EmbeddedArtExtractor`) follow the same rule through their
+`sharedFolder` argument, and both writers go through `FileSwap.WriteWhole`.
 
 After any art write `AlbumArtService.InvalidateAlbum(album)` busts all four cache key
 shapes for the album (thumbnail, full-viewer, per-track). Called with the *pre-edit* album
@@ -1029,6 +1060,7 @@ ThemeLab.exe --window queue --long "D:/Music/x/a.flac;D:/Music/y/b.dsf" [--longc
 ThemeLab.exe --window closex          # Statistics' close button: normal click, a click WPF-UI loses and a client click while captured (both WRONG = the open bug), a cancelled close, press-and-slide-off (posted messages); prints the title-bar click log
 ThemeLab.exe --window ratechange [--stopinwait 1]   # a Bit-Perfect rate change (44.1 → 96 kHz) through the real engine and default device, exclusively for ~5 s, on two WAVs of digital silence (Bit-Perfect is full volume: never real music); prints "rate change: waited N ms; ... dropped by the reopen: M ms" (0 since session 61). --stopinwait presses Stop during the wait. Ask the user first: it takes their DAC
 ThemeLab.exe --window splice --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a gapless join through the real engine, silent; prints the log's "gapless:" line (needs the device free; since session 60 any rates join in shared mode, "(resampled)" when they differ)
+ThemeLab.exe --window folderart   # cover.jpg on scratch folders through the album save, Save Embedded Art and Keep Best Cover: old cover.png to the real Recycle Bin, a folder shared with another album left alone, no leftovers ("ALL OK"; leaves one tiny scratch cover.png in the bin)
 ThemeLab.exe --window albumkeep   # the album tag window on scratch albums (a compilation, an untagged album) through its real save; checks nothing unchanged is written ("ALL OK")
 ThemeLab.exe --window safesave --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # copies of one album's songs (never the songs) given a new cover through the album save, the window closed mid-save; checks the window waited, the audio is identical, one cover, creation date kept, no leftovers ("ALL OK")
 ThemeLab.exe --window device --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a change of default output device, simulated: playing, paused, stopped, next track
@@ -1545,7 +1577,7 @@ Open items only; finished ones are in `HISTORY.md`.
    save, the album window writing four fields to every track.
    - **A suggested order** (the user picks; the tooltips, the Dark chip hover,
      `SingleInstance`, the startup exception and the Bit-Perfect rate-change tail
-     were done in session 61): `WriteFolderArt` and `ReleaseDate` (data);
+     were done in session 61, `WriteFolderArt` and `ReleaseDate` in session 62):
      the visualizer keep-awake; then the reported ones, each checked first.
    - **Playback:**
      - Reported: DoP played through shared mode as noise if the exclusive open fails;
@@ -1553,10 +1585,6 @@ Open items only; finished ones are in `HISTORY.md`.
        Stop → Play plays the old buffer; the DAC stays held exclusively after Stop in
        Bit-Perfect; reopens resume from the decode position, not `Heard`.
    - **File writes:**
-     - **`WriteFolderArt`** deletes the old cover before writing the new one, writes
-       in place, and writes to every folder holding a track of the album.
-     - **`ReleaseDate`**: `\d` matches non-ASCII digits, which `int.Parse` refuses, so
-       one such date tag fails every scan.
      - Reported: an image's format taken from its extension; a FLAC with a front ID3
        tag keeps a new cover only in the ID3 tag; artists with several values cut to
        the first; a bad APIC frame aborting an album save silently.

@@ -4097,6 +4097,80 @@ Then, in a new conversation the same evening (session 58 continued):
   Stop pressed 983 ms after the seek, inside the wait, and the second track never
   opened. 852 tests. Installed. Not heard on real music yet.
 
+### Session 62 (2026-10-21): the folder cover files, the date tag that failed scans
+
+Two data findings from session 60's review, the user's pick, and the plan approved
+before any edit.
+
+- **A date tag in other digits made every scan fail.** `ReleaseDate`'s patterns used
+  `\d`, which in .NET matches any script's digits (Arabic-Indic "٢٠١٤", full-width
+  "２０１４"), and `int.Parse` then threw a FormatException. Nothing caught it per file,
+  so `Parallel.ForEach` ended the scan ("Scan failed: ...") at every launch, until the
+  song was retagged elsewhere; typed into the Year box, it threw in the tag window too.
+  Now `[0-9]`: such a date reads as no date and the scan carries on. New tests (the two
+  patterns, and a FLAC with such a DATE through `TagReader.Read`) failed on the old
+  code with exactly that exception, and pass now. The user's scans work, so the
+  library holds no such tag today.
+- **The folder cover file** (`TagWriter.WriteFolderArt`), three weak spots:
+  - It wrote over the cover in place (`File.WriteAllBytes`): cut off partway, a
+    half-written cover. Now a `.audiofool-cover-*.part` working file, flushed, renamed
+    over the target (`File.Move(..., overwrite: true)`; the scan's leftover clean-up
+    already deletes such files after 10 minutes).
+  - For a format change it deleted the old cover first, so a failed write left the
+    folder with none. Now the old file goes only after the new one is in, through a
+    `recycle` callback: the app passes `RecycleBin.Send` (**the user's call**: the
+    Recycle Bin, as the PNG conversion does). Where the bin refuses (no bin on the
+    drive), the old file stays, `FolderArtWriteResult.Warning` says so in the status
+    bar, and the path returned is the one `FindFolderArt` picks (cover.jpg ranks before
+    cover.png, so a new PNG over an old cover.jpg isn't shown then).
+  - It wrote into every folder holding a song of the album, so a "Singles" folder's
+    cover.jpg, shown by every album there, was replaced by this album's. Now
+    `FolderArtTargets.HoldsOtherAlbums` skips a folder holding another album's song:
+    the same album name (trimmed, `SortRules.NameComparer`) counts as this album, so an
+    album split across two artists by one track's tags still gets its file; an empty
+    album name never does, since untagged songs of every artist share it. The status
+    bar names the skipped folder ("No folder cover file in Singles: other albums' songs
+    are there too."); its songs still get the embedded cover.
+  - Tests: recycle after the new file is in, kept with a warning when the bin refuses,
+    a failed write (a read-only blocker) keeping the old cover of another format (the
+    old code deleted it) and of the same format, no working files left, and five for
+    `HoldsOtherAlbums`. 867 tests.
+  - New ThemeLab `--window folderart`: scratch songs from the fixtures, through the
+    view model's own `ApplyAlbumEditAsync` and the real Recycle Bin. "Blue" in
+    "Blue CD1" (with an old cover.png) and one song in "Singles" beside "Red" and
+    Red's cover.jpg. ALL OK: cover.jpg new, cover.png gone and found in the bin,
+    Singles' cover.jpg still Red's, the status naming Singles, all three Blue songs
+    holding the new cover, Red's untouched, a second JPEG over the first, no leftovers.
+- Installed (AudioFool wasn't running).
+- **Then *Save Embedded Art* and Keep Best Cover's cover.jpg**, found on the way and
+  fixed at the user's go-ahead. `EmbeddedArtExtractor.ExtractToFolders` wrote cover.jpg
+  in place (`File.WriteAllBytes`) and into every folder holding the songs, shared
+  ones included; it never deleted anything, so the damage was a half-written cover or
+  another album's cover replaced (only by a bigger picture).
+  - The "write beside, then rename over" step is now `FileSwap.WriteWhole`, used by
+    both writers (its working file is `.audiofool-write-*.part`).
+  - `ExtractToFolders` takes `sharedFolder`; such a folder gets the new outcome
+    `Shared`. `Describe` names it ("No cover.jpg in Singles: other albums' songs are
+    there too.", or "Not saved as cover.jpg: ..." when every folder is shared); Keep
+    Best Cover's status counts it ("no cover.jpg in 1 folder shared with other
+    albums").
+  - The album window gets its check from `NewAlbumEditorViewModel` (a new optional
+    `sharedFolder` on `TagEditViewModel`'s album constructor, asking the library when
+    the button is pressed). Keep Best Cover's `CleanFolder` passes the folder's songs
+    to a new `FolderArtTargets.HoldsOtherAlbums(IEnumerable<Track> own, ...)`
+    overload: songs of two album names among them count as shared too.
+  - Tests: a shared folder skipped beside one that is written, only-shared wording, a
+    read-only cover left whole with no working file, no working file after a save, two
+    for the overload. 873 tests (the flaky `An_update_allocates_nothing` failed once
+    after the build, as HANDOFF says it does; the rerun passed).
+  - ThemeLab `--window folderart` gained step 3 (Save Embedded Art through the real
+    album window's view model) and step 4 (Keep Best Cover over all four songs, each
+    given a bigger front and a back cover), with Red's cover made smaller than Blue's
+    so only the shared rule keeps it: ALL OK, Blue CD1's cover.jpg written both
+    times, Singles' still Red's, the message and status naming the shared folder,
+    every song left with its front cover only, no leftovers.
+  - Installed (not running). Not seen by the user on screen yet.
+
 ---
 
 ## Reference notes retired from the handoff

@@ -639,7 +639,8 @@ take.
   Artists does the whole library**. Each song keeps only its best cover, and the empty
   room the others leave is cut to 5 KB, so a later small tag edit still doesn't rewrite
   the file. Then each folder gets `cover.jpg` from the kept cover, unless it already has
-  one at least as big. Progress is in the status bar; every 30 seconds the songs done
+  one at least as big or also holds another album's songs (the status bar counts those).
+  Progress is in the status bar; every 30 seconds the songs done
   leave the list and are saved. **To stop**, right-click an artist or album → **Stop
   Keeping Best Covers**: the song in hand is finished, and a second run picks up the rest.
 
@@ -941,6 +942,17 @@ check as *Keep Best Cover* (below), and only happens when a file needs it; a sav
 doesn't change the cover is as before. A song that fails the check keeps what Save wrote,
 and the status bar says so.
 
+**The folder's cover file.** Save also writes the new cover as `cover.jpg` (or
+`cover.png` for a PNG) in the album's folder, over the cover file already there. It is
+written beside the old one first and swapped in when complete, so a save cut off partway
+leaves the old cover whole. When the format changes, the old file (say `cover.png` before
+a new `cover.jpg`) goes to the **Recycle Bin** once the new one is in; on a drive without
+a bin it is kept, and the status bar says so. **A folder that also holds another album's
+songs** (a "Singles" folder, say) gets no cover file, since every album there shows it:
+the songs of this album still get the cover inside them, and the status bar names the
+folder. Songs with the same album name count as this album; songs with no album name
+never do.
+
 **When a file carries several covers.** Many files hold the cover two or three times,
 sometimes at different sizes. AudioFool shows the best one wherever it is stored: a front
 cover over other pictures (such as a band photo), then the most pixels, then a JPEG over
@@ -959,7 +971,10 @@ is copied byte for byte, so nothing is compressed. A PNG has to become a JPEG to
 `cover.jpg`: that is the one case where the picture is re-encoded, at quality 100 with
 full-resolution colour, with any transparency set against white. An existing `cover.jpg`
 is replaced only by a picture with more pixels. Other cover files (`folder.jpg`…) are left
-alone. The message line at the bottom of the dialog says what happened.
+alone. As with Save, the file is swapped in whole, and **a folder that also holds another
+album's songs gets no `cover.jpg`** (see *The folder's cover file* above); *Keep Best
+Cover* follows the same rule for the `cover.jpg` it saves. The message line at the bottom
+of the dialog says what happened.
 
 fanart.tv needs a free personal API key from <https://fanart.tv/get-an-api-key/>. Put
 it in `%APPDATA%\AudioFool\settings.json` as `"FanartTvApiKey": "..."` and restart.
