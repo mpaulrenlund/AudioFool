@@ -166,6 +166,12 @@ with the user first (see *Releases*).
   - **Edits during a scan** are kept (`_editedDuringScan`, `EditsDuringScan.Apply`).
   - Not verified on real hardware: a real SSD pulled mid-scan, a real locked
     settings.json. The tests stand in for both.
+  - **Then (2026-10-21): shared mode is gapless at any rate** (`canSplice` lets shared
+    mode splice whatever the track's rate; `SpliceDelay` scales a resampled join to
+    the mixer's rate; ThemeLab `--window splice` on Au5 3-03 → 3-04, 44.1 → 48: joined
+    164 frames in, resampled) and **a new output starts at the volume set**
+    (`OutputChain._appliedGain` starts unset). Installed. **The user to hear both:**
+    Bit-Perfect off across a rate change, and a first play at a low volume.
 - **Session 59** (2026-10-20), all installed and pushed (details in `HISTORY.md`):
   - **A click never scrolls a list** (`df67a6b`): a double-click on a row cut off at
     the bottom plays that row, not the one below. **Confirmed by the user.**
@@ -1457,17 +1463,11 @@ Open items only; finished ones are in `HISTORY.md`.
 6. **Session 60's review: open findings** (checked against the code unless marked
    "reported"; the review's full text is not kept, so these are the leads). Ask the
    user which to take next.
-   - **Playback:**
-     - **Shared-mode gapless fails when a track's rate isn't the Windows mix rate**
-       (`AudioEngine.cs` ~944: `canSplice` compares the source rate with
-       `_output.SampleRate`, which in shared mode is `SharedMixRate`). The track
-       goes through `JumpTo` → `PlayCore` → `_output.Stop()`, which flushes ~200 ms of
-       the old track's tail. In `playback.log` on 2026-10-20 (shared 44.1 kHz), Au5
-       3-03 → 3-04 (48 kHz) has no "gapless:" line. At a 96 kHz shared format, no
-       44.1 kHz album would splice.
-     - **The first block of a new output chain starts at full gain**
-       (`OutputChain._appliedGain = 1f`, `SetVolume` writes only `_gain`), so a new
-       chain at a low volume starts loud and ramps down.
+   - **Playback** (shared-mode gapless and the loud first block: fixed 2026-10-21):
+     - **A Bit-Perfect rate change loses the old track's last ~0.2 s**: the END sync
+       fires when the decoder runs dry, and the reopen (`JumpTo` → `PlayCore` →
+       `_output.Stop()`) flushes what the device still holds. Waiting for
+       `WaitUntilHeardAsync(joinFrame)` before reopening would keep it.
      - Reported: DoP played through shared mode as noise if the exclusive open fails;
        a next track that won't open stops the queue and Next can't pass it; Pause →
        Stop → Play plays the old buffer; the DAC stays held exclusively after Stop in

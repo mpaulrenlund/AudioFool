@@ -3935,6 +3935,30 @@ Then, in a new conversation the same evening (session 58 continued):
   mid-scan. Installed (not running at the time). The first full run of the session also
   failed `LiveSpectrumTests.An_update_allocates_nothing` once (7,264 bytes on a cold
   run after a build); it passed every run since, and `Update` allocates nothing.
+- **Then (2026-10-21) shared-mode gapless and the loud first block**, the review's
+  next two, the user's pick.
+  - **Gapless in shared mode at any rate.** `canSplice` required the next track's
+    rate to equal the output's, but in shared mode the mixer runs at Windows' rate and
+    resamples every source. A track at another rate (Au5 3-03 44.1 kHz → 3-04 48 kHz on
+    2026-10-20, no "gapless:" line) went through `JumpTo` → `PlayCore` →
+    `_output.Stop()`, which flushed ~200 ms of the old track's tail before a gap. Now
+    shared mode always splices; exclusive keeps the rule (`OutputChain.MixerRate`).
+    `SpliceDelay` scales the ended track's frames to the mixer's rate when they differ
+    (it returned 0 before, so a resampled join would start up to a block early), and
+    converts with `MixerChannels` rather than the device's reported channel count.
+    The log line adds "(resampled)".
+  - **A new output chain starts at the volume set.** `_appliedGain` started at 1, so
+    the first block (up to the 200 ms prefill) ramped from full volume down to the
+    setting: the first play after launch, a song picked while paused, a device switch,
+    Bit-Perfect turned off. It starts unset now, and the first block takes the volume
+    asked for.
+  - **Checked:** ThemeLab `--window splice` on the real files, shared 44.1 kHz,
+    volume 0: 3-03 → 3-04 (44.1 → 48) "joined 164 frames into the block (resampled)",
+    3-04 → 3-05 (48 → 44.1) 134 frames (resampled), 3-05 → 3-03 (44.1 → 44.1) 164
+    frames, each playing on into the next track. 832 tests (the allocation test failed
+    once more on the first run after a build, then passed). Installed. Not verified:
+    the first block's level, which nothing off-screen measures (the tap is before the
+    volume); the user to hear it.
 
 ---
 

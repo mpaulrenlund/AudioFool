@@ -842,7 +842,11 @@ the block it is working on, which would lay the next track over the last few
 milliseconds of the one ending. So it is added with a start delay of exactly the frames
 the ending track still filled in that block (`SpliceDelay`), and the join is
 sample-exact. That matters most for DSD over PCM, where any overlap scrambles the DoP
-markers and the DAC drops out of DSD for a moment. See `AudioEngine.cs`.
+markers and the DAC drops out of DSD for a moment. In shared mode a track at another
+rate than Windows' is resampled by the mixer and joined the same way, its frames
+scaled to the mixer's rate (within the resampler's few frames); until session 60 it
+reopened the device instead, cutting the last 0.2 s of the track before it. See
+`AudioEngine.cs`.
 
 **BASS holds the "no sound" device.** `Bass.Init(0, ...)` is deliberate: BASS is only
 ever a decoder here, and output goes through WASAPI via `OutputChain`. If BASS held the
