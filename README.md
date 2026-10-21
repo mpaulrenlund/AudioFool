@@ -504,6 +504,22 @@ at once: deleting "(Remastered)" from every title and album, say.
 
 ---
 
+## About
+
+Logo menu → **About** plays the PlayStation's start-up over the main window: the Sony
+screen, then the PlayStation screen as the chime starts, with the start-up sound
+(about 15 seconds). A click or any key ends it early.
+
+- Music that is playing pauses for it and carries on from the same place afterwards.
+- In Bit-Perfect, AudioFool holds the DAC for itself, even paused, so no other sound
+  could reach it. For the intro it lets go of the DAC and takes it back afterwards,
+  still Bit-Perfect. The sound plays at AudioFool's volume through Windows' default
+  device.
+- The pictures and the sound are inside the exe; the sound is unpacked to the temp
+  folder (`AudioFool-intro.mp3`) when played, because Windows' media player needs a file.
+
+---
+
 ## Finding a song's file
 
 Right-click a song → **Open in Windows Explorer** opens its folder with the file

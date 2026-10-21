@@ -4260,6 +4260,45 @@ Ctrl+H). Then the plan, approved before any edit.
 - Committed as `2526a88` (the feature, its tests, the tokens and ThemeLab) and
   `6188810` (docs), pushed, at the user's request, with each git step explained.
 
+### Session 64 (2026-10-21): About, the PlayStation intro
+
+- **The request:** an About item at the bottom of the logo menu, an easter egg that
+  plays the PlayStation 1's start-up sound with its two screens (the Sony Computer
+  Entertainment screen, then the PlayStation screen). The user supplied the sound
+  (`psx.mp3`, 14.92 s, 128 kb/s) and both pictures (1280×720 and 739×415).
+- **Planned and approved**, with three calls, each the recommended option: music
+  playing pauses and carries on afterwards; in Bit-Perfect AudioFool lets go of the
+  DAC for the intro and takes it back (pictures alone would have needed no engine
+  change); it covers the main window rather than the screen.
+- **Where the PlayStation screen starts:** measured, not guessed. ffmpeg's loudness
+  every 0.1 s showed no gap between the two sounds; the bass jumps at 3.0 s (inside
+  the Sony part) and the treble above 3 kHz rises from −45 dB at 7.30 s to −27 dB by
+  8.3 s: the chime. So the Sony screen is gone by 7.3 s and the PlayStation screen
+  fades in from there (`intro.logoAtMs`).
+- **Built:** `Core/Theme/IntroTimeline` (each screen's opacity at a time, from the
+  `intro.*` tokens; 5 tests, plus a test that `color.intro.*` match in both files);
+  `IntroWindow` (a plain borderless `Window`, drawn each frame from a `Stopwatch`
+  started with the sound; silent if the sound won't open in a second);
+  `MainViewModel.About.cs`; `WindowPlacement.VisibleRectOf` (DWM's extended frame
+  bounds, so the intro covers what shows of the main window, not its invisible resize
+  borders); `AudioEngine.LendDevice()` (`Release(_ => true, closeDevice: true)`, and
+  `Reacquire` on dispose, both under `_releaseGate` but not across the intro).
+- **Two things found on the way:** the pictures' short pack URIs drew nothing in
+  ThemeLab (the entry-assembly trap the handoff describes), so they use the
+  assembly-qualified form; and an unshown plain `Window` draws nothing through
+  ThemeLab's VisualBrush, so `--window intro` renders directly.
+- **Checked:** ThemeLab `--window intro` at nine moments, Light and Dark
+  byte-identical, 0 magenta, also at 125%; the sound unpacked to the temp folder
+  opened in WPF's MediaPlayer in 0.4 s (duration read 15.3 s), never played.
+  `--window lend` on the DX5, with the user's OK and digital silence: before the loan
+  a second exclusive open was refused, during it accepted, after it refused again;
+  the track stayed paused within 50 ms of its place, Bit-Perfect, and Resume played
+  on; from stopped, nothing reopened. Its log went to a temp file, never
+  `playback.log`. 902 tests.
+- Installed 15:44 (AudioFool wasn't running): 25 files hash-identical.
+- Committed as `fb2b20b` (the feature) and a docs commit, pushed, at the user's
+  request, with each git step explained.
+
 ---
 
 ## Reference notes retired from the handoff

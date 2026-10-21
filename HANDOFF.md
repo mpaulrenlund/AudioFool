@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-21, session 63. Read this alongside `README.md`: the README covers
+Updated 2026-10-21, session 64. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -137,18 +137,18 @@ and the commit fails, as it did for `275921e`.
 
 ### Start of the next session
 
-Session 63 built **Find and Replace** (logo menu and Ctrl+H; see *Where things are*)
-from the user's design, then, after they tried it, made it open nearly as wide as the
-main window ("looks right"). **The installed app is that build** (2026-10-21 15:12),
-and it is **committed and pushed**: `2526a88` (the feature, tests, tokens and
-ThemeLab) and `6188810` (docs); `main` matches `origin/main`, nothing uncommitted.
-896 tests pass. Since session 63 an install is checked by hashing the files, not by
+Session 64 built **About**, a PlayStation easter egg (see *Where things are*). **The
+installed app is that build** (2026-10-21 15:44, 25 files hash-identical to
+`publish\`), **committed and pushed**: `fb2b20b` (the feature, tests, tokens,
+ThemeLab and the intro's files) and the docs commit after it. 902 tests pass. Since session 63 an install is checked by hashing the files, not by
 launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
 playback.log* under Gotchas). The beat screen's Terminal tab, if still open, can be
 closed.
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
+0. **About in real use** (step 1): the timing against the sound, the music pausing
+   and carrying on, and About with Bit-Perfect on.
 1. **Find and Replace in real use** (step 1): how a real Replace and Undo went on
    their own tags, and whether the all-unticked rows in their screenshot were the
    header box (asked twice, unanswered; if not, a bug to chase).
@@ -165,7 +165,7 @@ Open with the user, in this order (each is under *Suggested next steps*):
 5. **What to take next from session 60's review** (step 6). What's left are code
    fixes; step 6 suggests an order.
 
-Then a release can follow: sessions 55–63 are unreleased (since v0.6.1). It waits on the
+Then a release can follow: sessions 55–64 are unreleased (since v0.6.1). It waits on the
 projectM decision (step 5). Confirm the version and notes with the user first (see
 *Releases*); session 60 alone is a lot of user-visible fixes, and session 63 adds a
 feature, so the middle number goes up.
@@ -173,7 +173,33 @@ feature, so the middle number goes up.
 ### Where things are
 
 - **Everything in `README.md` is implemented and verified**, apart from the projectM
-  trial (below). **896 tests** pass. The installed app is session 63's build.
+  trial (below). **902 tests** pass. The installed app is session 64's build.
+- **Session 64** (2026-10-21): **About, a PlayStation easter egg**, the user's request
+  and their sound and pictures (`src/AudioFool/Resources/Intro/`); each question
+  answered with the recommended option (README *About*; the look in
+  `design/progress.md`):
+  - Logo menu → a line, then **About** (`MainViewModel.About.cs`). `IntroWindow`
+    covers the main window (`WindowPlacement.VisibleRectOf`, DWM's frame bounds):
+    black, the Sony screen, black, the PlayStation screen from 7.3 s (where the chime
+    starts), fading out at 14.9 s; a click or a key ends it. `Core/Theme/IntroTimeline`
+    holds the timing, from the new `intro.*` tokens.
+  - **Music:** playing pauses and resumes after. **Bit-Perfect:**
+    `AudioEngine.LendDevice()` closes the device connection through the existing
+    `Release`/`Reacquire` (as `SwitchDevice` does), and disposing it reopens the track
+    where it was, still paused. Shared mode isn't lent: a paused shared stream doesn't
+    block other sounds.
+  - **The sound** is an embedded resource (`AudioFool.intro.mp3`), written to
+    `%TEMP%\AudioFool-intro.mp3` and played by WPF's `MediaPlayer` at AudioFool's
+    volume; if it won't open within a second, the pictures run silent. The release
+    file list is unchanged (19 files plus the projectM trial's six).
+  - **Pack URIs:** the pictures use the assembly-qualified form
+    (`pack://application:,,,/AudioFool;component/...`); the short form drew nothing in
+    ThemeLab (see *Relative pack URIs* under ThemeLab).
+  - **Checked:** ThemeLab `--window intro` (both themes, byte-identical, 0 magenta,
+    125%; the sound opens, not played), `--window lend` on the DX5 with the user's OK
+    (ALL OK: while lent another exclusive open succeeds; returned paused within 50 ms
+    of where it was, Bit-Perfect; Resume plays on; from stopped nothing reopens).
+    Not yet seen or heard by the user.
 - **Session 63** (2026-10-21): **Find and Replace**, the user's request and design,
   every question answered with the recommended option (details in `HISTORY.md` and
   README *Find and Replace*; the look in `design/progress.md`):
@@ -289,9 +315,9 @@ feature, so the middle number goes up.
   - **The beat screen finished** (14:19): 5,005 of 9,728 presets kept. The visualizer
     waits on the user's verdict (next steps, 5).
   - The user has seen PS2 Dark's glows and search selection on screen: "looks good".
-- **Unreleased since v0.6.1:** sessions 55–63, so the visualizer (with the projectM
+- **Unreleased since v0.6.1:** sessions 55–64, so the visualizer (with the projectM
   trial), the click fix, songs from Explorer, Clear All, the click log, session 60's
-  six fixes, session 61's and 62's fixes, and Find and Replace. A release waits on the
+  six fixes, session 61's and 62's fixes, Find and Replace, and About. A release waits on the
   projectM decision, which changes the release's file list (next steps, 5).
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
@@ -327,6 +353,9 @@ feature, so the middle number goes up.
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **64** (2026-10-21): **About**, the PlayStation start-up as an easter egg (logo
+  menu), lending the DAC in Bit-Perfect. See *Where things are* above.
 
 - **63** (2026-10-21): **Find and Replace** across the library (logo menu, Ctrl+H),
   with a ticked preview, a confirmation and Undo. See *Where things are* above.
@@ -1096,6 +1125,8 @@ ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
 ThemeLab.exe --window queue       # edit queued and playing tracks while the real engine plays silently
 ThemeLab.exe --window queue --long "D:/Music/x/a.flac;D:/Music/y/b.dsf" [--longcomment 3000000]   # also save to real tracks (copied to scratch) while they play
 ThemeLab.exe --window closex          # Statistics' close button: normal click, a click WPF-UI loses and a client click while captured (both WRONG = the open bug), a cancelled close, press-and-slide-off (posted messages); prints the title-bar click log
+ThemeLab.exe --window intro --w 1300 --h 800 [--theme dark] [--dpi 1.25]   # the About intro at nine moments, never shown (no sound): renders <out>-<ms>.png, prints opacities and centre/corner colours, opens the sound without playing it (session 64)
+ThemeLab.exe --window lend   # About's loan of the device in Bit-Perfect, real engine and default device, digital silence: while lent another exclusive open succeeds, returned paused in place, Resume plays ("ALL OK"). Ask the user first: it takes their DAC ~5 s
 ThemeLab.exe --window ratechange [--stopinwait 1]   # a Bit-Perfect rate change (44.1 → 96 kHz) through the real engine and default device, exclusively for ~5 s, on two WAVs of digital silence (Bit-Perfect is full volume: never real music); prints "rate change: waited N ms; ... dropped by the reopen: M ms" (0 since session 61). --stopinwait presses Stop during the wait. Ask the user first: it takes their DAC
 ThemeLab.exe --window splice --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a gapless join through the real engine, silent; prints the log's "gapless:" line (needs the device free; since session 60 any rates join in shared mode, "(resampled)" when they differ)
 ThemeLab.exe --window folderart   # cover.jpg on scratch folders through the album save, Save Embedded Art and Keep Best Cover: old cover.png to the real Recycle Bin, a folder shared with another album left alone, no leftovers ("ALL OK"; leaves one tiny scratch cover.png in the bin)
@@ -1463,6 +1494,9 @@ happily rewrite it.
 Open items only; finished ones are in `HISTORY.md`.
 
 1. **Ask the user to try what was checked off-screen only:**
+   - **Session 64, About:** does the PlayStation screen land on the chime, does music
+     pause and carry on, and is the intro heard with Bit-Perfect on (then Bit-Perfect
+     again afterwards)? Also: maximised, and on a second monitor.
    - **Session 63, Find and Replace:** the user has run a real Find ("version"),
      resized the window and confirmed its new width. Not yet reported: a real Replace
      and Undo, and whether the all-unticked rows in their screenshot were the header
