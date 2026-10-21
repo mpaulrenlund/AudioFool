@@ -130,10 +130,10 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 ### Start of the next session
 
-Session 60's three data-safety fixes (settings.json, a drive lost mid-scan, edits
-during a scan; see *Where things are*) are installed. Whether they are committed and
-pushed: check `git status`. The rest of session 60's review is *Suggested next steps*,
-step 6, in the order the user may want to take it.
+Nothing is running and nothing is uncommitted: everything is pushed to `origin/main`
+(the last code commit is `a70c068`, the album window). The installed app is that build
+(installed 2026-10-21 09:05). 852 tests pass. The beat screen's Terminal tab, if still
+open, can be closed.
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
@@ -142,54 +142,58 @@ Open with the user, in this order (each is under *Suggested next steps*):
    release's file list.
 2. **The close X** (step 4): has it ignored clicks again? If so, roughly when; read the
    `titlebar:` lines in `playback.log` around then.
-3. **Session 59's untried changes** (step 1): double-clicking songs in Explorer (from
-   Downloads and from `D:\Music`, AudioFool open and closed), and Clear All.
+3. **Changes the user hasn't tried on screen yet** (step 1): from session 59,
+   double-clicking songs in Explorer and Clear All; from session 60, an album save with
+   a new cover (the copy-and-swap path, and closing mid-save) and the album window on a
+   compilation ("Varies" in Artist and Year).
+4. **What to take next from session 60's review** (step 6). Two need the user's
+   decisions before any work: the 17 remaining tooltips (which go) and the Dark chip
+   hover (a colour). The rest are code fixes; step 6 suggests an order.
 
-Then a release can follow (sessions 55–59 are unreleased); confirm the version and notes
-with the user first (see *Releases*).
+Then a release can follow: sessions 55–60 are unreleased (since v0.6.1). It waits on the
+projectM decision (step 5). Confirm the version and notes with the user first (see
+*Releases*); session 60 alone is a lot of user-visible fixes.
 
 ### Where things are
 
 - **Everything in `README.md` is implemented and verified**, apart from the projectM
-  trial (below). **846 tests** pass. The installed app is session 60's build.
-- **Session 60** (2026-10-20): a review of the whole app (open findings: *Suggested
-  next steps*, step 6), then three data-safety fixes, installed (details in
-  `HISTORY.md`):
-  - **settings.json** is written beside itself and swapped in, keeping
-    `settings.json.bak`; a damaged one falls back to the backup; a locked one makes the
-    session `IsReadOnly` (no settings or library.json saves, a status-bar warning); the
-    two re-read-then-save paths (`TryLoadCurrent`) skip the write when the read fails.
-  - **A drive lost mid-scan** is treated as unplugged (`LibraryScanner`: a root whose
-    listing threw or that is gone after the tags), and a file that can't be opened
-    keeps its cached tags (`TagReader.Read(..., out couldNotOpen)`, unknown stamp for a
-    new one).
-  - **Edits during a scan** are kept (`_editedDuringScan`, `EditsDuringScan.Apply`).
+  trial (below). **852 tests** pass. The installed app is session 60's last build.
+- **Session 60** (2026-10-20 and 21): a review of the whole app by eight read-only
+  reviewers (open findings: *Suggested next steps*, step 6), then six fixes from it,
+  each installed, committed and pushed (details in `HISTORY.md`, session 60):
+  1. **settings.json can't be wiped** (`f18660f`): written beside itself and swapped
+     in, keeping `settings.json.bak`; a damaged one falls back to the backup; a locked
+     one makes the session `IsReadOnly` (no settings or library.json saves, a
+     status-bar warning); the two re-read-then-save paths (`TryLoadCurrent`) skip the
+     write when the read fails.
+  2. **A drive lost mid-scan is unplugged, not blank or deleted** (`f18660f`): a root
+     whose listing threw or that is gone after the tags joins `UnavailableFolders`; a
+     file that can't be opened keeps its cached tags (`TagReader.Read(..., out
+     couldNotOpen)`; a new one gets an unknown stamp, so it is read again).
+  3. **Edits during a scan are kept** (`f18660f`): `_editedDuringScan`,
+     `EditsDuringScan.Apply`.
+  4. **Shared mode is gapless at any rate, and a new output starts at the volume set**
+     (`f6262f9`): `canSplice` lets shared mode splice whatever the track's rate,
+     `SpliceDelay` scales a resampled join to the mixer's rate,
+     `OutputChain._appliedGain` starts unset. **Confirmed by the user** ("seems to be
+     working well").
+  5. **Safer tag saves** (`5e8799a`): a save is rehearsed against `DryRunStream`
+     (reads the file, keeps writes in memory). One that keeps the size writes only the
+     pages it changed; one that moves the audio is made on a `.audiofool-save-*.part`
+     copy beside the song, checked (`CoverCleaner.SameAudio`) and swapped in by
+     `FileSwap.Replace`, which keeps a backup until the copy is in place (Keep Best
+     Cover and PNG conversion use it too). Closing waits for a save
+     (`MainViewModel.Writes.cs`, "Finishing saving"). The scan deletes old `.part`
+     leftovers and names a `.bak` in the status bar.
+  6. **The album window keeps what isn't changed** (`a70c068`): Artist, Album Artist,
+     Album and Year fill only when every track agrees ("Varies by track - kept unless
+     changed" otherwise, as in the selection window) and are written only when changed
+     (`AlbumTagEdit` all optional, `TagEditViewModel.FillSharedFields`). An album with
+     no album tag opens with an empty Album box that saves.
+  - New ThemeLab checks: `--window safesave`, `--window albumkeep` (see *ThemeLab*).
   - Not verified on real hardware: a real SSD pulled mid-scan, a real locked
-    settings.json. The tests stand in for both.
-  - **Then (2026-10-21): shared mode is gapless at any rate** (`canSplice` lets shared
-    mode splice whatever the track's rate; `SpliceDelay` scales a resampled join to
-    the mixer's rate; ThemeLab `--window splice` on Au5 3-03 → 3-04, 44.1 → 48: joined
-    164 frames in, resampled) and **a new output starts at the volume set**
-    (`OutputChain._appliedGain` starts unset). **Confirmed by the user** ("seems to be
-    working well", 2026-10-21).
-  - **Then (2026-10-21): safer tag saves.** A save is rehearsed against
-    `DryRunStream` (reads the file, keeps writes in memory). One that keeps the size
-    writes only the pages it changed; one that moves the audio is made on a
-    `.audiofool-save-*.part` copy beside the song, checked (`CoverCleaner.SameAudio`)
-    and swapped in by `FileSwap.Replace`, which keeps a backup until the copy is in
-    place (Keep Best Cover and PNG conversion use it too). Closing waits for a save
-    (`MainViewModel.Writes.cs`, "Finishing saving"). The scan deletes old `.part`
-    leftovers and names a `.bak` in the status bar. ThemeLab `--window safesave
-    --long "a;b"` checks it on copies of real songs. Installed 2026-10-21 08:29;
-    committed `5e8799a`, pushed.
-  - **Then (2026-10-21): the album window keeps what isn't changed.** Artist, Album
-    Artist, Album and Year fill only when every track agrees ("Varies by track - kept
-    unless changed" otherwise, as in the selection window) and are written only when
-    changed: `AlbumTagEdit`'s four fields are optional (`Date` is a `DateEdit`), and
-    `TagEditViewModel.FillSharedFields` serves both windows. An album with no album
-    tag opens with an empty Album box that saves. ThemeLab `--window albumkeep`
-    checks it through the real window and save. Installed 2026-10-21 09:05; see
-    `git status` for whether it's committed.
+    settings.json; the tests stand in for both. Not seen by the user on screen yet:
+    5 and 6 (step 1).
 - **Session 59** (2026-10-20), all installed and pushed (details in `HISTORY.md`):
   - **A click never scrolls a list** (`df67a6b`): a double-click on a row cut off at
     the bottom plays that row, not the one below. **Confirmed by the user.**
@@ -206,10 +210,10 @@ with the user first (see *Releases*).
   - **The beat screen finished** (14:19): 5,005 of 9,728 presets kept. The visualizer
     waits on the user's verdict (next steps, 5).
   - The user has seen PS2 Dark's glows and search selection on screen: "looks good".
-- **Unreleased since v0.6.1:** sessions 55–59, so the visualizer (with the projectM
-  trial), the click fix, songs from Explorer, Clear All and the click log. A release
-  waits on the projectM decision, which changes the release's file list (next steps,
-  5).
+- **Unreleased since v0.6.1:** sessions 55–60, so the visualizer (with the projectM
+  trial), the click fix, songs from Explorer, Clear All, the click log, and session 60's
+  six fixes. A release waits on the projectM decision, which changes the release's file
+  list (next steps, 5).
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
   day had PS2 Dark and everything since v0.5.0.
@@ -244,6 +248,11 @@ with the user first (see *Releases*).
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **60** (2026-10-20 and 21): **a review of the whole app**, then **six fixes**:
+  settings.json can't be wiped, a drive lost mid-scan, edits during a scan, shared-mode
+  gapless and the loud first block (confirmed by the user), safer tag saves, and the
+  album window keeping what isn't changed. See *Where things are* above.
 
 - **59** (2026-10-20): **a click never scrolls a list** (confirmed by the user);
   **songs opened from Explorer play, in one AudioFool**; **Clear All** in the Quality
@@ -1334,11 +1343,19 @@ happily rewrite it.
 
 Open items only; finished ones are in `HISTORY.md`.
 
-1. **Ask the user to try session 59's changes**, which were checked off-screen only:
-   - **Double-click a song in Explorer:** one from `Downloads` (plays on its own, the
-     view stays) and one from `D:\Music` (goes to its album and plays with the album
-     after it), with AudioFool open and with it closed. Also several songs at once.
-   - **Clear All** in Statistics' Quality Check: the prompt, then every row None.
+1. **Ask the user to try what was checked off-screen only:**
+   - **Session 59, double-click a song in Explorer:** one from `Downloads` (plays on
+     its own, the view stays) and one from `D:\Music` (goes to its album and plays with
+     the album after it), with AudioFool open and with it closed. Also several songs at
+     once.
+   - **Session 59, Clear All** in Statistics' Quality Check: the prompt, then every row
+     None.
+   - **Session 60, an album save with a new cover:** about as quick as before, the
+     cover in every track; closing AudioFool during it keeps the window open with
+     "Finishing saving" until it's done.
+   - **Session 60, the album window on a compilation** (or any album whose tracks
+     differ in artist or year): those boxes start empty with "Varies by track - kept
+     unless changed", and saving another field leaves each track's own.
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
 3. **A visible, editable queue view**: the most conspicuous missing player feature.
@@ -1483,8 +1500,16 @@ Open items only; finished ones are in `HISTORY.md`.
 
 6. **Session 60's review: open findings** (checked against the code unless marked
    "reported"; the review's full text is not kept, so these are the leads). Ask the
-   user which to take next.
-   - **Playback** (shared-mode gapless and the loud first block: fixed 2026-10-21):
+   user which to take next. Fixed in session 60 and gone from this list: settings.json,
+   a drive lost mid-scan, edits during a scan, shared-mode gapless, the loud first
+   block, tag saves in place, `CoverCleaner`'s swap without a backup, closing during a
+   save, the album window writing four fields to every track.
+   - **A suggested order** (the user picks): the two that need the user's decisions
+     first, since they are quick once decided (the tooltips, the Dark chip hover); then
+     `SingleInstance` and the startup exception (a launch that can fail); the
+     Bit-Perfect rate-change tail (heard); `WriteFolderArt` and `ReleaseDate` (data);
+     the visualizer keep-awake; then the reported ones, each checked first.
+   - **Playback:**
      - **A Bit-Perfect rate change loses the old track's last ~0.2 s**: the END sync
        fires when the decoder runs dry, and the reopen (`JumpTo` → `PlayCore` →
        `_output.Stop()`) flushes what the device still holds. Waiting for
@@ -1494,10 +1519,6 @@ Open items only; finished ones are in `HISTORY.md`.
        Stop → Play plays the old buffer; the DAC stays held exclusively after Stop in
        Bit-Perfect; reopens resume from the decode position, not `Heard`.
    - **File writes:**
-     - (The album window always writing Artist, Album Artist, Album and Year: fixed
-       2026-10-21, those four now keep unless changed.)
-     - (Tag saves in place, closing during a save, and `CoverCleaner`'s swap without a
-       backup: fixed 2026-10-21, safer tag saves.)
      - **`WriteFolderArt`** deletes the old cover before writing the new one, writes
        in place, and writes to every folder holding a track of the album.
      - **`ReleaseDate`**: `\d` matches non-ASCII digits, which `int.Parse` refuses, so
@@ -1534,7 +1555,10 @@ Open items only; finished ones are in `HISTORY.md`.
      - `publish\` holds 25 files with the six projectM DLLs (LGPL, no notice).
      - `AudioEngine` has no tests.
      - The Last.fm secret is in plain text.
-     - `LiveSpectrumTests.An_update_allocates_nothing` failed once on a cold run.
+     - `LiveSpectrumTests.An_update_allocates_nothing` fails now and then on the first
+       run after a build (twice in session 60, 7 KB allocated; every rerun passes, and
+       `Update` allocates nothing). Make the test sturdier (warm up longer, or allow
+       the runtime's own allocations).
    - **Left out of session 60 on purpose (the user may want them):** a folder added
      during a scan is never scanned; flush-to-disk before the swap for playlists.json
      and library.json.
