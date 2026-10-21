@@ -4056,6 +4056,12 @@ Then, in a new conversation the same evening (session 58 continued):
   "cover.jpg", "Embedded" and (`--useart`) "Unsaved" rendered. 852 tests. Installed
   (the app wasn't running). Not verified: a folder file name too long for the line
   (none found in the library).
+- **The status-bar buttons' hover shows in Dark** (the user's pick, B of three
+  previewed on a recoloured render). New token `status.chipHover`: Light #ECE9E5 (as
+  before), Dark #272A32 (was `control.faceHover` #1B1D23 on the #1A1C22 chip). Used by
+  `theme.chip` and the filter chip. Both specs' tables have it; the token count test
+  is 66. Renders at rest 0 pixels different in both themes; the key and the filter
+  chip's brushes resolve as set. 852 tests. Installed. Not seen with a real pointer.
 
 ---
 

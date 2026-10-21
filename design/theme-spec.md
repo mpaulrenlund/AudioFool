@@ -128,6 +128,7 @@ All colors live in the central theme (`theme-tokens.json`). Names below are the 
 |---|---|---|
 | `status.chipBg` | `#C6C3BF` | Refresh, Last.fm, Bit-Perfect buttons |
 | `status.chipBorder` | `#9C9995` | Their borders |
+| `status.chipHover` | `#ECE9E5` | Their background on hover (and the filter chip's) |
 | `status.bitPerfectOff` | `#FFDA00` | Bit-Perfect dot when off |
 | `status.bitPerfectOn` | `#15786C` | Bit-Perfect dot when on (same green as Last.fm) |
 | `status.dotRing` | `rgba(0,0,0,0.25)` | Faint 1 px inner ring on the Bit-Perfect dot so yellow stays visible |

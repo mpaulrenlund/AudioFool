@@ -163,6 +163,7 @@ Names are token paths under `color` (`panel.bg` is `color.panel.bg`), as in the 
 |---|---|---|---|
 | `status.chipBg` | `#C6C3BF` | `#1A1C22` |  |
 | `status.chipBorder` | `#9C9995` | `#2F333C` |  |
+| `status.chipHover` | `#ECE9E5` | `#272A32` | the buttons' hover; `control.faceHover` was invisible on `chipBg` in Dark |
 | `status.libraryDot` | `#15786C` | `#3DDC84` | power-light green |
 | `status.lastFmDot` | `#15786C` | `#3DDC84` | power-light green |
 | `status.lastFmOff` | `#FFDA00` | `#FF5A5F` | standby red |
