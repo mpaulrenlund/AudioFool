@@ -4257,6 +4257,8 @@ Ctrl+H). Then the plan, approved before any edit.
   and Find and Replace idle, was closed through UI Automation's window Close (that
   window first), so it shut down normally; 25 files hash-identical.
 - **Confirmed by the user:** "The new Find and Replace width looks right."
+- Committed as `2526a88` (the feature, its tests, the tokens and ThemeLab) and
+  `6188810` (docs), pushed, at the user's request, with each git step explained.
 
 ---
 

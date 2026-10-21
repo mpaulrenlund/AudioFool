@@ -137,34 +137,38 @@ and the commit fails, as it did for `275921e`.
 
 ### Start of the next session
 
-Session 63 built **Find and Replace** (logo menu and Ctrl+H; see *Where things are*),
-checked off-screen, and installed it at the user's go-ahead after they saw the
-screenshots (2026-10-21 14:24; AudioFool wasn't running; all 25 files byte-identical
-to `publish\`). After trying it the user asked for it to open wider, nearly the main
-window's width; that build was installed at 15:12. Not launched from Claude's shell (see *A launch from Claude's shell
-writes playback.log* under Gotchas); the user's first launch is the start-up test. 896
-tests pass. Whether it is committed and pushed: check `git status` (the user decides
-when). Session 62 fixed the folder cover file and the date tag that failed scans. The
-beat screen's Terminal tab, if still open, can be closed.
+Session 63 built **Find and Replace** (logo menu and Ctrl+H; see *Where things are*)
+from the user's design, then, after they tried it, made it open nearly as wide as the
+main window ("looks right"). **The installed app is that build** (2026-10-21 15:12),
+and it is **committed and pushed**: `2526a88` (the feature, tests, tokens and
+ThemeLab) and `6188810` (docs); `main` matches `origin/main`, nothing uncommitted.
+896 tests pass. Since session 63 an install is checked by hashing the files, not by
+launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
+playback.log* under Gotchas). The beat screen's Terminal tab, if still open, can be
+closed.
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
-1. **The visualizer** (step 5): with the screened presets, does it follow the beat now,
+1. **Find and Replace in real use** (step 1): how a real Replace and Undo went on
+   their own tags, and whether the all-unticked rows in their screenshot were the
+   header box (asked twice, unanswered; if not, a bug to chase).
+2. **The visualizer** (step 5): with the screened presets, does it follow the beat now,
    and is intensity 5 right? Then whether projectM stays, which decides the next
    release's file list.
-2. **The close X** (step 4): has it ignored clicks again? If so, roughly when; read the
+3. **The close X** (step 4): has it ignored clicks again? If so, roughly when; read the
    `titlebar:` lines in `playback.log` around then.
-3. **Changes the user hasn't tried on screen yet** (step 1): from session 59,
+4. **Changes the user hasn't tried on screen yet** (step 1): from session 59,
    double-clicking songs in Explorer and Clear All; from session 60, closing mid-save
    (cover saves themselves are confirmed, session 62) and the album window on a
    compilation ("Varies" in Artist and Year); from session 61, the cover's source line
    in the album tag window and the status-bar buttons' hover in Dark.
-4. **What to take next from session 60's review** (step 6). What's left are code
+5. **What to take next from session 60's review** (step 6). What's left are code
    fixes; step 6 suggests an order.
 
-Then a release can follow: sessions 55–61 are unreleased (since v0.6.1). It waits on the
+Then a release can follow: sessions 55–63 are unreleased (since v0.6.1). It waits on the
 projectM decision (step 5). Confirm the version and notes with the user first (see
-*Releases*); session 60 alone is a lot of user-visible fixes.
+*Releases*); session 60 alone is a lot of user-visible fixes, and session 63 adds a
+feature, so the middle number goes up.
 
 ### Where things are
 
@@ -196,6 +200,7 @@ projectM decision (step 5). Confirm the version and notes with the user first (s
     Installed 15:12 at the user's OK (AudioFool closed through UI Automation's window
     Close, Find and Replace first, so it shut down normally; 25 files hash-identical).
     **Confirmed by the user:** "The new Find and Replace width looks right."
+  - Committed as `2526a88` and `6188810` (docs), pushed.
 - **Session 62** (2026-10-21), two fixes from session 60's review (details in
   `HISTORY.md`, README *The folder's cover file*):
   - **The folder cover file** (`TagWriter.WriteFolderArt`, `FolderArtTargets`): written
@@ -286,8 +291,8 @@ projectM decision (step 5). Confirm the version and notes with the user first (s
   - The user has seen PS2 Dark's glows and search selection on screen: "looks good".
 - **Unreleased since v0.6.1:** sessions 55–63, so the visualizer (with the projectM
   trial), the click fix, songs from Explorer, Clear All, the click log, session 60's
-  six fixes, session 61's and 62's fixes, and Find and Replace. A release waits on the projectM decision, which changes the release's file
-  list (next steps, 5).
+  six fixes, session 61's and 62's fixes, and Find and Replace. A release waits on the
+  projectM decision, which changes the release's file list (next steps, 5).
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
   day had PS2 Dark and everything since v0.5.0.
@@ -1458,13 +1463,14 @@ happily rewrite it.
 Open items only; finished ones are in `HISTORY.md`.
 
 1. **Ask the user to try what was checked off-screen only:**
-   - **Session 63, Find and Replace:** the user has run a real Find ("version") and
-     confirmed the window's width; not yet reported: a real Replace and Undo, and
-     whether the all-unticked rows in their screenshot were the header box (asked,
-     unanswered; a bug if not). Off-screen over the real 26,861-song
-     library (`--window findreplaceperf`), Find "e" listed 80,211 rows in ~0.2 s and
-     each letter typed into Replace took ~0.05 s; a real mouse and keyboard haven't
-     been tried.
+   - **Session 63, Find and Replace:** the user has run a real Find ("version"),
+     resized the window and confirmed its new width. Not yet reported: a real Replace
+     and Undo, and whether the all-unticked rows in their screenshot were the header
+     box (asked twice, unanswered; a bug if not). Offered, not taken up: tidying the
+     space a deletion leaves before a closing bracket ("(Film Version)" minus
+     "version" gives "(Film )"; typing " version" avoids it). Off-screen over the
+     real 26,861-song library (`--window findreplaceperf`), Find "e" listed 80,211
+     rows in ~0.2 s and each letter typed into Replace took ~0.05 s.
    - **Session 59, double-click a song in Explorer:** one from `Downloads` (plays on
      its own, the view stays) and one from `D:\Music` (goes to its album and plays with
      the album after it), with AudioFool open and with it closed. Also several songs at
