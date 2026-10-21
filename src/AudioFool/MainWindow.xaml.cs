@@ -201,10 +201,24 @@ public partial class MainWindow : FluentWindow
     }
 
     /// <summary>Remembers where the window is, while it still has a handle to ask.</summary>
-    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private async void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (e.Cancel)
             return;
+
+        // A save still running is finished first (the status bar says so), then
+        // the window closes itself. A second close meanwhile changes nothing.
+        if (_viewModel.IsWriting)
+        {
+            e.Cancel = true;
+            if (_closingAfterWrites)
+                return;
+
+            _closingAfterWrites = true;
+            await _viewModel.FinishWritesBeforeClosing();
+            Close();
+            return;
+        }
 
         Closing -= OnClosing;
         if (WindowPlacement.Capture(this) is { } bounds)
@@ -213,6 +227,8 @@ public partial class MainWindow : FluentWindow
         // Not owned by this window, so it would keep the app running.
         _visualizer?.Close();
     }
+
+    private bool _closingAfterWrites;
 
     private void OnClosed(object? sender, EventArgs e)
     {

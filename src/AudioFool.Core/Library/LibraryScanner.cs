@@ -53,11 +53,15 @@ public static class LibraryScanner
         }
 
         var brokenOff = new List<string>();
-        var files = await Task.Run(() => EnumerateAudioFiles(reachable, brokenOff), cancellationToken)
+        var leftovers = new List<string>();
+        var files = await Task.Run(() => EnumerateAudioFiles(reachable, brokenOff, leftovers), cancellationToken)
             .ConfigureAwait(false);
 
         return await Task.Run(
-            () => ScanFiles(files, reachable, unavailable, brokenOff, known, progress, rereadTags, cancellationToken),
+            () => ScanFiles(files, reachable, unavailable, brokenOff, known, progress, rereadTags, cancellationToken) with
+            {
+                Leftovers = leftovers,
+            },
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -205,13 +209,16 @@ public static class LibraryScanner
 
     /// <summary>Recursive file walk, skipping folders we aren't allowed to read.</summary>
     public static List<string> EnumerateAudioFiles(IReadOnlyList<string> rootFolders) =>
-        EnumerateAudioFiles(rootFolders, brokenOff: []);
+        EnumerateAudioFiles(rootFolders, brokenOff: [], leftovers: []);
 
     /// <summary>
     /// As above, adding to <paramref name="brokenOff"/> each root whose listing
-    /// stopped partway (its drive pulled, most likely), so only part of it is listed.
+    /// stopped partway (its drive pulled, most likely), so only part of it is listed,
+    /// and to <paramref name="leftovers"/> each file a save works with beside a
+    /// song (<see cref="FileSwap"/>): working copies and backups a crash left.
     /// </summary>
-    private static List<string> EnumerateAudioFiles(IReadOnlyList<string> rootFolders, List<string> brokenOff)
+    private static List<string> EnumerateAudioFiles(IReadOnlyList<string> rootFolders, List<string> brokenOff,
+                                                    List<string> leftovers)
     {
         var options = new EnumerationOptions
         {
@@ -241,6 +248,8 @@ public static class LibraryScanner
                 {
                     if (AudioFormats.IsSupported(file) && seen.Add(file))
                         results.Add(file);
+                    else if (Path.GetFileName(file).StartsWith(FileSwap.Prefix, StringComparison.OrdinalIgnoreCase))
+                        leftovers.Add(file);
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

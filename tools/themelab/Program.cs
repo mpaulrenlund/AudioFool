@@ -1527,7 +1527,7 @@ internal static class Program
                 Arg(args, "--file") ?? throw new ArgumentException("--window themeswitch needs --file <audio file>"),
                 Arg(args, "--artfile"), outPath, w, h, scale);
 
-        if (which is "edit" or "queue" or "clicks" or "nowplayingart" or "multiedit" or "albumeditor" or "trackeditor" or "covers" or "pngconvert")
+        if (which is "edit" or "queue" or "clicks" or "nowplayingart" or "multiedit" or "albumeditor" or "trackeditor" or "covers" or "pngconvert" or "safesave")
         {
             // Each save persists the library, and LibraryCache.CachePath is the
             // real library.json - so it is put back byte for byte afterwards.
@@ -1538,7 +1538,9 @@ internal static class Program
                 File.Copy(cachePath, backup, overwrite: true);
             try
             {
-                if (which == "pngconvert")
+                if (which == "safesave")
+                    RunSafeSave(main, vm, Arg(args, "--long") ?? throw new ArgumentException("--window safesave needs --long \"a;b;...\""));
+                else if (which == "pngconvert")
                     RunPngConvert(main, vm);
                 else if (which == "covers")
                     RunCovers(main, vm);
@@ -5082,6 +5084,131 @@ internal static class Program
         Console.WriteLine($"after: status='{vm.StatusText}' cover in file={(embedded is { Length: > 0 } ? $"{embedded.Length:N0} B" : "none")} "
             + $"now playing '{vm.NowPlaying?.Title}' same file={vm.NowPlaying?.FilePath == playing.FilePath}, picture {(art is null ? "none" : $"{art.PixelWidth}px")} "
             + $"{(redOk ? "OK" : "BROKEN")}");
+    }
+
+    /// <summary>
+    /// --window safesave --long "a.flac;b.flac;...": copies of real songs (never
+    /// the songs themselves) in a scratch folder, given a new 1000 px cover
+    /// album-wide through the view model's own album save, which doesn't fit the
+    /// tags' room, so each is saved on a copy and swapped in (session 60). The
+    /// main window is closed straight after the save starts: it must stay open
+    /// until the save is done, then close itself. Then each copy is checked
+    /// against its original: the audio byte for byte, the one cover, the creation
+    /// date, and nothing left beside them. settings.json is put back afterwards
+    /// (closing saves the window's place).
+    /// </summary>
+    private static void RunSafeSave(MainWindow main, MainViewModel vm, string files)
+    {
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        const System.Reflection.BindingFlags Private = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var settingsKept = File.Exists(AppSettings.SettingsPath) ? File.ReadAllBytes(AppSettings.SettingsPath) : null;
+
+        var dir = Path.Combine(Path.GetTempPath(), "themelab-safesave-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(dir);
+        _scratchDir = dir;
+        try
+        {
+            var originals = files.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            var copies = new List<Track>();
+            var created = new Dictionary<string, DateTime>();
+            foreach (var original in originals)
+            {
+                var copy = Path.Combine(dir, Path.GetFileName(original));
+                File.Copy(original, copy);
+                created[copy] = File.GetCreationTimeUtc(copy);
+                copies.Add(AudioFool.Core.Library.TagReader.Read(copy));
+            }
+
+            typeof(MainViewModel).GetMethod("ApplyLibrary", Private)!
+                .Invoke(vm, [AudioFool.Core.Library.LibraryScanner.Build(copies), false]);
+            var album = AudioFool.Core.Library.LibraryScanner.Build(copies).Artists[0].Albums[0];
+            var first = album.Tracks[0];
+
+            // A 1000 px JPEG of noise, so it is a few hundred kilobytes and no tag's padding takes it.
+            var random = new Random(60);
+            var pixels = new byte[1000 * 1000 * 4];
+            random.NextBytes(pixels);
+            var noise = System.Windows.Media.Imaging.BitmapSource.Create(1000, 1000, 96, 96,
+                System.Windows.Media.PixelFormats.Bgr32, null, pixels, 1000 * 4);
+            var encoder = new System.Windows.Media.Imaging.JpegBitmapEncoder { QualityLevel = 90 };
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(noise));
+            using var jpeg = new MemoryStream();
+            encoder.Save(jpeg);
+            var cover = jpeg.ToArray();
+            Console.WriteLine($"{copies.Count} copies in {dir}, album '{album.Title}', cover {cover.Length:N0} B");
+
+            var closedAt = (long?)null;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            main.Closed += (_, _) => closedAt = clock.ElapsedMilliseconds;
+
+            var edit = new AudioFool.Core.Library.AlbumTagEdit(first.Artist ?? "", first.AlbumArtist ?? first.Artist ?? "", first.Album ?? "", first.Year);
+            var save = (Task)typeof(MainViewModel).GetMethod("ApplyAlbumEditAsync", Private)!
+                .Invoke(vm, [album, edit, new AudioFool.Core.Library.ArtPayload(cover, "image/jpeg"), false])!;
+            Settle(30);
+
+            main.Close();
+            Settle(30);
+            var openAfterClose = closedAt is null;
+            var statusWhileWaiting = vm.StatusText;
+
+            while (!save.IsCompleted && clock.ElapsedMilliseconds < 120_000) Settle(50);
+            var savedAt = clock.ElapsedMilliseconds;
+            while (closedAt is null && clock.ElapsedMilliseconds < savedAt + 5000) Settle(50);
+
+            Console.WriteLine($"close asked during the save: window still open {openAfterClose} ({(openAfterClose ? "OK" : "WRONG")}), status '{statusWhileWaiting}'");
+            Console.WriteLine($"save done at {savedAt} ms, window closed at {closedAt?.ToString() ?? "never"} ms ({(closedAt >= savedAt - 50 ? "OK" : "WRONG")}), save {(save.IsFaulted ? "FAULTED " + save.Exception?.GetBaseException().Message : "completed")}");
+
+            var allOk = true;
+            foreach (var original in originals)
+            {
+                var copy = Path.Combine(dir, Path.GetFileName(original));
+                var sameAudio = AudioBytesHash(original) is { } a && AudioBytesHash(copy) is { } b && a == b;
+                using var tagged = TagLib.File.Create(copy);
+                using var before = TagLib.File.Create(original);
+                var oneCover = tagged.Tag.Pictures is [var only] && only.Data.Data.AsSpan().SequenceEqual(cover);
+                var sameLength = tagged.Properties.Duration == before.Properties.Duration;
+                var sameCreated = File.GetCreationTimeUtc(copy) == created[copy];
+                var ok = sameAudio && oneCover && sameLength && sameCreated;
+                allOk &= ok;
+                Console.WriteLine($"  {Path.GetFileName(copy)}: {new FileInfo(original).Length:N0} -> {new FileInfo(copy).Length:N0} B, "
+                    + $"audio identical {sameAudio}, one cover {oneCover}, length {sameLength}, created kept {sameCreated} {(ok ? "OK" : "WRONG")}");
+            }
+
+            var leftovers = Directory.GetFiles(dir, AudioFool.Core.Library.FileSwap.Prefix + "*");
+            Console.WriteLine($"leftover working files: {leftovers.Length}; status '{vm.StatusText}'");
+            Console.WriteLine(allOk && leftovers.Length == 0 && openAfterClose && closedAt >= savedAt - 50 ? "ALL OK" : "SOMETHING WRONG");
+        }
+        finally
+        {
+            if (settingsKept is not null)
+                File.WriteAllBytes(AppSettings.SettingsPath, settingsKept);
+            else if (File.Exists(AppSettings.SettingsPath))
+                File.Delete(AppSettings.SettingsPath);
+        }
+    }
+
+    /// <summary>SHA-256 of a FLAC, MP3 or DSF's audio bytes, from where TagPadding says the tags end; null for other layouts.</summary>
+    private static string? AudioBytesHash(string path)
+    {
+        if (AudioFool.Core.Library.TagPadding.Read(path) is not { } layout)
+            return null;
+
+        using var stream = File.OpenRead(path);
+        var end = layout.AudioEnd ?? stream.Length;
+        stream.Position = layout.AudioStart;
+        using var hash = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
+        var buffer = new byte[1 << 20];
+        for (var left = end - layout.AudioStart; left > 0;)
+        {
+            var read = stream.Read(buffer, 0, (int)Math.Min(buffer.Length, left));
+            if (read == 0)
+                break;
+            hash.AppendData(buffer, 0, read);
+            left -= read;
+        }
+
+        return Convert.ToHexString(hash.GetHashAndReset());
     }
 
     private static void LoadTempLibrary(MainViewModel vm)

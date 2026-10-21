@@ -187,6 +187,7 @@ public sealed partial class MainViewModel
     /// </summary>
     private async Task KeepBestCoversAsync(IReadOnlyList<Track> tracks)
     {
+        using var writing = BeginWrite();
         _keepCts?.Dispose();
         _keepCts = new CancellationTokenSource();
         var cancel = _keepCts.Token;

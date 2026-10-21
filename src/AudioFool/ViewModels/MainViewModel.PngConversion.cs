@@ -75,6 +75,7 @@ public sealed partial class MainViewModel
 
     private async Task ConvertEmbeddedAsync(IReadOnlyList<Track> tracks)
     {
+        using var writing = BeginWrite();
         var cancel = BeginPngRun(tracks.Count, $"Converting the PNG cover in {Songs(tracks.Count)}...");
         var cache = CoverResults;
         var results = new List<CoverCleanResult>();
@@ -130,6 +131,7 @@ public sealed partial class MainViewModel
 
     private async Task ConvertFilesAsync(IReadOnlyList<Track> tracks, PngFolderSet? folders)
     {
+        using var writing = BeginWrite();
         var groups = ByFolder(tracks).ToList();
         var cancel = BeginPngRun(groups.Count, $"Converting the PNG files in {Folders(groups.Count)}...");
         var cache = CoverResults;

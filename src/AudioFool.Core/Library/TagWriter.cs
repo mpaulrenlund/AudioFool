@@ -33,9 +33,6 @@ public sealed record FolderArtWriteResult(bool Success, string? ErrorMessage, st
 /// </summary>
 public static class TagWriter
 {
-    /// <summary>How a trial save's scratch copy in %TEMP% is named: this, a GUID, then the file's own name.</summary>
-    public const string TrialPrefix = "AudioFool-trial-";
-
     /// <summary>Applies a single-track edit, optionally replacing the embedded art.</summary>
     /// <param name="holder">
     /// Playback, which may have the file open. A save that would resize such a
@@ -269,125 +266,213 @@ public static class TagWriter
     }
 
     /// <summary>
-    /// Opens the file, applies the edit and saves it.
+    /// Opens the file, applies the edit and saves it, so that nothing that stops
+    /// the save partway - the app closing, the laptop sleeping, the drive pulled -
+    /// can leave the song damaged.
     /// <para>
-    /// The file is opened for writing <em>shared</em>, because playback holds the
-    /// playing track and the next one open, and TagLib's own unshared open is
-    /// refused against those handles. Sharing is safe while the save stays in
-    /// place, which a small edit does: the tag fits the space it had, and a
-    /// stream decoding the file hears nothing (measured bit for bit on FLAC, MP3
-    /// and DSF). A save that grows or shrinks the tag moves the audio instead,
-    /// and a stream already decoding the file would then jump and lose its end.
-    /// So for a file playback holds (<paramref name="holder"/>), the save is
-    /// tried on a scratch copy first. One that keeps the size is made with the
-    /// stream still reading; one that changes it is made while playback lets go
-    /// of the file, which costs the playing track a short gap. Either way the
-    /// holder keeps the file from being opened until the save is done.
+    /// The save is first made against a stand-in for the file
+    /// (<see cref="DryRunStream"/>), which says what it would write:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>Most edits fit the room the tag has, and change a few kilobytes at
+    /// the start (or end) of the file. Those bytes are written into the file as
+    /// they are. Stopped partway, only the tag can suffer; the audio's bytes are
+    /// never written. A stream decoding the file hears nothing (measured bit for
+    /// bit on FLAC, MP3 and DSF), so playback carries on.</item>
+    /// <item>An edit that doesn't fit (a new cover, a field longer than the room)
+    /// moves the audio along the file, which TagLib does in place, rewriting the
+    /// whole song: stopped partway, the song is left half moved. That save is made
+    /// on a copy beside the song instead, checked, and swapped in
+    /// (<see cref="FileSwap"/>). A stream reading the file would jump and lose its
+    /// end, so playback lets go of it for the save (<paramref name="holder"/>),
+    /// which costs the playing track a short gap.</item>
+    /// </list>
+    /// <para>
+    /// Either way the holder keeps the file from being opened until the save is
+    /// done. Until session 60 the second kind was made in place, and for a file
+    /// playback held, the whole save was first tried on a copy in %TEMP% to see
+    /// which kind it was.
     /// </para>
     /// </summary>
     private static (bool Success, string? ErrorMessage) SaveTags(string path, Action<TagLib.File> applyFields,
                                                                  ArtPayload? art, IFileHolder? holder)
     {
         if (holder is null)
-            return Save(path, applyFields, art);
+            return Commit(path, applyFields, art, Rehearse(path, applyFields, art));
 
-        string? trialError = null;
+        SavePlan? plan = null;
         return holder.Saving(path,
-            needsRelease: () =>
-            {
-                var (resized, error) = TrialSave(path, applyFields, art);
-                trialError = error;
-                return resized && error is null;
-            },
-            save: () => trialError is not null ? (false, trialError) : Save(path, applyFields, art));
+            needsRelease: () => (plan = Rehearse(path, applyFields, art)).MovesAudio,
+            save: () => Commit(path, applyFields, art, plan ?? Rehearse(path, applyFields, art)));
     }
 
     /// <summary>
-    /// Makes the save on a scratch copy and reports whether it changed the size.
-    /// The copy keeps the extension, which is how TagLib picks the format, and
-    /// carries the file's name, so a leftover can be traced to its file.
+    /// What a save would do: fail (<see cref="Error"/>), change only
+    /// <see cref="InPlace"/>'s bytes, or move the audio (neither).
+    /// <see cref="Stamp"/> is the file as it was, so a change made since is noticed.
     /// </summary>
-    private static (bool Resized, string? Error) TrialSave(string path, Action<TagLib.File> applyFields, ArtPayload? art)
+    private sealed record SavePlan(string? Error, IReadOnlyList<(long Offset, byte[] Bytes)>? InPlace, FileStamp Stamp)
     {
-        var trial = Path.Combine(Path.GetTempPath(), TrialPrefix + $"{Guid.NewGuid():N}-{Path.GetFileName(path)}");
-        try
-        {
-            File.Copy(path, trial);
-            var (success, error) = Save(trial, applyFields, art);
-            if (!success)
-                return (false, error);
-
-            return (new FileInfo(trial).Length != new FileInfo(path).Length, null);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return (false, DescribeFailure(path, ex));
-        }
-        finally
-        {
-            try { File.Delete(trial); } catch (IOException) { } catch (UnauthorizedAccessException) { }
-        }
+        public bool MovesAudio => Error is null && InPlace is null;
     }
 
-    private static (bool Success, string? ErrorMessage) Save(string path, Action<TagLib.File> applyFields, ArtPayload? art)
+    /// <summary>
+    /// The most a save may write and still be taken for one that keeps the audio
+    /// where it is: far more than any tag, cover included; far less than a song.
+    /// </summary>
+    private const long MaxInPlaceBytes = 32L << 20;
+
+    /// <summary>Makes the save against a <see cref="DryRunStream"/>; the file is only read.</summary>
+    private static SavePlan Rehearse(string path, Action<TagLib.File> applyFields, ArtPayload? art)
     {
-        TagLib.File? file = null;
+        var stamp = FileStamp.For(path);
         try
         {
-            file = TagLib.File.Create(new SharedFile(path));
-            applyFields(file);
-
-            if (art is not null)
+            using var stand = new DryRunStream(path, MaxInPlaceBytes);
+            try
             {
-                file.Tag.Pictures =
-                [
-                    new TagLib.Picture(new TagLib.ByteVector(art.Bytes))
-                    {
-                        Type = TagLib.PictureType.FrontCover,
-                        MimeType = art.MimeType,
-                        Description = "Cover",
-                    },
-                ];
+                Apply(new StreamFile(path, stand), mimeType: null, applyFields, art);
+            }
+            catch (DryRunStream.TooMuchRewrittenException)
+            {
+                return new SavePlan(null, null, stamp);
             }
 
-            file.Save();
-            return (true, null);
-        }
-        catch (Exception ex) when (ex is TagLib.UnsupportedFormatException
-                                     or TagLib.CorruptFileException
-                                     or IOException
-                                     or UnauthorizedAccessException
-                                     or NotSupportedException)
-        {
-            return (false, DescribeFailure(path, ex));
+            return new SavePlan(null, stand.KeptSize ? stand.Changes() : null, stamp);
         }
         catch (Exception ex)
         {
-            return (false, $"Unexpected error: {ex.Message}");
+            return new SavePlan(Describe(path, ex), null, stamp);
         }
-        finally
+    }
+
+    private static (bool Success, string? ErrorMessage) Commit(string path, Action<TagLib.File> applyFields,
+                                                               ArtPayload? art, SavePlan plan)
+    {
+        if (plan.Error is not null)
+            return (false, plan.Error);
+
+        if (FileStamp.For(path) != plan.Stamp)
+            return (false, "the file changed while it was being saved - try again");
+
+        try
         {
-            file?.Dispose();
+            if (plan.InPlace is { } changes)
+                WriteInPlace(path, changes);
+            else
+                SaveOnCopy(path, applyFields, art);
+
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, Describe(path, ex));
         }
     }
 
     /// <summary>
-    /// TagLib's file access with sharing: its default opens for writing with
-    /// <see cref="FileShare.None"/>. Reads share too, so a save's read phase
-    /// works against a file that is open elsewhere.
+    /// Writes the bytes a save that keeps the size changed, shared, since playback
+    /// may be reading the file, and makes sure they are on the disk.
     /// </summary>
-    private sealed class SharedFile(string path) : TagLib.File.IFileAbstraction
+    private static void WriteInPlace(string path, IReadOnlyList<(long Offset, byte[] Bytes)> changes)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+        foreach (var (offset, bytes) in changes)
+        {
+            stream.Position = offset;
+            stream.Write(bytes);
+        }
+
+        stream.Flush(flushToDisk: true);
+    }
+
+    /// <summary>
+    /// Makes the save on a copy beside the song (same drive, so the swap is one
+    /// step), checks the copy plays the same audio, and swaps it in. Throws on any
+    /// failure, with the song untouched and the copy gone.
+    /// </summary>
+    private static void SaveOnCopy(string path, Action<TagLib.File> applyFields, ArtPayload? art)
+    {
+        var copy = Path.Combine(Path.GetDirectoryName(path)!, $"{FileSwap.Prefix}save-{Guid.NewGuid():N}{FileSwap.WorkingSuffix}");
+        try
+        {
+            File.Copy(path, copy);
+
+            // The copy ends in ".part", so a scan never takes it for a song; TagLib,
+            // which goes by extension, is told the format instead.
+            Apply(new StreamFile(copy, null), Art.CoverCleaner.MimeTypeFor(path), applyFields, art);
+
+            using (var written = new FileStream(copy, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                written.Flush(flushToDisk: true);
+
+            if (Art.CoverCleaner.SameAudio(path, copy) is { } problem)
+                throw new CopyCheckFailed(problem);
+
+            FileSwap.Replace(copy, path);
+        }
+        finally
+        {
+            try { File.Delete(copy); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>The saved copy didn't check out; the message says why, and the song is untouched.</summary>
+    private sealed class CopyCheckFailed(string reason) : IOException(reason);
+
+    /// <summary>Opens <paramref name="target"/> with TagLib, applies the edit and the art, and saves.</summary>
+    private static void Apply(StreamFile target, string? mimeType, Action<TagLib.File> applyFields, ArtPayload? art)
+    {
+        using var file = mimeType is null
+            ? TagLib.File.Create(target)
+            : TagLib.File.Create(target, mimeType, TagLib.ReadStyle.Average);
+        applyFields(file);
+
+        if (art is not null)
+        {
+            file.Tag.Pictures =
+            [
+                new TagLib.Picture(new TagLib.ByteVector(art.Bytes))
+                {
+                    Type = TagLib.PictureType.FrontCover,
+                    MimeType = art.MimeType,
+                    Description = "Cover",
+                },
+            ];
+        }
+
+        file.Save();
+    }
+
+    /// <summary>
+    /// TagLib's file access. With a <paramref name="stream"/>, every read and write
+    /// goes to it (a <see cref="DryRunStream"/>), and it is left open between
+    /// TagLib's read and write phases. Without one, the file itself, opened
+    /// shared: TagLib's own access opens for writing with
+    /// <see cref="FileShare.None"/>.
+    /// </summary>
+    private sealed class StreamFile(string path, Stream? stream) : TagLib.File.IFileAbstraction
     {
         public string Name => path;
 
-        public Stream ReadStream =>
+        public Stream ReadStream => stream ??
             new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
 
-        public Stream WriteStream =>
+        public Stream WriteStream => stream ??
             new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
 
-        public void CloseStream(Stream stream) => stream.Dispose();
+        public void CloseStream(Stream closing)
+        {
+            if (!ReferenceEquals(closing, stream))
+                closing.Dispose();
+        }
     }
+
+    private static string Describe(string path, Exception ex) => ex switch
+    {
+        TagLib.UnsupportedFormatException or TagLib.CorruptFileException or IOException
+            or UnauthorizedAccessException or NotSupportedException => DescribeFailure(path, ex),
+        _ => $"Unexpected error: {ex.Message}",
+    };
 
     private static string DescribeFailure(string path, Exception ex) => ex switch
     {
@@ -395,6 +480,7 @@ public static class TagWriter
         UnauthorizedAccessException => "permission denied - check the file isn't read-only",
         TagLib.UnsupportedFormatException => "unsupported file format",
         TagLib.CorruptFileException => "the file appears to be corrupt",
+        CopyCheckFailed => ex.Message,
         IOException => "the file may be open in another program",
         _ => ex.Message,
     };

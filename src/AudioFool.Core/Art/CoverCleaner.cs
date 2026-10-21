@@ -45,7 +45,7 @@ public sealed record CoverCleanResult(string Path, CoverCleanOutcome Outcome, lo
 /// pictures are removed from the copy and its padding cut, and the result is then
 /// checked against the original: the audio must match byte for byte, every tag
 /// must read back the same, and the one picture left must be the best one. Only
-/// then does it replace the original, through <see cref="File.Replace(string, string, string?)"/>,
+/// then does it replace the original, through <see cref="FileSwap.Replace"/>,
 /// which keeps the original's creation date (Recently Added sorts by it; checked
 /// on the library's NTFS drive). Any failure leaves the original as it was.
 /// </para>
@@ -53,7 +53,7 @@ public sealed record CoverCleanResult(string Path, CoverCleanOutcome Outcome, lo
 public static class CoverCleaner
 {
     /// <summary>The working copies beside the original start with this; not an audio extension, so a scan ignores a leftover.</summary>
-    public const string TempPrefix = ".audiofool-cover-";
+    public const string TempPrefix = FileSwap.Prefix + "cover-";
 
     /// <summary>The file's pictures, for the library check. Null when it can't be read.</summary>
     public static CoverFinding? Survey(string path)
@@ -198,7 +198,7 @@ public static class CoverCleaner
             if (Verify(path, result, best.Data.Data) is { } problem)
                 return Failed(path, problem);
 
-            File.Replace(result, path, null);
+            FileSwap.Replace(result, path);
             return new CoverCleanResult(path, CoverCleanOutcome.Cleaned, before - new FileInfo(path).Length, didShrink, null);
         }
         catch (Exception ex) when (ex is TagLib.UnsupportedFormatException or TagLib.CorruptFileException
@@ -265,7 +265,7 @@ public static class CoverCleaner
             if (Verify(path, result, cover) is { } problem)
                 return Failed(path, problem.Replace("the best one", "the new one"));
 
-            File.Replace(result, path, null);
+            FileSwap.Replace(result, path);
             return new CoverCleanResult(path, CoverCleanOutcome.Cleaned, before - new FileInfo(path).Length, didShrink, null);
         }
         catch (Exception ex) when (ex is TagLib.UnsupportedFormatException or TagLib.CorruptFileException
@@ -363,8 +363,36 @@ public static class CoverCleaner
     /// song; TagLib, which goes by extension, is told the format instead.
     /// </summary>
     private static TagLib.File OpenAs(string path, string formatOf) =>
-        TagLib.File.Create(path, "taglib/" + Path.GetExtension(formatOf).TrimStart('.').ToLowerInvariant(),
-                           TagLib.ReadStyle.Average);
+        TagLib.File.Create(path, MimeTypeFor(formatOf), TagLib.ReadStyle.Average);
+
+    /// <summary>TagLib's name for the format of <paramref name="formatOf"/>, from its extension.</summary>
+    internal static string MimeTypeFor(string formatOf) =>
+        "taglib/" + Path.GetExtension(formatOf).TrimStart('.').ToLowerInvariant();
+
+    /// <summary>
+    /// Null when <paramref name="copy"/>, a tag save made on a copy of
+    /// <paramref name="original"/>, plays the same audio; otherwise why not. TagLib
+    /// must read it as the same length, rate and channels, and for the layouts
+    /// <see cref="TagPadding"/> knows (FLAC, MP3, DSF) the audio must match byte for
+    /// byte. The tags themselves are what the save changed, so they aren't compared.
+    /// </summary>
+    internal static string? SameAudio(string original, string copy)
+    {
+        using (var a = TagLib.File.Create(original))
+        using (var b = OpenAs(copy, original))
+        {
+            if (a.Properties.Duration != b.Properties.Duration
+                || a.Properties.AudioSampleRate != b.Properties.AudioSampleRate
+                || a.Properties.AudioChannels != b.Properties.AudioChannels)
+                return "the saved copy didn't read as the same audio, so it wasn't used";
+        }
+
+        if (TagPadding.Read(original) is { } before && TagPadding.Read(copy) is { } after
+            && !AudioHash(original, before).AsSpan().SequenceEqual(AudioHash(copy, after)))
+            return "the saved copy's audio didn't come out identical, so it wasn't used";
+
+        return null;
+    }
 
     /// <summary>The pictures in each of the file's tags: FLAC blocks, Xiph, ID3v2, APE.</summary>
     private static List<TagLib.IPicture> AllPictures(TagLib.File file)

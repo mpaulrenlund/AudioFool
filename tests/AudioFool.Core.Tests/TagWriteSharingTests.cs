@@ -124,12 +124,10 @@ public class TagWriteSharingTests
 
         Assert.True(result.Success, result.ErrorMessage);
         Assert.Equal(300_000, TagReader.ReadDetails(file.Path)!.Comment.Length);
-        // Only this test's own copy: other runs (the app, a parallel test run) make theirs in the same folder.
-        Assert.Empty(Directory.GetFiles(Path.GetTempPath(), $"{TagWriter.TrialPrefix}*-{Path.GetFileName(file.Path)}"));
     }
 
     [Fact]
-    public void A_held_file_whose_trial_save_fails_is_not_released_and_left_untouched()
+    public void A_held_file_whose_save_fails_is_not_released_and_left_untouched()
     {
         using var file = new TempAudioFile("sample.flac");
         var track = TagReader.Read(file.Path);

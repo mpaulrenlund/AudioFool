@@ -915,6 +915,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 [.. MusicFolders], _cache?.ByPath(), progress, token, rereadTags: reread);
 
             UnavailableFolders = result.UnavailableFolders;
+            var leftoverNote = await ClearLeftoversAsync(result.Leftovers);
 
             // Saved in the app while the scan ran: those copies win over the scan's.
             // On the UI thread, as the saves are, so none can land in between.
@@ -928,12 +929,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             if (refreshing && !result.Summary.AnyChanges)
             {
                 _library = library;
-                StatusText = DescribeStatus(result.Summary);
+                StatusText = leftoverNote ?? DescribeStatus(result.Summary);
                 return;
             }
 
             ApplyLibrary(library, keepSelection: refreshing);
-            StatusText = DescribeStatus(result.Summary);
+            StatusText = leftoverNote ?? DescribeStatus(result.Summary);
 
             // Safe to persist even with a drive missing: the scanner carries those
             // tracks over rather than reporting them gone, so the cache keeps them.
@@ -1823,6 +1824,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private async Task ApplySelectedTracksEditAsync(IReadOnlyList<Track> tracks, TracksTagEdit edit,
         bool followTracks = false)
     {
+        using var writing = BeginWrite();
         StatusText = $"Saving tags for {tracks.Count} track(s)...";
 
         var (updated, failed) = await Task.Run(() =>
@@ -1895,6 +1897,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // The song window may have been open across a grid edit or a rescan; the
         // library's copy carries anything (the folder art path) the edit doesn't set.
         track = LibraryCopyOf(track);
+        using var writing = BeginWrite();
         StatusText = "Saving tags...";
 
         var result = await Task.Run(() =>
@@ -1923,6 +1926,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// </summary>
     private async Task ApplyAlbumEditAsync(Album album, AlbumTagEdit edit, ArtPayload? art, bool followTracks = false)
     {
+        using var writing = BeginWrite();
         StatusText = $"Saving tags for {album.Tracks.Count} track(s)...";
 
         var folderArtByDirectory = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
@@ -2059,6 +2063,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (edit is null)
             return;
+
+        using var writing = BeginWrite();
 
         // One at a time: two quick edits to the same row would otherwise both
         // start from the copy the grid held, and the second would put the
@@ -2522,6 +2528,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // in whole, so stopping mid-song can't damage it). The library is read
         // again at the next start for any song done since its last save.
         _keepCts?.Cancel();
+        _pngCts?.Cancel();
 
         // BASS is shut down after this, so a waveform read mustn't be mid-file.
         // It stops within one 16k-sample read of being cancelled.

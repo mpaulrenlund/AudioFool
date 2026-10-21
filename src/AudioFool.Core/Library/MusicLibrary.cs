@@ -131,7 +131,7 @@ public readonly record struct ScanSummary(int Reused, int Read, int Removed)
     public bool EntirelyCached => Read == 0 && Removed == 0 && Reused > 0;
 }
 
-public sealed class ScanResult
+public sealed record ScanResult
 {
     public required MusicLibrary Library { get; init; }
     public required ScanSummary Summary { get; init; }
@@ -143,4 +143,11 @@ public sealed class ScanResult
     public IReadOnlyList<string> UnavailableFolders { get; init; } = [];
 
     public bool AnyFolderUnavailable => UnavailableFolders.Count > 0;
+
+    /// <summary>
+    /// Files a save works with beside a song, found in the music folders: working
+    /// copies (<see cref="FileSwap.IsWorkingCopy"/>) a crash left, and backups
+    /// (<see cref="FileSwap.IsBackup"/>) a swap couldn't put back.
+    /// </summary>
+    public IReadOnlyList<string> Leftovers { get; init; } = [];
 }
