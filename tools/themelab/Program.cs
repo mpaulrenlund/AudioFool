@@ -296,6 +296,15 @@ internal static class Program
             return 0;
         }
 
+        // --window findreplaceperf [--find <text>]: Find and Replace's window over the
+        // real library, read-only (Replace is never pressed), timed (session 63).
+        if (which == "findreplaceperf")
+        {
+            LoadRealLibrary(vm);
+            RunFindReplacePerf(main, vm, Arg(args, "--find"), outPath, scale);
+            return 0;
+        }
+
         if (which == "click" || Arg(args, "--typeahead") is not null)
         {
             LoadRealLibrary(vm);
@@ -1613,7 +1622,7 @@ internal static class Program
                 Arg(args, "--file") ?? throw new ArgumentException("--window themeswitch needs --file <audio file>"),
                 Arg(args, "--artfile"), outPath, w, h, scale);
 
-        if (which is "edit" or "queue" or "clicks" or "nowplayingart" or "multiedit" or "albumeditor" or "trackeditor" or "covers" or "pngconvert" or "safesave" or "albumkeep" or "folderart")
+        if (which is "edit" or "queue" or "clicks" or "nowplayingart" or "multiedit" or "albumeditor" or "trackeditor" or "covers" or "pngconvert" or "safesave" or "albumkeep" or "folderart" or "findreplace")
         {
             // Each save persists the library, and LibraryCache.CachePath is the
             // real library.json - so it is put back byte for byte afterwards.
@@ -1626,6 +1635,8 @@ internal static class Program
             {
                 if (which == "albumkeep")
                     RunAlbumKeep(vm);
+                else if (which == "findreplace")
+                    RunFindReplace(main, vm, outPath, scale);
                 else if (which == "folderart")
                     RunFolderArt(vm);
                 else if (which == "safesave")
@@ -5478,6 +5489,325 @@ internal static class Program
             compilation.All(t => AudioFool.Core.Library.TagReader.Read(t.FilePath) is { Album: "Greatest Hits" } read && read.Artist == t.Artist));
 
         Console.WriteLine(allOk ? "ALL OK" : "SOMETHING WRONG");
+    }
+
+    /// <summary>
+    /// --window findreplace (session 63): Find and Replace through its own window
+    /// and the main view model's saves, on scratch songs made from the test
+    /// fixtures in a scratch "Music" folder, the window shown off-screen and never
+    /// activated. Find "(Remastered)"; the options; the header tick box; a row
+    /// unticked; a replacement that changes nothing (its rows leave the view) and
+    /// one that does (AFTER follows); a song retagged elsewhere after Find; Replace,
+    /// with the prompt answered from here and rendered on its own; Undo. Reads every
+    /// file back at each step: the unticked tag and the song retagged elsewhere are
+    /// never touched, the song with two artists keeps both. Then Ctrl+H. Renders
+    /// -empty, -found, -prompt, -done and -undone PNGs beside --out.
+    /// </summary>
+    private static void RunFindReplace(MainWindow main, MainViewModel vm, string outPath, double scale)
+    {
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        const System.Reflection.BindingFlags Private = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var fixtures = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+            @"..\..\..\..\..\..\tests\AudioFool.Core.Tests\TestData"));
+        var dir = Path.Combine(Path.GetTempPath(), "themelab-findreplace-" + Guid.NewGuid().ToString("N")[..8]);
+        var music = Path.Combine(dir, "Music");
+        _scratchDir = dir;
+
+        var paths = new Dictionary<string, string>();
+        void Make(string folder, string name, string ext, string title, string artist, string album, int number)
+        {
+            var path = Path.Combine(music, folder, name + ext);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.Copy(Path.Combine(fixtures, "sample" + ext), path);
+            var made = AudioFool.Core.Library.TagWriter.WriteTrackTags(AudioFool.Core.Library.TagReader.Read(path),
+                new AudioFool.Core.Library.TrackTagEdit(title, artist, artist, album, 1981, number, 5, 1, 1),
+                art: null, folderArtPath: null);
+            if (!made.Success)
+                throw new InvalidOperationException(made.ErrorMessage);
+            paths[name] = path;
+        }
+
+        Make(@"Rush\Moving Pictures", "01 Tom Sawyer", ".flac", "Tom Sawyer (Remastered)", "Rush", "Moving Pictures (Remastered)", 1);
+        Make(@"Rush\Moving Pictures", "02 Red Barchetta", ".mp3", "Red Barchetta", "Rush", "Moving Pictures (Remastered)", 2);
+        Make(@"Rush\Moving Pictures", "03 YYZ", ".flac", "YYZ (Remastered)", "Rush", "Moving Pictures (Remastered)", 3);
+        Make(@"Duo\Pairs", "04 Duet", ".flac", "Duet", "Duo (Remastered)", "Pairs", 4);
+        Make(@"Solo\Singles", "05 Elsewhere", ".mp3", "Elsewhere (Remastered)", "Solo", "Singles", 5);
+
+        // 04 has two artists; the library keeps only the first.
+        using (var duet = TagLib.File.Create(paths["04 Duet"]))
+        {
+            duet.Tag.Performers = ["Duo (Remastered)", "Guest (Remastered)"];
+            duet.Save();
+        }
+
+        var songs = paths.Values.Select(p => AudioFool.Core.Library.TagReader.Read(p)).ToList();
+        typeof(MainViewModel).GetMethod("ApplyLibrary", Private)!
+            .Invoke(vm, [AudioFool.Core.Library.LibraryScanner.Build(songs), false]);
+        Settle(200);
+
+        var allOk = true;
+        void Check(string what, bool ok)
+        {
+            allOk &= ok;
+            Console.WriteLine($"  {what}: {(ok ? "OK" : "WRONG")}");
+        }
+
+        string Tags(string name)
+        {
+            using var file = TagLib.File.Create(paths[name]);
+            return $"'{file.Tag.Title}' / {string.Join(" + ", file.Tag.Performers)} / {string.Join(" + ", file.Tag.AlbumArtists)} / '{file.Tag.Album}'";
+        }
+
+        var before = paths.Keys.ToDictionary(name => name, Tags);
+        void PrintFiles(string when)
+        {
+            Console.WriteLine($"  files {when}:");
+            foreach (var name in paths.Keys)
+                Console.WriteLine($"    {name}: {Tags(name)}");
+        }
+
+        // The window's own wiring, pointed at the scratch Music folder for its FILE column.
+        var fr = (FindReplaceViewModel)typeof(MainViewModel).GetMethod("NewFindReplace", Private)!.Invoke(vm, null)!;
+        typeof(FindReplaceViewModel).GetField("_musicFolders", Private)!.SetValue(fr, new List<string> { music });
+
+        var window = new FindReplaceWindow(fr, main) { ShowActivated = false, ShowInTaskbar = false };
+        // After the window's own Loaded handler, which centres it over its owner and
+        // clamps that onto a monitor, and before anything is drawn.
+        window.Loaded += (_, _) => { window.Left = -20000; window.Top = -20000; };
+        window.Show();
+        Settle(300);
+
+        var grid = (System.Windows.Controls.DataGrid)window.FindName("PreviewGrid");
+        var shot = Path.ChangeExtension(outPath, null);
+        void Render(string name)
+        {
+            Settle(300);
+            Save(window, $"{shot}-{name}.png", window.ActualWidth, window.ActualHeight, scale);
+            Console.WriteLine($"  rendered {Path.GetFileName(shot)}-{name}.png ({window.ActualWidth:0}x{window.ActualHeight:0})");
+        }
+
+        void WaitWhileBusy()
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            Settle(100);
+            while ((fr.IsBusy || fr.ReplaceCommand.IsRunning || fr.UndoCommand.IsRunning) && clock.ElapsedMilliseconds < 20000)
+                Settle(50);
+            Settle(200);
+        }
+
+        void Find(string text)
+        {
+            fr.FindText = text;
+            fr.FindCommand.Execute(null);
+            Settle(100);
+        }
+
+        ReplaceRow Row(string file, AudioFool.Core.Library.ReplaceField field) =>
+            fr.Rows.Single(r => r.File.EndsWith(file, StringComparison.Ordinal) && r.Match.Field == field);
+
+        Console.WriteLine("1. opened");
+        Check("no rows, no footer, Find and Replace off, no Undo, the header box clear",
+            grid.Items.Count == 0 && fr.FooterText == "" && !fr.FindCommand.CanExecute(null)
+            && !fr.ReplaceCommand.CanExecute(null) && !fr.CanUndo && !fr.AllTicked);
+        // No wider than the screen: under --dpi the main window can be wider than the
+        // real monitor is at that scale.
+        var screenWidth = AudioFool.Services.WindowPlacement.WorkAreaOf(main) is { } area
+            ? (area.Right - area.Left) / VisualTreeHelper.GetDpi(main).DpiScaleX
+            : SystemParameters.WorkArea.Width;
+        Check($"as wide as the main window less 48 px either side: {window.ActualWidth:0} in {main.ActualWidth:0} (screen {screenWidth:0})",
+            Math.Abs(window.ActualWidth - Math.Min(main.ActualWidth - 96, screenWidth)) < 0.5);
+
+        // The placement itself, on made-up screens: (left, width) of the window.
+        var widthOf = typeof(FindReplaceWindow).GetMethod("OpeningWidth", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        var cornerOf = typeof(FindReplaceWindow).GetMethod("CentreOver", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        (double Left, double Width) Place(Rect frame, Rect work)
+        {
+            var width = (double)widthOf.Invoke(null, [frame, work, window.MinWidth, 48.0])!;
+            return (((Point)cornerOf.Invoke(null, [frame, work, width, 620.0])!).X, width);
+        }
+
+        var screen = new Rect(0, 0, 1920, 1032);
+        Check($"maximised: {Place(screen, screen)}", Place(screen, screen) == (48, 1824));
+        Check($"a 1560-wide main window at 180: {Place(new Rect(180, 60, 1560, 900), screen)}",
+            Place(new Rect(180, 60, 1560, 900), screen) == (228, 1464));
+        Check($"a narrow one keeps the minimum, centred: {Place(new Rect(100, 60, 700, 600), screen)}",
+            Place(new Rect(100, 60, 700, 600), screen) == (130, window.MinWidth));
+        Check($"one hanging off the right edge stays on screen: {Place(new Rect(1000, 0, 1560, 900), screen)}",
+            Place(new Rect(1000, 0, 1560, 900), screen) == (456, 1464));
+        Check($"a screen narrower than the minimum: {Place(new Rect(0, 0, 600, 500), new Rect(0, 0, 600, 500))}",
+            Place(new Rect(0, 0, 600, 500), new Rect(0, 0, 600, 500)) == (0, 600));
+        Render("empty");
+
+        Console.WriteLine("2. the options");
+        Find("(remastered)");
+        Check($"case ignored: {fr.Rows.Count} rows", fr.Rows.Count == 8);
+        fr.MatchCase = true;
+        Check($"Match case finds again: '{fr.FooterText}'", fr.Rows.Count == 0 && fr.FooterText == "No matches.");
+        fr.MatchCase = false;
+        Find("Remaster");
+        Check($"inside a word: {fr.Rows.Count} rows", fr.Rows.Count == 8);
+        fr.WholeWords = true;
+        Check($"Whole words: {fr.Rows.Count} rows", fr.Rows.Count == 0);
+        fr.WholeWords = false;
+
+        Console.WriteLine("3. Find \"(Remastered)\"");
+        Find("(Remastered)");
+        foreach (var row in fr.Rows)
+            Console.WriteLine($"    [{(row.IsTicked ? "x" : " ")}] {row.Field,-12} '{row.Before}' -> '{row.After}'  {row.File}");
+        Check($"8 rows over 5 songs, all ticked: '{fr.FooterText}'",
+            grid.Items.Count == 8 && fr.Counts == (5, 8) && fr.AllTicked && fr.FooterText == "5 songs · 8 tags");
+        Check("sorted by file, then tag",
+            fr.Rows.Zip(fr.Rows.Skip(1)).All(p =>
+                StringComparer.CurrentCultureIgnoreCase.Compare(p.First.File, p.Second.File) < 0
+                || (p.First.File == p.Second.File && p.First.FieldOrder < p.Second.FieldOrder)));
+        Check("AFTER is the deletion, tidied", Row("01 Tom Sawyer.flac", AudioFool.Core.Library.ReplaceField.Title).After == "Tom Sawyer");
+        Check("FILE is inside the music folder", Row("01 Tom Sawyer.flac", AudioFool.Core.Library.ReplaceField.Title).File == @"Rush\Moving Pictures\01 Tom Sawyer.flac");
+        Check("Replace on", fr.ReplaceCommand.CanExecute(null));
+
+        Console.WriteLine("4. the header tick box, and a row unticked");
+        fr.ToggleAllCommand.Execute(null);
+        Check($"all unticked: {fr.Counts}, Replace off", fr.Counts == (0, 0) && !fr.AllTicked && !fr.ReplaceCommand.CanExecute(null));
+        fr.ToggleAllCommand.Execute(null);
+        Check($"all ticked again: {fr.Counts}", fr.Counts == (5, 8) && fr.AllTicked);
+        Row("03 YYZ.flac", AudioFool.Core.Library.ReplaceField.Title).IsTicked = false;
+        Check($"one unticked: '{fr.FooterText}'", fr.Counts == (5, 7) && !fr.AllTicked && fr.FooterText == "5 songs · 7 tags");
+
+        Console.WriteLine("5. the replacement");
+        fr.ReplaceText = "(Remastered)";
+        Check($"one that changes nothing: rows out of view, '{fr.FooterText}'", grid.Items.Count == 0 && fr.Counts == (0, 0));
+        fr.ReplaceText = "[2011]";
+        Check($"AFTER follows: '{Row("01 Tom Sawyer.flac", AudioFool.Core.Library.ReplaceField.Title).After}', {grid.Items.Count} rows",
+            Row("01 Tom Sawyer.flac", AudioFool.Core.Library.ReplaceField.Title).After == "Tom Sawyer [2011]" && grid.Items.Count == 8);
+        Check("the unticked row stays unticked", !Row("03 YYZ.flac", AudioFool.Core.Library.ReplaceField.Title).IsTicked);
+        Check("asks with both texts", fr.ConfirmationText == "Update 5 songs? \"(Remastered)\" will be replaced with \"[2011]\" in 7 tags.");
+        fr.ReplaceText = "";
+        Check("back to deleting", Row("01 Tom Sawyer.flac", AudioFool.Core.Library.ReplaceField.Title).After == "Tom Sawyer" && fr.Counts == (5, 7));
+        Render("found");
+
+        Console.WriteLine("6. 05 retagged elsewhere after Find");
+        var elsewhere = AudioFool.Core.Library.TagWriter.WriteSelectedTrackTags(
+            AudioFool.Core.Library.TagReader.Read(paths["05 Elsewhere"]),
+            new AudioFool.Core.Library.TracksTagEdit { Title = "Elsewhere (Remastered) [Live]" });
+        Check("retagged", elsewhere.Success);
+        var elsewhereBytes = File.ReadAllBytes(paths["05 Elsewhere"]);
+
+        Console.WriteLine("7. Replace");
+        var prompt = (PromptWindow)Activator.CreateInstance(typeof(PromptWindow), Private, null,
+            [window, "Find and Replace", fr.ConfirmationText, "Replace", null, null], null)!;
+        prompt.ShowActivated = false;
+        prompt.ShowInTaskbar = false;
+        prompt.Loaded += (_, _) => { prompt.Left = -20000; prompt.Top = -20000; };
+        prompt.Show();
+        Settle(300);
+        Save(prompt, $"{shot}-prompt.png", prompt.ActualWidth, prompt.ActualHeight, scale);
+        Console.WriteLine($"  rendered {Path.GetFileName(shot)}-prompt.png ({prompt.ActualWidth:0}x{prompt.ActualHeight:0})");
+        prompt.Close();
+
+        string? asked = null;
+        FindReplaceViewModel.ConfirmReplace = message => { asked = message; return true; };
+        fr.ReplaceCommand.Execute(null);
+        WaitWhileBusy();
+        Console.WriteLine($"  asked:      '{asked}'");
+        Console.WriteLine($"  footer:     '{fr.FooterText}' (error={fr.FooterIsError})");
+        Console.WriteLine($"  status bar: '{vm.StatusText}'");
+        PrintFiles("after Replace");
+        Check("asked with the counts", asked == "Update 5 songs? \"(Remastered)\" will be deleted from 7 tags.");
+        Check("01: title and album", Tags("01 Tom Sawyer") == "'Tom Sawyer' / Rush / Rush / 'Moving Pictures'");
+        Check("02: its album", Tags("02 Red Barchetta") == "'Red Barchetta' / Rush / Rush / 'Moving Pictures'");
+        Check("03: the album, and the unticked title kept", Tags("03 YYZ") == "'YYZ (Remastered)' / Rush / Rush / 'Moving Pictures'");
+        Check("04: both artists", Tags("04 Duet") == "'Duet' / Duo + Guest / Duo / 'Pairs'");
+        Check("05: retagged elsewhere, so not a byte changed", File.ReadAllBytes(paths["05 Elsewhere"]).AsSpan().SequenceEqual(elsewhereBytes));
+        Check("the footer names it",
+            fr.FooterText == "Updated 4 of 5 songs. 1 had changed since Find and was left alone: 05 Elsewhere.mp3." && !fr.FooterIsError);
+        Check("rows cleared, Undo shown", grid.Items.Count == 0 && fr.CanUndo && fr.UndoCommand.CanExecute(null));
+        var library = ((AudioFool.Core.Library.MusicLibrary)typeof(MainViewModel).GetField("_library", Private)!.GetValue(vm)!).AllTracks;
+        var tom = library.Single(t => t.FilePath == paths["01 Tom Sawyer"]);
+        var duo = library.Single(t => t.FilePath == paths["04 Duet"]);
+        Check($"the library's copies: '{tom.Title}' / '{tom.Album}', '{duo.Artist}'",
+            tom is { Title: "Tom Sawyer", Album: "Moving Pictures" } && duo.Artist == "Duo"
+            && tom.MatchesFile(new FileInfo(tom.FilePath).Length, File.GetLastWriteTimeUtc(tom.FilePath)));
+        Render("done");
+
+        Console.WriteLine("8. Undo");
+        fr.UndoCommand.Execute(null);
+        WaitWhileBusy();
+        Console.WriteLine($"  footer:     '{fr.FooterText}'");
+        PrintFiles("after Undo");
+        Check("01 to 04 as they were", paths.Keys.Take(4).All(name => Tags(name) == before[name]));
+        Check("05 still not a byte changed", File.ReadAllBytes(paths["05 Elsewhere"]).AsSpan().SequenceEqual(elsewhereBytes));
+        Check("footer, and Undo gone", fr.FooterText == "Put back 4 songs." && !fr.CanUndo);
+        Render("undone");
+
+        Console.WriteLine("9. Ctrl+H");
+        var shortcut = typeof(MainWindow).GetMethod("ResolveShortcut", Private)!
+            .Invoke(main, [System.Windows.Input.Key.H, System.Windows.Input.ModifierKeys.Control, null])!.ToString();
+        Check($"Ctrl+H is {shortcut}", shortcut == "FindReplace");
+
+        window.Close();
+        Console.WriteLine(allOk ? "ALL OK" : "SOMETHING WRONG");
+    }
+
+    /// <summary>
+    /// --window findreplaceperf (session 63): the Find and Replace window over the
+    /// real library.json, read-only: Replace is never pressed (its prompt throws if
+    /// asked). Times Find for a very common text, a common one and a rare one, the
+    /// replacement typed a letter at a time over the biggest result, the header box,
+    /// and a sort, each with the table laid out again; renders a page of real rows
+    /// (<c>--find</c>, else "Remaster") as <c>-real.png</c>.
+    /// </summary>
+    private static void RunFindReplacePerf(MainWindow main, MainViewModel vm, string? find, string outPath, double scale)
+    {
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        const System.Reflection.BindingFlags Private = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        FindReplaceViewModel.ConfirmReplace = _ => throw new InvalidOperationException("findreplaceperf never replaces");
+
+        var fr = (FindReplaceViewModel)typeof(MainViewModel).GetMethod("NewFindReplace", Private)!.Invoke(vm, null)!;
+        var window = new FindReplaceWindow(fr, main) { ShowActivated = false, ShowInTaskbar = false };
+        window.Loaded += (_, _) => { window.Left = -20000; window.Top = -20000; };
+        window.Show();
+        Settle(300);
+        var grid = (System.Windows.Controls.DataGrid)window.FindName("PreviewGrid");
+
+        double Time(Action action)
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            action();
+            window.UpdateLayout();
+            return clock.Elapsed.TotalMilliseconds;
+        }
+
+        void Find(string text)
+        {
+            var ms = Time(() =>
+            {
+                fr.FindText = text;
+                fr.FindCommand.Execute(null);
+            });
+            Console.WriteLine($"Find '{text}': {fr.Rows.Count:N0} rows, '{fr.FooterText}', {ms:0} ms");
+        }
+
+        foreach (var text in new[] { "e", "the", "(Remastered)" })
+            Find(text);
+
+        Find("e");
+        var typed = "";
+        foreach (var letter in "xyz")
+        {
+            typed += letter;
+            Console.WriteLine($"  replacement '{typed}': {Time(() => fr.ReplaceText = typed):0} ms");
+        }
+
+        Console.WriteLine($"  replacement cleared: {Time(() => fr.ReplaceText = ""):0} ms");
+        Console.WriteLine($"  header box off: {Time(() => fr.ToggleAllCommand.Execute(null)):0} ms, '{fr.FooterText}'");
+        Console.WriteLine($"  header box on: {Time(() => fr.ToggleAllCommand.Execute(null)):0} ms, '{fr.FooterText}'");
+        Console.WriteLine($"  sorted by BEFORE: {Time(() => grid.Items.SortDescriptions.Add(new System.ComponentModel.SortDescription("Before", System.ComponentModel.ListSortDirection.Ascending))):0} ms");
+
+        Find(find ?? "Remaster");
+        Settle(300);
+        var shot = Path.ChangeExtension(outPath, null) + "-real.png";
+        Save(window, shot, window.ActualWidth, window.ActualHeight, scale);
+        Console.WriteLine($"rendered {Path.GetFileName(shot)}");
+        window.Close();
     }
 
     /// <summary>

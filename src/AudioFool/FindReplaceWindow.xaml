@@ -1,0 +1,213 @@
+<ui:FluentWindow x:Class="AudioFool.FindReplaceWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:theme="clr-namespace:AudioFool.Theming"
+                 Title="Find and Replace"
+                 Icon="/Resources/AudioFool.ico"
+                 Height="{theme:Token findReplace.height}"
+                 MinWidth="{theme:Token findReplace.minWidth}" MinHeight="{theme:Token findReplace.minHeight}"
+                 WindowStartupLocation="Manual"
+                 WindowBackdropType="None"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowCornerPreference="Round">
+
+    <!--
+        Find and Replace (session 63, the user's design). The dialogs' parts: the
+        shared title bar, dialog text boxes and buttons (Replace the primary, by
+        weight), dialog tick boxes, and an uncoloured footer line that turns
+        semibold for a failure. The preview is the Songs table in the Songs
+        panel's shell: its header, rows and selection, no scrollbars. No labels
+        or hint text on the boxes (the user's call): the buttons beside them say
+        what each is for.
+    -->
+    <ui:FluentWindow.Resources>
+        <Style x:Key="Footer" TargetType="TextBlock" BasedOn="{StaticResource type.tableCell}">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextTrimming" Value="None" />
+            <Setter Property="Margin" Value="{theme:Thickness Right=dialog.buttonGap}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding FooterIsError}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource color.text.heading}" />
+                    <Setter Property="FontWeight" Value="{DynamicResource dialog.emphasisWeight.fontWeight}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </ui:FluentWindow.Resources>
+
+    <Grid Background="{DynamicResource color.window.bg}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0"
+                     Style="{DynamicResource theme.dialogTitleBar}"
+                     Header="{DynamicResource theme.dialogTitle}" />
+
+        <!-- Each box with its button, the two buttons one width; the options under
+             them. Greyed while a replace or an undo is saving. -->
+        <Grid Grid.Row="1" Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop}"
+              IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Enter here finds. Not a default button: Enter in the Replace box would
+                 find again, and every unticked row would come back ticked. -->
+            <TextBox x:Name="FindBox" Grid.Row="0" Grid.Column="0"
+                     Style="{StaticResource theme.dialogTextBox}"
+                     AutomationProperties.Name="Find"
+                     Text="{Binding FindText, UpdateSourceTrigger=PropertyChanged}">
+                <TextBox.InputBindings>
+                    <KeyBinding Key="Enter" Command="{Binding FindCommand}" />
+                </TextBox.InputBindings>
+            </TextBox>
+            <Button x:Name="FindButton" Grid.Row="0" Grid.Column="1" Content="Find"
+                    Style="{StaticResource theme.dialogButton}"
+                    Margin="{theme:Thickness Left=dialog.buttonGap}"
+                    Command="{Binding FindCommand}" />
+
+            <TextBox x:Name="ReplaceBox" Grid.Row="1" Grid.Column="0"
+                     Style="{StaticResource theme.dialogTextBox}"
+                     Margin="{theme:Thickness Top=dialog.fieldGap}"
+                     AutomationProperties.Name="Replace with"
+                     Text="{Binding ReplaceText, UpdateSourceTrigger=PropertyChanged}" />
+            <Button x:Name="ReplaceButton" Grid.Row="1" Grid.Column="1" Content="Replace"
+                    Style="{StaticResource theme.dialogButton.primary}"
+                    Margin="{theme:Thickness Left=dialog.buttonGap, Top=dialog.fieldGap}"
+                    Command="{Binding ReplaceCommand}" />
+
+            <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal"
+                        Margin="{theme:Thickness Top=dialog.fieldGap}">
+                <CheckBox x:Name="MatchCaseBox" Content="Match case"
+                          Style="{StaticResource theme.checkBox}"
+                          IsChecked="{Binding MatchCase}" />
+                <CheckBox x:Name="WholeWordsBox" Content="Whole words"
+                          Style="{StaticResource theme.checkBox}"
+                          Margin="{theme:Thickness Left=findReplace.optionGap}"
+                          IsChecked="{Binding WholeWords}" />
+            </StackPanel>
+        </Grid>
+
+        <!--
+            One row per song and tag. The tick column's header ticks or unticks every
+            row; Space flips the selected rows together; a header click sorts. Column
+            widths and text styles are set in code from the tokens, as the Songs
+            table's are. DisplayIndex is pinned, as there: the width pass reorders
+            star columns otherwise.
+        -->
+        <HeaderedContentControl Grid.Row="2"
+                                Style="{DynamicResource theme.panel.songs}"
+                                Margin="{theme:Thickness X=dialog.paddingX, Top=findReplace.gridGap}">
+            <DataGrid x:Name="PreviewGrid"
+                      Style="{DynamicResource theme.songTable}"
+                      ItemsSource="{Binding Rows}"
+                      AutoGenerateColumns="False"
+                      IsReadOnly="True"
+                      SelectionMode="Extended"
+                      SelectionUnit="FullRow"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      CanUserReorderColumns="False"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="True"
+                      AutomationProperties.Name="Changes"
+                      EnableRowVirtualization="True"
+                      EnableColumnVirtualization="False"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      KeyboardNavigation.TabNavigation="Once"
+                      IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                      PreviewKeyDown="PreviewGrid_PreviewKeyDown">
+                <DataGrid.RowStyle>
+                    <!-- As the Songs table's rows, not BasedOn WPF-UI's (which paints them white). -->
+                    <Style TargetType="DataGridRow">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                        <Setter Property="Template" Value="{DynamicResource theme.songRowTemplate}" />
+                        <Setter Property="ItemsPanel">
+                            <Setter.Value>
+                                <ItemsPanelTemplate>
+                                    <DataGridCellsPanel KeyboardNavigation.TabNavigation="Continue" />
+                                </ItemsPanelTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <EventSetter Event="RequestBringIntoView" Handler="Row_RequestBringIntoView" />
+                    </Style>
+                </DataGrid.RowStyle>
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn x:Name="TickColumn" DisplayIndex="0"
+                                            CanUserSort="False" CanUserResize="False">
+                        <DataGridTemplateColumn.Header>
+                            <CheckBox x:Name="TickAllBox"
+                                      Style="{StaticResource theme.checkBox}"
+                                      Width="{theme:Token dialog.checkBoxSize}"
+                                      HorizontalAlignment="Left"
+                                      Focusable="False"
+                                      AutomationProperties.Name="Tick every row"
+                                      IsChecked="{Binding DataContext.AllTicked, Mode=OneWay, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                      Command="{Binding DataContext.ToggleAllCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
+                        </DataGridTemplateColumn.Header>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox Style="{StaticResource theme.checkBox}"
+                                          Width="{theme:Token dialog.checkBoxSize}"
+                                          HorizontalAlignment="Left"
+                                          Focusable="False"
+                                          AutomationProperties.Name="Replace in this tag"
+                                          IsChecked="{Binding IsTicked, UpdateSourceTrigger=PropertyChanged}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTextColumn x:Name="FieldColumn" Header="FIELD" DisplayIndex="1"
+                                        Binding="{Binding Field, Mode=OneWay}"
+                                        SortMemberPath="FieldOrder" />
+
+                    <DataGridTextColumn x:Name="BeforeColumn" Header="BEFORE" DisplayIndex="2"
+                                        Binding="{Binding Before, Mode=OneWay}" />
+
+                    <DataGridTextColumn x:Name="AfterColumn" Header="AFTER" DisplayIndex="3"
+                                        Binding="{Binding After, Mode=OneWay}" />
+
+                    <DataGridTextColumn x:Name="FileColumn" Header="FILE" DisplayIndex="4"
+                                        Binding="{Binding File, Mode=OneWay}" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </HeaderedContentControl>
+
+        <Grid Grid.Row="3" Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop, Bottom=dialog.paddingBottom}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- What Replace would change, then its progress, then what it did. -->
+            <TextBlock x:Name="FooterLine" Grid.Column="0" Text="{Binding FooterText}" Style="{StaticResource Footer}" />
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                <!-- Only once a replace has been made, until the window closes. -->
+                <Button x:Name="UndoButton" Content="Undo"
+                        Style="{StaticResource theme.dialogButton}"
+                        Margin="{theme:Thickness Right=dialog.buttonGap}"
+                        Visibility="{Binding CanUndo, Converter={StaticResource BoolToVisibility}}"
+                        Command="{Binding UndoCommand}" />
+                <!-- Close, not Cancel: nothing is waiting to be cancelled by then. -->
+                <Button x:Name="CloseButton" Content="Close" IsCancel="True"
+                        Style="{StaticResource theme.dialogButton}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                        Click="Close_Click" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

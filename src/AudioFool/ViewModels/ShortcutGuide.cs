@@ -39,6 +39,7 @@ public static class ShortcutGuide
             new("WINDOWS",
             [
                 new("Ctrl+W", "Statistics"),
+                new("Ctrl+H", "Find and Replace"),
                 new("Ctrl+Q", "Analyze the selected song, or the playing one"),
                 new("Ctrl+D", "Album art for the playing album, or the selected one; again to close"),
                 new("Ctrl+T", "Light / dark theme"),

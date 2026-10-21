@@ -807,7 +807,7 @@ public partial class MainWindow : FluentWindow
     /// A squeezed flexible column keeps at least this much, so it stays a column
     /// rather than disappearing to a sliver.
     /// </summary>
-    private const double FlexFloor = 70;
+    private const double FlexFloor = Theming.SongTableLayout.FlexFloor;
 
     /// <summary>Whether the # column is currently wide enough for three digits.</summary>
     private bool _wideTrackNumbers;
@@ -847,21 +847,7 @@ public partial class MainWindow : FluentWindow
         var n = tokens.Numbers;
 
         var gap = n["songTable.columnGap"];
-        var listX = n["songTable.listPaddingX"];
-        var listY = n["songTable.listPaddingY"];
-        var rowPadding = n["songTable.rowPaddingX"] - (gap / 2);
-        var headerPadding = n["songTable.headerPaddingX"] - (gap / 2);
-
-        TrackGrid.Resources["songTable.derived.cellPadding"] = new Thickness(gap / 2, 0, gap / 2, 0);
-        TrackGrid.Resources["songTable.derived.headerPadding"] = new Thickness(headerPadding, 0, headerPadding, 0);
-
-        // DataGrid fits its columns to the viewport less the cells' offset from
-        // the grid's left edge, which already includes the left list padding.
-        // So the list area keeps only the row padding on the right, and the row's
-        // fill stops the rest of the list padding short of the row's right edge.
-        TrackGrid.Resources["songTable.derived.listMargin"] = new Thickness(listX, listY, rowPadding, listY);
-        TrackGrid.Resources["songTable.derived.rowCellsMargin"] = new Thickness(rowPadding, 0, 0, 0);
-        TrackGrid.Resources["songTable.derived.rowFillMargin"] = new Thickness(0, 0, listX - rowPadding, 0);
+        Theming.SongTableLayout.ApplyPaddings(TrackGrid);
 
         const string prefix = "songTable.columns.";
         var ids = n.Keys.Concat(tokens.Texts.Keys)

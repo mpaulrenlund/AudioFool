@@ -209,6 +209,11 @@
     "levelMargin": 12, "levelShowMs": 1000, "levelFadeMs": 400, "cursorHideMs": 3000
   },
   "prompt": { "width": 400 },
+  "findReplace": {
+    "ownerMarginX": 48, "height": 620, "minWidth": 640, "minHeight": 420,
+    "optionGap": 20, "gridGap": 12,
+    "fieldWidth": 84, "beforeFlex": 1.0, "afterFlex": 1.0, "fileFlex": 1.2
+  },
   "artViewer": { "minSize": 280, "screenMargin": 80, "captionPaddingTop": 10, "captionPaddingBottom": 12 },
   "emptyState": { "squareSize": 31, "squareStroke": 1, "squareToTitleGap": 22, "titleToSublineGap": 4 },
   "songTable": {

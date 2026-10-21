@@ -382,7 +382,11 @@
                             </MenuItem>
         
                             <Separator />
-        
+
+                            <MenuItem Header="Find and Replace…"
+                                      Icon="{ui:SymbolIcon TextEditStyle24}"
+                                      Command="{Binding ShowFindReplaceCommand}" />
+
                             <MenuItem Header="Statistics…"
                                       Icon="{ui:SymbolIcon DataBarVertical24}"
                                       Command="{Binding ShowStatisticsCommand}" />

@@ -34,8 +34,9 @@ public sealed record FolderArtWriteResult(bool Success, string? ErrorMessage, st
 /// Writes tag edits and album art back to audio files. The write-side counterpart
 /// to <see cref="TagReader"/>, sharing the same "never throw across this boundary"
 /// contract - a failure becomes a <see cref="TagWriteResult"/>, not an exception.
+/// Find and Replace's writes are in TagWriter.Replace.cs.
 /// </summary>
-public static class TagWriter
+public static partial class TagWriter
 {
     /// <summary>Applies a single-track edit, optionally replacing the embedded art.</summary>
     /// <param name="holder">
