@@ -1931,15 +1931,24 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         var folderArtByDirectory = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         var folderArtFailed = false;
+        var folderArtWarning = (string?)null;
+        var sharedFolders = new List<string>();
 
         if (art is not null)
         {
             foreach (var directory in AlbumDirectories(album))
             {
+                if (FolderArtTargets.HoldsOtherAlbums(album, directory, _library.AllTracks))
+                {
+                    sharedFolders.Add(directory);
+                    continue;
+                }
+
                 var existing = ExistingCoverIn(album, directory);
-                var folderResult = TagWriter.WriteFolderArt(directory, art, existing);
+                var folderResult = TagWriter.WriteFolderArt(directory, art, existing, RecycleBin.Send);
                 folderArtByDirectory[directory] = folderResult.Success ? folderResult.FolderArtPath : existing;
                 folderArtFailed |= !folderResult.Success;
+                folderArtWarning ??= folderResult.Warning;
             }
         }
 
@@ -2007,6 +2016,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (folderArtFailed)
             StatusText += "  Folder cover file couldn't be updated.";
+        else if (folderArtWarning is not null)
+            StatusText += $"  Folder cover file updated, but {folderArtWarning}.";
+
+        if (sharedFolders.Count > 0)
+        {
+            var more = sharedFolders.Count > 1 ? $" (and {sharedFolders.Count - 1} more)" : "";
+            StatusText += $"  No folder cover file in {Path.GetFileName(sharedFolders[0])}{more}: other albums' songs are there too.";
+        }
 
         if (coverWarnings.Count > 0)
             StatusText += $"  {Songs(coverWarnings.Count)} kept an older cover copy, left as saved "

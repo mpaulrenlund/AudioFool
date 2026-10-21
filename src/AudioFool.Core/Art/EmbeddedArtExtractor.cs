@@ -18,6 +18,9 @@ public enum ExtractOutcome
 
     /// <summary>Writing, or converting a PNG, failed.</summary>
     Failed,
+
+    /// <summary>The folder holds another album's songs too, so it gets no cover.jpg.</summary>
+    Shared,
 }
 
 /// <summary>What happened in one folder. <see cref="Info"/> is the picture that was chosen.</summary>
@@ -48,13 +51,20 @@ public sealed record FolderExtract(
 /// (folder.jpg, cover.png) are left alone; cover.jpg ranks first in
 /// <see cref="AudioFormats.FolderArtNames"/>, so it is the one the app then uses.
 /// </para>
+/// <para>
+/// Since session 62 a folder the caller's <c>sharedFolder</c> names (one holding
+/// another album's songs, <see cref="FolderArtTargets.HoldsOtherAlbums(IEnumerable{Models.Track}, string, IEnumerable{Models.Track})"/>)
+/// is left alone, since every album there shows its cover.jpg; and the file is
+/// written beside the old one and swapped in (<see cref="FileSwap.WriteWhole"/>),
+/// never half-written.
+/// </para>
 /// </summary>
 public static class EmbeddedArtExtractor
 {
     public const string FileName = "cover.jpg";
 
     public static IReadOnlyList<FolderExtract> ExtractToFolders(
-        IEnumerable<string> trackPaths, Func<byte[], byte[]?> pngToJpeg)
+        IEnumerable<string> trackPaths, Func<byte[], byte[]?> pngToJpeg, Func<string, bool> sharedFolder)
     {
         var results = new List<FolderExtract>();
         var byDirectory = trackPaths
@@ -62,7 +72,11 @@ public static class EmbeddedArtExtractor
             .GroupBy(p => Path.GetDirectoryName(p)!, StringComparer.OrdinalIgnoreCase);
 
         foreach (var folder in byDirectory)
-            results.Add(ExtractOne(folder.Key, folder, pngToJpeg));
+        {
+            results.Add(sharedFolder(folder.Key)
+                ? new FolderExtract(folder.Key, ExtractOutcome.Shared, null, null, 0, false, null, null)
+                : ExtractOne(folder.Key, folder, pngToJpeg));
+        }
 
         return results;
     }
@@ -105,7 +119,7 @@ public static class EmbeddedArtExtractor
             if (jpeg is null || jpeg.Length == 0)
                 return Failed(directory, bestInfo, existing, "couldn't convert the PNG to JPEG");
 
-            File.WriteAllBytes(target, jpeg);
+            FileSwap.WriteWhole(target, jpeg);
             return new FolderExtract(directory, ExtractOutcome.Saved, target, bestInfo, jpeg.Length, converted, existing, null);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
@@ -136,8 +150,16 @@ public static class EmbeddedArtExtractor
         var none = results.Count(r => r.Outcome == ExtractOutcome.NoArt);
         var unsupported = results.Count(r => r.Outcome == ExtractOutcome.Unsupported);
         var failed = results.Where(r => r.Outcome == ExtractOutcome.Failed).ToList();
+        var shared = results.Where(r => r.Outcome == ExtractOutcome.Shared).ToList();
 
-        if (saved.Count == 0 && kept.Count == 0 && failed.Count == 0)
+        if (shared.Count == results.Count)
+        {
+            return results.Count == 1
+                ? $"Not saved as {FileName}: other albums' songs are in this folder too."
+                : $"Not saved as {FileName}: other albums' songs are in each of these folders too.";
+        }
+
+        if (saved.Count == 0 && kept.Count == 0 && failed.Count == 0 && shared.Count == 0)
         {
             if (unsupported > 0)
                 return "The embedded art isn't a JPEG or PNG, so it can't be saved as cover.jpg.";
@@ -170,6 +192,11 @@ public static class EmbeddedArtExtractor
 
         if (none > 0 && results.Count > 1)
             parts.Add($"No embedded art in {none} of {results.Count} folders.");
+        if (shared.Count > 0)
+        {
+            var more = shared.Count > 1 ? $" (and {shared.Count - 1} more)" : "";
+            parts.Add($"No {FileName} in {Path.GetFileName(shared[0].Directory)}{more}: other albums' songs are there too.");
+        }
         if (unsupported > 0)
             parts.Add($"{unsupported} folder(s) have art that isn't a JPEG or PNG.");
 

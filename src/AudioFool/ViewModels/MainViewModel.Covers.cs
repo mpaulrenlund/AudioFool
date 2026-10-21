@@ -260,8 +260,12 @@ public sealed partial class MainViewModel
             done.Add(CoverCleaner.Clean(song.FilePath, _engine));
         }
 
+        // A folder holding several albums' songs gets no cover.jpg: it would be
+        // whichever album's cover is biggest, shown for all of them.
         var cleaned = done.Where(r => r.Outcome == CoverCleanOutcome.Cleaned).Select(r => r.Path).ToList();
-        var extract = cleaned.Count == 0 ? null : EmbeddedArtExtractor.ExtractToFolders(cleaned, CoverJpeg.FromPng).FirstOrDefault();
+        var library = _library.AllTracks;
+        var extract = cleaned.Count == 0 ? null : EmbeddedArtExtractor.ExtractToFolders(cleaned, CoverJpeg.FromPng,
+            directory => FolderArtTargets.HoldsOtherAlbums(songs, directory, library)).FirstOrDefault();
         return (done, extract);
     }
 
@@ -321,6 +325,10 @@ public sealed partial class MainViewModel
         var saved = folders.Count(f => f.Outcome == ExtractOutcome.Saved);
         if (saved > 0)
             parts.Add($"saved {EmbeddedArtExtractor.FileName} in {(saved == 1 ? "1 folder" : $"{saved:N0} folders")}");
+
+        var shared = folders.Count(f => f.Outcome == ExtractOutcome.Shared);
+        if (shared > 0)
+            parts.Add($"no {EmbeddedArtExtractor.FileName} in {(shared == 1 ? "1 folder" : $"{shared:N0} folders")} shared with other albums");
 
         if (failed.Count > 0)
             parts.Add($"{failed.Count:N0} skipped, left as they were ({Path.GetFileName(failed[0].Path)}: {failed[0].Error})");

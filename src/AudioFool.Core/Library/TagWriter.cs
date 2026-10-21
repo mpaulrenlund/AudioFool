@@ -24,7 +24,11 @@ public sealed record TagWriteResult
 }
 
 /// <summary>Result of writing (or overwriting) a folder-level cover file.</summary>
-public sealed record FolderArtWriteResult(bool Success, string? ErrorMessage, string? FolderArtPath);
+public sealed record FolderArtWriteResult(bool Success, string? ErrorMessage, string? FolderArtPath)
+{
+    /// <summary>A written cover whose old file of the other format couldn't go to the Recycle Bin, and is still there.</summary>
+    public string? Warning { get; init; }
+}
 
 /// <summary>
 /// Writes tag edits and album art back to audio files. The write-side counterpart
@@ -149,13 +153,23 @@ public static class TagWriter
     /// Writes/overwrites the folder cover file for one album directory. Independent
     /// of the audio files - never touches TagLib.
     /// <para>
-    /// When an existing cover has a different extension than the new image, the old
-    /// file is deleted and the new one created under the correct extension, so two
-    /// competing covers are never left behind and the bytes are never saved under
-    /// the wrong format.
+    /// The picture is written to a working file beside the cover and renamed over
+    /// it once it is on the disk (<see cref="FileSwap.WriteWhole"/>), so a write
+    /// that stops partway (the app closing, the drive pulled) leaves the old cover
+    /// whole, never a half-written one.
+    /// </para>
+    /// <para>
+    /// When an existing cover has a different extension than the new image, the new
+    /// one is created under the correct extension and only then the old one goes,
+    /// through <paramref name="recycle"/> (the Recycle Bin), so the bytes are never
+    /// saved under the wrong format and the folder is never left without a cover.
+    /// When the bin can't take it (a drive without one), the old file is kept and
+    /// <see cref="FolderArtWriteResult.Warning"/> says so; the result's path is then
+    /// whichever of the two the library's lookup picks.
     /// </para>
     /// </summary>
-    public static FolderArtWriteResult WriteFolderArt(string directory, ArtPayload art, string? existingFolderArtPath)
+    public static FolderArtWriteResult WriteFolderArt(string directory, ArtPayload art, string? existingFolderArtPath,
+                                                      Func<string, bool> recycle)
     {
         try
         {
@@ -167,12 +181,19 @@ public static class TagWriter
 
             if (reusingExisting)
                 targetPath = existingFolderArtPath!;
-            else if (existingFolderArtPath is not null && File.Exists(existingFolderArtPath)
-                     && !string.Equals(existingFolderArtPath, targetPath, StringComparison.OrdinalIgnoreCase))
-                File.Delete(existingFolderArtPath);
 
-            File.WriteAllBytes(targetPath, art.Bytes);
-            return new FolderArtWriteResult(true, null, targetPath);
+            FileSwap.WriteWhole(targetPath, art.Bytes);
+
+            if (reusingExisting || existingFolderArtPath is null || !File.Exists(existingFolderArtPath)
+                || string.Equals(existingFolderArtPath, targetPath, StringComparison.OrdinalIgnoreCase)
+                || recycle(existingFolderArtPath))
+                return new FolderArtWriteResult(true, null, targetPath);
+
+            var shown = TagReader.FindFolderArt(Path.Combine(directory, "_")) ?? targetPath;
+            return new FolderArtWriteResult(true, null, shown)
+            {
+                Warning = $"the old {Path.GetFileName(existingFolderArtPath)} couldn't go to the Recycle Bin, so it's still there",
+            };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
         {

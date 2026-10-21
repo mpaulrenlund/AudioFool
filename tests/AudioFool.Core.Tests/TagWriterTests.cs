@@ -344,13 +344,31 @@ public class WriteFolderArtTests
     private static ArtPayload Jpeg(byte value = 1) => new([value, value, value], "image/jpeg");
     private static ArtPayload Png(byte value = 2) => new([value, value, value], "image/png");
 
+    /// <summary>Stands in for the Recycle Bin: takes the file (deletes it) and remembers it.</summary>
+    private sealed class FakeBin(bool accepts = true)
+    {
+        public List<string> Taken { get; } = [];
+
+        public bool Recycle(string path)
+        {
+            if (!accepts)
+                return false;
+            Taken.Add(path);
+            File.Delete(path);
+            return true;
+        }
+    }
+
+    private static string[] WorkingFiles(DirectoryInfo dir) =>
+        dir.GetFiles(FileSwap.Prefix + "*").Select(f => f.Name).ToArray();
+
     [Fact]
     public void Creates_cover_jpg_when_no_existing_folder_art()
     {
         var dir = Directory.CreateTempSubdirectory();
         try
         {
-            var result = TagWriter.WriteFolderArt(dir.FullName, Jpeg(), existingFolderArtPath: null);
+            var result = TagWriter.WriteFolderArt(dir.FullName, Jpeg(), existingFolderArtPath: null, new FakeBin().Recycle);
 
             Assert.True(result.Success, result.ErrorMessage);
             Assert.Equal(Path.Combine(dir.FullName, "cover.jpg"), result.FolderArtPath);
@@ -371,11 +389,14 @@ public class WriteFolderArtTests
             var existing = Path.Combine(dir.FullName, "folder.jpg");
             File.WriteAllBytes(existing, [0]);
 
-            var result = TagWriter.WriteFolderArt(dir.FullName, Jpeg(9), existingFolderArtPath: existing);
+            var bin = new FakeBin();
+            var result = TagWriter.WriteFolderArt(dir.FullName, Jpeg(9), existingFolderArtPath: existing, bin.Recycle);
 
             Assert.True(result.Success, result.ErrorMessage);
             Assert.Equal(existing, result.FolderArtPath);
             Assert.Equal(Jpeg(9).Bytes, File.ReadAllBytes(existing));
+            Assert.Empty(bin.Taken);
+            Assert.Empty(WorkingFiles(dir));
         }
         finally
         {
@@ -384,7 +405,7 @@ public class WriteFolderArtTests
     }
 
     [Fact]
-    public void Deletes_stale_cover_when_format_changes()
+    public void Recycles_stale_cover_when_format_changes()
     {
         var dir = Directory.CreateTempSubdirectory();
         try
@@ -392,16 +413,183 @@ public class WriteFolderArtTests
             var existing = Path.Combine(dir.FullName, "cover.png");
             File.WriteAllBytes(existing, [0]);
 
-            var result = TagWriter.WriteFolderArt(dir.FullName, Jpeg(), existingFolderArtPath: existing);
+            var bin = new FakeBin();
+            var result = TagWriter.WriteFolderArt(dir.FullName, Jpeg(), existingFolderArtPath: existing, bin.Recycle);
 
             Assert.True(result.Success, result.ErrorMessage);
+            Assert.Null(result.Warning);
+            Assert.Equal([existing], bin.Taken);
             Assert.False(File.Exists(existing));
             Assert.Equal(Path.Combine(dir.FullName, "cover.jpg"), result.FolderArtPath);
-            Assert.True(File.Exists(result.FolderArtPath));
+            Assert.Equal(Jpeg().Bytes, File.ReadAllBytes(result.FolderArtPath!));
+            Assert.Empty(WorkingFiles(dir));
         }
         finally
         {
             dir.Delete(recursive: true);
         }
+    }
+
+    /// <summary>
+    /// A drive with no Recycle Bin (an SD card): the old cover stays, the result
+    /// says so, and its path is the file the library's lookup will show.
+    /// </summary>
+    [Fact]
+    public void Keeps_stale_cover_when_the_bin_refuses_it()
+    {
+        var dir = Directory.CreateTempSubdirectory();
+        try
+        {
+            var existing = Path.Combine(dir.FullName, "cover.jpg");
+            File.WriteAllBytes(existing, [0]);
+
+            var result = TagWriter.WriteFolderArt(dir.FullName, Png(), existingFolderArtPath: existing, new FakeBin(accepts: false).Recycle);
+
+            Assert.True(result.Success, result.ErrorMessage);
+            Assert.Contains("cover.jpg", result.Warning);
+            Assert.Equal(new byte[] { 0 }, File.ReadAllBytes(existing));
+            Assert.Equal(Png().Bytes, File.ReadAllBytes(Path.Combine(dir.FullName, "cover.png")));
+            Assert.Equal(existing, result.FolderArtPath); // cover.jpg comes first in the lookup
+            Assert.Empty(WorkingFiles(dir));
+        }
+        finally
+        {
+            dir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// The review's finding: the old cover was deleted before the new one was
+    /// written, so a write that failed left the folder with no cover at all.
+    /// </summary>
+    [Fact]
+    public void A_failed_write_keeps_the_old_cover_of_another_format()
+    {
+        var dir = Directory.CreateTempSubdirectory();
+        var blocker = Path.Combine(dir.FullName, "cover.jpg");
+        try
+        {
+            var existing = Path.Combine(dir.FullName, "folder.png");
+            File.WriteAllBytes(existing, [7]);
+            File.WriteAllBytes(blocker, [8]);
+            File.SetAttributes(blocker, FileAttributes.ReadOnly);
+
+            var bin = new FakeBin();
+            var result = TagWriter.WriteFolderArt(dir.FullName, Jpeg(), existingFolderArtPath: existing, bin.Recycle);
+
+            Assert.False(result.Success);
+            Assert.Equal(existing, result.FolderArtPath);
+            Assert.Equal(new byte[] { 7 }, File.ReadAllBytes(existing));
+            Assert.Empty(bin.Taken);
+            Assert.Empty(WorkingFiles(dir));
+        }
+        finally
+        {
+            File.SetAttributes(blocker, FileAttributes.Normal);
+            dir.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// A failed write leaves the cover as it was. Until session 62 the bytes
+    /// went straight into the cover, so a write cut off partway left it
+    /// half-written; now they go to a working file renamed over it.
+    /// </summary>
+    [Fact]
+    public void A_failed_write_leaves_the_same_format_cover_whole()
+    {
+        var dir = Directory.CreateTempSubdirectory();
+        var existing = Path.Combine(dir.FullName, "cover.jpg");
+        try
+        {
+            File.WriteAllBytes(existing, [1, 2, 3, 4]);
+            File.SetAttributes(existing, FileAttributes.ReadOnly);
+
+            var result = TagWriter.WriteFolderArt(dir.FullName, Jpeg(9), existingFolderArtPath: existing, new FakeBin().Recycle);
+
+            Assert.False(result.Success);
+            Assert.Equal(new byte[] { 1, 2, 3, 4 }, File.ReadAllBytes(existing));
+            Assert.Empty(WorkingFiles(dir));
+        }
+        finally
+        {
+            File.SetAttributes(existing, FileAttributes.Normal);
+            dir.Delete(recursive: true);
+        }
+    }
+}
+
+public class FolderArtTargetsTests
+{
+    private const string Folder = @"D:\Music\Singles";
+
+    private static Track Song(string folder, string file, string album) =>
+        new() { FilePath = Path.Combine(folder, file), Album = album };
+
+    private static Album AlbumOf(string title, params Track[] tracks) =>
+        new() { Title = title, ArtistName = "A", Tracks = tracks };
+
+    [Fact]
+    public void A_folder_of_only_this_albums_songs_gets_the_file()
+    {
+        var one = Song(Folder, "1.flac", "Blue");
+        var two = Song(Folder, "2.flac", "Blue");
+
+        Assert.False(FolderArtTargets.HoldsOtherAlbums(AlbumOf("Blue", one, two), Folder, [one, two]));
+    }
+
+    [Fact]
+    public void A_folder_shared_with_another_album_does_not()
+    {
+        var mine = Song(Folder, "1.flac", "Blue");
+        var theirs = Song(Folder, "2.flac", "Red");
+
+        Assert.True(FolderArtTargets.HoldsOtherAlbums(AlbumOf("Blue", mine), Folder, [mine, theirs]));
+    }
+
+    [Fact]
+    public void Another_albums_song_in_a_different_folder_does_not_count()
+    {
+        var mine = Song(Folder, "1.flac", "Blue");
+        var theirs = Song(@"D:\Music\Other", "2.flac", "Red");
+
+        Assert.False(FolderArtTargets.HoldsOtherAlbums(AlbumOf("Blue", mine), Folder, [mine, theirs]));
+    }
+
+    [Fact]
+    public void A_song_of_the_same_album_name_under_another_artist_counts_as_this_album()
+    {
+        var mine = Song(Folder, "1.flac", "Blue");
+        var splitOff = Song(Folder, "2.flac", "blue ");
+
+        Assert.False(FolderArtTargets.HoldsOtherAlbums(AlbumOf("Blue", mine), Folder, [mine, splitOff]));
+    }
+
+    /// <summary>Keep Best Cover hands over a folder's songs, which may be two albums.</summary>
+    [Fact]
+    public void Songs_of_two_albums_among_the_ones_given_make_a_shared_folder()
+    {
+        var blue = Song(Folder, "1.flac", "Blue");
+        var red = Song(Folder, "2.flac", "Red");
+
+        Assert.True(FolderArtTargets.HoldsOtherAlbums([blue, red], Folder, [blue, red]));
+    }
+
+    [Fact]
+    public void Some_songs_of_one_album_given_and_the_rest_in_the_library_is_not_shared()
+    {
+        var one = Song(Folder, "1.flac", "Blue");
+        var two = Song(Folder, "2.flac", "Blue");
+
+        Assert.False(FolderArtTargets.HoldsOtherAlbums([one], Folder, [one, two]));
+    }
+
+    [Fact]
+    public void Untagged_songs_of_other_artists_count_as_other_albums()
+    {
+        var mine = Song(Folder, "1.flac", "");
+        var theirs = Song(Folder, "2.flac", "");
+
+        Assert.True(FolderArtTargets.HoldsOtherAlbums(AlbumOf("Unknown Album", mine), Folder, [mine, theirs]));
     }
 }

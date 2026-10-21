@@ -56,6 +56,32 @@ public static class FileSwap
     }
 
     /// <summary>
+    /// Writes <paramref name="bytes"/> as <paramref name="path"/>, replacing any file
+    /// there, without ever leaving it half-written: they go to a working file beside
+    /// it, onto the disk, and that is renamed over it. Stopped partway, the old file
+    /// is whole (and the working file a leftover the scan deletes). For small files
+    /// such as a folder's cover; a song is swapped with <see cref="Replace"/>.
+    /// </summary>
+    public static void WriteWhole(string path, byte[] bytes)
+    {
+        var working = Path.Combine(Path.GetDirectoryName(path)!, $"{Prefix}write-{Guid.NewGuid():N}{WorkingSuffix}");
+        try
+        {
+            using (var stream = new FileStream(working, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                stream.Write(bytes);
+                stream.Flush(flushToDisk: true);
+            }
+
+            File.Move(working, path, overwrite: true);
+        }
+        finally
+        {
+            try { File.Delete(working); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+    }
+
+    /// <summary>
     /// How long a working copy goes unwritten before it is taken for one a crash
     /// left: a save can be under way during a scan, and its copy is written to
     /// throughout.

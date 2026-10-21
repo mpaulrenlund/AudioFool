@@ -1613,7 +1613,7 @@ internal static class Program
                 Arg(args, "--file") ?? throw new ArgumentException("--window themeswitch needs --file <audio file>"),
                 Arg(args, "--artfile"), outPath, w, h, scale);
 
-        if (which is "edit" or "queue" or "clicks" or "nowplayingart" or "multiedit" or "albumeditor" or "trackeditor" or "covers" or "pngconvert" or "safesave" or "albumkeep")
+        if (which is "edit" or "queue" or "clicks" or "nowplayingart" or "multiedit" or "albumeditor" or "trackeditor" or "covers" or "pngconvert" or "safesave" or "albumkeep" or "folderart")
         {
             // Each save persists the library, and LibraryCache.CachePath is the
             // real library.json - so it is put back byte for byte afterwards.
@@ -1626,6 +1626,8 @@ internal static class Program
             {
                 if (which == "albumkeep")
                     RunAlbumKeep(vm);
+                else if (which == "folderart")
+                    RunFolderArt(vm);
                 else if (which == "safesave")
                     RunSafeSave(main, vm, Arg(args, "--long") ?? throw new ArgumentException("--window safesave needs --long \"a;b;...\""));
                 else if (which == "pngconvert")
@@ -5475,6 +5477,168 @@ internal static class Program
         Check("a typed album reaches every track, artists kept",
             compilation.All(t => AudioFool.Core.Library.TagReader.Read(t.FilePath) is { Album: "Greatest Hits" } read && read.Artist == t.Artist));
 
+        Console.WriteLine(allOk ? "ALL OK" : "SOMETHING WRONG");
+    }
+
+    /// <summary>
+    /// --window folderart (session 62): an album's new cover through the view
+    /// model's own album save, on scratch songs made from the test fixtures. The
+    /// album "Blue" has two songs alone in "Blue CD1" (with an old cover.png) and
+    /// one in "Singles", beside "Red"'s song and Red's cover.jpg. The PNG must go
+    /// to the real Recycle Bin once cover.jpg is in; Singles' cover.jpg must stay
+    /// Red's, with the status bar saying why, while Blue's song there still gets
+    /// the cover inside it. Then a second JPEG over the first; then Save Embedded
+    /// Art from the album window, and Keep Best Cover over all four songs, with
+    /// Red's cover made smaller than Blue's, so only the shared-folder rule keeps
+    /// it. No working files may be left anywhere.
+    /// </summary>
+    private static void RunFolderArt(MainViewModel vm)
+    {
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        const System.Reflection.BindingFlags Private = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var fixtures = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+            @"..\..\..\..\..\..\tests\AudioFool.Core.Tests\TestData"));
+        var dir = Path.Combine(Path.GetTempPath(), "themelab-folderart-" + Guid.NewGuid().ToString("N")[..8]);
+        var cd1 = Path.Combine(dir, "Blue CD1");
+        var singles = Path.Combine(dir, "Singles");
+        Directory.CreateDirectory(cd1);
+        Directory.CreateDirectory(singles);
+        _scratchDir = dir;
+
+        byte[] Jpeg(byte shade, int size = 300)
+        {
+            var pixels = Enumerable.Repeat(shade, size * size * 4).ToArray();
+            var image = System.Windows.Media.Imaging.BitmapSource.Create(size, size, 96, 96,
+                System.Windows.Media.PixelFormats.Bgr32, null, pixels, size * 4);
+            var encoder = new System.Windows.Media.Imaging.JpegBitmapEncoder { QualityLevel = 90 };
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(image));
+            using var stream = new MemoryStream();
+            encoder.Save(stream);
+            return stream.ToArray();
+        }
+
+        string Make(string folder, string name, string ext, string album, int number)
+        {
+            var path = Path.Combine(folder, name + ext);
+            File.Copy(Path.Combine(fixtures, "sample" + ext), path);
+            AudioFool.Core.Library.TagWriter.WriteTrackTags(AudioFool.Core.Library.TagReader.Read(path),
+                new AudioFool.Core.Library.TrackTagEdit(name, "Band", "Band", album, 2001, number, 3, 1, 1),
+                art: null, folderArtPath: null);
+            return path;
+        }
+
+        var blue = new[] { Make(cd1, "01 One", ".flac", "Blue", 1), Make(cd1, "02 Two", ".mp3", "Blue", 2), Make(singles, "03 Three", ".flac", "Blue", 3) };
+        var red = Make(singles, "01 Red", ".flac", "Red", 1);
+        var oldPng = Path.Combine(cd1, "cover.png");
+        File.WriteAllBytes(oldPng, File.ReadAllBytes(Path.Combine(fixtures, "sample.flac"))[..64]);
+        var redCover = Jpeg(200);
+        File.WriteAllBytes(Path.Combine(singles, "cover.jpg"), redCover);
+
+        // Read after the covers exist, so each song knows its folder's file.
+        var library = AudioFool.Core.Library.LibraryScanner.Build([.. blue.Append(red).Select(p => AudioFool.Core.Library.TagReader.Read(p))]);
+        typeof(MainViewModel).GetMethod("ApplyLibrary", Private)!.Invoke(vm, [library, false]);
+
+        var allOk = true;
+        void Check(string what, bool ok)
+        {
+            allOk &= ok;
+            Console.WriteLine($"  {what}: {(ok ? "OK" : "WRONG")}");
+        }
+
+        void Save(byte[] cover)
+        {
+            var album = vm.GetType().GetField("_library", Private)!.GetValue(vm) is AudioFool.Core.Library.MusicLibrary current
+                ? current.Artists.SelectMany(a => a.Albums).Single(a => a.Title == "Blue")
+                : throw new InvalidOperationException("no library");
+            var task = (Task)typeof(MainViewModel).GetMethod("ApplyAlbumEditAsync", Private)!
+                .Invoke(vm, [album, new AudioFool.Core.Library.AlbumTagEdit(), new AudioFool.Core.Library.ArtPayload(cover, "image/jpeg"), false])!;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (!task.IsCompleted && clock.ElapsedMilliseconds < 20000)
+                Settle(50);
+            Settle(200);
+            Console.WriteLine($"  saved{(task.IsFaulted ? " FAULTED " + task.Exception?.GetBaseException().Message : "")}: '{vm.StatusText}'");
+        }
+
+        bool EmbeddedIs(string path, byte[] cover)
+        {
+            using var file = TagLib.File.Create(path);
+            return file.Tag.Pictures is [var only] && only.Data.Data.AsSpan().SequenceEqual(cover);
+        }
+
+        bool HasNoPicture(string path)
+        {
+            using var file = TagLib.File.Create(path);
+            return file.Tag.Pictures.Length == 0;
+        }
+
+        Console.WriteLine($"scratch: {dir}");
+        Console.WriteLine("1. a JPEG cover over Blue CD1's cover.png");
+        var first = Jpeg(40);
+        Save(first);
+        var cd1Jpg = Path.Combine(cd1, "cover.jpg");
+        Check("Blue CD1/cover.jpg is the new cover", File.Exists(cd1Jpg) && File.ReadAllBytes(cd1Jpg).AsSpan().SequenceEqual(first));
+        Check("Blue CD1/cover.png gone (to the Recycle Bin)", !File.Exists(oldPng));
+        Check("Singles/cover.jpg still Red's", File.ReadAllBytes(Path.Combine(singles, "cover.jpg")).AsSpan().SequenceEqual(redCover));
+        Check("status names Singles", vm.StatusText.Contains("No folder cover file in Singles"));
+        foreach (var path in blue)
+            Check($"{Path.GetFileName(path)} holds the new cover", EmbeddedIs(path, first));
+        Check("Red's song untouched", HasNoPicture(red));
+
+        Console.WriteLine("2. a second JPEG over the first");
+        var second = Jpeg(90);
+        Save(second);
+        Check("Blue CD1/cover.jpg replaced", File.ReadAllBytes(cd1Jpg).AsSpan().SequenceEqual(second));
+        Check("Singles/cover.jpg still Red's", File.ReadAllBytes(Path.Combine(singles, "cover.jpg")).AsSpan().SequenceEqual(redCover));
+        Check("Blue CD1 has one cover file", Directory.GetFiles(cd1, "cover.*").Length == 1);
+
+        // Red's cover made smaller than Blue's embedded one, so only the shared-folder
+        // rule keeps Save Embedded Art and Keep Best Cover from replacing it.
+        var smallRed = Jpeg(200, 100);
+        File.WriteAllBytes(Path.Combine(singles, "cover.jpg"), smallRed);
+
+        Console.WriteLine("3. Save Embedded Art from the album window (Blue CD1's cover.jpg deleted first)");
+        File.Delete(cd1Jpg);
+        var blueAlbum = ((AudioFool.Core.Library.MusicLibrary)vm.GetType().GetField("_library", Private)!.GetValue(vm)!)
+            .Artists.SelectMany(a => a.Albums).Single(a => a.Title == "Blue");
+        var window = (TagEditViewModel)typeof(MainViewModel).GetMethod("NewAlbumEditorViewModel", Private)!.Invoke(vm, [blueAlbum])!;
+        var extraction = window.SaveEmbeddedArtCommand.ExecuteAsync(null);
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while (!extraction.IsCompleted && waited.ElapsedMilliseconds < 20000)
+            Settle(50);
+        Console.WriteLine($"  message: '{window.ArtMessage}'");
+        Check("Blue CD1/cover.jpg is the embedded cover", File.Exists(cd1Jpg) && File.ReadAllBytes(cd1Jpg).AsSpan().SequenceEqual(second));
+        Check("Singles/cover.jpg still Red's", File.ReadAllBytes(Path.Combine(singles, "cover.jpg")).AsSpan().SequenceEqual(smallRed));
+        Check("message names Singles", window.ArtMessage.Contains("No cover.jpg in Singles"));
+
+        Console.WriteLine("4. Keep Best Cover over all four songs, each given a bigger front cover and a back cover");
+        var bigFront = Jpeg(60, 400);
+        var back = Jpeg(120, 200);
+        foreach (var path in blue.Append(red))
+        {
+            using var file = TagLib.File.Create(path);
+            file.Tag.Pictures =
+            [
+                new TagLib.Picture(new TagLib.ByteVector(bigFront)) { Type = TagLib.PictureType.FrontCover, MimeType = "image/jpeg" },
+                new TagLib.Picture(new TagLib.ByteVector(back)) { Type = TagLib.PictureType.BackCover, MimeType = "image/jpeg" },
+            ];
+            file.Save();
+        }
+
+        var keep = (Task)typeof(MainViewModel).GetMethod("KeepBestCoversAsync", Private)!
+            .Invoke(vm, [blue.Append(red).Select(p => AudioFool.Core.Library.TagReader.Read(p)).ToList()])!;
+        waited.Restart();
+        while (!keep.IsCompleted && waited.ElapsedMilliseconds < 60000)
+            Settle(50);
+        Settle(200);
+        Console.WriteLine($"  status{(keep.IsFaulted ? " FAULTED " + keep.Exception?.GetBaseException().Message : "")}: '{vm.StatusText}'");
+        Check("Blue CD1/cover.jpg is the bigger front cover", File.ReadAllBytes(cd1Jpg).AsSpan().SequenceEqual(bigFront));
+        Check("Singles/cover.jpg still Red's", File.ReadAllBytes(Path.Combine(singles, "cover.jpg")).AsSpan().SequenceEqual(smallRed));
+        Check("status counts the shared folder", vm.StatusText.Contains("no cover.jpg in 1 folder shared with other albums"));
+        foreach (var path in blue.Append(red))
+            Check($"{Path.GetFileName(path)} kept only its front cover", EmbeddedIs(path, bigFront));
+
+        var leftovers = Directory.GetFiles(dir, AudioFool.Core.Library.FileSwap.Prefix + "*", SearchOption.AllDirectories);
+        Check($"no working files left ({leftovers.Length})", leftovers.Length == 0);
         Console.WriteLine(allOk ? "ALL OK" : "SOMETHING WRONG");
     }
 

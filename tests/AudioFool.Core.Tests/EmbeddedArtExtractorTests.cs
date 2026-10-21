@@ -58,6 +58,73 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
 
     private static byte[]? NoConverter(byte[] _) => throw new InvalidOperationException("a JPEG must not be converted");
 
+    private static bool NotShared(string _) => false;
+
+    [Fact]
+    public void A_shared_folder_gets_no_cover_and_the_others_still_do()
+    {
+        var art = Jpeg(1200, 1200, tail: 50);
+        var mine = Make("Blue", "01.flac", "sample.flac", art);
+        var inSingles = Make("Singles", "02.flac", "sample.flac", art);
+        var redCover = Path.Combine(_root.FullName, "Singles", "cover.jpg");
+        File.WriteAllBytes(redCover, [5, 5, 5]);
+        var singles = Path.GetDirectoryName(inSingles)!;
+
+        var results = EmbeddedArtExtractor.ExtractToFolders([mine, inSingles], NoConverter,
+            d => string.Equals(d, singles, StringComparison.OrdinalIgnoreCase));
+
+        Assert.Equal(ExtractOutcome.Saved, results.Single(r => r.Directory == Path.GetDirectoryName(mine)).Outcome);
+        Assert.Equal(ExtractOutcome.Shared, results.Single(r => r.Directory == singles).Outcome);
+        Assert.Equal(art, File.ReadAllBytes(Cover("Blue")));
+        Assert.Equal(new byte[] { 5, 5, 5 }, File.ReadAllBytes(redCover));
+        Assert.Contains("No cover.jpg in Singles: other albums' songs are there too.", EmbeddedArtExtractor.Describe(results));
+    }
+
+    [Fact]
+    public void Only_a_shared_folder_says_so()
+    {
+        var track = Make("Singles", "01.flac", "sample.flac", Jpeg(800, 800));
+
+        var results = EmbeddedArtExtractor.ExtractToFolders([track], NoConverter, _ => true);
+
+        Assert.Equal(ExtractOutcome.Shared, Assert.Single(results).Outcome);
+        Assert.False(File.Exists(Cover("Singles")));
+        Assert.Equal("Not saved as cover.jpg: other albums' songs are in this folder too.", EmbeddedArtExtractor.Describe(results));
+    }
+
+    /// <summary>The cover is swapped in, never written over in place: a read-only one stays whole, and nothing is left beside it.</summary>
+    [Fact]
+    public void A_failed_write_leaves_the_old_cover_whole()
+    {
+        var track = Make("album", "01.flac", "sample.flac", Jpeg(3000, 3000, tail: 30));
+        File.WriteAllBytes(Cover("album"), Jpeg(600, 600));
+        File.SetAttributes(Cover("album"), FileAttributes.ReadOnly);
+        try
+        {
+            var results = EmbeddedArtExtractor.ExtractToFolders([track], NoConverter, NotShared);
+
+            Assert.Equal(ExtractOutcome.Failed, Assert.Single(results).Outcome);
+            Assert.Equal(Jpeg(600, 600), File.ReadAllBytes(Cover("album")));
+            Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(track)!, FileSwap.Prefix + "*"));
+        }
+        finally
+        {
+            File.SetAttributes(Cover("album"), FileAttributes.Normal);
+        }
+    }
+
+    [Fact]
+    public void A_saved_cover_leaves_no_working_file()
+    {
+        var track = Make("album", "01.flac", "sample.flac", Jpeg(900, 900, tail: 30));
+        File.WriteAllBytes(Cover("album"), Jpeg(600, 600));
+
+        EmbeddedArtExtractor.ExtractToFolders([track], NoConverter, NotShared);
+
+        Assert.Equal(Jpeg(900, 900, tail: 30), File.ReadAllBytes(Cover("album")));
+        Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(track)!, FileSwap.Prefix + "*"));
+    }
+
     [Theory]
     [InlineData("sample.flac")]
     [InlineData("sample.mp3")]
@@ -66,7 +133,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         var art = Jpeg(3000, 3000, tail: 4000);
         var track = Make("album", "01" + Path.GetExtension(fixture), fixture, art);
 
-        var results = EmbeddedArtExtractor.ExtractToFolders([track], NoConverter);
+        var results = EmbeddedArtExtractor.ExtractToFolders([track], NoConverter, NotShared);
 
         var only = Assert.Single(results);
         Assert.Equal(ExtractOutcome.Saved, only.Outcome);
@@ -85,7 +152,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         var b = Make("album", "02.flac", "sample.flac", big);
         var c = Make("album", "03.mp3", "sample.mp3", small);
 
-        EmbeddedArtExtractor.ExtractToFolders([a, b, c], NoConverter);
+        EmbeddedArtExtractor.ExtractToFolders([a, b, c], NoConverter, NotShared);
 
         Assert.Equal(big, File.ReadAllBytes(Cover("album")));
     }
@@ -98,7 +165,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         var a = Make("album", "01.flac", "sample.flac", lean);
         var b = Make("album", "02.flac", "sample.flac", rich);
 
-        EmbeddedArtExtractor.ExtractToFolders([a, b], NoConverter);
+        EmbeddedArtExtractor.ExtractToFolders([a, b], NoConverter, NotShared);
 
         Assert.Equal(rich, File.ReadAllBytes(Cover("album")));
     }
@@ -111,7 +178,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         var a = Make(Path.Combine("album", "Disc 1"), "01.flac", "sample.flac", disc1);
         var b = Make(Path.Combine("album", "Disc 2"), "01.flac", "sample.flac", disc2);
 
-        var results = EmbeddedArtExtractor.ExtractToFolders([a, b], NoConverter);
+        var results = EmbeddedArtExtractor.ExtractToFolders([a, b], NoConverter, NotShared);
 
         Assert.Equal(2, results.Count);
         Assert.All(results, r => Assert.Equal(ExtractOutcome.Saved, r.Outcome));
@@ -124,7 +191,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
     {
         var track = Make("album", "01.flac", "sample.flac");
 
-        var results = EmbeddedArtExtractor.ExtractToFolders([track], NoConverter);
+        var results = EmbeddedArtExtractor.ExtractToFolders([track], NoConverter, NotShared);
 
         Assert.Equal(ExtractOutcome.NoArt, Assert.Single(results).Outcome);
         Assert.False(File.Exists(Cover("album")));
@@ -136,7 +203,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         byte[] gif = [.. "GIF89a"u8, 0x10, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00];
         var track = Make("album", "01.flac", "sample.flac", gif);
 
-        var results = EmbeddedArtExtractor.ExtractToFolders([track], NoConverter);
+        var results = EmbeddedArtExtractor.ExtractToFolders([track], NoConverter, NotShared);
 
         Assert.Equal(ExtractOutcome.Unsupported, Assert.Single(results).Outcome);
         Assert.False(File.Exists(Cover("album")));
@@ -151,7 +218,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         var a = Make("album", "01.flac", "sample.flac", gif);
         var b = Make("album", "02.flac", "sample.flac", jpeg);
 
-        var results = EmbeddedArtExtractor.ExtractToFolders([a, b], NoConverter);
+        var results = EmbeddedArtExtractor.ExtractToFolders([a, b], NoConverter, NotShared);
 
         Assert.Equal(ExtractOutcome.Saved, Assert.Single(results).Outcome);
         Assert.Equal(jpeg, File.ReadAllBytes(Cover("album")));
@@ -164,7 +231,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         Make("album", "01.flac", "sample.flac", Jpeg(2000, 2000, tail: 9000));
         File.WriteAllBytes(Cover("album"), existing);
 
-        var results = EmbeddedArtExtractor.ExtractToFolders([Path.Combine(_root.FullName, "album", "01.flac")], NoConverter);
+        var results = EmbeddedArtExtractor.ExtractToFolders([Path.Combine(_root.FullName, "album", "01.flac")], NoConverter, NotShared);
 
         var only = Assert.Single(results);
         Assert.Equal(ExtractOutcome.KeptExisting, only.Outcome);
@@ -179,7 +246,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         var track = Make("album", "01.flac", "sample.flac", embedded);
         File.WriteAllBytes(Cover("album"), Jpeg(600, 600));
 
-        var results = EmbeddedArtExtractor.ExtractToFolders([track], NoConverter);
+        var results = EmbeddedArtExtractor.ExtractToFolders([track], NoConverter, NotShared);
 
         Assert.Equal(ExtractOutcome.Saved, Assert.Single(results).Outcome);
         Assert.Equal(embedded, File.ReadAllBytes(Cover("album")));
@@ -192,7 +259,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         var track = Make("album", "01.flac", "sample.flac", embedded);
         File.WriteAllBytes(Cover("album"), [1, 2, 3]);
 
-        EmbeddedArtExtractor.ExtractToFolders([track], NoConverter);
+        EmbeddedArtExtractor.ExtractToFolders([track], NoConverter, NotShared);
 
         Assert.Equal(embedded, File.ReadAllBytes(Cover("album")));
     }
@@ -204,7 +271,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         var folderJpg = Path.Combine(_root.FullName, "album", "folder.jpg");
         File.WriteAllBytes(folderJpg, [9, 9, 9]);
 
-        EmbeddedArtExtractor.ExtractToFolders([track], NoConverter);
+        EmbeddedArtExtractor.ExtractToFolders([track], NoConverter, NotShared);
 
         Assert.Equal(new byte[] { 9, 9, 9 }, File.ReadAllBytes(folderJpg));
         Assert.True(File.Exists(Cover("album")));
@@ -218,7 +285,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         byte[] converted = [0xFF, 0xD8, 0xFF, 0xD9];
         byte[]? seen = null;
 
-        var results = EmbeddedArtExtractor.ExtractToFolders([track], p => { seen = p; return converted; });
+        var results = EmbeddedArtExtractor.ExtractToFolders([track], p => { seen = p; return converted; }, NotShared);
 
         var only = Assert.Single(results);
         Assert.Equal(ExtractOutcome.Saved, only.Outcome);
@@ -233,7 +300,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
     {
         var track = Make("album", "01.flac", "sample.flac", Png(2400, 2400));
 
-        var results = EmbeddedArtExtractor.ExtractToFolders([track], _ => null);
+        var results = EmbeddedArtExtractor.ExtractToFolders([track], _ => null, NotShared);
 
         var only = Assert.Single(results);
         Assert.Equal(ExtractOutcome.Failed, only.Outcome);
@@ -248,7 +315,7 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         var a = Make("album", "01.flac", "sample.flac", Png(1000, 1000));
         var b = Make("album", "02.flac", "sample.flac", jpeg);
 
-        EmbeddedArtExtractor.ExtractToFolders([a, b], NoConverter);
+        EmbeddedArtExtractor.ExtractToFolders([a, b], NoConverter, NotShared);
 
         Assert.Equal(jpeg, File.ReadAllBytes(Cover("album")));
     }

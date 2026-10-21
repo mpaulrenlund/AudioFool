@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Threading;
 using AudioFool.Core.Art;
+using AudioFool.Core.Library;
 using AudioFool.Core.Models;
 
 namespace AudioFool.ViewModels;
@@ -66,7 +67,8 @@ public partial class MainViewModel
     }
 
     private TagEditViewModel NewAlbumEditorViewModel(Album album) =>
-        new(album, _artService, new OnlineArtSearch(_settings.FanartTvApiKey));
+        new(album, _artService, new OnlineArtSearch(_settings.FanartTvApiKey),
+            sharedFolder: directory => FolderArtTargets.HoldsOtherAlbums(album, directory, _library.AllTracks));
 
     private void LoadAlbumEditor(Album album)
     {

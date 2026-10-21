@@ -211,9 +211,16 @@ public sealed partial class TagEditViewModel : ObservableObject
     /// the detail fields opens every file in the album, since the cache holds
     /// none of them.
     /// </summary>
-    public TagEditViewModel(Album album, AlbumArtService artService, OnlineArtSearch? artSearch = null)
+    /// <param name="sharedFolder">
+    /// Whether a folder of the album also holds another album's songs, which
+    /// "Save Embedded Art" then leaves without a cover.jpg; it asks the library at
+    /// the time. Null: no folder is shared.
+    /// </param>
+    public TagEditViewModel(Album album, AlbumArtService artService, OnlineArtSearch? artSearch = null,
+                            Func<string, bool>? sharedFolder = null)
     {
         IsAlbumMode = true;
+        _sharedFolder = sharedFolder ?? (_ => false);
         ArtSearch = artSearch ?? new OnlineArtSearch(fanartApiKey: null);
         WindowTitle = $"Edit Album Tags - {album.Title}";
 
@@ -519,6 +526,9 @@ public sealed partial class TagEditViewModel : ObservableObject
     /// <summary>The album's files, for "Save Embedded Art".</summary>
     private readonly IReadOnlyList<string> _albumTrackPaths = [];
 
+    /// <summary>For "Save Embedded Art": a folder that holds another album's songs too.</summary>
+    private readonly Func<string, bool> _sharedFolder = _ => false;
+
     /// <summary>
     /// The cover.jpg of each folder that has one after "Save Embedded Art" (written,
     /// or already there and no smaller), keyed by folder. The window that opened
@@ -562,7 +572,7 @@ public sealed partial class TagEditViewModel : ObservableObject
             try
             {
                 var results = await Task.Run(() =>
-                    EmbeddedArtExtractor.ExtractToFolders(_albumTrackPaths, CoverJpeg.FromPng));
+                    EmbeddedArtExtractor.ExtractToFolders(_albumTrackPaths, CoverJpeg.FromPng, _sharedFolder));
 
                 foreach (var r in results)
                 {
