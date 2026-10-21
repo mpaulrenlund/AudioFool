@@ -4174,6 +4174,90 @@ before any edit.
 - **The user tried cover saves in the app: "looks good"** (2026-10-21). Which windows
   wasn't said; a shared folder's message not reported.
 
+### Session 63 (2026-10-21): Find and Replace
+
+The user's request and sketch: a logo-menu item opening a modal window with a Find box
+and button, a Replace box and button, a grid of what would change, a confirmation
+with the count, and Cancel bottom right; an empty Replace deletes. They asked to be
+grilled first: two rounds of four questions, every answer the recommended option (the
+four cached tags; Match case and Whole words; a row per song and tag with its file;
+tick boxes; the window stays open with Undo; spaces tidied; no field drop-down;
+Ctrl+H). Then the plan, approved before any edit.
+
+- **Core** (`Library/FindReplace.cs`, `Library/TagWriter.Replace.cs`; `TagWriter` is
+  now `partial`):
+  - `TextReplace` matches by character (`Ordinal` or `OrdinalIgnoreCase`), so accents
+    always count and a match is as long as the Find text. Whole words: a match whose
+    first or last character is a letter, digit or combining mark mustn't run on into
+    another. Every match is replaced once, left to right; at each seam two spaces
+    meeting become one, then the ends are trimmed. Null when nothing matched or the
+    result reads as before.
+  - `FindReplace.Find` lists `ReplaceMatch(Track, Field, Before)` over Title, Artist,
+    Album Artist and Album, from the library (instant).
+  - `TagWriter.WriteReplacement` works the replace out again from the file's own
+    values, inside `SaveTags`, so it sees the file exactly as saved. If any tag no
+    longer reads as the preview showed, the plan throws inside the rehearsal and
+    nothing is written (`ReplaceOutcome.Changed`): the song is untouched, byte for
+    byte. Every artist value gets the replace (the cache keeps only `FirstPerformer`;
+    writing from it, as the tag windows do, would drop a second artist). A song with no
+    artist tag shows its album artist as the artist: with Album Artist written too,
+    nothing is added; alone, Artist is written as a tag of its own. A value the replace
+    empties is removed. `UndoReplacement` writes the before values back where the file
+    still holds exactly what the replace wrote.
+  - 23 tests (`FindReplaceTests`): the matching and tidying rules, the writes on FLAC
+    and MP3, two artists, an emptied artist, a song changed since Find (bytes and write
+    time unchanged), the no-artist song both ways, Undo exact, Undo refusing a song
+    changed since. With the changed-since check removed, its test failed on both
+    formats. 896 tests.
+- **App:** `FindReplaceWindow` + `FindReplaceViewModel` (rows hidden while their
+  replacement changes nothing, through the default view's filter; ticks counted once in
+  bulk; `ConfirmReplace` settable, as Clear All's is), `MainViewModel.FindReplace.cs`
+  (the songs: `_folderFilteredLibrary` less folders that are unavailable or missing now;
+  the saves song by song off the UI thread under `BeginWrite`, then
+  `ReplaceTracksInLibrary`, `FollowEditedTracks` and library.json), the menu item, Ctrl+H
+  (`Shortcut.FindReplace`, opened after the key event as Statistics is), the shortcut
+  guide's row. `Theming/SongTableLayout` holds the Songs table's derived paddings, now
+  used by both tables. Enter finds only from the Find box (a default button would find
+  again from the Replace box and re-tick every row). A press doesn't scroll a half-shown
+  row in (`Row_RequestBringIntoView` while the button is down).
+- **ThemeLab `--window findreplace`**: five scratch songs in a scratch "Music" folder,
+  through the real window and saves, off-screen. ALL OK in Light and Dark at 100, 125
+  and 150% (32 checks each): the options, the header box, a row unticked, a
+  replacement that changes nothing (rows leave the view), AFTER following, a song
+  retagged elsewhere after Find (left alone, not a byte changed, named in the footer),
+  the two-artist song keeping both, the library's copies and stamps, Undo exact, Ctrl+H.
+  0 magenta in all 30 renders. Against HEAD (a scratch worktree): the main window and
+  the tag window 0 pixels different in both themes; the logo menu has the new item;
+  Statistics is one row taller.
+- **ThemeLab `--window findreplaceperf`**, over the real library.json (26,861 songs,
+  read-only), each step timed with the table laid out again: Find "e" 80,211 rows over
+  26,359 songs in ~0.2 s, "the" 16,606 rows in 0.11 s, "(Remastered)" 120 rows in
+  0.06 s; a replacement typed over the 80,211 rows ~0.05 s a letter; the header box
+  ~0.01 s; a sort by BEFORE 0.26 s.
+- Published; the user saw the screenshots, then said install. Installed 14:24
+  (AudioFool wasn't running): all 25 files byte-identical to `publish\`. **No smoke
+  launch from the shell**, which had been the habit: the app writes playback.log after
+  its startup scan, and from Claude's shell that write would leave the shells a stale
+  private copy of the log the close-X diagnosis reads (HANDOFF, Gotchas).
+- **The user tried it** and sent a screenshot: the window widened by hand to about
+  1,640 px (the height still the default 620) to read the FILE paths. Asked for it to
+  open "just a little narrower than the full width of the app window, there should be
+  space on both sides". Now `FindReplaceWindow.OpeningWidth`: the main window's width
+  less `findReplace.ownerMarginX` (48, a new token; `findReplace.width` 900 removed)
+  either side, at least `minWidth`, at most the work area of the main window's
+  monitor; `CentreOver` places it on the main window as it is on screen, using the
+  monitor's work area when the main window is maximised (WPF's Left and Top are then
+  the restore position, which the other dialogs still centre on). ThemeLab: 1464 wide
+  in a 1560 main window, the placement on five made-up screens, and all variants OK
+  with 0 magenta; at an emulated 150% the 1560 main window is wider than the real
+  screen, and the window stops at the screen's width, as it should. The screenshot
+  also showed every row unticked (asked whether that was the header box; not answered
+  yet) and "(Film )" left by deleting "version"; the user was told about typing
+  " version". Installed 15:12 at the user's OK: AudioFool, open with nothing playing
+  and Find and Replace idle, was closed through UI Automation's window Close (that
+  window first), so it shut down normally; 25 files hash-identical.
+- **Confirmed by the user:** "The new Find and Replace width looks right."
+
 ---
 
 ## Reference notes retired from the handoff

@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-21, session 62. Read this alongside `README.md`: the README covers
+Updated 2026-10-21, session 63. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -137,12 +137,15 @@ and the commit fails, as it did for `275921e`.
 
 ### Start of the next session
 
-Session 62 fixed the folder cover file and the date tag that failed scans (see *Where
-things are*). The installed app is that build (installed 2026-10-21 12:03). 873 tests
-pass. Whether it is committed and pushed: check `git status` (the user decides when).
-Session 61 did the tooltip clean-up, the Dark chip hover, two launch fixes and the
-Bit-Perfect rate-change tail. The beat screen's Terminal tab, if still open, can be
-closed.
+Session 63 built **Find and Replace** (logo menu and Ctrl+H; see *Where things are*),
+checked off-screen, and installed it at the user's go-ahead after they saw the
+screenshots (2026-10-21 14:24; AudioFool wasn't running; all 25 files byte-identical
+to `publish\`). After trying it the user asked for it to open wider, nearly the main
+window's width; that build was installed at 15:12. Not launched from Claude's shell (see *A launch from Claude's shell
+writes playback.log* under Gotchas); the user's first launch is the start-up test. 896
+tests pass. Whether it is committed and pushed: check `git status` (the user decides
+when). Session 62 fixed the folder cover file and the date tag that failed scans. The
+beat screen's Terminal tab, if still open, can be closed.
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
@@ -166,7 +169,33 @@ projectM decision (step 5). Confirm the version and notes with the user first (s
 ### Where things are
 
 - **Everything in `README.md` is implemented and verified**, apart from the projectM
-  trial (below). **873 tests** pass. The installed app is session 62's build.
+  trial (below). **896 tests** pass. The installed app is session 63's build.
+- **Session 63** (2026-10-21): **Find and Replace**, the user's request and design,
+  every question answered with the recommended option (details in `HISTORY.md` and
+  README *Find and Replace*; the look in `design/progress.md`):
+  - Logo menu → **Find and Replace…** or **Ctrl+H** opens a modal window: Find and
+    Replace boxes with their buttons, Match case and Whole words, a preview (the Songs
+    table's look: tick / FIELD / BEFORE / AFTER / FILE, one row per song and tag, all
+    ticked), the counts under it, **Undo** after a replace, **Close**.
+  - Looks in Title, Artist, Album Artist and Album of the ticked folders (the library's
+    copies, so Find is instant); AFTER follows the Replace box; an empty Replace
+    deletes, and the spaces a change leaves are tidied.
+  - **The safety rules:** a song is written whole or not at all, and one that no
+    longer reads as Find saw it is left untouched (`TagWriter.WriteReplacement` plans
+    inside the save's rehearsal); every artist value gets the replace, not just the
+    first the cache holds; Undo puts back exact values, skipping a song changed since.
+  - Core `Library/FindReplace.cs`, `Library/TagWriter.Replace.cs`; app
+    `FindReplaceWindow`, `ViewModels/FindReplaceViewModel.cs`,
+    `MainViewModel.FindReplace.cs`, `Theming/SongTableLayout.cs` (the Songs table's
+    paddings, now shared with the main window: 0 pixels different).
+  - ThemeLab `--window findreplace`: ALL OK in both themes at 100/125/150%, 0 magenta.
+    Installed 14:24.
+  - **Then, after the user tried it: it opens as wide as the main window less 48 px
+    either side** (`findReplace.ownerMarginX`; the fixed 900 px is gone), centred on
+    the main window as it really is (maximised included), on that monitor's work area.
+    Installed 15:12 at the user's OK (AudioFool closed through UI Automation's window
+    Close, Find and Replace first, so it shut down normally; 25 files hash-identical).
+    **Confirmed by the user:** "The new Find and Replace width looks right."
 - **Session 62** (2026-10-21), two fixes from session 60's review (details in
   `HISTORY.md`, README *The folder's cover file*):
   - **The folder cover file** (`TagWriter.WriteFolderArt`, `FolderArtTargets`): written
@@ -255,9 +284,9 @@ projectM decision (step 5). Confirm the version and notes with the user first (s
   - **The beat screen finished** (14:19): 5,005 of 9,728 presets kept. The visualizer
     waits on the user's verdict (next steps, 5).
   - The user has seen PS2 Dark's glows and search selection on screen: "looks good".
-- **Unreleased since v0.6.1:** sessions 55–60, so the visualizer (with the projectM
-  trial), the click fix, songs from Explorer, Clear All, the click log, and session 60's
-  six fixes. A release waits on the projectM decision, which changes the release's file
+- **Unreleased since v0.6.1:** sessions 55–63, so the visualizer (with the projectM
+  trial), the click fix, songs from Explorer, Clear All, the click log, session 60's
+  six fixes, session 61's and 62's fixes, and Find and Replace. A release waits on the projectM decision, which changes the release's file
   list (next steps, 5).
 - **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
   19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
@@ -293,6 +322,9 @@ projectM decision (step 5). Confirm the version and notes with the user first (s
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **63** (2026-10-21): **Find and Replace** across the library (logo menu, Ctrl+H),
+  with a ticked preview, a confirmation and Undo. See *Where things are* above.
 
 - **62** (2026-10-21): **the folder cover file** (album save, Save Embedded Art, Keep
   Best Cover) written safely and never into a folder shared with another album; **a
@@ -1063,6 +1095,8 @@ ThemeLab.exe --window ratechange [--stopinwait 1]   # a Bit-Perfect rate change 
 ThemeLab.exe --window splice --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a gapless join through the real engine, silent; prints the log's "gapless:" line (needs the device free; since session 60 any rates join in shared mode, "(resampled)" when they differ)
 ThemeLab.exe --window folderart   # cover.jpg on scratch folders through the album save, Save Embedded Art and Keep Best Cover: old cover.png to the real Recycle Bin, a folder shared with another album left alone, no leftovers ("ALL OK"; leaves one tiny scratch cover.png in the bin)
 ThemeLab.exe --window albumkeep   # the album tag window on scratch albums (a compilation, an untagged album) through its real save; checks nothing unchanged is written ("ALL OK")
+ThemeLab.exe --window findreplace [--theme dark] [--dpi 1.25]   # Find and Replace through its window and the real saves on scratch songs: options, ticks, a song retagged after Find (untouched), two artists, Replace, Undo, Ctrl+H; renders <out>-empty/-found/-prompt/-done/-undone ("ALL OK"; session 63)
+ThemeLab.exe --window findreplaceperf [--find <text>]   # the same window over the real library.json, read-only (Replace never pressed): times Find, typing a replacement, the header box and a sort; renders <out>-real.png
 ThemeLab.exe --window safesave --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # copies of one album's songs (never the songs) given a new cover through the album save, the window closed mid-save; checks the window waited, the audio is identical, one cover, creation date kept, no leftovers ("ALL OK")
 ThemeLab.exe --window device --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a change of default output device, simulated: playing, paused, stopped, next track
 ThemeLab.exe --window lastfm --state connected --w 480    # setup|waiting|connected|failing|rejected
@@ -1349,6 +1383,14 @@ off-screen window, so focus rings can be reviewed.
 - **"The process is alive" is not a smoke test.** An unhandled-error dialog keeps the
   process running and responding. After installing, find the main window by process id
   with UI Automation and confirm `SearchBox` is in it (the snippet is under session 34 in `HISTORY.md`).
+- **A launch from Claude's shell writes playback.log** (found in session 63): after its
+  startup scan the app logs "memory clean-up ran" (`MainViewModel.ReclaimScanMemory`).
+  From the shell that write would give Claude's shells a private copy of the log (see
+  *Claude's shells and AppData*), and every later read of it, the close-X `titlebar:`
+  lines included, would see that stale copy. So since session 63 an install is checked
+  by hashing the installed files against `publish\`, with ThemeLab having built the
+  real MainWindow, and the user's own launch is the start-up test; the UI Automation
+  check above is for an AudioFool the user started.
 - **`library.json` can list files that no longer exist.** It still held 2 m4a and
   10 wav files deleted since the last full scan. Before picking a sample file from
   the cache, check that it exists (`Test-Path -LiteralPath`).
@@ -1416,6 +1458,13 @@ happily rewrite it.
 Open items only; finished ones are in `HISTORY.md`.
 
 1. **Ask the user to try what was checked off-screen only:**
+   - **Session 63, Find and Replace:** the user has run a real Find ("version") and
+     confirmed the window's width; not yet reported: a real Replace and Undo, and
+     whether the all-unticked rows in their screenshot were the header box (asked,
+     unanswered; a bug if not). Off-screen over the real 26,861-song
+     library (`--window findreplaceperf`), Find "e" listed 80,211 rows in ~0.2 s and
+     each letter typed into Replace took ~0.05 s; a real mouse and keyboard haven't
+     been tried.
    - **Session 59, double-click a song in Explorer:** one from `Downloads` (plays on
      its own, the view stays) and one from `D:\Music` (goes to its album and plays with
      the album after it), with AudioFool open and with it closed. Also several songs at

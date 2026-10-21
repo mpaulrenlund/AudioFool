@@ -316,6 +316,7 @@ These only apply when AudioFool has focus:
 | **Ctrl+T** | Switch between the Light and Dark themes (as the status bar's Theme button does) |
 | **Ctrl+R** | Rescan the library (as F5) |
 | **Ctrl+W** | Statistics |
+| **Ctrl+H** | [Find and Replace](#find-and-replace) |
 | **Ctrl+Q** | Analyze the selected song, or the playing one if no song is selected |
 | **Ctrl+D** | Album-art viewer for the playing album, or the selected album if nothing is playing; Ctrl+D again closes it |
 | **Ctrl+Shift+F** | The [visualizer](#the-visualizer) (as the status bar's Visualizer button does); again to close it, from either window |
@@ -465,6 +466,41 @@ compilations and features.
 
 The key, secret and session are stored in `settings.json`. The session key allows
 scrobbling but does not reveal your password.
+
+---
+
+## Find and Replace
+
+Logo menu → **Find and Replace…** (or **Ctrl+H**) changes text across the whole library
+at once: deleting "(Remastered)" from every title and album, say.
+
+1. Type the text in the top box and press **Find** (or Enter). Every match in the
+   **Title, Artist, Album Artist and Album** tags of the ticked library folders is
+   listed, one row per song and tag, with the file it's in. The search box makes no
+   difference, and a folder on a drive that isn't connected is skipped.
+2. Type what goes in its place in the second box: **AFTER** shows the result as you
+   type. Leave it empty to delete the text. The spaces a change leaves are tidied, so
+   deleting "(Live)" from "Song (Live) Mix" gives "Song Mix".
+3. Untick a row to leave that tag alone. The box in the header ticks or unticks every
+   row, and Space flips the selected rows together. Then press **Replace**: it asks
+   first, with the number of songs and tags, and saves them one by one with the
+   progress under the list.
+
+- Case doesn't matter unless **Match case** is ticked. **Whole words** stops "and"
+  from matching inside "Andy" or "Band". Accents always have to match: "Motley" doesn't
+  find "Mötley".
+- A tag that would read the same afterwards isn't listed, and isn't written.
+- **Changing the Find text clears the list**, so Replace only writes what you can see.
+  Ticking an option finds again.
+- **Every artist a song holds is changed**, not only the first one, which is all the
+  Songs table shows. A song with no artist of its own shows its album artist in both
+  rows, and gets no artist tag added.
+- **A song changed since Find** (in Mp3tag, say) is left exactly as it is, and named
+  afterwards. A song changes whole or not at all: all its ticked tags, or none.
+- **Undo** puts back everything the last replace changed, for as long as the window
+  stays open. A song changed again since then is left alone.
+- The saves are made as the tag windows' are, so a cut-off save can't damage a song, and
+  closing AudioFool (or the window) waits for one under way.
 
 ---
 
