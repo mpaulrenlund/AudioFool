@@ -4038,7 +4038,7 @@ Then, in a new conversation the same evening (session 58 continued):
     --scratch` rendered in both themes (design/progress.md). Installed (AudioFool
     closed through its own window close, so it saved its place and volume).
 
-### Session 61 (2026-10-21): the tooltip clean-up, the Dark hover, two launch fixes
+### Session 61 (2026-10-21): the tooltip clean-up, the Dark hover, two launch fixes, the rate-change tail
 
 - **17 tooltips removed, 2 kept, one turned into text** (the user's calls on session
   60's review finding, which counted 17 but listed 19). Gone: Repeat, Shuffle,
@@ -4083,6 +4083,19 @@ Then, in a new conversation the same evening (session 58 continued):
   shows the error and calls `Shutdown(1)`; the handler also shuts down when no
   window is open. Not run: it would put an error box on the user's screen. Both
   installed (AudioFool had already been closed). 852 tests.
+- **A Bit-Perfect rate change keeps the old track's end** (review finding). The END
+  sync fires when the decoder runs dry, and the reopen at the new rate (`JumpTo` →
+  `PlayCore` → `_output.Stop()`) flushed what the device still held. Now the worker
+  waits (`WaitUntilHeardAsync` on the old track's last frame, the same wait a
+  gapless join uses before announcing the next track) and reopens only if no other
+  play has started, nothing is playing and Stop wasn't pressed (checked again under
+  the lock). A pause holds the wait. `NoteRateChange` writes a "rate change:" line
+  to playback.log: the wait and what the reopen dropped. New ThemeLab `--window
+  ratechange` (two WAVs of digital silence written on the spot, 44.1 then 96 kHz,
+  through the real engine and the user's DX5, with the user's go-ahead): before
+  the fix 174 ms dropped, after it waited 168 ms and dropped 0 ms; `--stopinwait 1`:
+  Stop pressed 983 ms after the seek, inside the wait, and the second track never
+  opened. 852 tests. Installed. Not heard on real music yet.
 
 ---
 

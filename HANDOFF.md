@@ -131,9 +131,10 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ### Start of the next session
 
 Nothing is running and nothing is uncommitted: everything is pushed to `origin/main`.
-Session 61 did the tooltip clean-up, the Dark chip hover and two launch fixes (see
-*Where things are*). The installed app is that build (installed 2026-10-21 11:16). 852 tests pass. The beat screen's Terminal tab, if
-still open, can be closed.
+Session 61 did the tooltip clean-up, the Dark chip hover, two launch fixes and the
+Bit-Perfect rate-change tail (see *Where things are*). The installed app is that build
+(installed 2026-10-21 11:27). 852 tests pass. The beat screen's Terminal tab, if still
+open, can be closed.
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
@@ -169,8 +170,13 @@ projectM decision (step 5). Confirm the version and notes with the user first (s
   that was closing (lost; reproduced with ThemeLab before the fix) and spun on the
   pipe; now the closing copy stops listening first and lets go last, and the new copy
   takes over (`--singleinstance exit`). A fault during startup ends the app instead
-  of leaving it running with no window. Details in `HISTORY.md` (and
-  `design/progress.md` for the two UI changes).
+  of leaving it running with no window. Then **a Bit-Perfect rate change keeps the
+  old track's end**: the reopen waits (`WaitUntilHeardAsync`) until the speakers have
+  played it, unless another play or Stop comes first; measured with the new
+  `--window ratechange` on the DX5, two silent WAVs at 44.1 and 96 kHz: 174 ms dropped
+  before, 0 ms after (waited 168 ms); Stop during the wait stays stopped. Not yet
+  heard by the user on music. Details in `HISTORY.md` (and `design/progress.md` for
+  the two UI changes).
 - **Session 60** (2026-10-20 and 21): a review of the whole app by eight read-only
   reviewers (open findings: *Suggested next steps*, step 6), then six fixes from it,
   each installed, committed and pushed (details in `HISTORY.md`, session 60):
@@ -1014,6 +1020,7 @@ ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
 ThemeLab.exe --window queue       # edit queued and playing tracks while the real engine plays silently
 ThemeLab.exe --window queue --long "D:/Music/x/a.flac;D:/Music/y/b.dsf" [--longcomment 3000000]   # also save to real tracks (copied to scratch) while they play
 ThemeLab.exe --window closex          # Statistics' close button: normal click, a click WPF-UI loses and a client click while captured (both WRONG = the open bug), a cancelled close, press-and-slide-off (posted messages); prints the title-bar click log
+ThemeLab.exe --window ratechange [--stopinwait 1]   # a Bit-Perfect rate change (44.1 → 96 kHz) through the real engine and default device, exclusively for ~5 s, on two WAVs of digital silence (Bit-Perfect is full volume: never real music); prints "rate change: waited N ms; ... dropped by the reopen: M ms" (0 since session 61). --stopinwait presses Stop during the wait. Ask the user first: it takes their DAC
 ThemeLab.exe --window splice --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a gapless join through the real engine, silent; prints the log's "gapless:" line (needs the device free; since session 60 any rates join in shared mode, "(resampled)" when they differ)
 ThemeLab.exe --window albumkeep   # the album tag window on scratch albums (a compilation, an untagged album) through its real save; checks nothing unchanged is written ("ALL OK")
 ThemeLab.exe --window safesave --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # copies of one album's songs (never the songs) given a new cover through the album save, the window closed mid-save; checks the window waited, the audio is identical, one cover, creation date kept, no leftovers ("ALL OK")
@@ -1530,14 +1537,10 @@ Open items only; finished ones are in `HISTORY.md`.
    block, tag saves in place, `CoverCleaner`'s swap without a backup, closing during a
    save, the album window writing four fields to every track.
    - **A suggested order** (the user picks; the tooltips, the Dark chip hover,
-     `SingleInstance` and the startup exception were done in session 61): the
-     Bit-Perfect rate-change tail (heard); `WriteFolderArt` and `ReleaseDate` (data);
+     `SingleInstance`, the startup exception and the Bit-Perfect rate-change tail
+     were done in session 61): `WriteFolderArt` and `ReleaseDate` (data);
      the visualizer keep-awake; then the reported ones, each checked first.
    - **Playback:**
-     - **A Bit-Perfect rate change loses the old track's last ~0.2 s**: the END sync
-       fires when the decoder runs dry, and the reopen (`JumpTo` → `PlayCore` →
-       `_output.Stop()`) flushes what the device still holds. Waiting for
-       `WaitUntilHeardAsync(joinFrame)` before reopening would keep it.
      - Reported: DoP played through shared mode as noise if the exclusive open fails;
        a next track that won't open stops the queue and Next can't pass it; Pause →
        Stop → Play plays the old buffer; the DAC stays held exclusively after Stop in

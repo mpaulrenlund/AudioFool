@@ -728,6 +728,9 @@ mixer. Hovering it explains this.
 device; re-clocking a DAC from 44.1 kHz to 96 kHz means stopping it. So a 44.1 kHz
 track following a 96 kHz one in the same queue has an audible gap. That's physics,
 not a shortcut — and within an album (where rates are uniform) it never happens.
+The gap comes after the old track: its last ~0.2 s, still in the device's buffer,
+plays out before the device is reopened (measured: 174 ms were cut before session
+61, 0 ms now). `playback.log` notes each change ("rate change:").
 
 The line under the volume slider shows what the output is actually doing, e.g.
 `Exclusive 96 kHz/24-bit (bit-perfect)`. If exclusive mode is refused — another app

@@ -230,7 +230,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "rowclick" or "openfiles" or "analysis" or "clear" or "waveform" or "device" or "splice" or "themeswitch" or "visualizer" or "projectm" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "rowclick" or "openfiles" or "analysis" or "clear" or "waveform" or "device" or "splice" or "ratechange" or "themeswitch" or "visualizer" or "projectm" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -1372,6 +1372,75 @@ internal static class Program
             if (File.Exists(logPath)) foreach (var line in File.ReadLines(logPath).Where(l => l.Contains("gapless") || l.Contains("track:") || l.Contains("device")))
                 Console.WriteLine(line);
             return 0;
+        }
+
+        // --window ratechange: a Bit-Perfect change of sample rate between tracks
+        // through the real engine and device, on two files of digital silence
+        // (Bit-Perfect plays at full volume, so nothing else may be played). The
+        // first ends 1 s after the seek; prints playback.log's "rate change:" line,
+        // which says how much of its end the reopen dropped.
+        if (which == "ratechange")
+        {
+            var logPath = Path.Combine(Path.GetTempPath(), "themelab-ratechange-" + Guid.NewGuid().ToString("N")[..8] + ".log");
+            AudioFool.Core.Playback.PlaybackDiagnostics.LogPath = logPath;
+            var ready = runtime.Initialise();
+            Console.WriteLine($"init {ready} {runtime.InitError}, exclusive {runtime.SupportsExclusive}, rates {string.Join(",", runtime.ExclusiveRates)}");
+            var rates = new[] { 44100, 96000 }.Where(runtime.ExclusiveRates.Contains).ToArray();
+            if (!runtime.SupportsExclusive || rates.Length < 2)
+            {
+                Console.WriteLine("the default device can't play 44.1 and 96 kHz exclusively: nothing to check");
+                return 1;
+            }
+
+            var dir = Path.Combine(Path.GetTempPath(), "themelab-ratechange-" + Guid.NewGuid().ToString("N")[..8]);
+            Directory.CreateDirectory(dir);
+            var files = rates.Select((r, i) => WriteSilentWav(Path.Combine(dir, $"{i + 1} Silence {r}.wav"), r, seconds: 4)).ToArray();
+            var tracks = files.Select(AudioFool.Core.Library.TagReader.Read).ToList();
+
+            engine.OutputMode = OutputMode.Exclusive;
+            var played = engine.Play(tracks, 0);
+            Console.WriteLine($"play {played}, bit-perfect {engine.IsBitPerfect}, output '{engine.OutputDescription}', warning '{engine.OutputWarning}'");
+            var ok = false;
+            if (played && engine.IsBitPerfect)
+            {
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                while (!engine.HoldsFile(files[1]) && clock.ElapsedMilliseconds < 5000)
+                    Settle(20);
+                // Off the 10 ms pull grid, so the track ends inside a pull.
+                engine.Seek(engine.Duration - TimeSpan.FromSeconds(1.0037));
+                if (Arg(args, "--stopinwait") is "1")
+                {
+                    // Stop while the old track's end plays out (its stream is gone,
+                    // the new one not yet opened): the next track must not start.
+                    clock.Restart();
+                    while (engine.HoldsFile(files[0]) && clock.ElapsedMilliseconds < 3000)
+                        Thread.Sleep(2);
+                    engine.Stop();
+                    Console.WriteLine($"stopped {clock.ElapsedMilliseconds} ms after the seek, as the first track's stream went");
+                    Settle(2000);
+                    Console.WriteLine($"state {engine.State}, holds the second track: {engine.HoldsFile(files[1])}");
+                    var noLine = !File.Exists(logPath) || !File.ReadLines(logPath).Any(l => l.Contains("rate change:"));
+                    var stoppedOk = engine.State == PlaybackState.Stopped && !engine.HoldsFile(files[1]) && noLine;
+                    Console.WriteLine(stoppedOk ? "stayed stopped -> OK" : "WRONG: played on after Stop");
+                    engine.OutputMode = OutputMode.Shared;
+                    Directory.Delete(dir, recursive: true);
+                    return stoppedOk ? 0 : 1;
+                }
+
+                Settle(3000);
+                Console.WriteLine($"now '{engine.CurrentTrack?.Title}', output '{engine.OutputDescription}'");
+                ok = engine.CurrentTrack?.FilePath == files[1];
+            }
+
+            engine.Stop();
+            engine.OutputMode = OutputMode.Shared;
+            Settle(300);
+            var lines = File.Exists(logPath) ? File.ReadLines(logPath).Where(l => l.Contains("rate change:")).ToList() : [];
+            foreach (var line in lines)
+                Console.WriteLine(line);
+            Console.WriteLine(ok && lines.Count == 1 ? "played through to the second track" : "WRONG: didn't reach the second track once");
+            Directory.Delete(dir, recursive: true);
+            return ok ? 0 : 1;
         }
 
         // --window closex: the Statistics dialog, modal and off-screen, with mouse
@@ -6860,6 +6929,28 @@ internal static class Program
         while (!vm.DetailsRead.IsCompleted && clock.ElapsedMilliseconds < 60_000)
             Settle(25);
         Console.WriteLine($"  details: greyed at open={greyed} save at open={savable}, read in {clock.ElapsedMilliseconds} ms, now greyed={vm.IsReadingDetails} save={vm.CanSave}");
+    }
+
+    /// <summary>A 16-bit stereo WAV of digital silence, for checks that must make no sound.</summary>
+    private static string WriteSilentWav(string path, int rate, int seconds)
+    {
+        const short channels = 2, bits = 16;
+        var dataBytes = rate * seconds * channels * (bits / 8);
+        using var writer = new BinaryWriter(File.Create(path));
+        writer.Write("RIFF"u8);
+        writer.Write(36 + dataBytes);
+        writer.Write("WAVEfmt "u8);
+        writer.Write(16);
+        writer.Write((short)1);
+        writer.Write(channels);
+        writer.Write(rate);
+        writer.Write(rate * channels * (bits / 8));
+        writer.Write((short)(channels * (bits / 8)));
+        writer.Write(bits);
+        writer.Write("data"u8);
+        writer.Write(dataBytes);
+        writer.Write(new byte[dataBytes]);
+        return path;
     }
 
     private static void Settle(int milliseconds)

@@ -984,6 +984,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 // Silence from here on in this pull.
                 _joinFrames = FramesGivenThisPull(finished);
                 _joinTrack = null;
+                joinFrame = _heard.TotalFrames + _joinFrames;
 
                 SetCurrentStream(0);
             }
@@ -1017,15 +1018,30 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             }
             else if (reopenAtIndex >= 0)
             {
-                // Sample rate changed: drop the prefetch (it's plugged into a mixer
-                // that's about to be freed) and restart cleanly at the new rate.
+                // Sample rate changed. The device still holds the old track's last
+                // ~200 ms, and reopening it at the new rate flushes them (until
+                // session 61 they were lost), so let them play out first - unless
+                // something else is started, or Stop pressed, meanwhile.
+                bool StillDue() => Volatile.Read(ref _plays) == plays
+                                   && Volatile.Read(ref _currentStream) == 0
+                                   && State != PlaybackState.Stopped;
+
+                var waited = System.Diagnostics.Stopwatch.StartNew();
+                await WaitUntilHeardAsync(joinFrame, generation, StillDue);
+
+                // Then drop the prefetch (it's plugged into a mixer that's about
+                // to be freed) and restart cleanly at the new rate.
                 lock (_gate)
                 {
+                    if (!StillDue())
+                        return;
+
                     FreeStream(_prefetchedStream);
                     _prefetchedStream = 0;
                     _prefetchedIndex = -1;
                 }
 
+                NoteRateChange(joinFrame, generation, waited.Elapsed);
                 JumpTo(reopenAtIndex);
             }
             else if (waitForSave)
@@ -1038,6 +1054,21 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 Raise(PlaybackFinished);
             }
         });
+    }
+
+    /// <summary>
+    /// playback.log: how much of the old track the device still held when a rate
+    /// change reopened it, which the reopen's flush drops. <paramref name="endFrame"/>
+    /// is the old track's last frame, counted as <see cref="HearingTimeline"/> counts.
+    /// </summary>
+    private void NoteRateChange(long endFrame, int generation, TimeSpan waited)
+    {
+        var heard = HeardFrame();
+        var rate = _heard.SampleRate;
+        var unheard = heard < 0 || rate <= 0 || _heard.Generation != generation
+            ? "unknown"
+            : $"{Math.Max(0, endFrame - heard) * 1000.0 / rate:0} ms";
+        PlaybackDiagnostics.Note($"rate change: waited {waited.TotalMilliseconds:0} ms; the old track's unheard end dropped by the reopen: {unheard}");
     }
 
     private void NotePullStart()
