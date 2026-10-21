@@ -28,6 +28,8 @@ public class ReleaseDateTests
     [InlineData("2026/10/02")]
     [InlineData("0999")]
     [InlineData("")]
+    [InlineData("٢٠٢٦-١٠-٠٢")] // Arabic-Indic digits
+    [InlineData("２０２６")]       // full-width digits
     public void Rejects_anything_else(string typed) =>
         Assert.False(ReleaseDate.TryParse(typed, out _, out _));
 
@@ -38,8 +40,33 @@ public class ReleaseDateTests
     [InlineData("2014", "2014")]
     [InlineData("May 2014", null)]
     [InlineData(null, null)]
+    [InlineData("٢٠١٤-٠٥-٠١", null)]
+    [InlineData("２０１４-０５", null)]
+    [InlineData("2014-٠٥-01", null)]
     public void Reads_the_date_part_of_a_stored_timestamp(string? raw, string? expected) =>
         Assert.Equal(expected, ReleaseDate.FromTag(raw));
+
+    /// <summary>
+    /// The review's finding: \d took these digits, int.Parse threw, and the
+    /// exception ended the whole scan, not just this file.
+    /// </summary>
+    [Theory]
+    [InlineData("٢٠١٤-٠٥-٠١")]
+    [InlineData("２０１４-０５-０１")]
+    public void A_date_in_other_digits_is_read_as_no_date(string stored)
+    {
+        using var file = new TempAudioFile("sample.flac");
+        using (var tagged = TagLib.File.Create(file.Path))
+        {
+            ((TagLib.Ogg.XiphComment)tagged.GetTag(TagLib.TagTypes.Xiph, true)).SetField("DATE", stored);
+            tagged.Save();
+        }
+
+        var track = TagReader.Read(file.Path);
+
+        Assert.Null(track.ReleaseDate);
+        Assert.Equal("", TagReader.ReadDetails(file.Path)!.Date);
+    }
 
     [Theory]
     [InlineData("sample.flac")]

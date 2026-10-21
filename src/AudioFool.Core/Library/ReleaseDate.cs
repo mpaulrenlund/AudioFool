@@ -71,9 +71,11 @@ public static partial class ReleaseDate
         return true;
     }
 
-    [GeneratedRegex(@"^(?<y>\d{4})(-(?<m>\d{1,2})(-(?<d>\d{1,2}))?)?$")]
+    // [0-9], not \d: \d matches any script's digits ("٢٠١٤", full-width "２０１４"),
+    // which int.Parse refuses, and one such tag made every scan fail.
+    [GeneratedRegex(@"^(?<y>[0-9]{4})(-(?<m>[0-9]{1,2})(-(?<d>[0-9]{1,2}))?)?$")]
     private static partial Regex Typed();
 
-    [GeneratedRegex(@"^(?<y>\d{4})(-(?<m>\d{2})(-(?<d>\d{2}))?)?([T ].*)?$")]
+    [GeneratedRegex(@"^(?<y>[0-9]{4})(-(?<m>[0-9]{2})(-(?<d>[0-9]{2}))?)?([T ].*)?$")]
     private static partial Regex Stored();
 }
