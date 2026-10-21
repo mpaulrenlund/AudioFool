@@ -4038,7 +4038,7 @@ Then, in a new conversation the same evening (session 58 continued):
     --scratch` rendered in both themes (design/progress.md). Installed (AudioFool
     closed through its own window close, so it saved its place and volume).
 
-### Session 61 (2026-10-21): the tooltip clean-up
+### Session 61 (2026-10-21): the tooltip clean-up, the Dark hover, two launch fixes
 
 - **17 tooltips removed, 2 kept, one turned into text** (the user's calls on session
   60's review finding, which counted 17 but listed 19). Gone: Repeat, Shuffle,
@@ -4062,6 +4062,27 @@ Then, in a new conversation the same evening (session 58 continued):
   `theme.chip` and the filter chip. Both specs' tables have it; the token count test
   is 66. Renders at rest 0 pixels different in both themes; the key and the filter
   chip's brushes resolve as set. 852 tests. Installed. Not seen with a real pointer.
+- **A copy started while AudioFool closes no longer loses its song** (review
+  finding). `OnExit` let go of the mutex first, while the pipe listener lived on
+  until the process ended. Reproduced with the new ThemeLab `--singleinstance exit`
+  before the fix: the next copy took over, but one more, started while the first
+  was still saving, handed its song to the closing copy and it was lost; the copy
+  that took over also kept retrying its own pipe (1.9 s of CPU in 4 s). No crash
+  in that run, but the listener caught only `IOException` on a thread of its own,
+  where anything else would have ended the app. Now: the window's `Closed` stops
+  the listener and `OnExit` lets go last; the first copy answers a handover only
+  once its UI thread took the files (`Deliver`, 3 s, else withdrawn); a later copy
+  with no answer keeps trying for 10 s and takes over as soon as the mutex is free;
+  the listener catches everything and retries after 200 ms. `--singleinstance
+  exit`, three cases, ALL OK three times (no song reaches a closing copy; a busy UI
+  thread still gets it once; the taker used 0.9 s of CPU); `--singleinstance 1`
+  still OK.
+- **A fault during startup ends the app.** `DispatcherUnhandledException` set
+  `Handled`, so a fault in `OnStartup` left a process with no window holding the
+  mutex, and every later start handed its songs to it. Now `OnStartup` catches,
+  shows the error and calls `Shutdown(1)`; the handler also shuts down when no
+  window is open. Not run: it would put an error box on the user's screen. Both
+  installed (AudioFool had already been closed). 852 tests.
 
 ---
 

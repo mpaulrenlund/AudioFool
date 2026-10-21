@@ -131,8 +131,8 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 ### Start of the next session
 
 Nothing is running and nothing is uncommitted: everything is pushed to `origin/main`.
-Session 61 did the tooltip clean-up and the Dark chip hover (see *Where things are*).
-The installed app is that build (installed 2026-10-21 10:33). 852 tests pass. The beat screen's Terminal tab, if
+Session 61 did the tooltip clean-up, the Dark chip hover and two launch fixes (see
+*Where things are*). The installed app is that build (installed 2026-10-21 11:16). 852 tests pass. The beat screen's Terminal tab, if
 still open, can be closed.
 
 Open with the user, in this order (each is under *Suggested next steps*):
@@ -164,7 +164,13 @@ projectM decision (step 5). Confirm the version and notes with the user first (s
   its tooltip showed, is a third line under the size and format ("Embedded", the
   folder file's name, or "Unsaved"). Then **the status-bar buttons' hover in Dark**,
   the user's pick: new token `status.chipHover` (Light #ECE9E5 as before, Dark
-  #272A32), also on the filter chip. Details in `HISTORY.md` and `design/progress.md`.
+  #272A32), also on the filter chip. Then **two launches that could fail**, from the
+  review: a copy started while AudioFool was closing could hand its song to the copy
+  that was closing (lost; reproduced with ThemeLab before the fix) and spun on the
+  pipe; now the closing copy stops listening first and lets go last, and the new copy
+  takes over (`--singleinstance exit`). A fault during startup ends the app instead
+  of leaving it running with no window. Details in `HISTORY.md` (and
+  `design/progress.md` for the two UI changes).
 - **Session 60** (2026-10-20 and 21): a review of the whole app by eight read-only
   reviewers (open findings: *Suggested next steps*, step 6), then six fixes from it,
   each installed, committed and pushed (details in `HISTORY.md`, session 60):
@@ -796,9 +802,20 @@ entries for Add folder bind their commands via
   the pipe `AudioFool-<SID>-<session>.open` (`PipeOptions.CurrentUserOnly`, on a
   background thread). A later copy calls `AllowSetForegroundWindow(ASFW_ANY)` (only the
   process the user just started may take the foreground, so it passes that on), sends
-  full paths one per line, and quits; an empty message (the shortcut again) only brings
-  the window forward. If the first copy doesn't answer within 5 s, the later one starts
-  normally rather than doing nothing.
+  full paths one per line ending in a zero byte, and quits once the first copy answers
+  that its UI thread took them (`Deliver`: up to 3 s, then withdrawn, so nothing
+  arrives twice); an empty message (the shortcut again) only brings the window
+  forward.
+- **Closing** (session 61): the main window's `Closed` calls `StopListening`, and
+  `OnExit` lets go of the mutex last, after the saves. A later copy that gets no answer
+  keeps trying for 10 s, alternating 500 ms connects with `WaitOne(0)` on the mutex,
+  and becomes the one copy as soon as it is free (an abandoned mutex counts). Only a
+  copy that neither answers nor lets go in 10 s (hung) gets a second copy started
+  beside it. The listener survives any exception (it's on a thread of its own) and
+  retries after 200 ms, so a pipe still held by a closing copy doesn't spin it.
+- **A fault during startup** (session 61) shows the error and ends the app
+  (`Shutdown(1)`) instead of leaving a windowless copy holding the mutex; the
+  last-resort handler also ends the app when no window is open.
 - **Explorer starts one copy per file**, in no order, so files are batched until 500 ms
   pass with none (a `DispatcherTimer`), the first copy's own files included, and
   `OpenedFiles.InPlayOrder` sorts them (folder, then natural name).
@@ -1028,6 +1045,7 @@ ThemeLab.exe --theme light --switch dark        # built in Light, switched live 
 ThemeLab.exe --window themeswitch --file <audio> --artfile <image> [--theme dark]   # switch by the Theme button and back by Ctrl+T with the real library, the file playing silently, the art viewer and Analyze open; checks playback, selection, scroll, dialogs, settings.json (restored)
 ThemeLab.exe --window rowclick --w 1180 --h 1240 [--artist Nhato]   # double-click the row cut off at the bottom of each list: must not scroll, must land on that row; then Down must scroll (session 59)
 ThemeLab.exe --singleinstance 1                # the one-copy handover under a test name: three children at once with a song each, one with none; one batch, four activations (session 59)
+ThemeLab.exe --singleinstance exit             # copies started while the one copy closes: after it lets go (takes over, and a later one reaches the new copy), after its window closed but before it lets go (waits, then takes over; nothing reaches the closing copy), and while its UI thread is busy 1 s (handed over once); "ALL OK" (session 61)
 ThemeLab.exe --window openfiles               # songs opened from Explorer, real library, silent: before the engine is ready, a library song before the library shows, from a search in playlist mode, three at once, a text file (session 59)
 ```
 
@@ -1511,8 +1529,8 @@ Open items only; finished ones are in `HISTORY.md`.
    a drive lost mid-scan, edits during a scan, shared-mode gapless, the loud first
    block, tag saves in place, `CoverCleaner`'s swap without a backup, closing during a
    save, the album window writing four fields to every track.
-   - **A suggested order** (the user picks; the tooltips and the Dark chip hover were
-     done in session 61): `SingleInstance` and the startup exception (a launch that can fail); the
+   - **A suggested order** (the user picks; the tooltips, the Dark chip hover,
+     `SingleInstance` and the startup exception were done in session 61): the
      Bit-Perfect rate-change tail (heard); `WriteFolderArt` and `ReleaseDate` (data);
      the visualizer keep-awake; then the reported ones, each checked first.
    - **Playback:**
@@ -1533,11 +1551,6 @@ Open items only; finished ones are in `HISTORY.md`.
        tag keeps a new cover only in the ID3 tag; artists with several values cut to
        the first; a bad APIC frame aborting an album save silently.
    - **Startup and windows:**
-     - **`SingleInstance`**: the mutex is released in `OnExit` while the pipe listener
-       lives on; the listener catches only `IOException`. A copy started while the
-       old one exits can crash.
-     - **A startup exception** leaves a windowless process holding the mutex
-       (`DispatcherUnhandledException` sets `Handled`).
      - **The visualizer keeps the display awake** after a lock or minimise from
        fullscreen (`KeepAwake` is only called from `OnRendering`).
      - Reported: dialogs centred on the maximised owner's restore bounds, and Analyze
