@@ -87,7 +87,7 @@ public class ReleaseDateSortTests
     public void Saving_the_dialog_updates_the_in_memory_date_so_the_album_moves_at_once()
     {
         var track = Track("Ephemeral Dance", 2026);
-        var edited = track.WithAlbumTags(new AlbumTagEdit("A", "AA", "Ephemeral Dance", 2026) { Date = "2026-10-02" },
+        var edited = track.WithAlbumTags(new AlbumTagEdit { Artist = "A", AlbumArtist = "AA", Album = "Ephemeral Dance", Date = new DateEdit(2026, "2026-10-02") },
             new FileStamp(1, DateTime.UtcNow), null);
 
         Assert.Equal("2026-10-02", edited.ReleaseDate);

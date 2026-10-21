@@ -31,9 +31,8 @@ public sealed partial class TagEditViewModel : ObservableObject
     public bool IsAlbumMode { get; }
 
     /// <summary>
-    /// An edit of tracks picked in the grid. Laid out like the album dialog, but
-    /// with no art, and every field is kept unless changed - Artist, Album Artist,
-    /// Album and Year included, which the album dialog always writes.
+    /// An edit of tracks picked in the grid. Laid out like the album dialog, with
+    /// no art and no Remove Leading Zeros; as there, every field is kept unless changed.
     /// </summary>
     public bool IsSelectionMode { get; }
 
@@ -154,9 +153,14 @@ public sealed partial class TagEditViewModel : ObservableObject
     /// <summary>Album mode: the online cover search behind "Search Internet".</summary>
     public OnlineArtSearch ArtSearch { get; } = new(fanartApiKey: null);
 
-    /// <summary>Who to search for: the album artist, since that is who the album files under.</summary>
+    /// <summary>
+    /// Who to search for: the album artist, since that is who the album files
+    /// under; the name it is listed under when both boxes start empty.
+    /// </summary>
     public string SearchArtist =>
-        (string.IsNullOrWhiteSpace(AlbumArtist) ? Artist : AlbumArtist).Trim();
+        (!string.IsNullOrWhiteSpace(AlbumArtist) ? AlbumArtist
+         : !string.IsNullOrWhiteSpace(Artist) ? Artist
+         : _searchFallbackArtist ?? "").Trim();
 
     [ObservableProperty]
     private string _validationError = "";
@@ -204,14 +208,13 @@ public sealed partial class TagEditViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Whole-album batch edit. Artist/Album Artist/Album/Year pre-fill from the
-    /// first track - if tracks disagree on those today, Save will make them agree.
-    /// <para>
-    /// The optional fields pre-fill only when every track agrees; otherwise the
-    /// box starts empty with a "varies" placeholder, and is left alone on Save
-    /// unless something is typed into it. Reading them opens every file in the
-    /// album, since the cache holds none of the five detail fields.
-    /// </para>
+    /// Whole-album batch edit. Every field pre-fills only when every track
+    /// agrees; otherwise the box starts empty with a "varies" placeholder, and is
+    /// left alone on Save unless something is typed into it - Artist, Album
+    /// Artist, Album and Year included, as in the selection window (until session
+    /// 60 those four came from the first track and were always written). Reading
+    /// the detail fields opens every file in the album, since the cache holds
+    /// none of them.
     /// </summary>
     public TagEditViewModel(Album album, AlbumArtService artService, OnlineArtSearch? artSearch = null)
     {
@@ -219,30 +222,48 @@ public sealed partial class TagEditViewModel : ObservableObject
         ArtSearch = artSearch ?? new OnlineArtSearch(fanartApiKey: null);
         WindowTitle = $"Edit Album Tags - {album.Title}";
 
-        var first = album.Tracks.FirstOrDefault();
-        Artist = first?.Artist ?? "";
-        AlbumArtist = first?.AlbumArtist ?? album.ArtistName;
-        AlbumTitle = album.Title;
-        Year = album.Year?.ToString() ?? "";
-
         var tracks = album.Tracks;
+        FillSharedFields(tracks);
         _albumTrackPaths = tracks.Select(t => t.FilePath).ToList();
 
-        // Not for Save, which writes these four album-wide regardless: only so
-        // HasChanges can tell whether anything was typed. Year is remembered again
-        // when the files are read, since one full date shared by every track
-        // replaces the cached year.
-        RememberInitialDetails();
-        _initial[nameof(Artist)] = Artist;
-        _initial[nameof(AlbumArtist)] = AlbumArtist;
-        _initial[nameof(AlbumTitle)] = AlbumTitle;
-        _initial[nameof(Year)] = Year;
-        DetailsRead = ReadDetailsAsync(tracks, albumDate: true);
+        // The name the album is listed under, for Search Internet when the artist
+        // boxes start empty because the tracks disagree.
+        _searchFallbackArtist = album.ArtistName;
 
+        RememberInitialDetails();
+        DetailsRead = ReadDetailsAsync(tracks);
+
+        var first = tracks.FirstOrDefault();
         _artStartDirectory = first is null ? null : Path.GetDirectoryName(first.FilePath);
 
         _ = LoadPreviewAsync(album, artService);
     }
+
+    /// <summary>
+    /// Artist, Album Artist, Album and Year for several tracks: each filled when
+    /// every track agrees, empty with a "varies" placeholder when not. An album
+    /// with no album tag gets an empty box, not the "Unknown Album" it is listed
+    /// as. The cache holds the full date whenever the file names more than a year.
+    /// </summary>
+    private void FillSharedFields(IReadOnlyList<Track> tracks)
+    {
+        const string varies = "Varies by track - kept unless changed";
+        Artist = Shared(tracks.Select(t => t.Artist), varies, out var artistHint);
+        AlbumArtist = Shared(tracks.Select(t => t.AlbumArtist), varies, out var albumArtistHint);
+        AlbumTitle = Shared(tracks.Select(t => t.Album), varies, out var albumHint);
+        Year = Shared(tracks.Select(t => t.ReleaseDate ?? t.Year?.ToString() ?? ""), "Varies", out var yearHint);
+        ArtistPlaceholder = artistHint;
+        AlbumArtistPlaceholder = albumArtistHint;
+        AlbumTitlePlaceholder = albumHint;
+        YearPlaceholder = yearHint;
+
+        _initial[nameof(Artist)] = Artist;
+        _initial[nameof(AlbumArtist)] = AlbumArtist;
+        _initial[nameof(AlbumTitle)] = AlbumTitle;
+        _initial[nameof(Year)] = Year;
+    }
+
+    private readonly string? _searchFallbackArtist;
 
     /// <summary>
     /// Tracks picked in the grid. Every field pre-fills only when all of them
@@ -257,23 +278,9 @@ public sealed partial class TagEditViewModel : ObservableObject
         IsSelectionMode = true;
         WindowTitle = $"Edit Tags - {scope ?? $"{tracks.Count} tracks"}";
 
-        const string varies = "Varies by track - kept unless changed";
-        Artist = Shared(tracks.Select(t => t.Artist), varies, out var artistHint);
-        AlbumArtist = Shared(tracks.Select(t => t.AlbumArtist), varies, out var albumArtistHint);
-        AlbumTitle = Shared(tracks.Select(t => t.Album), varies, out var albumHint);
-        // The cache holds the full date whenever the file names more than a year.
-        Year = Shared(tracks.Select(t => t.ReleaseDate ?? t.Year?.ToString() ?? ""), "Varies", out var yearHint);
-        ArtistPlaceholder = artistHint;
-        AlbumArtistPlaceholder = albumArtistHint;
-        AlbumTitlePlaceholder = albumHint;
-        YearPlaceholder = yearHint;
-
+        FillSharedFields(tracks);
         RememberInitialDetails();
-        _initial[nameof(Artist)] = Artist;
-        _initial[nameof(AlbumArtist)] = AlbumArtist;
-        _initial[nameof(AlbumTitle)] = AlbumTitle;
-        _initial[nameof(Year)] = Year;
-        DetailsRead = ReadDetailsAsync(tracks, albumDate: false);
+        DetailsRead = ReadDetailsAsync(tracks);
     }
 
     /// <summary>
@@ -297,7 +304,7 @@ public sealed partial class TagEditViewModel : ObservableObject
     /// no say: its write will fail anyway, and counting it as "empty" would hide a
     /// value every other track shares.
     /// </summary>
-    private async Task ReadDetailsAsync(IReadOnlyList<Track> tracks, bool albumDate)
+    private async Task ReadDetailsAsync(IReadOnlyList<Track> tracks)
     {
         IsReadingDetails = true;
         var paths = tracks.Select(t => t.FilePath).ToList();
@@ -316,16 +323,6 @@ public sealed partial class TagEditViewModel : ObservableObject
         ConductorPlaceholder = conductorHint;
         GenrePlaceholder = genreHint;
         CommentPlaceholder = commentHint;
-
-        // Album: a full date only when every track has the same one. Year is
-        // written album-wide, so otherwise the album's year is what Save would write.
-        if (albumDate)
-        {
-            var dates = details.Select(d => d.Date).Distinct(StringComparer.Ordinal).ToList();
-            if (dates is [{ Length: > 0 } date] && details.Count == tracks.Count)
-                Year = date;
-            _initial[nameof(Year)] = Year;
-        }
 
         RememberInitialDetails();
         RemoveLeadingZerosCommand.NotifyCanExecuteChanged();
@@ -634,10 +631,10 @@ public sealed partial class TagEditViewModel : ObservableObject
 
     private void Revalidate()
     {
-        // A selection whose tracks disagree on the album starts with an empty box,
-        // and empty there means "keep each track's own". Only emptying an album
-        // that was there is refused.
-        var albumMayBeEmpty = IsSelectionMode && _initial.GetValueOrDefault(nameof(AlbumTitle)) is "";
+        // Several tracks that disagree on the album, or have none, start with an
+        // empty box, and empty there means "keep each track's own". Only emptying
+        // an album that was there is refused.
+        var albumMayBeEmpty = IsAlbumMode && _initial.GetValueOrDefault(nameof(AlbumTitle)) is "";
         if (string.IsNullOrWhiteSpace(AlbumTitle) && !albumMayBeEmpty)
         {
             ValidationError = "Album can't be empty.";
@@ -719,13 +716,16 @@ public sealed partial class TagEditViewModel : ObservableObject
     public AlbumTagEdit BuildAlbumEdit()
     {
         var (year, date) = ParsedDate();
-        return new(Artist.Trim(), AlbumArtist.Trim(), AlbumTitle.Trim(), year)
+        return new()
         {
+            Artist = IfChanged(nameof(Artist), Artist),
+            AlbumArtist = IfChanged(nameof(AlbumArtist), AlbumArtist),
+            Album = IfChanged(nameof(AlbumTitle), AlbumTitle),
+            Date = IfChanged(nameof(Year), Year) is null ? null : new DateEdit(year, date),
             TrackCount = NumberIfChanged(nameof(TrackCount), TrackCount),
             DiscNumber = NumberIfChanged(nameof(DiscNumber), DiscNumber),
             DiscCount = NumberIfChanged(nameof(DiscCount), DiscCount),
             Details = BuildDetailsEdit(),
-            Date = date,
             RemoveLeadingZeros = RemovesLeadingZeros,
         };
     }

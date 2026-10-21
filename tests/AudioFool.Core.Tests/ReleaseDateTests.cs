@@ -103,7 +103,7 @@ public class ReleaseDateTests
     {
         using var file = new TempAudioFile(fixture);
         var track = TagReader.Read(file.Path);
-        var edit = new AlbumTagEdit("A", "AA", "Al", 2026) { Date = "2026-10-02" };
+        var edit = new AlbumTagEdit { Artist = "A", AlbumArtist = "AA", Album = "Al", Date = new DateEdit(2026, "2026-10-02") };
 
         var result = TagWriter.WriteAlbumTrackTags(track, edit, art: null, folderArtPath: null);
 

@@ -344,7 +344,7 @@ public class CoverCleanerTests
     {
         var track = TagReader.Read(path);
         return TagWriter.WriteAlbumTrackTags(track,
-            new AlbumTagEdit(track.Artist ?? "", track.AlbumArtist ?? "", track.Album ?? "", track.Year),
+            new AlbumTagEdit(),
             new ArtPayload(cover, "image/png"), folderArtPath: null);
     }
 
@@ -433,7 +433,7 @@ public class CoverCleanerTests
         var track = TagReader.Read(file.Path);
 
         var result = TagWriter.WriteAlbumTrackTags(track,
-            new AlbumTagEdit("Artist", "Artist", "Album", 2020), art: null, folderArtPath: null);
+            new AlbumTagEdit { Artist = "Artist", AlbumArtist = "Artist", Album = "Album", Date = new DateEdit(2020, null) }, art: null, folderArtPath: null);
 
         Assert.True(result.Success, result.ErrorMessage);
         Assert.Equal(3, PicturesInBytes(file.Path));

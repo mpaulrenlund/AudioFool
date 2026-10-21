@@ -38,7 +38,7 @@ public class NumberSpellingTests
         SetRaw(file.Path, "03", "012", "01", "02");
         var track = TagReader.Read(file.Path);
 
-        var edit = new AlbumTagEdit("Artist", "Album Artist", "Album", 2020) { RemoveLeadingZeros = true };
+        var edit = new AlbumTagEdit { Artist = "Artist", AlbumArtist = "Album Artist", Album = "Album", Date = new DateEdit(2020, null), RemoveLeadingZeros = true };
         Assert.True(TagWriter.WriteAlbumTrackTags(track, edit, art: null, folderArtPath: null).Success);
 
         Assert.Equal(new NumberTexts("3", "12", "1", "2"), TagReader.ReadDetails(file.Path)!.Numbers);
@@ -51,8 +51,12 @@ public class NumberSpellingTests
         SetRaw(file.Path, "03", "12", "01");
         var track = TagReader.Read(file.Path);
 
-        var edit = new AlbumTagEdit("Artist", "Album Artist", "Album", 2020)
+        var edit = new AlbumTagEdit
         {
+            Artist = "Artist",
+            AlbumArtist = "Album Artist",
+            Album = "Album",
+            Date = new DateEdit(2020, null),
             RemoveLeadingZeros = true,
             DiscNumber = new NumberEdit(2),
         };
@@ -69,7 +73,7 @@ public class NumberSpellingTests
         using (var tagged = TagLib.File.Create(file.Path)) { tagged.Tag.Disc = 0; tagged.Save(); }
         var track = TagReader.Read(file.Path);
 
-        var edit = new AlbumTagEdit("Artist", "Album Artist", "Album", 2020) { RemoveLeadingZeros = true };
+        var edit = new AlbumTagEdit { Artist = "Artist", AlbumArtist = "Album Artist", Album = "Album", Date = new DateEdit(2020, null), RemoveLeadingZeros = true };
         Assert.True(TagWriter.WriteAlbumTrackTags(track, edit, art: null, folderArtPath: null).Success);
 
         Assert.Equal(new NumberTexts("4", "12", "", ""), TagReader.ReadDetails(file.Path)!.Numbers);
@@ -159,7 +163,7 @@ public class NumberSpellingTests
         SetRaw(file.Path, "03", "12", "01");
         var track = TagReader.Read(file.Path);
 
-        var edit = new AlbumTagEdit("Artist", "Album Artist", "Album", 2020) { DiscNumber = new NumberEdit(1) };
+        var edit = new AlbumTagEdit { Artist = "Artist", AlbumArtist = "Album Artist", Album = "Album", Date = new DateEdit(2020, null), DiscNumber = new NumberEdit(1) };
         Assert.True(TagWriter.WriteAlbumTrackTags(track, edit, art: null, folderArtPath: null).Success);
 
         Assert.Equal("03", RawTrack(file.Path));   // not part of the edit
@@ -175,7 +179,7 @@ public class NumberSpellingTests
         SetRaw(file.Path, "3", "12", "1");
         var track = TagReader.Read(file.Path);
 
-        var edit = new AlbumTagEdit("Artist", "Album Artist", "Album", 2020) { TrackCount = new NumberEdit(10) };
+        var edit = new AlbumTagEdit { Artist = "Artist", AlbumArtist = "Album Artist", Album = "Album", Date = new DateEdit(2020, null), TrackCount = new NumberEdit(10) };
         Assert.True(TagWriter.WriteAlbumTrackTags(track, edit, art: null, folderArtPath: null).Success);
 
         Assert.Equal("3/10", RawTrack(file.Path));

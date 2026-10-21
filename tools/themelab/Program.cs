@@ -1527,7 +1527,7 @@ internal static class Program
                 Arg(args, "--file") ?? throw new ArgumentException("--window themeswitch needs --file <audio file>"),
                 Arg(args, "--artfile"), outPath, w, h, scale);
 
-        if (which is "edit" or "queue" or "clicks" or "nowplayingart" or "multiedit" or "albumeditor" or "trackeditor" or "covers" or "pngconvert" or "safesave")
+        if (which is "edit" or "queue" or "clicks" or "nowplayingart" or "multiedit" or "albumeditor" or "trackeditor" or "covers" or "pngconvert" or "safesave" or "albumkeep")
         {
             // Each save persists the library, and LibraryCache.CachePath is the
             // real library.json - so it is put back byte for byte afterwards.
@@ -1538,7 +1538,9 @@ internal static class Program
                 File.Copy(cachePath, backup, overwrite: true);
             try
             {
-                if (which == "safesave")
+                if (which == "albumkeep")
+                    RunAlbumKeep(vm);
+                else if (which == "safesave")
                     RunSafeSave(main, vm, Arg(args, "--long") ?? throw new ArgumentException("--window safesave needs --long \"a;b;...\""));
                 else if (which == "pngconvert")
                     RunPngConvert(main, vm);
@@ -1707,6 +1709,8 @@ internal static class Program
                         editVm = new TagEditViewModel(album, new AlbumArtService());
                         WaitForDetails(editVm);
                         Console.WriteLine($"album: {album.Title} ({album.Tracks.Count} tracks), opened in {clock.ElapsedMilliseconds} ms");
+                        Console.WriteLine($"  artist    '{editVm.Artist}' [{editVm.ArtistPlaceholder}]  album artist '{editVm.AlbumArtist}' [{editVm.AlbumArtistPlaceholder}]");
+                        Console.WriteLine($"  album     '{editVm.AlbumTitle}' [{editVm.AlbumTitlePlaceholder}]  year '{editVm.Year}' [{editVm.YearPlaceholder}]  can save={editVm.CanSave}");
                         Settle(1500);
                         Console.WriteLine($"  art       '{editVm.ArtSizeText}' '{editVm.ArtFormatText}' [{editVm.ArtSourceText}]  preview={editVm.ArtPreview?.PixelWidth}px");
 
@@ -1943,9 +1947,13 @@ internal static class Program
             // no file is written - to check the fixed tracks leave the filter.
             if (Arg(args, "--fix") is { } year && vm.SelectedAlbum is { } fixAlbum)
             {
-                var edit = new AudioFool.Core.Library.AlbumTagEdit(
-                    fixAlbum.Album.ArtistName, fixAlbum.Album.ArtistName, fixAlbum.Album.Title,
-                    int.Parse(year, CultureInfo.InvariantCulture));
+                var edit = new AudioFool.Core.Library.AlbumTagEdit
+                {
+                    Artist = fixAlbum.Album.ArtistName,
+                    AlbumArtist = fixAlbum.Album.ArtistName,
+                    Album = fixAlbum.Album.Title,
+                    Date = new AudioFool.Core.Library.DateEdit(int.Parse(year, CultureInfo.InvariantCulture), null),
+                };
                 var fixedTracks = fixAlbum.Album.Tracks.ToDictionary(
                     t => t.FilePath,
                     t => t.WithAlbumTags(edit, new AudioFool.Core.Library.FileStamp(t.FileSize, t.ModifiedUtc), t.FolderArtPath),
@@ -5062,7 +5070,7 @@ internal static class Program
         encoder.Save(jpeg);
 
         var album = AudioFool.Core.Library.LibraryScanner.Build(AllTracks().ToList()).Artists[0].Albums[0];
-        var edit = new AudioFool.Core.Library.AlbumTagEdit("Lab Artist", "Lab Artist", "Lab Album", 2020);
+        var edit = new AudioFool.Core.Library.AlbumTagEdit();
         var save = (Task)typeof(MainViewModel).GetMethod("ApplyAlbumEditAsync", Private)!
             .Invoke(vm, [album, edit, new AudioFool.Core.Library.ArtPayload(jpeg.ToArray(), "image/jpeg"), false])!;
         var clock = System.Diagnostics.Stopwatch.StartNew();
@@ -5142,7 +5150,7 @@ internal static class Program
             var clock = System.Diagnostics.Stopwatch.StartNew();
             main.Closed += (_, _) => closedAt = clock.ElapsedMilliseconds;
 
-            var edit = new AudioFool.Core.Library.AlbumTagEdit(first.Artist ?? "", first.AlbumArtist ?? first.Artist ?? "", first.Album ?? "", first.Year);
+            var edit = new AudioFool.Core.Library.AlbumTagEdit();
             var save = (Task)typeof(MainViewModel).GetMethod("ApplyAlbumEditAsync", Private)!
                 .Invoke(vm, [album, edit, new AudioFool.Core.Library.ArtPayload(cover, "image/jpeg"), false])!;
             Settle(30);
@@ -5186,6 +5194,113 @@ internal static class Program
             else if (File.Exists(AppSettings.SettingsPath))
                 File.Delete(AppSettings.SettingsPath);
         }
+    }
+
+    /// <summary>
+    /// --window albumkeep (session 60): the album tag window on two scratch albums
+    /// made from the test fixtures, through the view model's own album save. A
+    /// compilation (album artist "Various Artists", three artists, two years):
+    /// the boxes it opens with, then only the genre changed, and every track must
+    /// keep its own artist and year. Then an album with no album tag: it opens with
+    /// an empty Album box that can be saved, and no "Unknown Album" is written.
+    /// </summary>
+    private static void RunAlbumKeep(MainViewModel vm)
+    {
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        const System.Reflection.BindingFlags Private = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        var fixtures = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory,
+            @"..\..\..\..\..\..\tests\AudioFool.Core.Tests\TestData"));
+        var dir = Path.Combine(Path.GetTempPath(), "themelab-albumkeep-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(dir);
+        _scratchDir = dir;
+
+        Track Make(string name, string ext, string artist, string albumArtist, string album, int year, int number)
+        {
+            var path = Path.Combine(dir, name + ext);
+            File.Copy(Path.Combine(fixtures, "sample" + ext), path);
+            return AudioFool.Core.Library.TagWriter.WriteTrackTags(AudioFool.Core.Library.TagReader.Read(path),
+                new AudioFool.Core.Library.TrackTagEdit(name, artist, albumArtist, album, year, number, 3, 1, 1),
+                art: null, folderArtPath: null).UpdatedTrack!;
+        }
+
+        var compilation = new List<Track>
+        {
+            Make("01 First", ".flac", "Artist A", "Various Artists", "Hits", 1994, 1),
+            Make("02 Second", ".mp3", "Artist B", "Various Artists", "Hits", 1994, 2),
+            Make("03 Third", ".flac", "Artist C", "Various Artists", "Hits", 2001, 3),
+        };
+        var untagged = new List<Track>
+        {
+            Make("04 Loose", ".flac", "Solo", "Solo", "", 2005, 1),
+            Make("05 Loose", ".flac", "Solo", "Solo", "", 2005, 2),
+        };
+
+        typeof(MainViewModel).GetMethod("ApplyLibrary", Private)!
+            .Invoke(vm, [AudioFool.Core.Library.LibraryScanner.Build([.. compilation, .. untagged]), false]);
+
+        var allOk = true;
+        void Check(string what, bool ok)
+        {
+            allOk &= ok;
+            Console.WriteLine($"  {what}: {(ok ? "OK" : "WRONG")}");
+        }
+
+        TagEditViewModel Open(IReadOnlyList<Track> tracks)
+        {
+            var album = AudioFool.Core.Library.LibraryScanner.Build(tracks).Artists[0].Albums[0];
+            var edit = new TagEditViewModel(album, new AlbumArtService());
+            WaitForDetails(edit);
+            Console.WriteLine($"'{edit.WindowTitle}'");
+            Console.WriteLine($"  artist '{edit.Artist}' [{edit.ArtistPlaceholder}]  album artist '{edit.AlbumArtist}' [{edit.AlbumArtistPlaceholder}]");
+            Console.WriteLine($"  album '{edit.AlbumTitle}' [{edit.AlbumTitlePlaceholder}]  year '{edit.Year}' [{edit.YearPlaceholder}]  can save={edit.CanSave}  search for '{edit.SearchArtist}'");
+            return edit;
+        }
+
+        void Save(IReadOnlyList<Track> tracks, TagEditViewModel edit)
+        {
+            var album = AudioFool.Core.Library.LibraryScanner.Build(tracks).Artists[0].Albums[0];
+            var task = (Task)typeof(MainViewModel).GetMethod("ApplyAlbumEditAsync", Private)!
+                .Invoke(vm, [album, edit.BuildAlbumEdit(), null, false])!;
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (!task.IsCompleted && clock.ElapsedMilliseconds < 10000)
+                Settle(50);
+            Settle(200);
+            Console.WriteLine($"  saved: '{vm.StatusText}'");
+        }
+
+        var edit = Open(compilation);
+        Check("artist varies, so empty with the placeholder", edit.Artist == "" && edit.ArtistPlaceholder.Length > 0);
+        Check("album artist and album shared, so filled", edit.AlbumArtist == "Various Artists" && edit.AlbumTitle == "Hits");
+        Check("year varies", edit.Year == "" && edit.YearPlaceholder.Length > 0);
+        edit.Genre = "Pop";
+        var built = edit.BuildAlbumEdit();
+        Check("only the genre is in the edit", built is { Artist: null, AlbumArtist: null, Album: null, Date: null } && built.Details.Genre == "Pop");
+        Save(compilation, edit);
+        foreach (var track in compilation)
+        {
+            var read = AudioFool.Core.Library.TagReader.Read(track.FilePath);
+            var genre = AudioFool.Core.Library.TagReader.ReadDetails(track.FilePath)?.Genre;
+            Check($"{Path.GetFileName(track.FilePath)}: {read.Artist} / {read.AlbumArtist} / {read.Album} / {read.Year} / {genre}",
+                read.Artist == track.Artist && read.Year == track.Year && read.Album == "Hits" && genre == "Pop");
+        }
+
+        edit = Open(untagged);
+        Check("no album tag: an empty Album box, and Save allowed", edit.AlbumTitle == "" && edit.CanSave);
+        edit.Comment = "kept";
+        Save(untagged, edit);
+        foreach (var track in untagged)
+        {
+            var read = AudioFool.Core.Library.TagReader.Read(track.FilePath);
+            Check($"{Path.GetFileName(track.FilePath)}: album '{read.Album}'", read.Album == "");
+        }
+
+        edit = Open(compilation);
+        edit.AlbumTitle = "Greatest Hits";
+        Save(compilation, edit);
+        Check("a typed album reaches every track, artists kept",
+            compilation.All(t => AudioFool.Core.Library.TagReader.Read(t.FilePath) is { Album: "Greatest Hits" } read && read.Artist == t.Artist));
+
+        Console.WriteLine(allOk ? "ALL OK" : "SOMETHING WRONG");
     }
 
     /// <summary>SHA-256 of a FLAC, MP3 or DSF's audio bytes, from where TagPadding says the tags end; null for other layouts.</summary>

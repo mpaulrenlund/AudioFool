@@ -172,8 +172,8 @@ public sealed class Track
 
     /// <summary>
     /// A copy with a whole-album batch edit applied. Title and track number carry
-    /// over unchanged - they are not part of an album-level edit - and so do the
-    /// counts and disc number unless the edit sets them.
+    /// over unchanged - they are not part of an album-level edit - and so does
+    /// every field the edit leaves null.
     /// </summary>
     public Track WithAlbumTags(AlbumTagEdit edit, FileStamp stamp, string? folderArtPath) => new()
     {
@@ -186,14 +186,14 @@ public sealed class Track
         TrackNumber = TrackNumber,
         TrackCount = edit.TrackCount is { } trackCount ? trackCount.Value : TrackCount,
         Title = Title,
-        Artist = edit.Artist,
-        AlbumArtist = edit.AlbumArtist,
-        Album = edit.Album,
+        Artist = edit.Artist ?? Artist,
+        AlbumArtist = edit.AlbumArtist ?? AlbumArtist,
+        Album = edit.Album ?? Album,
         Duration = Duration,
         DiscNumber = edit.DiscNumber is { } discNumber ? discNumber.Value : DiscNumber,
         DiscCount = edit.DiscCount is { } discCount ? discCount.Value : DiscCount,
-        Year = edit.Year,
-        ReleaseDate = edit.Date,
+        Year = edit.Date is { } date ? date.Year : Year,
+        ReleaseDate = edit.Date is { } newDate ? newDate.Date : ReleaseDate,
         Kind = Kind,
         Bitrate = Bitrate,
         BitDepth = BitDepth,

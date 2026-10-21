@@ -31,27 +31,29 @@ public sealed record TrackTagEdit(
 /// The fields shared by a whole-album batch edit. Title and track number are
 /// deliberately absent - they differ per track and are left alone.
 /// <para>
-/// The four positional fields are written to every track. The init-only ones
-/// are optional: null leaves each track's own value in place. The dialog sets
-/// one only when the user changed it, because these are the fields tracks
-/// legitimately disagree on - a two-disc set has two disc numbers, a classical
-/// album a composer per work - and writing the first track's value to all of
-/// them would quietly destroy the rest.
+/// Every field is optional: null leaves each track's own value in place. The
+/// dialog sets one only when the user changed it, because tracks legitimately
+/// disagree on any of them - a compilation has an artist per track, a two-disc
+/// set two disc numbers, a reissue a year of its own - and writing the first
+/// track's value to all of them would quietly destroy the rest. (Until session
+/// 60 Artist, Album Artist, Album and Year were always written, from the first
+/// track; a compilation lost its artists, and an untagged album was given the
+/// words "Unknown Album".)
 /// </para>
 /// </summary>
-public sealed record AlbumTagEdit(
-    string Artist,
-    string AlbumArtist,
-    string Album,
-    int? Year)
+public sealed record AlbumTagEdit
 {
+    public string? Artist { get; init; }
+    public string? AlbumArtist { get; init; }
+    public string? Album { get; init; }
+
+    /// <summary>The year, with the full date when one was typed; null keeps each track's.</summary>
+    public DateEdit? Date { get; init; }
+
     public NumberEdit? TrackCount { get; init; }
     public NumberEdit? DiscNumber { get; init; }
     public NumberEdit? DiscCount { get; init; }
     public TagDetailsEdit Details { get; init; } = TagDetailsEdit.None;
-
-    /// <summary>As <see cref="TrackTagEdit.Date"/>: written album-wide with <see cref="Year"/>.</summary>
-    public string? Date { get; init; }
 
     /// <summary>
     /// Rewrites each track's own track and disc numbers and totals without

@@ -138,7 +138,7 @@ public class TagWriterTests
         Assert.True(seeded.Success, seeded.ErrorMessage);
         var track = seeded.UpdatedTrack!;
 
-        var edit = new AlbumTagEdit("Album Artist Edit", "Album Artist Edit", "Batch Album", 2001);
+        var edit = new AlbumTagEdit { Artist = "Album Artist Edit", AlbumArtist = "Album Artist Edit", Album = "Batch Album", Date = new DateEdit(2001, null) };
         var result = TagWriter.WriteAlbumTrackTags(track, edit, art: null, folderArtPath: null);
 
         Assert.True(result.Success, result.ErrorMessage);
@@ -291,8 +291,12 @@ public class TagDetailsTests
         WriteAndReread(file, FullDetails());
         var track = TagReader.Read(file.Path);
 
-        var edit = new AlbumTagEdit("Artist", "Album Artist", "Album", 2020)
+        var edit = new AlbumTagEdit
         {
+            Artist = "Artist",
+            AlbumArtist = "Album Artist",
+            Album = "Album",
+            Date = new DateEdit(2020, null),
             TrackCount = new NumberEdit(14),
             DiscCount = new NumberEdit(null),
             Details = new TagDetailsEdit { Publisher = "ECM" },
@@ -325,7 +329,7 @@ public class TagDetailsTests
         var track = TagWriter.WriteTrackTags(
             TagReader.Read(file.Path), SampleTrackEdit(), art: null, folderArtPath: null).UpdatedTrack!;
 
-        var edit = new AlbumTagEdit("Artist", "Album Artist", "Album", 2020) { DiscNumber = new NumberEdit(2) };
+        var edit = new AlbumTagEdit { Artist = "Artist", AlbumArtist = "Album Artist", Album = "Album", Date = new DateEdit(2020, null), DiscNumber = new NumberEdit(2) };
         var result = TagWriter.WriteAlbumTrackTags(track, edit, art: null, folderArtPath: null);
 
         Assert.True(result.Success, result.ErrorMessage);

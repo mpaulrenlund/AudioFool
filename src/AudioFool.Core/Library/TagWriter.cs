@@ -64,8 +64,8 @@ public static class TagWriter
     /// <summary>
     /// Applies one track's share of a whole-album batch edit. Title and track
     /// number carry over from <paramref name="track"/> untouched - they are not
-    /// part of <see cref="AlbumTagEdit"/> at all - and so does every optional
-    /// field the edit leaves null.
+    /// part of <see cref="AlbumTagEdit"/> at all - and so does every field the
+    /// edit leaves null. An empty Artist, Album Artist or Album clears it.
     /// </summary>
     public static TagWriteResult WriteAlbumTrackTags(Track track, AlbumTagEdit edit, ArtPayload? art, string? folderArtPath,
                                                      IFileHolder? holder = null)
@@ -73,10 +73,14 @@ public static class TagWriter
         var save = SaveTags(track.FilePath, file =>
         {
             var tag = file.Tag;
-            tag.Performers = [edit.Artist];
-            tag.AlbumArtists = [edit.AlbumArtist];
-            tag.Album = edit.Album;
-            WriteDate(file, edit.Date, edit.Year);
+            if (edit.Artist is { } artist)
+                tag.Performers = artist.Length == 0 ? [] : [artist];
+            if (edit.AlbumArtist is { } albumArtist)
+                tag.AlbumArtists = albumArtist.Length == 0 ? [] : [albumArtist];
+            if (edit.Album is { } album)
+                tag.Album = NullIfEmpty(album);
+            if (edit.Date is { } date)
+                WriteDate(file, date.Date, date.Year);
             // Setting a number to the value it already has respells it without
             // the zero; WriteNumbers undoes TagLib's own padding of the track.
             var strip = edit.RemoveLeadingZeros;
