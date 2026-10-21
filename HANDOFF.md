@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-20, session 60. Read this alongside `README.md`: the README covers
+Updated 2026-10-21, session 61. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -130,10 +130,10 @@ The notes are written for the user, grouped New / Improved / Fixed, from
 
 ### Start of the next session
 
-Nothing is running and nothing is uncommitted: everything is pushed to `origin/main`
-(the last code commit is `a70c068`, the album window). The installed app is that build
-(installed 2026-10-21 09:05). 852 tests pass. The beat screen's Terminal tab, if still
-open, can be closed.
+Nothing is running and nothing is uncommitted: everything is pushed to `origin/main`.
+Session 61 did the tooltip clean-up (see *Where things are*). The installed app is that
+build (installed 2026-10-21 09:59). 852 tests pass. The beat screen's Terminal tab, if
+still open, can be closed.
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
@@ -145,19 +145,25 @@ Open with the user, in this order (each is under *Suggested next steps*):
 3. **Changes the user hasn't tried on screen yet** (step 1): from session 59,
    double-clicking songs in Explorer and Clear All; from session 60, an album save with
    a new cover (the copy-and-swap path, and closing mid-save) and the album window on a
-   compilation ("Varies" in Artist and Year).
-4. **What to take next from session 60's review** (step 6). Two need the user's
-   decisions before any work: the 17 remaining tooltips (which go) and the Dark chip
-   hover (a colour). The rest are code fixes; step 6 suggests an order.
+   compilation ("Varies" in Artist and Year); from session 61, the cover's source line
+   in the album tag window.
+4. **What to take next from session 60's review** (step 6). One needs the user's
+   decision before any work: the Dark chip hover (a colour). The rest are code fixes;
+   step 6 suggests an order.
 
-Then a release can follow: sessions 55–60 are unreleased (since v0.6.1). It waits on the
+Then a release can follow: sessions 55–61 are unreleased (since v0.6.1). It waits on the
 projectM decision (step 5). Confirm the version and notes with the user first (see
 *Releases*); session 60 alone is a lot of user-visible fixes.
 
 ### Where things are
 
 - **Everything in `README.md` is implemented and verified**, apart from the projectM
-  trial (below). **852 tests** pass. The installed app is session 60's last build.
+  trial (below). **852 tests** pass. The installed app is session 61's build.
+- **Session 61** (2026-10-21): **the tooltip clean-up**, the user's call on each. Left
+  in the app: the album title's (when cut off), the greyed-out volume's and the output
+  readout's device name; the rest are gone. The tag window's cover source, which only
+  its tooltip showed, is a third line under the size and format ("Embedded", the
+  folder file's name, or "Unsaved"). Details in `HISTORY.md` and `design/progress.md`.
 - **Session 60** (2026-10-20 and 21): a review of the whole app by eight read-only
   reviewers (open findings: *Suggested next steps*, step 6), then six fixes from it,
   each installed, committed and pushed (details in `HISTORY.md`, session 60):
@@ -1504,8 +1510,9 @@ Open items only; finished ones are in `HISTORY.md`.
    a drive lost mid-scan, edits during a scan, shared-mode gapless, the loud first
    block, tag saves in place, `CoverCleaner`'s swap without a backup, closing during a
    save, the album window writing four fields to every track.
-   - **A suggested order** (the user picks): the two that need the user's decisions
-     first, since they are quick once decided (the tooltips, the Dark chip hover); then
+   - **A suggested order** (the user picks): the one that needs the user's decision
+     first, since it is quick once decided (the Dark chip hover; the tooltips were done
+     in session 61); then
      `SingleInstance` and the startup exception (a launch that can fail); the
      Bit-Perfect rate-change tail (heard); `WriteFolderArt` and `ReleaseDate` (data);
      the visualizer keep-awake; then the reported ones, each checked first.
@@ -1540,15 +1547,13 @@ Open items only; finished ones are in `HISTORY.md`.
        a search; a Quality Check clearance matching the other disc's same-named file;
        Analyze crashing on files under ~46 ms; new scrobbles ignoring the backoff.
    - **UI (against the specs):**
-     - **17 tooltips remain** besides the album-title one (Repeat, Shuffle, volume,
-       Refresh, search, filter chip, Last.fm chip, device line, Remove folder, eight in
-       the tag window, ArtSearch tiles, the search clear ×). Ask before removing.
      - **The chip hover is invisible in Dark** (`status.chipBg` #1A1C22 →
        `control.faceHover` #1B1D23).
      - Mixed "..." and "…"; "Add folder…"/"Remove folder" in sentence case; three
        window-title separators; dialog button order and Escape differ between dialogs.
      - The filter chip text is `text.primary`, not `text.status` (progress.md says
-       they match); the tag window says covers of 1,000 × 1,000, but the code accepts 600.
+       they match); a comment in `ArtSearchWindow.xaml` says covers of at least 1,000 px,
+       but the code accepts 600 (the tag window's tooltip said so too; gone in session 61).
      - Spec drift: theme-spec §6.8 (Last.fm chip), §6.5, §6.7; the Dark screenshots
        predate the visualizer chip.
    - **Project:**

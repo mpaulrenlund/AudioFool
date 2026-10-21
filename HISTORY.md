@@ -4038,6 +4038,25 @@ Then, in a new conversation the same evening (session 58 continued):
     --scratch` rendered in both themes (design/progress.md). Installed (AudioFool
     closed through its own window close, so it saved its place and volume).
 
+### Session 61 (2026-10-21): the tooltip clean-up
+
+- **17 tooltips removed, 2 kept, one turned into text** (the user's calls on session
+  60's review finding, which counted 17 but listed 19). Gone: Repeat, Shuffle,
+  Refresh, the search box and its clear ×, the filter chip, the Last.fm chip, the
+  Remove folder items; in the tag window the ✕ clear buttons, Search Internet, Save
+  Embedded Art, Year, Remove Leading Zeros, Composer and Genre; the art search tiles.
+  Kept: the greyed-out volume's explanation and the device name on the output
+  readout, besides the album title one. The tag window's cover source, which only the
+  tooltip showed, is now a third line under the cover's size and format: "Embedded",
+  the folder file's name, or "Unsaved" for a new cover Save will write (no wider than
+  the cover, "…" past it). Dead code went with them (`RepeatTooltip`,
+  `ShuffleTooltip`, `ClearToolTip`); `LastFmToolTip` is `LastFmHelpText`, still the
+  chip's screen-reader help text. ThemeLab, both themes on magenta: the main window
+  and the track window 0 pixels different; the album window 16 px taller, 0 magenta;
+  "cover.jpg", "Embedded" and (`--useart`) "Unsaved" rendered. 852 tests. Installed
+  (the app wasn't running). Not verified: a folder file name too long for the line
+  (none found in the library).
+
 ---
 
 ## Reference notes retired from the handoff
