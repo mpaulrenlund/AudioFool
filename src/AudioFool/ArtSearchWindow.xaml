@@ -128,7 +128,7 @@
                 </ListBox.ItemsPanel>
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel Width="{theme:Token artSearch.tileSize}" ToolTip="{Binding Title}">
+                        <StackPanel Width="{theme:Token artSearch.tileSize}">
                             <Border Width="{theme:Token artSearch.tileSize}" Height="{theme:Token artSearch.tileSize}"
                                     Background="{DynamicResource color.panel.bg}"
                                     BorderThickness="{theme:Thickness All=layout.panelBorder}"

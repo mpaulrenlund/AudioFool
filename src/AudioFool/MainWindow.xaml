@@ -374,7 +374,6 @@
                                                     <Setter Property="Header" Value="{Binding FolderPath}" />
                                                     <Setter Property="Command" Value="{Binding Source={StaticResource Proxy}, Path=Data.RemoveFolderCommand}" />
                                                     <Setter Property="CommandParameter" Value="{Binding}" />
-                                                    <Setter Property="ToolTip" Value="Stop watching this folder. Nothing on disk is deleted." />
                                                 </Style>
                                             </MenuItem.ItemContainerStyle>
                                         </MenuItem>
@@ -411,8 +410,7 @@
                             Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="Search"
                             ClearButtonEnabled="True"
-                            AutomationProperties.Name="Search"
-                            ToolTip="Search artists, albums and songs" />
+                            AutomationProperties.Name="Search" />
                 <!-- Escape leaves the box and keeps the search (MainWindow.SearchFocus.cs);
                      the clear × clears it. -->
 
@@ -446,8 +444,7 @@
                            Icon="{ui:SymbolIcon Filter16}"
                            Command="{Binding ClearLibraryFilterCommand}"
                            Visibility="{Binding IsFiltered, Converter={StaticResource BoolToVisibility}}"
-                           AutomationProperties.Name="{Binding LibraryFilter.Description, StringFormat=Clear filter: {0}}"
-                           ToolTip="Showing only these tracks. Click to show the whole library again.">
+                           AutomationProperties.Name="{Binding LibraryFilter.Description, StringFormat=Clear filter: {0}}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding LibraryFilter.Description}" VerticalAlignment="Center" />
                         <ui:SymbolIcon Symbol="Dismiss12"
@@ -1235,8 +1232,7 @@
                             on its corner.
                         -->
                         <Button x:Name="RepeatButton"
-                                Command="{Binding CycleRepeatCommand}"
-                                ToolTip="{Binding RepeatTooltip}">
+                                Command="{Binding CycleRepeatCommand}">
                             <Button.Style>
                                 <Style TargetType="Button" BasedOn="{StaticResource theme.modeButton}">
                                     <Setter Property="Foreground" Value="{DynamicResource color.control.iconOff}" />
@@ -1284,8 +1280,7 @@
                                       Margin="{theme:Thickness Top=playbackBar.modeButtonGap}"
                                       Command="{Binding ToggleShuffleCommand}"
                                       IsChecked="{Binding IsShuffle, Mode=OneWay}"
-                                      AutomationProperties.Name="Shuffle"
-                                      ToolTip="{Binding ShuffleTooltip}">
+                                      AutomationProperties.Name="Shuffle">
                             <ToggleButton.Style>
                                 <Style TargetType="ToggleButton" BasedOn="{StaticResource theme.modeButton}">
                                     <Setter Property="Foreground" Value="{DynamicResource color.control.iconOff}" />
@@ -1450,8 +1445,7 @@
                         Margin="{theme:Thickness Right=statusBar.refreshAfterGap}"
                         Command="{Binding ScanCommand}"
                         IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBool}}"
-                        AutomationProperties.Name="Refresh library"
-                        ToolTip="Refresh library">
+                        AutomationProperties.Name="Refresh library">
                     <Viewbox Width="{theme:Token statusBar.refreshIcon}" Height="{theme:Token statusBar.refreshIcon}">
                         <Canvas Width="24" Height="24">
                             <Path Style="{StaticResource theme.iconStroke}"
@@ -1505,9 +1499,8 @@
                     Style="{StaticResource theme.chip}"
                     Margin="{theme:Thickness Left=statusBar.chipGap}"
                     Command="{Binding ShowLastFmCommand}"
-                    ToolTip="{Binding LastFmToolTip}"
                     AutomationProperties.Name="{Binding LastFmLabel}"
-                    AutomationProperties.HelpText="{Binding LastFmToolTip}"
+                    AutomationProperties.HelpText="{Binding LastFmHelpText}"
                     Visibility="{Binding IsLastFmShown, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Orientation="Horizontal">
                     <Ellipse Style="{StaticResource theme.statusDot}"

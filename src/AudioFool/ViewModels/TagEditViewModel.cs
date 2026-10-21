@@ -130,11 +130,6 @@ public sealed partial class TagEditViewModel : ObservableObject
     /// </summary>
     private readonly HashSet<string> _cleared = [];
 
-    public string ClearToolTip =>
-        IsSelectionMode ? "Clear this tag on every selected track"
-        : IsAlbumMode ? "Clear this tag on every track"
-        : "Clear this tag";
-
     /// <summary>
     /// The text each optional field was pre-filled with. Save writes only the
     /// ones that no longer match - see <see cref="AlbumTagEdit"/> for why.
@@ -469,7 +464,10 @@ public sealed partial class TagEditViewModel : ObservableObject
     [ObservableProperty]
     private string _artFormatText = "";
 
-    /// <summary>Where the shown cover comes from, for the tooltip.</summary>
+    /// <summary>
+    /// Where the shown cover comes from, the line under its format: "Embedded",
+    /// the folder file's name, or "Unsaved" for a new one Save will write.
+    /// </summary>
     [ObservableProperty]
     private string? _artSourceText;
 
@@ -494,7 +492,7 @@ public sealed partial class TagEditViewModel : ObservableObject
         foreach (var track in album.Tracks.Take(5))
         {
             if (TagReader.ReadEmbeddedArt(track.FilePath) is { } embedded)
-                return (ImageInfo.Read(embedded), "Embedded in the tracks");
+                return (ImageInfo.Read(embedded), "Embedded");
         }
 
         var folderArt = album.FolderArtPath;
@@ -503,7 +501,7 @@ public sealed partial class TagEditViewModel : ObservableObject
 
         try
         {
-            return (ImageInfo.Read(File.ReadAllBytes(folderArt)), $"Folder file: {Path.GetFileName(folderArt)}");
+            return (ImageInfo.Read(File.ReadAllBytes(folderArt)), Path.GetFileName(folderArt));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -613,8 +611,7 @@ public sealed partial class TagEditViewModel : ObservableObject
             PickedArtFilePath = dialog.FileName;
             _downloadedArt = null;
             ArtPreview = bitmap;
-            ShowArtInfo(ImageInfo.Read(File.ReadAllBytes(dialog.FileName)),
-                        $"New cover, from {Path.GetFileName(dialog.FileName)} - written on Save");
+            ShowArtInfo(ImageInfo.Read(File.ReadAllBytes(dialog.FileName)), "Unsaved");
         }
         catch (Exception ex) when (ex is NotSupportedException or IOException or UnauthorizedAccessException)
         {
@@ -754,7 +751,7 @@ public sealed partial class TagEditViewModel : ObservableObject
             ArtPreview = ArtSearchViewModel.Decode(jpeg, 200);
             _downloadedArt = jpeg;
             PickedArtFilePath = null;
-            ShowArtInfo(ImageInfo.Read(jpeg), "New cover, downloaded - written on Save");
+            ShowArtInfo(ImageInfo.Read(jpeg), "Unsaved");
         }
         catch (Exception ex) when (ex is NotSupportedException or IOException or ArgumentException)
         {

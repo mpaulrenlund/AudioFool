@@ -1432,14 +1432,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private string _lastFmLabel = "Last.fm";
 
     [ObservableProperty]
-    private string _lastFmToolTip = "";
+    private string _lastFmHelpText = "";
 
     private void OnScrobblerStatusChanged(object? sender, EventArgs e) => RefreshLastFmIndicator();
 
     private void RefreshLastFmIndicator()
     {
         LastFmState = _scrobbler.State;
-        (LastFmLabel, LastFmToolTip) = LastFmState switch
+        (LastFmLabel, LastFmHelpText) = LastFmState switch
         {
             ScrobblerState.NeedsReconnect =>
                 ("Last.fm: reconnect", "Last.fm stopped accepting scrobbles. Click to reconnect."),
@@ -2236,11 +2236,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _engine.Shuffle = value;
 
             OnPropertyChanged();
-            OnPropertyChanged(nameof(ShuffleTooltip));
         }
     }
-
-    public string ShuffleTooltip => IsShuffle ? "Shuffle: on" : "Shuffle: off";
 
     /// <summary>
     /// The Artists list's order: A-Z, most recently added first, or largest first.
@@ -2331,7 +2328,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsRepeatAll));
             OnPropertyChanged(nameof(IsRepeatOne));
-            OnPropertyChanged(nameof(RepeatTooltip));
         }
     }
 
@@ -2342,13 +2338,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public bool IsRepeatAll => Repeat == RepeatMode.All;
 
     public bool IsRepeatOne => Repeat == RepeatMode.One;
-
-    public string RepeatTooltip => Repeat switch
-    {
-        RepeatMode.All => "Repeat: whole queue",
-        RepeatMode.One => "Repeat: this track",
-        _ => "Repeat: off",
-    };
 
     [RelayCommand]
     private void ToggleShuffle() => IsShuffle = !IsShuffle;

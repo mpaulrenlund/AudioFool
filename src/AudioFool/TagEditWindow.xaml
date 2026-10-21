@@ -41,7 +41,6 @@
             <Setter Property="Margin" Value="{theme:Thickness Left=tagEdit.clearButtonGap}" />
             <Setter Property="VerticalAlignment" Value="Top" />
             <Setter Property="Command" Value="{Binding ClearFieldCommand}" />
-            <Setter Property="ToolTip" Value="{Binding ClearToolTip}" />
         </Style>
     </ui:FluentWindow.Resources>
 
@@ -62,10 +61,10 @@
             <StackPanel Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop}"
                         Visibility="{Binding ShowsArt, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel Orientation="Horizontal">
-                    <!-- The cover's size and format, read from its bytes: the current one, -->
-                    <!-- or the one Save would write once a new cover is picked. -->
-                    <!-- Framed as the Albums list's thumbnails (6.4). -->
-                    <StackPanel VerticalAlignment="Top" ToolTip="{Binding ArtSourceText}">
+                    <!-- The cover's size and format, read from its bytes, and where it comes -->
+                    <!-- from: the current one, or the one Save would write once a new cover -->
+                    <!-- is picked. Framed as the Albums list's thumbnails (6.4). -->
+                    <StackPanel VerticalAlignment="Top">
                         <Border Width="{theme:Token tagEdit.artSize}" Height="{theme:Token tagEdit.artSize}"
                                 Background="{DynamicResource color.panel.bg}"
                                 BorderBrush="{DynamicResource color.art.thumbBorder}"
@@ -86,6 +85,10 @@
                                    HorizontalAlignment="Center" Margin="{theme:Thickness Top=tagEdit.artTextGap}" />
                         <TextBlock x:Name="ArtFormatText" Text="{Binding ArtFormatText}" Style="{DynamicResource type.albumMeta}"
                                    HorizontalAlignment="Center" />
+                        <!-- No wider than the cover, so a long file name ends in "…". -->
+                        <TextBlock x:Name="ArtSourceText" Text="{Binding ArtSourceText}" Style="{DynamicResource type.albumMeta}"
+                                   HorizontalAlignment="Center" MaxWidth="{theme:Token tagEdit.artSize}"
+                                   TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                     <!-- Top-aligned: two rows of buttons and the note are about as tall as -->
                     <!-- the art with its two lines of text. -->
@@ -97,7 +100,6 @@
                                 <Button x:Name="SearchInternetButton" Content="Search Internet..."
                                         Style="{StaticResource theme.dialogButton}"
                                         Margin="{theme:Thickness Left=dialog.buttonGap}"
-                                        ToolTip="Find a JPEG cover of at least 1,000 × 1,000 on the iTunes Store, the Cover Art Archive or fanart.tv"
                                         Click="SearchInternet_Click" />
                             </StackPanel>
                             <!-- Acts at once, not on Save: the cover.jpg is written when it is pressed. -->
@@ -105,8 +107,7 @@
                                     Style="{StaticResource theme.dialogButton}"
                                     HorizontalAlignment="Left"
                                     Margin="{theme:Thickness Top=dialog.fieldGap}"
-                                    Command="{Binding SaveEmbeddedArtCommand}"
-                                    ToolTip="Write the art embedded in the tracks to cover.jpg in the album's folder, unchanged. Done now, not on Save." />
+                                    Command="{Binding SaveEmbeddedArtCommand}" />
                             <TextBlock Text="Replacing the cover updates every track in this album,&#10;plus its folder cover file."
                                        Style="{DynamicResource type.albumMeta}" TextTrimming="None" TextWrapping="Wrap"
                                        Margin="{theme:Thickness Top=dialog.fieldGap}" />
@@ -171,7 +172,6 @@
                          AutomationProperties.Name="Year"
                          Text="{Binding Year, UpdateSourceTrigger=PropertyChanged}"
                          theme:Placeholder.Text="{Binding YearPlaceholder}"
-                         ToolTip="A year (2026), or a full date written year-month-day (2026-10-02)."
                          HorizontalAlignment="Left" Width="{theme:Token tagEdit.yearWidth}" />
 
                 <TextBlock Grid.Row="5" Grid.Column="0" Text="Track" Style="{StaticResource Label}"
@@ -217,8 +217,7 @@
                             Visibility="{Binding ShowsRemoveLeadingZeros, Converter={StaticResource BoolToVisibility}}">
                     <Button x:Name="RemoveLeadingZerosButton" Content="Remove Leading Zeros"
                             Style="{StaticResource theme.dialogButton}"
-                            Command="{Binding RemoveLeadingZerosCommand}"
-                            ToolTip="Rewrite every track's track and disc numbers without leading zeros - 01 becomes 1" />
+                            Command="{Binding RemoveLeadingZerosCommand}" />
                     <TextBlock x:Name="LeadingZerosText" Text="{Binding LeadingZerosText}"
                                Style="{DynamicResource type.albumMeta}"
                                VerticalAlignment="Center" Margin="{theme:Thickness Left=dialog.fieldGap}" />
@@ -244,8 +243,7 @@
                             CommandParameter="Composer" AutomationProperties.Name="Clear Composer" />
                     <TextBox Style="{StaticResource theme.dialogTextBox}" AutomationProperties.Name="Composer"
                              Text="{Binding Composer, UpdateSourceTrigger=PropertyChanged}"
-                             theme:Placeholder.Text="{Binding ComposerPlaceholder}"
-                             ToolTip="Separate several composers with a semicolon." />
+                             theme:Placeholder.Text="{Binding ComposerPlaceholder}" />
                 </DockPanel>
 
                 <TextBlock Grid.Row="10" Grid.Column="0" Text="Conductor" Style="{StaticResource Label}" />
@@ -265,8 +263,7 @@
                             CommandParameter="Genre" AutomationProperties.Name="Clear Genre" />
                     <TextBox Style="{StaticResource theme.dialogTextBox}" AutomationProperties.Name="Genre"
                              Text="{Binding Genre, UpdateSourceTrigger=PropertyChanged}"
-                             theme:Placeholder.Text="{Binding GenrePlaceholder}"
-                             ToolTip="Separate several genres with a semicolon." />
+                             theme:Placeholder.Text="{Binding GenrePlaceholder}" />
                 </DockPanel>
 
                 <!-- Top-aligned label: the box grows with the text, up to MaxHeight, then scrolls. -->

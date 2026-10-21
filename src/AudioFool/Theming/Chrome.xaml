@@ -510,8 +510,7 @@
                                             Focusable="False"
                                             Cursor="Arrow"
                                             Command="{Binding TemplateButtonCommand, RelativeSource={RelativeSource TemplatedParent}}"
-                                            AutomationProperties.Name="Clear search"
-                                            ToolTip="Clear search">
+                                            AutomationProperties.Name="Clear search">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
                                                 <Border Background="Transparent">

@@ -476,7 +476,7 @@ internal static class Program
             refresh.Invoke(vm, null);
             Settle(200);
             Console.WriteLine($"lastfm indicator: state={vm.LastFmState} shown={vm.IsLastFmShown} "
-                + $"label='{vm.LastFmLabel}' tooltip='{vm.LastFmToolTip}'");
+                + $"label='{vm.LastFmLabel}' helptext='{vm.LastFmHelpText}'");
         }
 
         // --clickartists N: click the Artists header N times (default once)
