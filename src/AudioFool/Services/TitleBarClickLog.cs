@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -14,7 +15,8 @@ namespace AudioFool.Services;
 /// <summary>
 /// A log, in playback.log, of the clicks that reach a window's title-bar buttons,
 /// to catch why the X of Statistics or a tag window sometimes ignores every click
-/// (the user's report, sessions 51 and 59). Nothing here changes what a click does.
+/// (the user's report, sessions 51, 59 and 66). Nothing here changes what a click
+/// does; <see cref="CloseButtonSafetyNet"/> clicks an X whose click WPF-UI lost.
 /// <para>
 /// WPF-UI 4.3.0 clicks its title-bar buttons only from WM_NC* messages: it marks
 /// the X pressed on WM_NCLBUTTONDOWN over it, clicks on WM_NCLBUTTONUP, and a
@@ -32,9 +34,18 @@ namespace AudioFool.Services;
 /// marked pressed, WPF-UI's CloseClicked, and after each release over the X,
 /// whether the window is still open.
 /// </para>
+/// <para>
+/// Hit tests (WM_NCHITTEST) are sent, never queued, so a hook on this thread's
+/// window procedures logs those instead: each one between a press on the X and
+/// its release, with the spot it asks about, where the pointer really is, which
+/// button is there, and whether it came from this thread (Windows handling the
+/// mouse) or another (another program asking). Session 66 found the X's mark
+/// gone by the release with neither a capture nor a WM_NCMOUSELEAVE to blame.
+/// </para>
 /// </summary>
 public static class TitleBarClickLog
 {
+    private const int WM_NCHITTEST = 0x0084;
     private const int WM_NCLBUTTONDOWN = 0x00A1;
     private const int WM_NCLBUTTONUP = 0x00A2;
     private const int WM_NCLBUTTONDBLCLK = 0x00A3;
@@ -42,6 +53,8 @@ public static class TitleBarClickLog
     private const int WM_LBUTTONUP = 0x0202;
     private const int WM_LBUTTONDBLCLK = 0x0203;
     private const int WM_NCMOUSELEAVE = 0x02A2;
+    private const int WH_CALLWNDPROC = 4;
+    private const uint ISMEX_NOSEND = 0;
 
     private static readonly FieldInfo? ButtonsField =
         typeof(TitleBar).GetField("_buttons", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -56,7 +69,23 @@ public static class TitleBarClickLog
 
     private static readonly ConditionalWeakTable<Window, Entry> Windows = new();
 
-    public static void Install() => ComponentDispatcher.ThreadPreprocessMessage += OnThreadMessage;
+    // A press on an X whose release hasn't come yet: the hit tests its window gets
+    // in between are logged. One pointer, one press at a time.
+    private sealed record Press(IntPtr Hwnd, Window Window, TitleBar Bar, long At);
+    private static Press? _pressOnClose;
+
+    private delegate IntPtr HookProc(int code, IntPtr wParam, IntPtr lParam);
+
+    // Kept in a field for as long as the hook is in: a collected delegate would crash it.
+    private static readonly HookProc CallWndProc = OnCallWndProc;
+    private static IntPtr _hook;
+
+    /// <summary>Call on the UI thread.</summary>
+    public static void Install()
+    {
+        ComponentDispatcher.ThreadPreprocessMessage += OnThreadMessage;
+        _hook = SetWindowsHookEx(WH_CALLWNDPROC, CallWndProc, IntPtr.Zero, GetCurrentThreadId());
+    }
 
     private static void OnThreadMessage(ref MSG msg, ref bool handled)
     {
@@ -118,6 +147,12 @@ public static class TitleBarClickLog
 
         var over = msg.message == WM_NCMOUSELEAVE ? null : ButtonUnder(buttons, point);
 
+        var press = msg.message is WM_NCLBUTTONDOWN or WM_NCLBUTTONDBLCLK or WM_LBUTTONDOWN or WM_LBUTTONDBLCLK;
+        if (press)
+            _pressOnClose = over == "Close" ? new Press(msg.hwnd, window, bar, Stopwatch.GetTimestamp()) : null;
+        else if (msg.message is WM_NCLBUTTONUP or WM_LBUTTONUP)
+            _pressOnClose = null;
+
         // A client click elsewhere in the window is ordinary use; a mouse leave
         // only matters while it can clear the X's mark.
         if (!nonClient && over is null)
@@ -135,17 +170,61 @@ public static class TitleBarClickLog
             $"{(Mouse.Captured is FrameworkElement f ? $"{f.GetType().Name} '{f.Name}'" : Mouse.Captured?.GetType().Name ?? "none")}; " +
             $"enabled {IsWindowEnabled(msg.hwnd)}, active {window.IsActive}, modal {ComponentDispatcher.IsThreadModal}");
 
-        if (msg.message is WM_NCLBUTTONDOWN or WM_LBUTTONDOWN)
+        if (press)
             entry.CloseClicked = false;
 
         if (msg.message is WM_NCLBUTTONUP or WM_LBUTTONUP && over == "Close")
         {
-            // WPF-UI's click is queued at Input priority; Background runs after it.
-            window.Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+            // WPF-UI's click is queued at Input priority and the safety net's at
+            // Background; ContextIdle runs after both.
+            window.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, () =>
                 PlaybackDiagnostics.Note(
                     $"titlebar: {Describe(window)} after the release on X: CloseClicked {entry.CloseClicked}, " +
                     $"window {(window.IsVisible ? "STILL OPEN" : "closed")}"));
         }
+    }
+
+    private static IntPtr OnCallWndProc(int code, IntPtr wParam, IntPtr lParam)
+    {
+        if (code >= 0 && _pressOnClose is { } press)
+        {
+            try
+            {
+                var sent = Marshal.PtrToStructure<CWPSTRUCT>(lParam);
+                // The hook's own wParam can't tell: it reads "this thread" for a
+                // send from another thread of the process (ThemeLab --window closex).
+                if (sent.message == WM_NCHITTEST && sent.hwnd == press.Hwnd)
+                    LogHitTest(press, sent.lParam, fromThisThread: InSendMessageEx(IntPtr.Zero) == ISMEX_NOSEND);
+            }
+            catch (Exception ex)
+            {
+                // A log must never break a message.
+                PlaybackDiagnostics.Note($"titlebar: hit-test log failed: {ex.GetType().Name}: {ex.Message}");
+            }
+        }
+
+        return CallNextHookEx(_hook, code, wParam, lParam);
+    }
+
+    private static void LogHitTest(Press press, IntPtr lParam, bool fromThisThread)
+    {
+        // A press this old was let go somewhere the log didn't see.
+        if (Stopwatch.GetElapsedTime(press.At) > TimeSpan.FromSeconds(3))
+        {
+            _pressOnClose = null;
+            return;
+        }
+        if (ButtonsField?.GetValue(press.Bar) is not TitleBarButton?[] buttons)
+            return;
+
+        var close = buttons.Length > 2 ? buttons[2] : null;
+        var point = new POINT { X = (short)((long)lParam & 0xFFFF), Y = (short)(((long)lParam >> 16) & 0xFFFF) };
+        GetCursorPos(out var pointer);
+
+        PlaybackDiagnostics.Note(
+            $"titlebar: {Describe(press.Window)} hit test at {point.X},{point.Y} from {(fromThisThread ? "this thread" : "another thread")}, " +
+            $"pointer at {pointer.X},{pointer.Y}, over {ButtonUnder(buttons, point) ?? "nothing"}; " +
+            $"X pressed {close is not null && ClickedDownField?.GetValue(close) is true}, hovered {close?.IsHovered}");
     }
 
     private static string? ButtonUnder(TitleBarButton?[] buttons, POINT point)
@@ -196,12 +275,36 @@ public static class TitleBarClickLog
         public int Y;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CWPSTRUCT
+    {
+        public IntPtr lParam;
+        public IntPtr wParam;
+        public uint message;
+        public IntPtr hwnd;
+    }
+
     [DllImport("user32.dll")]
     private static extern bool ClientToScreen(IntPtr hWnd, ref POINT point);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out POINT point);
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetCapture();
 
     [DllImport("user32.dll")]
     private static extern bool IsWindowEnabled(IntPtr hWnd);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowsHookExW")]
+    private static extern IntPtr SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hMod, uint dwThreadId);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern uint InSendMessageEx(IntPtr reserved);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint GetCurrentThreadId();
 }

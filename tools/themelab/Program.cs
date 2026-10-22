@@ -1463,35 +1463,47 @@ internal static class Program
         // --window closex: the Statistics dialog, modal and off-screen, with mouse
         // messages for its close button posted to the thread's queue as real input
         // arrives (WPF-UI clicks title-bar buttons from WM_NC* messages). Cases: a
-        // normal click; a click WPF-UI loses (WM_NCMOUSELEAVE between press and
-        // release; WRONG while that bug is open, see HANDOFF); a close the
-        // window cancels, which must stay cancelled; a press on X released on the
-        // caption, which must do nothing. Nothing moves the real mouse.
+        // normal click; clicks WPF-UI loses, which the safety net must click
+        // (CloseButtonSafetyNet, session 66): a WM_NCMOUSELEAVE between press and
+        // release, a hit test off the X between them sent from another thread as
+        // another program's would be, the second press of a double-click, a client
+        // click while the mouse is captured; a close the window cancels, which must
+        // stay cancelled whoever clicked; a press on X released on the caption,
+        // which must do nothing. Nothing moves the real mouse. Prints the title-bar
+        // click log, the hit tests between press and release included.
         if (which == "closex")
         {
+            // The app's title-bar click log, to a scratch file printed at the end;
+            // pointed there before anything is logged, so the real playback.log is
+            // never written (see HANDOFF, Claude's shells and AppData).
+            var clickLog = Path.Combine(Path.GetTempPath(), "themelab-closex-" + Guid.NewGuid().ToString("N")[..8] + ".log");
+            AudioFool.Core.Playback.PlaybackDiagnostics.LogPath = clickLog;
+            AudioFool.Services.TitleBarClickLog.Install();
+            AudioFool.Services.CloseButtonSafetyNet.Install();
+
             LoadRealLibrary(vm);
             var libraryField = typeof(MainViewModel).GetField("_folderFilteredLibrary",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
             var library = (AudioFool.Core.Library.MusicLibrary)libraryField.GetValue(vm)!;
-            const uint NcHitTest = 0x84, NcDown = 0xA1, NcUp = 0xA2, NcLeave = 0x2A2, ClientDown = 0x201, ClientUp = 0x202;
+            const uint NcHitTest = 0x84, NcDown = 0xA1, NcUp = 0xA2, NcDouble = 0xA3, NcLeave = 0x2A2, ClientDown = 0x201, ClientUp = 0x202;
+            // Not a message: a hit test for the caption, sent from a worker thread.
+            const uint ForeignHitTest = 0x10000 | NcHitTest;
             const int HtClose = 20, HtCaption = 2, Client = -1;
 
-            // The app's title-bar click log (TitleBarClickLog), to a scratch file
-            // printed at the end.
-            var clickLog = Path.Combine(Path.GetTempPath(), "themelab-closex-" + Guid.NewGuid().ToString("N")[..8] + ".log");
-            AudioFool.Core.Playback.PlaybackDiagnostics.LogPath = clickLog;
-            AudioFool.Services.TitleBarClickLog.Install();
-
-            var cases = new (string Name, (uint Msg, int Hit)[] Steps, bool CancelFirstClose, bool ShouldClose)[]
+            var cases = new (string Name, (uint Msg, int Hit)[] Steps, bool CancelFirstClose, bool ShouldClose, int NetClicks)[]
             {
-                ("normal click", [(NcDown, HtClose), (NcUp, HtClose)], false, true),
-                ("click WPF-UI loses", [(NcDown, HtClose), (NcLeave, 0), (NcUp, HtClose)], false, true),
-                ("close the window cancels", [(NcDown, HtClose), (NcUp, HtClose)], true, false),
-                ("press on X, release on caption", [(NcDown, HtClose), (NcUp, HtCaption)], false, false),
+                ("normal click", [(NcDown, HtClose), (NcUp, HtClose)], false, true, 0),
+                ("click lost to a mouse leave", [(NcDown, HtClose), (NcLeave, 0), (NcUp, HtClose)], false, true, 1),
+                ("click lost to another program's hit test", [(NcDown, HtClose), (ForeignHitTest, HtCaption), (NcUp, HtClose)], false, true, 1),
+                ("second press of a double-click", [(NcDouble, HtClose), (NcUp, HtClose)], false, true, 1),
+                ("close the window cancels", [(NcDown, HtClose), (NcUp, HtClose)], true, false, 0),
+                ("lost click, close the window cancels", [(NcDown, HtClose), (NcLeave, 0), (NcUp, HtClose)], true, false, 1),
+                ("press on X, release on caption", [(NcDown, HtClose), (NcUp, HtCaption)], false, false, 0),
                 // While something in the window holds the mouse captured, Windows
                 // sends a click on the X as a plain client click.
-                ("click on X as a client click (mouse captured)", [(ClientDown, Client), (ClientUp, Client)], false, true),
+                ("click on X as a client click (mouse captured)", [(ClientDown, Client), (ClientUp, Client)], false, true, 1),
             };
+            var allOk = true;
 
             foreach (var test in cases)
             {
@@ -1499,6 +1511,7 @@ internal static class Program
                 var dialog = new StatisticsWindow(statsVm, main) { ShowActivated = false, ShowInTaskbar = false };
                 dialog.Loaded += (_, _) => { dialog.Left = -20000; dialog.Top = -20000; };
                 var closed = false;
+                var reported = false;
                 var titleBarClicks = 0;
                 var cancelled = 0;
                 dialog.Closed += (_, _) => closed = true;
@@ -1510,6 +1523,7 @@ internal static class Program
                 dialog.Loaded += async (_, _) =>
                 {
                     await Task.Delay(400);
+                    var netBefore = SafetyNetClicks(clickLog);
                     var close = FindAll<Wpf.Ui.Controls.TitleBarButton>(dialog)
                         .First(b => b.ButtonType == Wpf.Ui.Controls.TitleBarButtonType.Close);
                     var hwnd = new System.Windows.Interop.WindowInteropHelper(dialog).Handle;
@@ -1523,31 +1537,43 @@ internal static class Program
                     NcSend(hwnd, NcHitTest, IntPtr.Zero, onClose);   // hover, as the pointer arriving does
                     foreach (var (msg, hit) in test.Steps)
                     {
-                        PostMessage(hwnd, msg, hit == Client ? (IntPtr)1 : (IntPtr)hit,
-                            hit == Client ? onCloseClient : hit == HtCaption ? onCaption : onClose);
+                        if (msg == ForeignHitTest)
+                            await Task.Run(() => NcSend(hwnd, NcHitTest, IntPtr.Zero, onCaption));
+                        else
+                            PostMessage(hwnd, msg, hit == Client ? (IntPtr)1 : (IntPtr)hit,
+                                hit == Client ? onCloseClient : hit == HtCaption ? onCaption : onClose);
                         await Task.Delay(30);
                     }
 
                     await Task.Delay(500);
-                    var ok = closed == test.ShouldClose;
-                    Console.WriteLine($"{test.Name}: closed {closed} (want {test.ShouldClose}), WPF-UI clicked {titleBarClicks}, "
+                    var netClicks = SafetyNetClicks(clickLog) - netBefore;
+                    var ok = closed == test.ShouldClose && netClicks == test.NetClicks;
+                    allOk &= ok;
+                    Console.WriteLine($"{test.Name}: closed {closed} (want {test.ShouldClose}), CloseClicked {titleBarClicks}, "
+                        + $"safety net clicked {netClicks} (want {test.NetClicks}), "
                         + $"closes cancelled {(test.CancelFirstClose ? cancelled : 0)} {(ok ? "OK" : "WRONG")}");
                     if (!closed)
                     {
                         cancelled = 1;
                         dialog.Close();
                     }
+                    reported = true;
                 };
 
                 dialog.ShowDialog();
+                // A click the safety net makes closes the dialog before its case has
+                // reported, and the next case's clicks mustn't count towards this one.
+                while (!reported)
+                    Settle(20);
                 Settle(100);
             }
 
             Settle(400);   // the log's writer flushes every few ms
+            Console.WriteLine(allOk ? "ALL OK" : "SOME WRONG");
             Console.WriteLine("--- title-bar click log ---");
             foreach (var line in File.Exists(clickLog) ? File.ReadAllLines(clickLog) : [])
                 Console.WriteLine(line);
-            return 0;
+            return allOk ? 0 : 1;
         }
         if (which == "device")
         {
@@ -3361,6 +3387,26 @@ internal static class Program
                 yield return deeper;
             }
         }
+    }
+
+    /// <summary>
+    /// The close button safety net's clicks so far, counted in the click log
+    /// (--window closex). Opened shared: the log's writer may be appending.
+    /// </summary>
+    private static int SafetyNetClicks(string log)
+    {
+        if (!File.Exists(log))
+            return 0;
+
+        using var stream = new FileStream(log, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = new StreamReader(stream);
+        var clicks = 0;
+        while (reader.ReadLine() is { } line)
+        {
+            if (line.Contains("the safety net clicked it"))
+                clicks++;
+        }
+        return clicks;
     }
 
     /// <summary>

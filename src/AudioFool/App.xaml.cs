@@ -52,8 +52,10 @@ public partial class App : Application
             return;
         }
 
-        // Diagnostics for the X that sometimes ignores clicks; changes nothing.
+        // The X that sometimes ignores clicks: a log that changes nothing, and a
+        // safety net that clicks the X when WPF-UI loses a click on it.
         TitleBarClickLog.Install();
+        CloseButtonSafetyNet.Install();
 
         var settings = AppSettings.Load();
 
