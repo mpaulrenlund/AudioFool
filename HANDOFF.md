@@ -139,13 +139,16 @@ and the commit fails, as it did for `275921e`.
 
 Session 64 built **About**, a PlayStation easter egg (see *Where things are*), then,
 after the user saw it, added the version line and a sharper PlayStation picture.
+**Finished: confirmed by the user** ("About looks great"); nothing about it is open.
 **The installed app is that build** (2026-10-21 18:44, 25 files hash-identical to
-`publish\`). **All committed and pushed**: the first version (`fb2b20b`, docs
-`74e8019`), then the version line and the new picture (`942c013`, and the docs
-commit after it). 902 tests pass. Since session 63 an install is checked by hashing the files, not by
-launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
-playback.log* under Gotchas). The beat screen's Terminal tab, if still open, can be
-closed.
+`publish\`). **Everything is committed and pushed**: `fb2b20b` (About), `74e8019`
+(docs), `942c013` (the version line and the new picture), `562f0a9` (docs),
+`2024f74` (the confirmation); `main` matches `origin/main`, nothing uncommitted.
+902 tests pass (one failure on the first run after a build in session 64, gone on the
+rerun: most likely the known flaky `LiveSpectrumTests`, step 6). Since session 63 an
+install is checked by hashing the files, not by launching AudioFool from Claude's
+shell (see *A launch from Claude's shell writes playback.log* under Gotchas). The
+beat screen's Terminal tab, if still open, can be closed.
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
@@ -167,8 +170,10 @@ Open with the user, in this order (each is under *Suggested next steps*):
 
 Then a release can follow: sessions 55–64 are unreleased (since v0.6.1). It waits on the
 projectM decision (step 5). Confirm the version and notes with the user first (see
-*Releases*); session 60 alone is a lot of user-visible fixes, and session 63 adds a
-feature, so the middle number goes up.
+*Releases*); session 60 alone is a lot of user-visible fixes, and sessions 63 and 64
+add features (Find and Replace, About), so the middle number goes up. About's version
+line reads the exe's version, so the bump shows there by itself; check it reads the
+new number in the release build.
 
 ### Where things are
 
@@ -361,7 +366,8 @@ feature, so the middle number goes up.
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
 - **64** (2026-10-21): **About**, the PlayStation start-up as an easter egg (logo
-  menu), lending the DAC in Bit-Perfect. See *Where things are* above.
+  menu), lending the DAC in Bit-Perfect, with the version under the logos.
+  Confirmed by the user. See *Where things are* above.
 
 - **63** (2026-10-21): **Find and Replace** across the library (logo menu, Ctrl+H),
   with a ticked preview, a confirmation and Undo. See *Where things are* above.
