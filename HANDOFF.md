@@ -372,8 +372,8 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   both themes: only the status bar's chips and the shortcut guide changed. 878 tests.
   **Installed** 20:38 (AudioFool wasn't running): 19 files hash-identical to
   `publish\`; the six projectM DLLs and the 146 MB `visualizer` folder beside the exe,
-  and `lib/projectm/`, sent to the Recycle Bin. Not yet committed; not yet seen by
-  the user on screen.
+  and `lib/projectm/`, sent to the Recycle Bin. Committed `5b75e93` and pushed; not
+  yet seen by the user on screen.
 
 - **64** (2026-10-21): **About**, the PlayStation start-up as an easter egg (logo
   menu), lending the DAC in Bit-Perfect, with the version under the logos.
