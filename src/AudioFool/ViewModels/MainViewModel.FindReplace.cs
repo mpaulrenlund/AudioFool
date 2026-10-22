@@ -77,7 +77,7 @@ public sealed partial class MainViewModel
     {
         var doing = words.Doing;
         using var writing = BeginWrite();
-        StatusText = $"Find and Replace: {doing} {ReplaceRun.Songs(songs.Count)}...";
+        StatusText = $"Find and Replace: {doing} {ReplaceRun.Songs(songs.Count)}…";
 
         var library = new Dictionary<string, Track>(StringComparer.OrdinalIgnoreCase);
         foreach (var track in _library.AllTracks)

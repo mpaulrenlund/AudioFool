@@ -175,11 +175,26 @@ check it reads the new number in the release build.
   request, the plan approved as proposed. With two or more songs selected in the
   Songs table, Ctrl+H or the logo menu looks only through those
   (`MainViewModel.NewFindReplace`, `FindReplaceSongs(picked)`, looked up by path in
-  `_library` at each Find), titled "Find and Replace - 12 tracks"
+  `_library` at each Find), titled "Find and Replace · 12 tracks"
   (`FindReplaceViewModel.WindowTitle`). Several artists or albums selected don't
   count (offered, not taken). ThemeLab `--window findreplace` steps 10–11: ALL OK in
   Light, Dark and 125%. Installed 08:22 (AudioFool wasn't running), 19 files
   hash-identical. **Not yet tried by the user.** Committed `f4a994d` and pushed.
+  Then **the small review fixes** (session 60's UI and project leads, the user's calls
+  on four): "…" everywhere (two tag-window buttons and the progress lines); "Add
+  Folder…", "Remove Folder", "Album Art"; **every window title separates with " · "**
+  (the user's pick; the main window, so the taskbar and Alt-Tab, reads "Artist ·
+  Song", the tag windows "Edit Album Tags · X", the art viewer "Artist · Album");
+  **the main button first** in the tag window (Save, Cancel) and the art search (Use
+  Image, Cancel), as the prompts have it; **Escape is Cancel** in the art search, and
+  in a tag window too but **asking Save / Don't Save / Cancel first when something
+  was typed** (`TagEditWindow.Window_KeyDown`; Save in a following window saves, then
+  closes once the owner re-enables it); the filter chip's text `text.status`
+  (measured #33312F / #B3B9C4); spec §6.5, §6.7, §6.8 brought up to the user's
+  calls; README About no longer names v0.6.1; the flaky test made sturdy (step 6).
+  ThemeLab `--window albumeditor` steps 12–15 (Escape) as expected; tag window, art
+  search and the chip rendered in both themes, 0 magenta. Installed 08:56 (AudioFool
+  had already been closed), 19 files hash-identical. Committed and pushed.
 - **Session 66** (2026-10-22): **the close X caught in the act, and a safety net**
   (details in `HISTORY.md`):
   - The user's Statistics X ignored 19 clicks in a row, then closed on the 20th. Each
@@ -921,7 +936,7 @@ WPF's `MenuItem` cannot mix `ItemsSource` items with static child items. The wor
 `BindingProxy` (a `Freezable`) is declared as a `FluentWindow` resource with
 `Data="{Binding}"` — Freezables inherit DataContext, so this ferries the ViewModel.
 A `CollectionViewSource` bound through the proxy feeds the folder items. Static `MenuItem`
-entries for Add folder bind their commands via
+entries for Add Folder bind their commands via
 `{Binding Source={StaticResource Proxy}, Path=Data.AddFolderCommand}`.
 
 ### One copy, and songs opened from Explorer (session 59)
@@ -1521,7 +1536,10 @@ Open items only; finished ones are in `HISTORY.md`.
 
 1. **Ask the user to try what was checked off-screen only:**
    - **Session 67, Find and Replace on a selection:** select several songs, Ctrl+H;
-     the title reads "Find and Replace - N tracks" and only those songs are listed.
+     the title reads "Find and Replace · N tracks" and only those songs are listed.
+   - **Session 67, the small fixes:** Escape in a tag window after typing (asks Save /
+     Don't Save / Cancel), Save now left of Cancel, and " · " in the window titles
+     (the taskbar reads "Artist · Song").
    - **Session 64, About:** **confirmed by the user**: "About looks great". Not said
      whether it was tried with music playing or with Bit-Perfect on; only worth
      asking if a problem is reported.
@@ -1662,23 +1680,18 @@ Open items only; finished ones are in `HISTORY.md`.
      settings.json is safe (flush, `File.Replace`, .bak). **playlists.json is the
      exposed one**: no backup, and a damaged file is moved aside and replaced with an
      empty Liked without a word (`PlaylistStore.Load`). Small.
-   - **UI (against the specs):**
-     - Mixed "..." and "…"; "Add folder…"/"Remove folder" in sentence case; three
-       window-title separators; dialog button order and Escape differ between dialogs.
-     - The filter chip text is `text.primary`, not `text.status` (progress.md says
-       they match); a comment in `ArtSearchWindow.xaml` says covers of at least 1,000 px,
-       but the code accepts 600 (the tag window's tooltip said so too; gone in session 61).
-     - Spec drift: theme-spec §6.8 (Last.fm chip), §6.5, §6.7.
+   - **UI (against the specs):** all fixed in session 67 (ellipses, capitalisation,
+     title separators, button order, Escape, the filter chip's colour, the art search
+     comment, spec §6.5, §6.7 and §6.8).
    - **Project:**
      - `AudioEngine` has no tests (confirmed in session 66: 1,500 lines, and nothing
        covers it, `OutputChain` or `BassRuntime`). The decisions behind the playback
        findings are the ones to pull out first.
      - The Last.fm secret is in plain text.
-     - `LiveSpectrumTests.An_update_allocates_nothing` fails now and then on the first
-       run after a build (twice in session 60, 7 KB allocated; every rerun passes, and
-       `Update` allocates nothing). In session 65 it failed **two full runs in a row**
-       after a build, then passed alone three times and in the full suite. Make the test sturdier (warm up longer, or allow
-       the runtime's own allocations).
+     - ~~`LiveSpectrumTests.An_update_allocates_nothing` fails now and then~~ Made
+       sturdier in session 67: five rounds of 100 updates, the fewest bytes must be 0
+       (the runtime's own allocation lands in one round; one of `Update`'s would show
+       in all). Watch that it stays quiet.
    - **Left out of session 60 on purpose (the user may want them):** a folder added
      during a scan (session 66: that scan skips it, F5 or the next start reads it;
      small); flush-to-disk before the swap (session 66: see *Data safety*).

@@ -216,9 +216,19 @@ public class LiveSpectrumTests
         var window = Window(44100, spectrum.FftSize, 0, (1000, 0.5));
         spectrum.Update(window, 2, Frame);
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 100; i++)
-            spectrum.Update(window, 2, Frame);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        // The runtime itself sometimes allocates on this thread mid-measure (the
+        // JIT moving Update to optimised code on the first run after a build), so
+        // measure several rounds: an allocation of Update's own shows in every
+        // round, the runtime's in one or two.
+        var fewest = long.MaxValue;
+        for (var round = 0; round < 5; round++)
+        {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var i = 0; i < 100; i++)
+                spectrum.Update(window, 2, Frame);
+            fewest = Math.Min(fewest, GC.GetAllocatedBytesForCurrentThread() - before);
+        }
+
+        Assert.Equal(0, fewest);
     }
 }

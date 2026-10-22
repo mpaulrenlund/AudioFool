@@ -72,7 +72,7 @@
                    TextWrapping="Wrap" TextTrimming="None" />
 
         <!--
-            JPEG only, at least 1,000 px on both sides: the filter is applied
+            JPEG only, at least 600 px on both sides (OnlineArtSearch.MinimumSize): the filter is applied
             before a cover appears here, measured from the file itself.
 
             The covers behave as the Albums list (6.4), in a panel like it: the
@@ -178,12 +178,13 @@
                        Margin="{theme:Thickness Right=dialog.buttonGap}"
                        Text="Double-click a cover, or select one and press Use Image." />
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button Content="Cancel" Click="Cancel_Click"
-                        Style="{StaticResource theme.dialogButton}"
-                        Margin="{theme:Thickness Right=dialog.buttonGap}" />
+                <!-- The main button first, as Windows and the prompts have it; Escape is Cancel (session 67). -->
                 <Button x:Name="UseButton" Content="Use Image"
                         Style="{StaticResource theme.dialogButton.primary}"
+                        Margin="{theme:Thickness Right=dialog.buttonGap}"
                         IsEnabled="{Binding CanUse}" Click="Use_Click" />
+                <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" Click="Cancel_Click"
+                        Style="{StaticResource theme.dialogButton}" />
             </StackPanel>
         </Grid>
     </Grid>

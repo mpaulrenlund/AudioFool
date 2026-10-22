@@ -196,7 +196,7 @@ removable storage.
 1. Copy your music to the drive. Use a method that **preserves timestamps** -
    `robocopy /MIR`, or Explorer drag-and-drop, both do. That lets the cached tags be
    reused after the move instead of every file being re-read.
-2. In AudioFool, **Add folder** and point at the new location.
+2. In AudioFool, **Add Folder** and point at the new location.
 3. Confirm the track count matches, and play something.
 4. Only then remove the old copy.
 
@@ -302,7 +302,7 @@ These only apply when AudioFool has focus:
 | **F5** | Rescan the library |
 | **Enter** | Play the selected track |
 | **F2** | Edit the selected track's #, Song, Artist or Album in place (the cell you last clicked). A second single click on the selected row does the same. **Enter** saves, **Escape** cancels |
-| **Escape** | Close the album-art viewer (so does Ctrl+D); in the search box, leave it and keep the search (the × clears it) |
+| **Escape** | Close the album-art viewer (so does Ctrl+D) or a dialog; in a tag window it asks first if something was typed (Save, Don't Save, Cancel); in the search box, leave it and keep the search (the × clears it) |
 | **Space** | Play / pause |
 | **Ctrl+S** | Shuffle on / off |
 | **Ctrl+E** | Next repeat setting (off → whole queue → this track) |
@@ -331,7 +331,7 @@ Ctrl+arrows move by word as usual. Holding a key acts once, except the volume.
 Hover AudioFool's taskbar icon and the thumbnail carries **Previous, Play/Pause, Next
 and Stop** buttons. Play/Pause shows ▶ when nothing is playing and ⏸ while something
 is. The glyphs are white on a dark taskbar and black on a light one. The thumbnail's
-heading — and the taskbar tooltip and Alt-Tab — read "Artist – Title" while a track
+heading — and the taskbar tooltip and Alt-Tab — read "Artist · Title" while a track
 is loaded, "AudioFool" otherwise.
 
 ### Fitting the track columns
@@ -478,7 +478,7 @@ at once: deleting "(Remastered)" from every title and album, say.
    listed, one row per song and tag, with the file it's in. The search box makes no
    difference, and a folder on a drive that isn't connected is skipped. **With two
    or more songs selected** in the Songs table when it opens, it looks only through
-   those, and the title says how many ("Find and Replace - 12 tracks"), until the
+   those, and the title says how many ("Find and Replace · 12 tracks"), until the
    window closes.
 2. Type what goes in its place in the second box: **AFTER** shows the result as you
    type. Leave it empty to delete the text. The spaces a change leaves are tidied, so
@@ -510,8 +510,8 @@ at once: deleting "(Remastered)" from every title and album, say.
 
 Logo menu → **About** plays the PlayStation's start-up over the main window: the Sony
 screen, then the PlayStation screen as the chime starts, with the start-up sound
-(about 15 seconds), and AudioFool's version ("AudioFool v0.6.1") at the bottom of
-each. A click or any key ends it early.
+(about 15 seconds), and AudioFool's version ("AudioFool v" and the version this copy
+is, read from the app itself) at the bottom of each. A click or any key ends it early.
 
 - Music that is playing pauses for it and carries on from the same place afterwards.
 - In Bit-Perfect, AudioFool holds the DAC for itself, even paused, so no other sound

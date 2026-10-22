@@ -39,7 +39,7 @@ public sealed partial class TagEditViewModel : ObservableObject
     /// <summary>Art belongs to the whole album, so only the album dialog offers it.</summary>
     public bool ShowsArt => IsAlbumMode && !IsSelectionMode;
 
-    /// <summary>Where "Choose Image..." should open, so it starts at the album's own folder.</summary>
+    /// <summary>Where "Choose Image…" should open, so it starts at the album's own folder.</summary>
     private readonly string? _artStartDirectory;
 
     /// <summary>The inverse of <see cref="IsAlbumMode"/>, for the fields only a single-track edit shows.</summary>
@@ -167,7 +167,7 @@ public sealed partial class TagEditViewModel : ObservableObject
     public TagEditViewModel(Track track)
     {
         IsAlbumMode = false;
-        WindowTitle = $"Edit Track Tags - {track.DisplayTitle}";
+        WindowTitle = $"Edit Track Tags · {track.DisplayTitle}";
 
         Title = track.Title;
         Artist = track.Artist;
@@ -222,7 +222,7 @@ public sealed partial class TagEditViewModel : ObservableObject
         IsAlbumMode = true;
         _sharedFolder = sharedFolder ?? (_ => false);
         ArtSearch = artSearch ?? new OnlineArtSearch(fanartApiKey: null);
-        WindowTitle = $"Edit Album Tags - {album.Title}";
+        WindowTitle = $"Edit Album Tags · {album.Title}";
 
         var tracks = album.Tracks;
         FillSharedFields(tracks);
@@ -278,7 +278,7 @@ public sealed partial class TagEditViewModel : ObservableObject
     {
         IsAlbumMode = true;
         IsSelectionMode = true;
-        WindowTitle = $"Edit Tags - {scope ?? $"{tracks.Count} tracks"}";
+        WindowTitle = $"Edit Tags · {scope ?? $"{tracks.Count} tracks"}";
 
         FillSharedFields(tracks);
         RememberInitialDetails();
@@ -563,7 +563,7 @@ public sealed partial class TagEditViewModel : ObservableObject
     private Task SaveEmbeddedArt()
     {
         IsExtractingArt = true;
-        ArtMessage = "Reading the embedded art...";
+        ArtMessage = "Reading the embedded art…";
         ArtExtraction = ExtractAsync();
         return ArtExtraction;
 

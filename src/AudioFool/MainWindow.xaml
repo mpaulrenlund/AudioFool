@@ -367,14 +367,14 @@
                                         <!--
                                             These two set their own Style: an item that is its own
                                             container is otherwise given the folder rows'
-                                            ItemContainerStyle above, which made Add folder a
+                                            ItemContainerStyle above, which made Add Folder a
                                             checkable item bound to nothing.
                                         -->
-                                        <MenuItem Header="Add folder…"
+                                        <MenuItem Header="Add Folder…"
                                                   Style="{DynamicResource {x:Type MenuItem}}"
                                                   Icon="{ui:SymbolIcon FolderAdd24}"
                                                   Command="{Binding Source={StaticResource Proxy}, Path=Data.AddFolderCommand}" />
-                                        <MenuItem Header="Remove folder"
+                                        <MenuItem Header="Remove Folder"
                                                   Style="{DynamicResource {x:Type MenuItem}}"
                                                   Icon="{ui:SymbolIcon FolderProhibited24}"
                                                   ItemsSource="{Binding Source={StaticResource RemoveFoldersSource}}">
@@ -443,11 +443,11 @@
                            BorderBrush="{DynamicResource color.status.chipBorder}"
                            MouseOverBorderBrush="{DynamicResource color.status.chipBorder}"
                            PressedBorderBrush="{DynamicResource color.status.chipBorder}"
-                           PressedForeground="{DynamicResource color.text.primary}"
+                           PressedForeground="{DynamicResource color.text.status}"
                            BorderThickness="{theme:Thickness All=layout.panelBorder}"
                            CornerRadius="{DynamicResource radius.chip}"
                            FocusVisualStyle="{DynamicResource theme.focusRing.chip}"
-                           Foreground="{DynamicResource color.text.primary}"
+                           Foreground="{DynamicResource color.text.status}"
                            FontFamily="{DynamicResource font.family}"
                            FontSize="{theme:Token type.search.size}"
                            Icon="{ui:SymbolIcon Filter16}"

@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using AudioFool.ViewModels;
 using Wpf.Ui.Controls;
 
@@ -38,6 +39,8 @@ public partial class TagEditWindow : FluentWindow
 
         // Height depends on SizeToContent, so position once layout has run.
         Loaded += (_, _) => CenterOverOwner(owner);
+        KeyDown += Window_KeyDown;
+        IsEnabledChanged += Window_IsEnabledChanged;
     }
 
     /// <summary>
@@ -89,12 +92,59 @@ public partial class TagEditWindow : FluentWindow
             DialogResult = true;
     }
 
-    private void Cancel_Click(object sender, RoutedEventArgs e)
+    private void Cancel_Click(object sender, RoutedEventArgs e) => Dismiss();
+
+    private void Dismiss()
     {
         if (FollowsSelection)
             Close();
         else
             DialogResult = false;
+    }
+
+    /// <summary>
+    /// Escape is Cancel (session 67, the user's call), but asks first when
+    /// something was typed, so a stray press can't lose it. KeyDown, not Preview:
+    /// a box that uses Escape itself has it first.
+    /// </summary>
+    private void Window_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || Keyboard.Modifiers != ModifierKeys.None || !IsEnabled)
+            return;
+
+        e.Handled = true;
+        var choice = _viewModel.HasChanges
+            ? MainViewModel.AskSaveChanges(this, "Unsaved Changes", "Save your changes before closing?")
+            : UnsavedChoice.Discard;
+
+        if (choice == UnsavedChoice.Discard)
+            Dismiss();
+        else if (choice == UnsavedChoice.Save && _viewModel.CanSave)
+        {
+            if (FollowsSelection)
+            {
+                // The owner greys the window while it saves and shows the album
+                // again once saved; closed then, unless something is still unsaved.
+                _closeWhenSaved = true;
+                SaveRequested?.Invoke(this, EventArgs.Empty);
+                // Still enabled: the owner didn't start a save (one under way already).
+                _closeWhenSaved = !IsEnabled;
+            }
+            else
+                DialogResult = true;
+        }
+    }
+
+    private bool _closeWhenSaved;
+
+    private void Window_IsEnabledChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (!_closeWhenSaved || !IsEnabled)
+            return;
+
+        _closeWhenSaved = false;
+        if (!_viewModel.HasChanges)
+            Close();
     }
 
     private void SearchInternet_Click(object sender, RoutedEventArgs e)

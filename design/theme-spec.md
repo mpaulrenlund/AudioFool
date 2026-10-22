@@ -230,7 +230,7 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 - 144 px square art with `art.border` and shadow `0 4px 10px rgba(0,0,0,0.25)`, then 24 px gap.
 - Right column, top-aligned, 8 px between title and details:
   - Album title (30 px).
-  - Four stacked lines, 3 px apart, each 14 px: **Artist** (600, `accent.blue`) / **Year** / **"N tracks"** / **Duration** formatted like "1 hr 6 min" (use "42 min" under an hour).
+  - Four stacked lines, 3 px apart, each 14 px: **Artist** (600, `accent.blue`) / **Year** / **"N tracks"** ("1 track" for one) / **Duration** in the Time column's clock format, "1:06:27", or "41:40" under an hour (the user's call; this said "1 hr 6 min" until 2026-10-22).
 - No Play/Shuffle buttons and no format tags in the header.
 
 ### 6.6 Song table
@@ -280,7 +280,7 @@ A panel-styled bar: `panel.bg`, 1 px `panel.border`, 4 px radius, inset top high
 
 **Zone 1 — Now playing** (width set by alignment rule 3; currently 451 px):
 - 88 px square art, `art.border`, shadow `0 0 6px rgba(0,0,0,0.25)` (even on all sides — no offset).
-- 16 px gap, then three lines, 3 px apart: song title (17 px) / artist (14 px, blue) / format line (13 px, "MP3 · 320 kbps · 44.1 kHz" with middle dots).
+- 16 px gap, then three lines, 3 px apart: song title (17 px) / artist (14 px, blue) / format line (13 px, `text.muted`): the quality tier, "Hi-Res Lossless", "CD Quality Lossless", "Lossy" or "DSD", by the rule of Statistics' Audio Quality rows (the user's call; it was "MP3 · 320 kbps · 44.1 kHz").
 
 **Zone 2 — Transport buttons**: Previous, Play/Pause and Next in a row, 16 px apart, then **Repeat over Shuffle** as a vertical stack (10 px apart) 16 px after Next, centred on the row's height. This is also the Tab order. (Until 2026-10-02 the row was Shuffle, Previous, Play/Pause, Next, Repeat at 44 px; the user stacked the two mode buttons and made them smaller.)
 - All round, face `control.face`, 1 px `control.faceBorder`. Molded look: `inset 0 -3px 0 rgba(0,0,0,0.12)`, `inset 0 1px 0 rgba(255,255,255,0.8)`, `0 1px 3px rgba(0,0,0,0.25)`.
@@ -290,7 +290,7 @@ A panel-styled bar: `panel.bg`, 1 px `panel.border`, 4 px radius, inset top high
 - **Shuffle:** `control.iconOff` when off, `control.shuffleOn` when on.
 - **Repeat** cycles **off → all → one** on each click: `control.iconOff` when off, `control.repeatOn` for all and one. Repeat-one adds a badge on the button's top-right corner: a 13 px `control.repeatOn` disc overhanging the button by 2 px, holding a "1" (9 px, 700, `control.face`). (A "1" inside the 16 px icon was unreadable at this size.)
 - No status lights under the buttons.
-- Hover: slightly brighter. Pressed: nudges down 1 px.
+- Hover: the face brightens to `control.faceHover`. Pressed: nudges down 1 px.
 
 **Zone 3 — Seekbar** (fills remaining width):
 - Elapsed time (12 px, right-aligned in a 36 px space), 14 px gap, track, 14 px gap, total time.
@@ -300,11 +300,11 @@ A panel-styled bar: `panel.bg`, 1 px `panel.border`, 4 px radius, inset top high
 - **Waveform** (added 2026-10-06, the user's choice): once the playing track's loudness has been read, the 6 px groove gives way to a waveform 28 px tall (`playbackBar.waveformHeight`; the user asked for 30% more than the first 22 px, 2026-10-06), and the seekbar's click strip grows to match. It's a filled shape mirrored about the middle, one RMS level per column, scaled so the loudest moment is full height, and never thinner than `playbackBar.waveformFloor` (2 px), so silence still shows a line. The played part is `slider.seekFill` and the rest is `slider.track`, split where the handle's centre would be. **No handle and no line on the waveform** (the user's call, 2026-10-06): the point where teal meets grey is the only position marker. (A 2 px teal playhead line was tried and removed the same day.) Clicking and dragging anywhere on the strip still seek. Until the levels are ready, or if the file can't be read, the plain groove shows. The volume slider keeps the plain groove.
 
 **Zone 4 — Volume** (240 px):
-- Speaker button (44 px clickable area, 17 px icon, `text.muted`, no face), 8 px gap, volume track.
+- Speaker button (44 px clickable area, 17 px icon, `control.iconOff`, the grey of Shuffle and Repeat when off; no face), 8 px gap, volume track.
 - Volume track is the **same height and style as the seekbar** and sits on the **same horizontal line** as the seekbar. Filled portion `slider.volumeFill`; handle 12 px.
 - **Output readout** sits just under the volume slider, right-aligned, without pushing the slider up. Text:
   - Shared mode: "Shared · 96 kHz / 32-bit (resampled)" — include "(resampled)" when the output rate differs from the file's rate.
-  - Bit-perfect: "Exclusive · 44.1 kHz · bit-perfect".
+  - Bit-Perfect: "Exclusive · 44.1 kHz", and "Exclusive · 176.4 kHz · DSD over PCM" for DSD sent as DoP. No "bit-perfect": the Bit-Perfect chip's dot already says so.
 - **Mute:** clicking the speaker mutes (icon gets an "×", slider shows zero). Clicking again restores the **previous volume**. Dragging the slider while muted unmutes and sets the new level.
 
 ### 6.8 Status bar (36 px)
@@ -313,13 +313,14 @@ Background `window.bg`, 12 px horizontal padding, 12 px text in `text.status`.
 
 **Left, in order:**
 1. **Refresh button:** 26 × 26 px, 4 px radius, `status.chipBg`, 1 px `status.chipBorder`, 14 px circular-arrow icon, 6 px extra space after it. Rescans the library.
-2. Small 7 px `accent.playback` dot.
+2. Small 7 px `status.libraryDot` dot.
 3. "499 artists · 2,376 albums · 26,795 tracks · [size] GB" (all live values).
 
 **Library size:** total size of all library files, using **1 GB = 1,024³ bytes** (matches Windows File Explorer), rounded to the nearest whole GB, with a thousands separator above 999 ("1,204 GB"). Recalculate when Refresh runs.
 
 **Right, 10 px apart:**
-- **Last.fm:** 26 px tall chip, 4 px radius, `status.chipBg`/`status.chipBorder`, 7 px `accent.playback` dot + "Last.fm".
+- **Last.fm:** 26 px tall chip, 4 px radius, `status.chipBg`/`status.chipBorder`, 7 px `status.lastFmOff` dot + "Last.fm: not connected" or "Last.fm: reconnect". **Shown only when there is no working session** (the user's call); hidden while connected. Clicking it opens the Last.fm window.
+- **Theme:** the same chip, icon only, switching PS1 Light and PS2 Dark (see `ps2-dark/theme-spec.md` §3.1).
 - **Bit-Perfect:** same chip, 7 px dot + "Bit-Perfect". **No "On"/"Off" text** — the dot shows state: `status.bitPerfectOff` when off, `status.bitPerfectOn` when on, with a faint `status.dotRing`. Screen readers should still announce on/off (toggle-button semantics).
 
 ### 6.9 Playlists (added 2026-10-07)

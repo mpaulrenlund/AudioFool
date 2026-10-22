@@ -133,7 +133,7 @@ public sealed partial class FindReplaceViewModel : ObservableObject
                                 Func<IReadOnlyList<UndoJob>, IProgress<int>, Task<ReplaceRun>> undo)
     {
         _songs = songs;
-        WindowTitle = picked is { } count ? $"Find and Replace - {count:N0} tracks" : "Find and Replace";
+        WindowTitle = picked is { } count ? $"Find and Replace · {count:N0} tracks" : "Find and Replace";
         _musicFolders = musicFolders;
         _replace = replace;
         _undo = undo;
@@ -143,7 +143,7 @@ public sealed partial class FindReplaceViewModel : ObservableObject
     /// Asks before a replace, with the counts; true to go ahead. Settable so
     /// ThemeLab can answer without opening the prompt.
     /// </summary>
-    /// <summary>"Find and Replace", or "Find and Replace - 12 tracks" for a selection, as the tag windows name theirs.</summary>
+    /// <summary>"Find and Replace", or "Find and Replace · 12 tracks" for a selection, as the tag windows name theirs.</summary>
     public string WindowTitle { get; }
 
     public static Func<string, bool> ConfirmReplace { get; set; } = message =>
@@ -311,8 +311,8 @@ public sealed partial class FindReplaceViewModel : ObservableObject
     {
         IsBusy = true;
         FooterIsError = false;
-        FooterText = $"{doing} 0 of {ReplaceRun.Songs(songs)}...";
-        var progress = new Progress<int>(done => FooterText = $"{doing} {done:N0} of {ReplaceRun.Songs(songs)}...");
+        FooterText = $"{doing} 0 of {ReplaceRun.Songs(songs)}…";
+        var progress = new Progress<int>(done => FooterText = $"{doing} {done:N0} of {ReplaceRun.Songs(songs)}…");
         try
         {
             return await run(progress);

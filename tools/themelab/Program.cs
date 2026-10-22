@@ -5137,6 +5137,46 @@ internal static class Program
         typeof(TagEditWindow).GetMethod("Cancel_Click", flags)!.Invoke(editor, [null, new RoutedEventArgs()]);
         Wait();
         State("11. Close");
+
+        // Session 67: Escape is Cancel, asking first when something was typed.
+        void Escape()
+        {
+            var target = System.Windows.Input.Keyboard.FocusedElement as UIElement ?? Editor()!;
+            if (!ReferenceEquals(Window.GetWindow(target), Editor()))
+                target = Editor()!;
+            target.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, PresentationSource.FromVisual(Editor()!), 0, System.Windows.Input.Key.Escape)
+                { RoutedEvent = System.Windows.Input.Keyboard.KeyDownEvent });
+        }
+
+        vm.EditAlbumTagsCommand.Execute(vm.SelectedAlbum);
+        Wait();
+        Escape();
+        Wait();
+        State("12. reopened, Escape with nothing typed: closes, no question");
+
+        vm.EditAlbumTagsCommand.Execute(vm.SelectedAlbum);
+        Wait();
+        Editor()!.ViewModel.Genre = "Blues";
+        answers.Enqueue(UnsavedChoice.Cancel);
+        Escape();
+        Wait();
+        State("13. Genre typed, Escape, Cancel: stays open, Blues kept");
+
+        var escaped = ((Album)typeof(MainViewModel).GetField("_albumEditorAlbum", flags)!.GetValue(vm)!).Tracks[0].FilePath;
+        answers.Enqueue(UnsavedChoice.Save);
+        Escape();
+        Wait(1000);
+        State("14. Escape, Save: saved, then closed");
+        Log($"  file {Path.GetFileName(escaped)} genre '{AudioFool.Core.Library.TagReader.ReadDetails(escaped)?.Genre}' (expect Blues)");
+
+        vm.EditAlbumTagsCommand.Execute(vm.SelectedAlbum);
+        Wait();
+        Editor()!.ViewModel.Genre = "Folk";
+        answers.Enqueue(UnsavedChoice.Discard);
+        Escape();
+        Wait();
+        State("15. Genre typed, Escape, Don't Save: closed");
+        Log($"  file {Path.GetFileName(escaped)} genre '{AudioFool.Core.Library.TagReader.ReadDetails(escaped)?.Genre}' (expect Blues)");
         Log($"unused answers: {answers.Count}");
 
         Log("files:");
@@ -5805,7 +5845,7 @@ internal static class Program
         window.Show();
         Settle(300);
         grid = (System.Windows.Controls.DataGrid)window.FindName("PreviewGrid");
-        Check($"the title: '{window.Title}'", window.Title == "Find and Replace - 2 tracks");
+        Check($"the title: '{window.Title}'", window.Title == "Find and Replace · 2 tracks");
         Find("(Remastered)");
         foreach (var row in fr.Rows)
             Console.WriteLine($"    [{(row.IsTicked ? "x" : " ")}] {row.Field,-12} '{row.Before}' -> '{row.After}'  {row.File}");
@@ -6643,7 +6683,7 @@ internal static class Program
             var p = vm.NowPlaying;
             var row = Row(file);
             var ok = arrived && p is not null && p.Title == expectTitle && p.Artist == expectArtist
-                     && vm.WindowTitle == $"{expectArtist} – {expectTitle}"
+                     && vm.WindowTitle == $"{expectArtist} · {expectTitle}"
                      && tracker.Current?.Title == expectTitle && tracker.Current?.Artist == expectArtist;
             Log($"{how} -> {file}: arrived={arrived} title='{p?.Title}' artist='{p?.Artist}' window='{vm.WindowTitle}' "
                 + $"scrobbler='{tracker.Current?.Artist} / {tracker.Current?.Title}' note={ReferenceEquals(p, row)} "

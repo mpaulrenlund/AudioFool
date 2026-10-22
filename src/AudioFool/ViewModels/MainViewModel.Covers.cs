@@ -205,7 +205,7 @@ public sealed partial class MainViewModel
 
         KeepProgress = (0, tracks.Count);
         IsKeepingCovers = true;
-        StatusText = $"Keeping the best cover in {Songs(tracks.Count)}...";
+        StatusText = $"Keeping the best cover in {Songs(tracks.Count)}…";
 
         try
         {

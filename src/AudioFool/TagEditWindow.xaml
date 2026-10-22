@@ -95,9 +95,9 @@
                     <Grid VerticalAlignment="Top" Margin="{theme:Thickness Left=tagEdit.artGap}">
                         <StackPanel VerticalAlignment="Top">
                             <StackPanel Orientation="Horizontal">
-                                <Button Content="Choose Image..." Style="{StaticResource theme.dialogButton}"
+                                <Button Content="Choose Image…" Style="{StaticResource theme.dialogButton}"
                                         Command="{Binding ChooseImageCommand}" />
-                                <Button x:Name="SearchInternetButton" Content="Search Internet..."
+                                <Button x:Name="SearchInternetButton" Content="Search Internet…"
                                         Style="{StaticResource theme.dialogButton}"
                                         Margin="{theme:Thickness Left=dialog.buttonGap}"
                                         Click="SearchInternet_Click" />
@@ -297,11 +297,12 @@
                        Margin="{theme:Thickness Right=dialog.buttonGap}" />
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button x:Name="CancelButton" Content="Cancel" Click="Cancel_Click"
-                        Style="{StaticResource theme.dialogButton}"
+                <!-- The main button first, as Windows and the prompts have it (session 67). -->
+                <Button x:Name="SaveButton" Content="Save" IsEnabled="{Binding CanSave}" Click="Save_Click"
+                        Style="{StaticResource theme.dialogButton.primary}"
                         Margin="{theme:Thickness Right=dialog.buttonGap}" />
-                <Button Content="Save" IsEnabled="{Binding CanSave}" Click="Save_Click"
-                        Style="{StaticResource theme.dialogButton.primary}" />
+                <Button x:Name="CancelButton" Content="Cancel" Click="Cancel_Click"
+                        Style="{StaticResource theme.dialogButton}" />
             </StackPanel>
         </Grid>
     </Grid>

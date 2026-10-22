@@ -168,7 +168,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public string WindowTitle => NowPlaying is { } track
         ? string.IsNullOrWhiteSpace(track.Artist)
             ? track.DisplayTitle
-            : $"{track.Artist} – {track.DisplayTitle}"
+            : $"{track.Artist} · {track.DisplayTitle}"
         : "AudioFool";
 
     [ObservableProperty]
@@ -666,7 +666,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         if (MusicFolders.Count == 0)
         {
-            StatusText = "No music folders yet. Use \"Add folder\" to point at your music.";
+            StatusText = "No music folders yet. Use \"Add Folder\" to point at your music.";
             return;
         }
 
@@ -683,7 +683,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (_cache is not null && _cache.CoversSameFolders(MusicFolders))
         {
             ApplyLibrary(await Task.Run(() => LibraryScanner.Build(_cache.Tracks)), keepSelection: false);
-            StatusText = $"{DescribeLibrary()} · checking for changes...";
+            StatusText = $"{DescribeLibrary()} · checking for changes…";
         }
 
         await ScanAsync();
@@ -841,8 +841,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public string SelectedAlbumCaption =>
         HeaderAlbum is { } item
-            ? $"{item.Album.ArtistName} - {item.Album.Title}"
-            : "Album art";
+            ? $"{item.Album.ArtistName} · {item.Album.Title}"
+            : "Album Art";
 
     /// <summary>Full-resolution art for whatever is playing.</summary>
     public Task<BitmapSource?> GetNowPlayingFullArtAsync() =>
@@ -852,8 +852,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public string NowPlayingCaption =>
         NowPlaying is { } track
-            ? $"{(string.IsNullOrWhiteSpace(track.AlbumArtist) ? track.Artist : track.AlbumArtist)} - {track.Album}"
-            : "Album art";
+            ? $"{(string.IsNullOrWhiteSpace(track.AlbumArtist) ? track.Artist : track.AlbumArtist)} · {track.Album}"
+            : "Album Art";
 
     private async Task LoadAlbumHeaderArtAsync(AlbumItemViewModel? item)
     {
@@ -890,10 +890,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         ScanFraction = 0;
 
         // A library already on screen means this is a background refresh, and the
-        // status shouldn't shout "Scanning..." over a perfectly usable view.
+        // status shouldn't shout "Scanning…" over a perfectly usable view.
         var refreshing = Artists.Count > 0;
         if (!refreshing)
-            StatusText = "Scanning...";
+            StatusText = "Scanning…";
 
         // A cache from an older version is on screen but missing a field; every
         // tag is read again, once, behind the usable view.
@@ -1222,7 +1222,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                    "Tick a folder under Libraries in the logo menu to show it.";
 
         if (_folderFilteredLibrary.AllTracks.Count == 0)
-            return "No audio files found. Use Add folder to point at your music.";
+            return "No audio files found. Use Add Folder to point at your music.";
 
         // Spec 6.8: the size is of the same tracks the counts describe, so it is
         // rebuilt with them, after every scan included.
@@ -1367,7 +1367,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>
     /// Stops watching a folder and takes its tracks out of the library. Nothing on
-    /// disk is touched; Add folder brings it back, at the cost of reading its tags
+    /// disk is touched; Add Folder brings it back, at the cost of reading its tags
     /// again.
     /// </summary>
     [RelayCommand]
@@ -1606,7 +1606,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>
     /// The rows selected in the track grid, kept in step by the window - a
-    /// DataGrid's SelectedItems cannot be bound. "Edit Tags..." edits all of them
+    /// DataGrid's SelectedItems cannot be bound. "Edit Tags…" edits all of them
     /// when the row it was opened on is one of several selected.
     /// </summary>
     public IReadOnlyList<Track> SelectedTracks
@@ -1751,7 +1751,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public IReadOnlyList<AlbumItemViewModel> SelectedAlbums { get; set; } = [];
 
     /// <summary>
-    /// An artist row's "Edit Artist Tags...": every track of that artist, or of
+    /// An artist row's "Edit Artist Tags…": every track of that artist, or of
     /// every selected artist when it is one of several. The tracks' own fields
     /// are kept unless changed, as for songs picked in the grid.
     /// </summary>
@@ -1765,7 +1765,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         EditSelectedTracksTags(selection.Tracks, owner, selection.Description, followTracks: true);
     }
 
-    /// <summary>The tracks "Edit Artist Tags..." on <paramref name="artist"/>'s row edits.</summary>
+    /// <summary>The tracks "Edit Artist Tags…" on <paramref name="artist"/>'s row edits.</summary>
     private TagSelection ArtistsSelection(ArtistGroup artist)
     {
         IReadOnlyList<ArtistGroup> picked = SelectedArtists.Count > 1 && SelectedArtists.Contains(artist)
@@ -1775,7 +1775,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// The tracks "Edit Album Tags..." on <paramref name="item"/>'s row edits when
+    /// The tracks "Edit Album Tags…" on <paramref name="item"/>'s row edits when
     /// it is one of several selected albums; null for the one-album dialog.
     /// </summary>
     private TagSelection? AlbumsSelection(AlbumItemViewModel item) =>
@@ -1784,7 +1784,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             : null;
 
     /// <summary>
-    /// An album row's "Edit Album Tags...": the album dialog for one album, or
+    /// An album row's "Edit Album Tags…": the album dialog for one album, or
     /// the several-tracks dialog over every selected album when the row is one
     /// of several. A right-click on the header art always edits just its own album.
     /// </summary>
@@ -1825,7 +1825,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         bool followTracks = false)
     {
         using var writing = BeginWrite();
-        StatusText = $"Saving tags for {tracks.Count} track(s)...";
+        StatusText = $"Saving tags for {tracks.Count} track(s)…";
 
         var (updated, failed) = await Task.Run(() =>
         {
@@ -1898,7 +1898,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // library's copy carries anything (the folder art path) the edit doesn't set.
         track = LibraryCopyOf(track);
         using var writing = BeginWrite();
-        StatusText = "Saving tags...";
+        StatusText = "Saving tags…";
 
         var result = await Task.Run(() =>
             TagWriter.WriteTrackTags(track, edit, art: null, folderArtPath: track.FolderArtPath, _engine));
@@ -1927,7 +1927,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private async Task ApplyAlbumEditAsync(Album album, AlbumTagEdit edit, ArtPayload? art, bool followTracks = false)
     {
         using var writing = BeginWrite();
-        StatusText = $"Saving tags for {album.Tracks.Count} track(s)...";
+        StatusText = $"Saving tags for {album.Tracks.Count} track(s)…";
 
         var folderArtByDirectory = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         var folderArtFailed = false;
@@ -2091,7 +2091,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         {
             var current = LibraryCopyOf(track);
 
-            StatusText = "Saving tags...";
+            StatusText = "Saving tags…";
 
             var result = await Task.Run(() => TagWriter.WriteSelectedTrackTags(current, edit, _engine));
 

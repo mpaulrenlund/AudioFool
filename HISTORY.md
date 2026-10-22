@@ -4449,6 +4449,36 @@ Ctrl+H). Then the plan, approved before any edit.
   their 4 rows, Replace leaves the other songs alone, Find again finds nothing,
   Undo, Find again finds the two), and one song selected (the library). ALL OK in
   Light, Dark and at 125%; the selection render 0 magenta in all three. 878 tests.
+  Committed `f4a994d`, pushed.
+
+**Then the small fixes from session 60's review** (HANDOFF step 6's UI items, the
+flaky test, the README), the user's calls on four of them (asked together):
+- "..." became "…" in the two tag-window buttons and 14 progress and status lines;
+  "Add Folder…" and "Remove Folder" in title case (and in the two status messages
+  naming it); the art viewer's fallback title "Album Art".
+- Window titles: " · " everywhere (the user's pick over the en dash and the hyphen):
+  the tag windows, Find and Replace, the art viewer's captions, and the main
+  window's own title (taskbar, Alt-Tab), which was "Artist – Song". Analyze already
+  had it.
+- The main button first: tag window Save, Cancel; art search Use Image, Cancel.
+- Escape: the art search's Cancel is `IsCancel`; the tag window handles Escape on
+  `KeyDown` (so a box using Escape has it first): nothing typed, it closes as
+  Cancel; typed, it asks through `MainViewModel.AskSaveChanges` ("Save your changes
+  before closing?"). Save in the modal several-songs window is `DialogResult = true`;
+  in a following window it raises `SaveRequested` and closes when the owner
+  re-enables the window, unless something is still unsaved (and not at all if no
+  save started). ThemeLab `--window albumeditor` steps 12–15: no question with
+  nothing typed; Cancel keeps the window and the typing; Save writes Blues and
+  closes; Don't Save closes and writes nothing.
+- The filter chip's text `text.status` (and pressed), measured #33312F / #B3B9C4.
+- `theme-spec.md` §6.5 (clock-style duration, "1 track"), §6.7 (tier format line,
+  `control.faceHover`, the speaker's `control.iconOff`, the readouts), §6.8
+  (`status.libraryDot`, Last.fm only when not connected, the Theme chip).
+- The art search comment said 1,000 px; the code's minimum is 600.
+- `LiveSpectrumTests.An_update_allocates_nothing`: five rounds, the fewest bytes
+  must be 0.
+- README About: the version line no longer names v0.6.1.
+- Builds with 0 warnings; 878 tests. Rendered in both themes, 0 magenta.
 
 ---
 
