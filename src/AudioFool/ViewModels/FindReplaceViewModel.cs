@@ -126,12 +126,14 @@ public sealed partial class FindReplaceViewModel : ObservableObject
     private bool _bulkTicking;
 
     /// <param name="songs">The songs Find looks through, asked for at each Find.</param>
+    /// <param name="picked">How many songs were selected, when Find looks only through those; null for the library.</param>
     /// <param name="musicFolders">For the FILE column: paths are shown inside their music folder.</param>
-    public FindReplaceViewModel(Func<IReadOnlyList<Track>> songs, IReadOnlyList<string> musicFolders,
+    public FindReplaceViewModel(Func<IReadOnlyList<Track>> songs, int? picked, IReadOnlyList<string> musicFolders,
                                 Func<IReadOnlyList<ReplaceJob>, TextReplace, IProgress<int>, Task<ReplaceRun>> replace,
                                 Func<IReadOnlyList<UndoJob>, IProgress<int>, Task<ReplaceRun>> undo)
     {
         _songs = songs;
+        WindowTitle = picked is { } count ? $"Find and Replace - {count:N0} tracks" : "Find and Replace";
         _musicFolders = musicFolders;
         _replace = replace;
         _undo = undo;
@@ -141,6 +143,9 @@ public sealed partial class FindReplaceViewModel : ObservableObject
     /// Asks before a replace, with the counts; true to go ahead. Settable so
     /// ThemeLab can answer without opening the prompt.
     /// </summary>
+    /// <summary>"Find and Replace", or "Find and Replace - 12 tracks" for a selection, as the tag windows name theirs.</summary>
+    public string WindowTitle { get; }
+
     public static Func<string, bool> ConfirmReplace { get; set; } = message =>
         Application.Current.Windows.OfType<FindReplaceWindow>().FirstOrDefault() is { } owner
         && PromptWindow.Confirm(owner, "Find and Replace", message, "Replace");

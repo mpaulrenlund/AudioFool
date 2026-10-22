@@ -5544,8 +5544,11 @@ internal static class Program
     /// one that does (AFTER follows); a song retagged elsewhere after Find; Replace,
     /// with the prompt answered from here and rendered on its own; Undo. Reads every
     /// file back at each step: the unticked tag and the song retagged elsewhere are
-    /// never touched, the song with two artists keeps both. Then Ctrl+H. Renders
-    /// -empty, -found, -prompt, -done and -undone PNGs beside --out.
+    /// never touched, the song with two artists keeps both. Then Ctrl+H. Then
+    /// (session 67) two songs selected in the Songs table: only theirs found, the
+    /// title says so, Replace, Find again and Undo keep to them; one selected is the
+    /// library. Renders -empty, -found, -prompt, -done, -undone and -selection PNGs
+    /// beside --out.
     /// </summary>
     private static void RunFindReplace(MainWindow main, MainViewModel vm, string outPath, double scale)
     {
@@ -5786,8 +5789,54 @@ internal static class Program
         var shortcut = typeof(MainWindow).GetMethod("ResolveShortcut", Private)!
             .Invoke(main, [System.Windows.Input.Key.H, System.Windows.Input.ModifierKeys.Control, null])!.ToString();
         Check($"Ctrl+H is {shortcut}", shortcut == "FindReplace");
-
+        Check($"the library's title: '{window.Title}'", window.Title == "Find and Replace");
         window.Close();
+
+        // Session 67: two songs selected in the Songs table limit it to those.
+        Console.WriteLine("10. two songs selected");
+        AudioFool.Core.Models.Track Song(string name) =>
+            ((AudioFool.Core.Library.MusicLibrary)typeof(MainViewModel).GetField("_library", Private)!.GetValue(vm)!)
+                .AllTracks.Single(t => t.FilePath == paths[name]);
+        vm.SelectedTracks = [Song("01 Tom Sawyer"), Song("03 YYZ")];
+        fr = (FindReplaceViewModel)typeof(MainViewModel).GetMethod("NewFindReplace", Private)!.Invoke(vm, null)!;
+        typeof(FindReplaceViewModel).GetField("_musicFolders", Private)!.SetValue(fr, new List<string> { music });
+        window = new FindReplaceWindow(fr, main) { ShowActivated = false, ShowInTaskbar = false };
+        window.Loaded += (_, _) => { window.Left = -20000; window.Top = -20000; };
+        window.Show();
+        Settle(300);
+        grid = (System.Windows.Controls.DataGrid)window.FindName("PreviewGrid");
+        Check($"the title: '{window.Title}'", window.Title == "Find and Replace - 2 tracks");
+        Find("(Remastered)");
+        foreach (var row in fr.Rows)
+            Console.WriteLine($"    [{(row.IsTicked ? "x" : " ")}] {row.Field,-12} '{row.Before}' -> '{row.After}'  {row.File}");
+        Check($"only 01 and 03: '{fr.FooterText}'",
+            fr.Counts == (2, 4) && fr.Rows.All(r => r.File.EndsWith("01 Tom Sawyer.flac") || r.File.EndsWith("03 YYZ.flac")));
+        Render("selection");
+        fr.ReplaceCommand.Execute(null);
+        WaitWhileBusy();
+        Console.WriteLine($"  footer:     '{fr.FooterText}'");
+        PrintFiles("after Replace on the selection");
+        Check("01 and 03 changed", Tags("01 Tom Sawyer") == "'Tom Sawyer' / Rush / Rush / 'Moving Pictures'"
+                                    && Tags("03 YYZ") == "'YYZ' / Rush / Rush / 'Moving Pictures'");
+        Check("02 and 04 not", Tags("02 Red Barchetta") == before["02 Red Barchetta"] && Tags("04 Duet") == before["04 Duet"]);
+        Find("(Remastered)");
+        Check($"Find again reads the new copies: '{fr.FooterText}'", fr.Rows.Count == 0 && fr.FooterText == "No matches.");
+        fr.UndoCommand.Execute(null);
+        WaitWhileBusy();
+        Check("Undo puts them back", Tags("01 Tom Sawyer") == before["01 Tom Sawyer"] && Tags("03 YYZ") == before["03 YYZ"]);
+        Find("(Remastered)");
+        Check($"and Find sees them again, still only those two: {fr.Counts}", fr.Counts == (2, 4));
+        window.Close();
+
+        Console.WriteLine("11. one song selected: the library");
+        vm.SelectedTracks = [Song("01 Tom Sawyer")];
+        fr = (FindReplaceViewModel)typeof(MainViewModel).GetMethod("NewFindReplace", Private)!.Invoke(vm, null)!;
+        Check($"the title: '{fr.WindowTitle}'", fr.WindowTitle == "Find and Replace");
+        fr.FindText = "(Remastered)";
+        fr.FindCommand.Execute(null);
+        Check($"every song: {fr.Counts}", fr.Counts.Songs == 5);
+        vm.SelectedTracks = [];
+
         Console.WriteLine(allOk ? "ALL OK" : "SOMETHING WRONG");
     }
 

@@ -476,7 +476,10 @@ at once: deleting "(Remastered)" from every title and album, say.
 1. Type the text in the top box and press **Find** (or Enter). Every match in the
    **Title, Artist, Album Artist and Album** tags of the ticked library folders is
    listed, one row per song and tag, with the file it's in. The search box makes no
-   difference, and a folder on a drive that isn't connected is skipped.
+   difference, and a folder on a drive that isn't connected is skipped. **With two
+   or more songs selected** in the Songs table when it opens, it looks only through
+   those, and the title says how many ("Find and Replace - 12 tracks"), until the
+   window closes.
 2. Type what goes in its place in the second box: **AFTER** shows the result as you
    type. Leave it empty to delete the text. The spaces a change leaves are tidied, so
    deleting "(Live)" from "Song (Live) Mix" gives "Song Mix".

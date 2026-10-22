@@ -22,22 +22,36 @@ public sealed partial class MainViewModel
         new FindReplaceWindow(NewFindReplace(), owner).ShowDialog();
     }
 
-    private FindReplaceViewModel NewFindReplace() =>
-        new(FindReplaceSongs, [.. MusicFolders], ReplaceInSongsAsync, UndoReplaceAsync);
+    /// <summary>
+    /// Two or more songs selected in the Songs table limit it to those (the user's
+    /// call, session 67), for as long as the window is open; otherwise the library.
+    /// </summary>
+    private FindReplaceViewModel NewFindReplace()
+    {
+        var picked = SelectedTracks.Count > 1
+            ? SelectedTracks.Select(t => t.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : null;
+        return new(() => FindReplaceSongs(picked), picked?.Count, [.. MusicFolders], ReplaceInSongsAsync, UndoReplaceAsync);
+    }
 
     /// <summary>
     /// What Find looks through: the ticked folders' songs, as Statistics counts
-    /// them, whatever the search box shows. A folder whose drive isn't there is left
-    /// out: its songs are carried over in the library, but can't be written.
+    /// them, whatever the search box shows; or the picked songs, by path, so a Find
+    /// after a replace sees the library's new copies. A folder whose drive isn't
+    /// there is left out: its songs are carried over in the library, but can't be
+    /// written.
     /// </summary>
-    private IReadOnlyList<Track> FindReplaceSongs()
+    /// <param name="picked">The paths of the songs selected when the window opened; null for the library.</param>
+    private IReadOnlyList<Track> FindReplaceSongs(IReadOnlySet<string>? picked)
     {
         var gone = MusicFolders
             .Where(f => UnavailableFolders.Any(u => MusicFolderList.SameFolder(u, f)) || !Directory.Exists(f))
             .Select(f => f.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar)
             .ToList();
 
-        var songs = _folderFilteredLibrary.AllTracks;
+        IReadOnlyList<Track> songs = picked is null
+            ? _folderFilteredLibrary.AllTracks
+            : [.. _library.AllTracks.Where(t => picked.Contains(t.FilePath)).DistinctBy(t => t.FilePath, StringComparer.OrdinalIgnoreCase)];
         return gone.Count == 0
             ? songs
             : [.. songs.Where(t => !gone.Any(p => t.FilePath.StartsWith(p, StringComparison.OrdinalIgnoreCase)))];

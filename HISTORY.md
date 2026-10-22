@@ -4433,6 +4433,23 @@ Ctrl+H). Then the plan, approved before any edit.
   thread" at the pointer, over Close. Hover highlight not mentioned. Committed
   `5a4ba56` (code), then the docs, and pushed.
 
+### Session 67 (2026-10-22): Find and Replace on the selected songs
+
+- **The user's request:** with more than one song selected, Ctrl+H or the logo
+  menu's Find and Replace… looks only through those. Planned and approved as
+  proposed; several artists or albums selected don't count (offered, not taken).
+- `MainViewModel.NewFindReplace` takes the paths of `SelectedTracks` when there are
+  two or more; `FindReplaceSongs(picked)` then looks them up in `_library` at each
+  Find, so a Find after a Replace or Undo sees the new copies. The ticked-folders
+  filter doesn't apply to them (a playlist can show songs from an unticked folder,
+  and the user picked them); a folder whose drive is gone is still left out.
+- The window is titled "Find and Replace - 2 tracks" (`FindReplaceViewModel.WindowTitle`),
+  as the several-songs tag window is "Edit Tags - 2 tracks"; no other change to it.
+- ThemeLab `--window findreplace` steps 10 and 11: two songs selected (title, only
+  their 4 rows, Replace leaves the other songs alone, Find again finds nothing,
+  Undo, Find again finds the two), and one song selected (the library). ALL OK in
+  Light, Dark and at 125%; the selection render 0 magenta in all three. 878 tests.
+
 ---
 
 ## Reference notes retired from the handoff

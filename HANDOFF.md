@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-22, session 66. Read this alongside `README.md`: the README covers
+Updated 2026-10-22, session 67. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -171,6 +171,15 @@ check it reads the new number in the release build.
 ### Where things are
 
 - **Everything in `README.md` is implemented and verified.** **878 tests** pass.
+- **Session 67** (2026-10-22): **Find and Replace on the selected songs**, the user's
+  request, the plan approved as proposed. With two or more songs selected in the
+  Songs table, Ctrl+H or the logo menu looks only through those
+  (`MainViewModel.NewFindReplace`, `FindReplaceSongs(picked)`, looked up by path in
+  `_library` at each Find), titled "Find and Replace - 12 tracks"
+  (`FindReplaceViewModel.WindowTitle`). Several artists or albums selected don't
+  count (offered, not taken). ThemeLab `--window findreplace` steps 10–11: ALL OK in
+  Light, Dark and 125%. Installed 08:22 (AudioFool wasn't running), 19 files
+  hash-identical. **Not yet tried by the user.** Not committed yet.
 - **Session 66** (2026-10-22): **the close X caught in the act, and a safety net**
   (details in `HISTORY.md`):
   - The user's Statistics X ignored 19 clicks in a row, then closed on the 20th. Each
@@ -384,6 +393,10 @@ check it reads the new number in the release build.
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **67** (2026-10-22): **Find and Replace on the selected songs** (two or more
+  selected: only those, the title says how many). Installed 08:22. See *Where
+  things are*.
 
 - **66** (2026-10-22): the to-do list and recommendations, with session 60's review
   leads checked against the code (step 6); then **the close X caught in the act** and
@@ -1144,7 +1157,7 @@ ThemeLab.exe --window ratechange [--stopinwait 1]   # a Bit-Perfect rate change 
 ThemeLab.exe --window splice --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a gapless join through the real engine, silent; prints the log's "gapless:" line (needs the device free; since session 60 any rates join in shared mode, "(resampled)" when they differ)
 ThemeLab.exe --window folderart   # cover.jpg on scratch folders through the album save, Save Embedded Art and Keep Best Cover: old cover.png to the real Recycle Bin, a folder shared with another album left alone, no leftovers ("ALL OK"; leaves one tiny scratch cover.png in the bin)
 ThemeLab.exe --window albumkeep   # the album tag window on scratch albums (a compilation, an untagged album) through its real save; checks nothing unchanged is written ("ALL OK")
-ThemeLab.exe --window findreplace [--theme dark] [--dpi 1.25]   # Find and Replace through its window and the real saves on scratch songs: options, ticks, a song retagged after Find (untouched), two artists, Replace, Undo, Ctrl+H; renders <out>-empty/-found/-prompt/-done/-undone ("ALL OK"; session 63)
+ThemeLab.exe --window findreplace [--theme dark] [--dpi 1.25]   # Find and Replace through its window and the real saves on scratch songs: options, ticks, a song retagged after Find (untouched), two artists, Replace, Undo, Ctrl+H, then two songs selected and one (session 67); renders <out>-empty/-found/-prompt/-done/-undone/-selection ("ALL OK"; session 63)
 ThemeLab.exe --window findreplaceperf [--find <text>]   # the same window over the real library.json, read-only (Replace never pressed): times Find, typing a replacement, the header box and a sort; renders <out>-real.png
 ThemeLab.exe --window safesave --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # copies of one album's songs (never the songs) given a new cover through the album save, the window closed mid-save; checks the window waited, the audio is identical, one cover, creation date kept, no leftovers ("ALL OK")
 ThemeLab.exe --window device --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a change of default output device, simulated: playing, paused, stopped, next track
@@ -1507,6 +1520,8 @@ happily rewrite it.
 Open items only; finished ones are in `HISTORY.md`.
 
 1. **Ask the user to try what was checked off-screen only:**
+   - **Session 67, Find and Replace on a selection:** select several songs, Ctrl+H;
+     the title reads "Find and Replace - N tracks" and only those songs are listed.
    - **Session 64, About:** **confirmed by the user**: "About looks great". Not said
      whether it was tried with music playing or with Bit-Perfect on; only worth
      asking if a problem is reported.

@@ -26,6 +26,7 @@ public partial class FindReplaceWindow : FluentWindow
         DataContext = viewModel;
 
         InitializeComponent();
+        Title = viewModel.WindowTitle;
         Services.OwnerActivation.Attach(this);
 
         Owner = owner;
