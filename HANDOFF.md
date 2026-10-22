@@ -96,9 +96,9 @@ the only thing that catches a file you forgot to track.
 
 ### Releases
 
-Seven so far, all on GitHub (private, so downloads need a signed-in account):
+Nine so far, all on GitHub (private, so downloads need a signed-in account):
 **v0.1.0** (2026-09-30, the user by hand), **v0.2.0** (2026-10-02), **v0.3.0**
-(2026-10-09, session 45), **v0.4.0** (2026-10-12, session 47), **v0.5.0** (2026-10-13, session 48), **v0.6.0** and **v0.6.1** (both 2026-10-15, session 54), all six by Claude.
+(2026-10-09, session 45), **v0.4.0** (2026-10-12, session 47), **v0.5.0** (2026-10-13, session 48), **v0.6.0** and **v0.6.1** (both 2026-10-15, session 54), **v0.7.0** (2026-10-21, session 65), all eight by Claude.
 `AudioFool.csproj` starts with a byte-order mark: keep it when bumping the version
 (v0.6.0's bump dropped it and needed a follow-up commit). Handle a release end to end when asked, but
 **confirm the version number and the notes with the user before `gh release create`**:
@@ -162,12 +162,8 @@ Open with the user, in this order (each is under *Suggested next steps*):
 5. **What to take next from session 60's review** (step 6). What's left are code
    fixes; step 6 suggests an order.
 
-Then a release can follow: sessions 55–65 are unreleased (since v0.6.1). Nothing
-holds it up now that the visualizer is gone: the file list is back to the usual 19.
-Confirm the version and notes with the user first (see *Releases*); session 60 alone
-is a lot of user-visible fixes, and sessions 63 and 64 add features (Find and
-Replace, About), so the middle number goes up. The visualizer was never released, so
-the notes leave it out (the hearing clock's seek-bar timing can go under Improved). About's version
+**v0.7.0 is released** (session 65): everything up to and including the visualizer's
+removal. Nothing is unreleased. About's version
 line reads the exe's version, so the bump shows there by itself; check it reads the
 new number in the release build.
 
@@ -321,13 +317,14 @@ new number in the release build.
   - **The beat screen finished** (14:19). The visualizer has since been removed
     (session 65).
   - The user has seen PS2 Dark's glows and search selection on screen: "looks good".
-- **Unreleased since v0.6.1:** sessions 55–65, so the seek bar's hearing clock, the
-  click fix, songs from Explorer, Clear All, the click log, session 60's six fixes,
-  session 61's and 62's fixes, Find and Replace, About and the alphabetical logo menu.
-  The visualizer came and went in between; nothing of it shows. Ready for a release.
-- **Last release: v0.6.1** (2026-10-15, session 54, tag on `695f971`, 60.3 MB zip,
-  19 files): the now-playing cover fix. Installed. v0.6.0 (tag on `9fe1b85`) the same
-  day had PS2 Dark and everything since v0.5.0.
+- **Last release: v0.7.0** (2026-10-21, session 65, tag on `7c2cac7`, 60.7 MB zip,
+  19 files, the same names as v0.6.1): sessions 55–65, so the seek bar's hearing
+  clock, the click fix, songs from Explorer, Clear All, the click log, session 60's
+  six fixes, session 61's and 62's fixes, Find and Replace, About and the
+  alphabetical logo menu (the visualizer came and went in between and isn't in it).
+  Notes grouped New / Improved / Fixed, approved by the user. Installed (19 files
+  hash-identical, exe 0.7.0). Before it: v0.6.1 (2026-10-15, tag on `695f971`), the
+  now-playing cover fix.
 - **Session 54** (2026-10-15): the Theme button is icon only; a click anywhere outside
   an in-place edit box saves it and closes the box (`SaveEditOnClickOutside`, ThemeLab
   `--window edit` step 5b2). Both in `design/progress.md`. Then, after v0.6.0: **a
@@ -373,7 +370,9 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   **Installed** 20:38 (AudioFool wasn't running): 19 files hash-identical to
   `publish\`; the six projectM DLLs and the 146 MB `visualizer` folder beside the exe,
   and `lib/projectm/`, sent to the Recycle Bin. Committed `5b75e93` and pushed; not
-  yet seen by the user on screen.
+  yet seen by the user on screen. Then **v0.7.0 released** at the user's OK of the
+  version and notes (`7c2cac7` "Version 0.7.0", tag on it; same 19 files as v0.6.1;
+  About reads "AudioFool v0.7.0" from the assembly version) and installed.
 
 - **64** (2026-10-21): **About**, the PlayStation start-up as an easter egg (logo
   menu), lending the DAC in Bit-Perfect, with the version under the logos.
