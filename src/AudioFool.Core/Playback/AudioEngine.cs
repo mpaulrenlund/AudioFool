@@ -130,6 +130,22 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     public event EventHandler? PlaybackFinished;
 
     /// <summary>
+    /// Songs passed over because they wouldn't open (moved, deleted, undecodable),
+    /// by Next, Previous or the queue moving on (session 67). Raised before the
+    /// track played in their place, or before the queue finishes if none would.
+    /// </summary>
+    public event EventHandler<IReadOnlyList<Track>>? TracksSkipped;
+
+    /// <summary>Which way a play moves past a song that won't open, if at all.</summary>
+    private enum Skip
+    {
+        /// <summary>Only the song asked for: a play the user chose.</summary>
+        None,
+        Forward,
+        Back,
+    }
+
+    /// <summary>
     /// What happens at the end of the queue. Changing this changes which track
     /// comes next, so the stream opened ahead of time has to be re-opened.
     /// </summary>
@@ -273,7 +289,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     /// <see cref="CreateDecodeStream"/>, held off while a save is writing the
     /// file, and marked as opening so a save waits for it in turn.
     /// </summary>
-    private int OpenStream(string path)
+    private int OpenStream(string path, bool allowDop = true)
     {
         lock (_gate)
         {
@@ -284,7 +300,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
         try
         {
-            return CreateDecodeStream(path);
+            return CreateDecodeStream(path, allowDop);
         }
         finally
         {
@@ -376,8 +392,9 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
             if (_currentStream != 0 && Is(_index))
             {
+                // From what was heard, not the decoder's place up to 0.2 s past it.
                 var paused = _state == PlaybackState.Paused;
-                current = new Released(_queue, _index, Position, paused);
+                current = new Released(_queue, _index, ReopenPoint.Choose(_queue[_index], Heard, Position), paused);
                 Interlocked.Exchange(ref _releasedAtTicks, current.At.Ticks);
 
                 // As PlayCore does: a playing device is flushed, so the old stream's
@@ -430,10 +447,9 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 {
                     FreeStream(stream);
                 }
-                else if (stream == 0 || !EnsureOutput(RateOf(stream)) || _output is null)
+                else if (stream == 0 || (stream = AttachOutputLocked(stream, track.FilePath)) == 0 || _output is null)
                 {
                     // The rewritten file won't open: stop rather than sit silent.
-                    FreeStream(stream);
                     stopped = true;
                 }
                 else
@@ -471,7 +487,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         if (stopped)
             Stop();
         else if (advanceTo >= 0)
-            JumpTo(advanceTo);
+            JumpTo(advanceTo, Skip.Forward);
         else if (refetchAfter >= 0)
             PrefetchAfter(refetchAfter);
     }
@@ -554,7 +570,9 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     /// </summary>
     public bool SupportsVolume
     {
-        get { lock (_gate) return _output?.SupportsVolume ?? true; }
+        // With no device open (before the first play, and after Stop since session
+        // 67), what the next play will open: exclusive has no volume.
+        get { lock (_gate) return _output?.SupportsVolume ?? _requestedMode != OutputMode.Exclusive; }
     }
 
     /// <summary>Set when exclusive mode was asked for but the device refused.</summary>
@@ -693,17 +711,23 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         }
     }
 
-    /// <summary>Starts a queue at the given index. Replaces anything already playing.</summary>
+    /// <summary>
+    /// Starts a queue at the given index. Replaces anything already playing. The
+    /// song asked for only: one that won't open plays nothing (false).
+    /// </summary>
     public bool Play(IReadOnlyList<Track> queue, int startIndex) =>
-        PlayCore(queue, startIndex, resetOrder: true);
+        PlayCore(queue, startIndex, resetOrder: true, Skip.None);
 
     /// <summary>
     /// <paramref name="resetOrder"/> separates a genuinely new queue from a move
     /// within the one already loaded. Only a new queue may rebuild the play order:
     /// re-shuffling on every track change would make Next unpredictable and
-    /// Previous unable to retrace its steps.
+    /// Previous unable to retrace its steps. With <paramref name="skip"/>, a song
+    /// that won't open is passed over for the next in the order that does
+    /// (<see cref="PlayOrder.Candidates"/>, <see cref="TracksSkipped"/>); until
+    /// session 67 the play failed, so Next tried the same song for ever.
     /// </summary>
-    private bool PlayCore(IReadOnlyList<Track> queue, int startIndex, bool resetOrder)
+    private bool PlayCore(IReadOnlyList<Track> queue, int startIndex, bool resetOrder, Skip skip)
     {
         if (!_runtime.Initialise() || queue.Count == 0)
             return false;
@@ -711,13 +735,42 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         if (startIndex < 0 || startIndex >= queue.Count)
             startIndex = 0;
 
+        IReadOnlyList<int> candidates = [startIndex];
+        if (skip != Skip.None)
+        {
+            lock (_gate)
+            {
+                if (ReferenceEquals(queue, _queue) && _order.Count == queue.Count)
+                    candidates = _order.Candidates(startIndex, forward: skip == Skip.Forward, wrap: _repeat == RepeatMode.All);
+            }
+        }
+
         // Build the stream before touching engine state, so a bad file leaves
         // whatever is currently playing undisturbed.
-        var track = queue[startIndex];
-        var stream = OpenStream(track.FilePath);
+        var stream = 0;
+        var skipped = new List<Track>();
+        foreach (var candidate in candidates)
+        {
+            stream = OpenStream(queue[candidate].FilePath);
+            if (stream != 0)
+            {
+                startIndex = candidate;
+                break;
+            }
+
+            skipped.Add(queue[candidate]);
+        }
+
+        if (skipped.Count > 0 && skip != Skip.None)
+        {
+            PlaybackDiagnostics.Note($"skipped {skipped.Count} that wouldn't open: {string.Join(", ", skipped.Select(t => Path.GetFileName(t.FilePath)))}");
+            Raise(TracksSkipped, (IReadOnlyList<Track>)skipped);
+        }
+
         if (stream == 0)
             return false;
 
+        var track = queue[startIndex];
         lock (_gate)
         {
             // Flush the device first. Its buffer still holds up to BufferSeconds of
@@ -745,7 +798,8 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
             // In exclusive mode the device follows the source, so the rate has to be
             // known before the output can be opened.
-            if (!EnsureOutput(RateOf(stream)) || _output is null)
+            stream = AttachOutputLocked(stream, track.FilePath);
+            if (stream == 0 || _output is null)
             {
                 FreeStream(stream);
                 return false;
@@ -811,17 +865,31 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             Resume();
     }
 
+    /// <summary>
+    /// Stops, and lets go of the device (session 67): in exclusive mode nothing
+    /// else can sound through it while AudioFool holds it, and a shared one would
+    /// otherwise run on silence. The next play opens it again, so none of the old
+    /// buffer is heard either.
+    /// </summary>
     public void Stop()
     {
         lock (_gate)
         {
             _output?.Stop();
             TeardownStreamsLocked();
+            CloseOutputLocked();
             _index = -1;
             Volatile.Write(ref _heardAtPause, null);
         }
 
         SetState(PlaybackState.Stopped);
+    }
+
+    /// <summary>Closes the device connection; the streams must be gone first (it frees the mixer). Caller holds <see cref="_gate"/>.</summary>
+    private void CloseOutputLocked()
+    {
+        _output?.Dispose();
+        _output = null;
     }
 
     /// <summary>User-initiated skip: immediate, not gapless (which is what a skip should feel like).</summary>
@@ -838,7 +906,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 return false;
         }
 
-        return JumpTo(target);
+        return JumpTo(target, Skip.Forward);
     }
 
     /// <summary>
@@ -869,16 +937,19 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             }
         }
 
-        return JumpTo(target);
+        return JumpTo(target, Skip.Back);
     }
 
-    public bool JumpTo(int index)
+    /// <summary>Plays the queue's track at <paramref name="index"/>, that one only.</summary>
+    public bool JumpTo(int index) => JumpTo(index, Skip.None);
+
+    private bool JumpTo(int index, Skip skip)
     {
         List<Track> queue;
         lock (_gate)
             queue = _queue;
 
-        return index >= 0 && index < queue.Count && PlayCore(queue, index, resetOrder: false);
+        return index >= 0 && index < queue.Count && PlayCore(queue, index, resetOrder: false, skip);
     }
 
     /// <summary>
@@ -941,7 +1012,8 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         int promoted = 0;
         var promotedIndex = -1;
         var reopenAtIndex = -1;
-        var waitForSave = false;
+        int nextIndex;
+        TrackEndAction action;
         long spliceFrames = 0;
         var resampledJoin = false;
         long joinFrame = 0;
@@ -954,7 +1026,26 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             if (channel != _currentStream)
                 return;
 
-            if (_repeat == RepeatMode.One && _output is not null)
+            // In shared mode the mixer runs at Windows' rate and resamples every
+            // track to it, so any track can be spliced in, but DoP can't go there
+            // at all. In exclusive mode the device runs at the track's own rate: a
+            // 44.1 kHz track following a 96 kHz one means re-clocking the DAC,
+            // which cannot be done without a gap - so hand it to a worker to reopen
+            // the device rather than pretending otherwise. (Until session 60 shared
+            // mode was held to the same rule, and a track at another rate than
+            // Windows' lost the last 0.2 s of the one before it to a reopen.)
+            nextIndex = _order.Next(_index, wrap: _repeat == RepeatMode.All);
+            action = TrackEnd.Decide(
+                repeatOne: _repeat == RepeatMode.One,
+                hasOutput: _output is not null,
+                nextOpened: _prefetchedStream != 0,
+                sharedOutput: _output?.Mode == OutputMode.Shared,
+                nextAtOutputRate: _output is not null && RateOf(_prefetchedStream) == _output.MixerRate,
+                nextIsDop: _isDopHandle.ContainsKey(_prefetchedStream),
+                nextMidSave: _releasedNextIndex >= 0,
+                hasNext: nextIndex >= 0);
+
+            if (action == TrackEndAction.RepeatOne)
             {
                 // The rest of this pull is the same track from its start.
                 _joinFrames = FramesGivenThisPull(_currentStream);
@@ -962,25 +1053,13 @@ public sealed class AudioEngine : IFileHolder, IDisposable
 
                 // Rewind and re-add the same channel; its END sync is still attached.
                 Bass.ChannelSetPosition(_currentStream, 0);
-                BassMix.MixerAddChannel(_output.Mixer, _currentStream, SourceFlags);
+                BassMix.MixerAddChannel(_output!.Mixer, _currentStream, SourceFlags);
                 return;
             }
 
             finished = _currentStream;
 
-            // In shared mode the mixer runs at Windows' rate and resamples every
-            // track to it, so any track can be spliced in. In exclusive mode the
-            // device runs at the track's own rate: a 44.1 kHz track following a
-            // 96 kHz one means re-clocking the DAC, which cannot be done without a
-            // gap - so hand it to a worker to reopen the device rather than
-            // pretending otherwise. (Until session 60 shared mode was held to the
-            // same rule, and a track at another rate than Windows' lost the last
-            // 0.2 s of the one before it to a reopen.)
-            var canSplice = _prefetchedStream != 0
-                            && _output is not null
-                            && (_output.Mode == OutputMode.Shared || RateOf(_prefetchedStream) == _output.MixerRate);
-
-            if (canSplice)
+            if (action == TrackEndAction.Splice)
             {
                 promoted = _prefetchedStream;
                 promotedIndex = _prefetchedIndex;
@@ -1007,10 +1086,10 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             }
             else
             {
-                if (_prefetchedStream != 0)
+                if (action == TrackEndAction.Reopen)
                     reopenAtIndex = _prefetchedIndex;
-                else if (_releasedNextIndex >= 0)
-                    waitForSave = _advanceAfterRelease = true;   // Saving plays it
+                else if (action == TrackEndAction.WaitForSave)
+                    _advanceAfterRelease = true;   // Saving plays it
 
                 // Silence from here on in this pull.
                 _joinFrames = FramesGivenThisPull(finished);
@@ -1047,12 +1126,17 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 if (track is not null && StillCurrent())
                     Raise(TrackChanged, track);
             }
-            else if (reopenAtIndex >= 0)
+            else if (action == TrackEndAction.WaitForSave)
             {
-                // Sample rate changed. The device still holds the old track's last
-                // ~200 ms, and reopening it at the new rate flushes them (until
-                // session 61 they were lost), so let them play out first - unless
-                // something else is started, or Stop pressed, meanwhile.
+                // The next track's file is mid-save; Reacquire moves on to it.
+            }
+            else
+            {
+                // The device still holds the old track's last ~200 ms. A reopen at
+                // the new rate flushes them (until session 61 they were lost), and
+                // closing the device at the end would too, so let them play out
+                // first - unless something else is started, or Stop pressed,
+                // meanwhile.
                 bool StillDue() => Volatile.Read(ref _plays) == plays
                                    && Volatile.Read(ref _currentStream) == 0
                                    && State != PlaybackState.Stopped;
@@ -1060,27 +1144,41 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 var waited = System.Diagnostics.Stopwatch.StartNew();
                 await WaitUntilHeardAsync(joinFrame, generation, StillDue);
 
-                // Then drop the prefetch (it's plugged into a mixer that's about
-                // to be freed) and restart cleanly at the new rate.
                 lock (_gate)
                 {
                     if (!StillDue())
                         return;
 
+                    // A prefetch, opened for the reopen or since, is redone by the play.
                     FreeStream(_prefetchedStream);
                     _prefetchedStream = 0;
                     _prefetchedIndex = -1;
                 }
 
-                NoteRateChange(joinFrame, generation, waited.Elapsed);
-                JumpTo(reopenAtIndex);
-            }
-            else if (waitForSave)
-            {
-                // The next track's file is mid-save; Reacquire moves on to it.
-            }
-            else
-            {
+                if (action == TrackEndAction.Reopen)
+                {
+                    NoteRateChange(joinFrame, generation, waited.Elapsed);
+                    if (JumpTo(reopenAtIndex, Skip.Forward))
+                        return;
+                }
+                else if (action == TrackEndAction.OpenNext && JumpTo(nextIndex, Skip.Forward))
+                {
+                    return;
+                }
+
+                // The end of the queue, or nothing after this would open: let go
+                // of the device (session 67), as Stop does.
+                lock (_gate)
+                {
+                    if (!StillDue())
+                        return;
+
+                    _output?.Stop();
+                    TeardownStreamsLocked();
+                    CloseOutputLocked();
+                }
+
+                PlaybackDiagnostics.Note("queue finished: device let go");
                 SetState(PlaybackState.Stopped);
                 Raise(PlaybackFinished);
             }
@@ -1336,6 +1434,37 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     }
 
     /// <summary>
+    /// <see cref="EnsureOutput"/> for <paramref name="stream"/>, then
+    /// <see cref="DopRule.MayPlayOn"/>: a DoP stream that has landed on a shared
+    /// output (exclusive mode refused at its rate just now, which EnsureOutput
+    /// remembers) is opened again as PCM, rather than play as hiss. Returns the
+    /// stream to play, or 0 with it freed when there is no output. Caller holds
+    /// <see cref="_gate"/>.
+    /// </summary>
+    private int AttachOutputLocked(int stream, string path)
+    {
+        if (!EnsureOutput(RateOf(stream)) || _output is null)
+        {
+            FreeStream(stream);
+            return 0;
+        }
+
+        if (!_isDopHandle.ContainsKey(stream) || DopRule.MayPlayOn(_output.Mode, _output.SampleRate, RateOf(stream)))
+            return stream;
+
+        PlaybackDiagnostics.Note($"DoP refused at {RateOf(stream)} Hz in exclusive mode: {Path.GetFileName(path)} opened as PCM instead");
+        FreeStream(stream);
+        stream = OpenStream(path, allowDop: false);
+        if (stream == 0 || !EnsureOutput(RateOf(stream)) || _output is null)
+        {
+            FreeStream(stream);
+            return 0;
+        }
+
+        return stream;
+    }
+
+    /// <summary>
     /// Sets the playing stream, and the track it plays for the device's thread
     /// (<see cref="_playing"/>). Caller holds <see cref="_gate"/>, with
     /// <see cref="_index"/> already on the track.
@@ -1352,7 +1481,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     private static int RateOf(int stream) =>
         stream != 0 && Bass.ChannelGetInfo(stream, out var info) ? info.Frequency : 0;
 
-    private int CreateDecodeStream(string path)
+    private int CreateDecodeStream(string path, bool allowDop)
     {
         if (!File.Exists(path))
             return 0;
@@ -1367,7 +1496,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             return music;
         }
 
-        if (AudioFormats.IsDsd(path))
+        if (allowDop && AudioFormats.IsDsd(path))
         {
             var dop = TryCreateDopStream(path, flags);
             if (dop != 0)
@@ -1395,7 +1524,15 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     /// </summary>
     private int TryCreateDopStream(string path, BassFlags baseFlags)
     {
-        if (_requestedMode != OutputMode.Exclusive)
+        OutputMode requested;
+        int[] refused;
+        lock (_gate)
+        {
+            requested = _requestedMode;
+            refused = [.. _exclusiveRefusedAt];
+        }
+
+        if (requested != OutputMode.Exclusive)
             return 0;
 
         // Float is mandatory for DoP: the payload is 24-bit, which BASS has no
@@ -1404,14 +1541,15 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         if (stream == 0)
             return 0;
 
-        var dopRate = RateOf(stream);
-        if (dopRate > 0 && _runtime.ExclusiveRates.Contains(dopRate))
+        // Not at a rate exclusive mode has refused, either: that output is
+        // shared, and DoP through Windows' mixer is hiss (session 67).
+        if (DopRule.MayOpen(requested, RateOf(stream), _runtime.ExclusiveRates, refused))
         {
             _isDopHandle[stream] = true;
             return stream;
         }
 
-        // The DAC can't take DoP at this DSD rate.
+        // The DAC can't take DoP at this DSD rate, or not in exclusive mode here.
         Bass.StreamFree(stream);
         return 0;
     }

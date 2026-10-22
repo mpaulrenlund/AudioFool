@@ -230,7 +230,7 @@ internal static class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "rowclick" or "openfiles" or "analysis" or "clear" or "waveform" or "device" or "splice" or "ratechange" or "lend" or "themeswitch" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "rowclick" or "openfiles" or "analysis" or "clear" or "waveform" or "device" or "splice" or "ratechange" or "lend" or "playbackfixes" or "themeswitch" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -1459,6 +1459,15 @@ internal static class Program
         // Then the same from stopped. "ALL OK". Takes the DAC for a few seconds.
         if (which == "lend")
             return RunLend(engine, runtime);
+
+        // --window playbackfixes (session 67): the playback batch through the real
+        // engine and default device, on digital silence only (WAVs and a DSF of
+        // DSD's idle pattern). Shared: songs that won't open skipped by the end of
+        // a track, Next and Previous; a queue ending on one. Exclusive: Stop and the
+        // end of a queue let go of the device; a reopen carries on from what was
+        // heard; DoP never on a shared output. "ALL OK". Takes the DAC ~30 s.
+        if (which == "playbackfixes")
+            return RunPlaybackFixes(engine, runtime);
 
         // --window closex: the Statistics dialog, modal and off-screen, with mouse
         // messages for its close button posted to the thread's queue as real input
@@ -6531,7 +6540,7 @@ internal static class Program
             engine.Play(tracks, 0);
             engine.Seek(TimeSpan.FromSeconds(30));
             Settle(500);
-            var before = engine.Position;
+            var before = engine.Heard.Position;   // a reopen carries on from what was heard (session 67)
             var clock = System.Diagnostics.Stopwatch.StartNew();
             engine.SwitchDevice(OutputMode.Shared);
             var took = clock.ElapsedMilliseconds;
@@ -6556,7 +6565,7 @@ internal static class Program
             // Paused.
             engine.Pause();
             Settle(100);
-            var pausedAt = engine.Position;
+            var pausedAt = engine.Heard.Position;   // held still while paused; the reopen carries on from it
             engine.SwitchDevice(OutputMode.Shared);
             var pausedOk = engine.State == PlaybackState.Paused && Math.Abs((engine.Position - pausedAt).TotalMilliseconds) < 25;
             Log($"switch while paused: {pausedAt.TotalMilliseconds:0} -> {engine.Position.TotalMilliseconds:0} ms, state={engine.State} {(pausedOk ? "OK" : "WRONG")}");
@@ -6728,7 +6737,7 @@ internal static class Program
         // engine lets go of it, and the track comes back paused where it was.
         var path = Row("04").FilePath;
         var sizeBefore = new FileInfo(path).Length;
-        var pausedAt = engine.Position;
+        var pausedAt = engine.Heard.Position;   // the reopen carries on from what was heard (session 67)
         Await(vm.ApplyInlineEditAsync(Row("04"), AudioFool.Core.Library.InlineField.Title, new string('x', 300_000)));
         var pausedOk = new FileInfo(path).Length > sizeBefore && vm.NowPlaying?.Title?.Length == 300_000
                        && engine.State == PlaybackState.Paused && engine.HoldsFile(path)
@@ -7475,7 +7484,7 @@ internal static class Program
             Console.WriteLine("paused, then lent:");
             engine.Pause();
             Settle(200);
-            var at = engine.Position;
+            var at = engine.Heard.Position;   // held still while paused; a reopen carries on from it (session 67)
             Expect("others can open it before the loan", OthersCanOpen(), false);
             var loan = engine.LendDevice();
             Expect("output open while lent", engine.HasOutput, false);
@@ -7515,6 +7524,250 @@ internal static class Program
             engine.OutputMode = OutputMode.Shared;
             Settle(300);
             Directory.Delete(dir, recursive: true);
+        }
+
+        Console.WriteLine(failures.Count == 0 ? "ALL OK" : "FAILED: " + string.Join(", ", failures));
+        return failures.Count == 0 ? 0 : 1;
+    }
+
+    /// <summary>A DSD64 stereo DSF of DSD's idle pattern (0x69), for checks that must make no sound.</summary>
+    private static string WriteSilentDsf(string path, int seconds)
+    {
+        const int rate = 2_822_400, block = 4096, channels = 2;
+        var samples = (long)rate * seconds;
+        var blocks = (int)Math.Ceiling(samples / 8.0 / block);
+        var dataBytes = (long)blocks * block * channels;
+        using var writer = new BinaryWriter(File.Create(path));
+        writer.Write("DSD "u8);
+        writer.Write(28L);
+        writer.Write(28L + 52 + 12 + dataBytes);
+        writer.Write(0L);                  // no metadata
+        writer.Write("fmt "u8);
+        writer.Write(52L);
+        writer.Write(1);                   // format version
+        writer.Write(0);                   // raw DSD
+        writer.Write(2);                   // stereo
+        writer.Write(channels);
+        writer.Write(rate);
+        writer.Write(1);                   // bits per sample
+        writer.Write(samples);
+        writer.Write(block);
+        writer.Write(0);
+        writer.Write("data"u8);
+        writer.Write(12L + dataBytes);
+        var idle = new byte[block * channels];
+        Array.Fill(idle, (byte)0x69);
+        for (var i = 0; i < blocks; i++)
+            writer.Write(idle);
+        return path;
+    }
+
+    private static int RunPlaybackFixes(AudioEngine engine, BassRuntime runtime)
+    {
+        // Never the real playback.log (see HANDOFF, Claude's shells and AppData).
+        var logPath = Path.Combine(Path.GetTempPath(), "themelab-playbackfixes-" + Guid.NewGuid().ToString("N")[..8] + ".log");
+        AudioFool.Core.Playback.PlaybackDiagnostics.LogPath = logPath;
+        var ready = runtime.Initialise();
+        Console.WriteLine($"init {ready} {runtime.InitError}, exclusive {runtime.SupportsExclusive}, rates {string.Join(",", runtime.ExclusiveRates)}");
+
+        var dir = Path.Combine(Path.GetTempPath(), "themelab-playbackfixes-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(dir);
+        Track Wav(string name, int seconds, int rate = 44100) =>
+            AudioFool.Core.Library.TagReader.Read(WriteSilentWav(Path.Combine(dir, name + ".wav"), rate, seconds));
+        Track Gone(string name)
+        {
+            var track = Wav(name, 1);
+            File.Delete(track.FilePath);
+            return track;
+        }
+
+        var failures = new List<string>();
+        void Expect(string what, object? actual, object? expected)
+        {
+            var ok = Equals(actual, expected);
+            Console.WriteLine($"  {what}: {actual} {(ok ? "OK" : $"WRONG (expected {expected})")}");
+            if (!ok)
+                failures.Add(what);
+        }
+
+        var skipped = new List<string>();
+        var finished = 0;
+        engine.TracksSkipped += (_, tracks) => skipped.AddRange(tracks.Select(t => Path.GetFileNameWithoutExtension(t.FilePath)));
+        engine.PlaybackFinished += (_, _) => finished++;
+        string Now() => Path.GetFileNameWithoutExtension(engine.CurrentTrack?.FilePath ?? "(none)");
+        void WaitFor(Func<bool> done, int ms)
+        {
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            while (!done() && clock.ElapsedMilliseconds < ms)
+                Settle(25);
+            Settle(100);
+        }
+
+        var chainType = typeof(AudioEngine).Assembly.GetType("AudioFool.Core.Playback.OutputChain")!;
+        var tryCreate = chainType.GetMethod("TryCreate")!;
+        IDisposable? OpenExclusive(int rate)
+        {
+            var call = new object?[] { OutputMode.Exclusive, rate, 2, null };
+            return tryCreate.Invoke(null, call) as IDisposable;
+        }
+
+        bool OthersCanOpen()
+        {
+            using var chain = OpenExclusive(44100);
+            return chain is not null;
+        }
+
+        try
+        {
+            engine.OutputMode = OutputMode.Shared;
+            engine.Volume = 0.05;
+            engine.Repeat = RepeatMode.Off;
+            engine.Shuffle = false;
+
+            Console.WriteLine("1. shared: the end of a track over a song that won't open");
+            engine.Play([Wav("A", 2), Gone("B"), Wav("C", 20)], 0);
+            WaitFor(() => Now() == "C", 5000);
+            Expect("playing", Now(), "C");
+            Expect("skipped", string.Join(",", skipped), "B");
+
+            Console.WriteLine("2. Next and Previous over it");
+            skipped.Clear();
+            engine.Play([Wav("D", 20), Gone("E"), Wav("F", 20)], 0);
+            Settle(500);
+            engine.Next();
+            Settle(300);
+            Expect("Next", Now(), "F");
+            engine.Previous();
+            Settle(300);
+            Expect("Previous", Now(), "D");
+            Expect("skipped", string.Join(",", skipped), "E,E");
+            skipped.Clear();
+            engine.Play([Wav("G", 20), Gone("H"), Gone("I")], 0);
+            Settle(300);
+            Expect("Next with nothing after that opens", engine.Next(), false);
+            Settle(200);
+            Expect("still playing", Now(), "G");
+            Expect("skipped", string.Join(",", skipped), "H,I");
+
+            Console.WriteLine("3. a queue ending on songs that won't open");
+            skipped.Clear();
+            finished = 0;
+            engine.Play([Wav("J", 2), Gone("K")], 0);
+            WaitFor(() => engine.State == PlaybackState.Stopped, 5000);
+            Expect("state", engine.State, PlaybackState.Stopped);
+            Expect("finished raised", finished, 1);
+            Expect("skipped", string.Join(",", skipped), "K");
+            Expect("device let go", engine.HasOutput, false);
+
+            if (!runtime.SupportsExclusive || !runtime.ExclusiveRates.Contains(44100))
+            {
+                Console.WriteLine("the default device can't play 44.1 kHz exclusively: the rest needs it");
+                failures.Add("no exclusive device");
+                return 1;
+            }
+
+            engine.OutputMode = OutputMode.Exclusive;
+
+            Console.WriteLine("4. Bit-Perfect: Stop lets go of the device");
+            engine.Play([Wav("L", 20)], 0);
+            Settle(800);
+            Expect("bit-perfect", engine.IsBitPerfect, true);
+            Expect("others can open it while playing", OthersCanOpen(), false);
+            engine.Pause();
+            Settle(200);
+            Expect("others can open it while paused (held, as before)", OthersCanOpen(), false);
+            engine.Stop();
+            Expect("output after Stop", engine.HasOutput, false);
+            Expect("others can open it after Stop", OthersCanOpen(), true);
+            Expect("volume off while stopped in Bit-Perfect", engine.SupportsVolume, false);
+            engine.Play([Wav("M", 20)], 0);
+            Settle(500);
+            Expect("plays again, bit-perfect", engine.IsBitPerfect && engine.State == PlaybackState.Playing, true);
+
+            Console.WriteLine("5. Bit-Perfect: the end of the queue lets go of it, after the last of it is heard");
+            finished = 0;
+            engine.Play([Wav("N", 2)], 0);
+            WaitFor(() => engine.State == PlaybackState.Stopped, 5000);
+            Expect("finished raised", finished, 1);
+            Expect("others can open it after", OthersCanOpen(), true);
+            var finishLine = File.ReadLines(logPath).LastOrDefault(l => l.Contains("queue finished")) ?? "(none)";
+            Console.WriteLine($"  log: {finishLine}");
+
+            Console.WriteLine("6. a reopen carries on from what was heard");
+            engine.Play([Wav("O", 20)], 0);
+            Settle(3000);
+            var heard = engine.Heard.Position;
+            var decoded = engine.Position;
+            engine.SwitchDevice(OutputMode.Exclusive);
+            var reopened = engine.Position;
+            Console.WriteLine($"  playing: heard {heard.TotalMilliseconds:0} ms, decoder {decoded.TotalMilliseconds:0} ms, reopened at {reopened.TotalMilliseconds:0} ms");
+            Expect("reopened near what was heard (within 40 ms)", Math.Abs((reopened - heard).TotalMilliseconds) < 40, true);
+            Expect("not at the decoder (100 ms or more before it)", (decoded - reopened).TotalMilliseconds >= 100, true);
+            Settle(500);
+            engine.Pause();
+            Settle(300);
+            heard = engine.Heard.Position;
+            decoded = engine.Position;
+            engine.SwitchDevice(OutputMode.Exclusive);
+            reopened = engine.Position;
+            Console.WriteLine($"  paused: heard {heard.TotalMilliseconds:0} ms, decoder {decoded.TotalMilliseconds:0} ms, reopened at {reopened.TotalMilliseconds:0} ms");
+            Expect("paused reopen near what was heard (within 40 ms)", Math.Abs((reopened - heard).TotalMilliseconds) < 40, true);
+            Expect("still paused", engine.State, PlaybackState.Paused);
+            engine.Stop();
+
+            Console.WriteLine("7. DoP never on a shared output");
+            var dsf = AudioFool.Core.Library.TagReader.Read(WriteSilentDsf(Path.Combine(dir, "P.dsf"), 6));
+            engine.Play([dsf], 0);
+            Settle(800);
+            Console.WriteLine($"  DAC free: '{engine.OutputDescription}'");
+            Expect("DoP, bit-perfect", engine.IsDopActive && engine.IsBitPerfect, true);
+            var dopRate = engine.IsDopActive ? double.Parse(System.Text.RegularExpressions.Regex.Match(engine.OutputDescription, @"([\d.]+) kHz").Groups[1].Value,
+                System.Globalization.CultureInfo.InvariantCulture) : 0;
+            engine.Stop();
+
+            // Exclusive refusals as the engine remembers them (a DAC held elsewhere
+            // refuses shared mode too, so a real refusal can't be staged here).
+            var refusedField = typeof(AudioEngine).GetField("_exclusiveRefusedAt", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            void Refuse(params int[] rates)
+            {
+                engine.SwitchDevice(OutputMode.Exclusive);   // clears earlier ones
+                var refused = (HashSet<int>)refusedField.GetValue(engine)!;
+                foreach (var rate in rates)
+                    refused.Add(rate);
+            }
+
+            var dopHz = (int)Math.Round(dopRate * 1000.0);
+            Console.WriteLine($"  DoP rate {dopHz} Hz refused:");
+            Refuse(dopHz);
+            engine.Play([dsf], 0);
+            Settle(800);
+            Console.WriteLine($"  '{engine.OutputDescription}'");
+            Expect("not DoP", engine.IsDopActive, false);
+            Expect("playing", engine.State, PlaybackState.Playing);
+            engine.Stop();
+
+            Console.WriteLine("  44.1 kHz refused (a shared output), then a DSF opened ahead as DoP:");
+            Refuse(44100);
+            engine.Play([Wav("Q", 2), dsf], 0);
+            Settle(500);
+            Console.WriteLine($"  first track: '{engine.OutputDescription}' bit-perfect {engine.IsBitPerfect}");
+            Expect("first track shared", engine.IsBitPerfect, false);
+            WaitFor(() => Path.GetExtension(engine.CurrentTrack?.FilePath ?? "") == ".dsf", 5000);
+            Settle(800);
+            Console.WriteLine($"  then the DSF: '{engine.OutputDescription}'");
+            Expect("on the DSF", Path.GetExtension(engine.CurrentTrack?.FilePath ?? ""), ".dsf");
+            Expect("DoP only if bit-perfect", !engine.IsDopActive || engine.IsBitPerfect, true);
+            Expect("reopened exclusive for DoP, not joined onto the shared output", engine.IsDopActive && engine.IsBitPerfect, true);
+            engine.Stop();
+        }
+        finally
+        {
+            engine.Stop();
+            engine.OutputMode = OutputMode.Shared;
+            Settle(300);
+            foreach (var line in File.Exists(logPath) ? File.ReadLines(logPath).Where(l => l.Contains("skipped") || l.Contains("DoP refused") || l.Contains("queue finished") || l.Contains("rate change")) : [])
+                Console.WriteLine($"  log: {line}");
+            try { Directory.Delete(dir, recursive: true); } catch (IOException) { }
         }
 
         Console.WriteLine(failures.Count == 0 ? "ALL OK" : "FAILED: " + string.Join(", ", failures));

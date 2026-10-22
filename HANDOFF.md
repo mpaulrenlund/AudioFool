@@ -160,8 +160,8 @@ Open with the user, in this order (each is under *Suggested next steps*):
    (cover saves themselves are confirmed, session 62) and the album window on a
    compilation ("Varies" in Artist and Year); from session 61, the cover's source line
    in the album tag window and the status-bar buttons' hover in Dark.
-3. **What to take next** (step 6): session 66 recommended making likes and playlists
-   safe first, then the playback fixes as one batch, then the drive handling, the tag
+3. **What to take next** (step 6): session 66's order: likes and playlists and the
+   playback fixes are done (session 67); next the drive handling, the tag
    saves, and the queue view (step 3). The user picks.
 
 **v0.7.0 is released** (session 65). Unreleased: session 66's close-X safety net and
@@ -170,7 +170,7 @@ check it reads the new number in the release build.
 
 ### Where things are
 
-- **Everything in `README.md` is implemented and verified.** **884 tests** pass.
+- **Everything in `README.md` is implemented and verified.** **903 tests** pass.
 - **Session 67** (2026-10-22): **Find and Replace on the selected songs**, the user's
   request, the plan approved as proposed. With two or more songs selected in the
   Songs table, Ctrl+H or the logo menu looks only through those
@@ -205,6 +205,32 @@ check it reads the new number in the release build.
   after the settings one). Clearances' saves now go one at a time. Six new tests (884).
   Installed 09:09 (AudioFool wasn't running), 19 files hash-identical. Committed and
   pushed. The first save after it makes `playlists.json.bak` beside the real file.
+  Then **the playback fixes as one batch** (step 6's second pick), the decisions pulled
+  out of `AudioEngine` into tested pieces: `PlayOrder.Candidates` (the songs a play
+  tries in turn), `TrackEnd.Decide` (the END sync's choice: RepeatOne, Splice, Reopen,
+  WaitForSave, OpenNext, Finish), `ReopenPoint.Choose`, `DopRule`. What changed:
+  - **A song that won't open is skipped** by Next (forward), Previous (back), the end
+    of a track and a rate-change reopen (`PlayCore`'s `Skip`; a next track the
+    prefetch couldn't open is tried again at the END, once the last one is heard). The
+    engine raises `TracksSkipped`; the status bar names it. `Play` (a double-click)
+    and the public `JumpTo` still try only the song asked for.
+  - **Stop and the end of a queue let go of the device** (`CloseOutputLocked`); the end
+    waits for the last of it to be heard. Pause still holds it. `SupportsVolume` with no
+    device open follows the requested mode, so the slider stays greyed while stopped in
+    Bit-Perfect.
+  - **Reopens carry on from what was heard** (`Release` → `ReopenPoint.Choose(…, Heard,
+    Position)`): measured 0–1 ms from the heard place, where it was ~200 ms past it.
+  - **DoP never on a shared output**: not opened at a rate exclusive mode refused
+    (`DopRule.MayOpen`), not joined onto a shared output (`TrackEnd`: Reopen), and a
+    DoP stream that lands on one (refused just now) is opened again as PCM
+    (`AttachOutputLocked`; that last path not staged on hardware: a DAC held elsewhere
+    refuses shared mode too).
+  - ThemeLab `--window playbackfixes` on the DX5, silence only (WAVs, a DSF of DSD's
+    idle pattern): ALL OK. `--window lend`, `ratechange` (with `--stopinwait`), `queue`,
+    `splice` and `device` rerun: all OK, after `lend`, `queue` and `device` were set to
+    compare a reopen with the heard place. 903 tests (19 new).
+  - Installed 09:29 (AudioFool wasn't running), 19 files hash-identical. Committed and
+    pushed. **Not yet heard by the user on music.**
 - **Session 66** (2026-10-22): **the close X caught in the act, and a safety net**
   (details in `HISTORY.md`):
   - The user's Statistics X ignored 19 clicks in a row, then closed on the 20th. Each
@@ -1178,6 +1204,7 @@ ThemeLab.exe --window queue --long "D:/Music/x/a.flac;D:/Music/y/b.dsf" [--longc
 ThemeLab.exe --window closex [--theme dark]   # Statistics' close button, posted messages: a normal click (WPF-UI clicks); clicks WPF-UI loses (a mouse leave, another thread's hit test, a double-click's second press, a client click while captured: the safety net clicks, once); cancelled closes stay cancelled; press-and-slide-off does nothing. "ALL OK"; prints the click log with its hit-test lines (session 66)
 ThemeLab.exe --window intro --w 1300 --h 800 [--theme dark] [--dpi 1.25]   # the About intro at nine moments, never shown (no sound): renders <out>-<ms>.png, prints opacities and centre/corner colours, opens the sound without playing it (session 64)
 ThemeLab.exe --window lend   # About's loan of the device in Bit-Perfect, real engine and default device, digital silence: while lent another exclusive open succeeds, returned paused in place, Resume plays ("ALL OK"). Ask the user first: it takes their DAC ~5 s
+ThemeLab.exe --window playbackfixes   # session 67's playback batch through the real engine and default device, silence only (WAVs, a DSF of 0x69): songs that won't open skipped (end of a track, Next, Previous, a queue ending on them); in Bit-Perfect the DAC free after Stop and after a queue ends, held while playing and paused; reopens at the heard place, playing and paused; DoP never on a shared output (refusals set by reflection). "ALL OK". Ask the user first: it takes their DAC ~30 s
 ThemeLab.exe --window ratechange [--stopinwait 1]   # a Bit-Perfect rate change (44.1 → 96 kHz) through the real engine and default device, exclusively for ~5 s, on two WAVs of digital silence (Bit-Perfect is full volume: never real music); prints "rate change: waited N ms; ... dropped by the reopen: M ms" (0 since session 61). --stopinwait presses Stop during the wait. Ask the user first: it takes their DAC
 ThemeLab.exe --window splice --long "D:/Music/x/a.flac;D:/Music/x/b.flac"   # a gapless join through the real engine, silent; prints the log's "gapless:" line (needs the device free; since session 60 any rates join in shared mode, "(resampled)" when they differ)
 ThemeLab.exe --window folderart   # cover.jpg on scratch folders through the album save, Save Embedded Art and Keep Best Cover: old cover.png to the real Recycle Bin, a folder shared with another album left alone, no leftovers ("ALL OK"; leaves one tiny scratch cover.png in the bin)
@@ -1626,28 +1653,13 @@ Open items only; finished ones are in `HISTORY.md`.
    loud first block, tag saves in place, `CoverCleaner`'s swap without a backup,
    closing during a save, the album window writing four fields to every track.
    - **Session 66's recommended order** (the user picks): (1) ~~likes and playlists
-     saved safely~~ done in session 67; (2) the playback fixes as one batch, pulling the engine's decisions out
+     saved safely~~ done in session 67; (2) ~~the playback fixes~~ done in session 67, its decisions pulled out
      into tested pieces as `PlayOrder` was; (3) the drive handling; (4) the tag-save
      fixes; then the queue view (step 3).
-   - **Playback** (`AudioEngine`):
-     - Confirmed: a next track that won't open (moved, deleted, undecodable) ends the
-       queue with no message, and Next retries that track for ever: the prefetch gives
-       up silently and `PlayCore` returns before `_index` moves. Medium.
-     - Confirmed: in Bit-Perfect the DAC stays exclusive after Stop **and after a
-       queue ends by itself** (`Stop` only calls `BassWasapi.Stop`; only
-       `OutputChain.Dispose` frees the device), so other apps stay silent. A finished
-       queue also leaves the device running on silence, which may keep the laptop
-       awake (not checked). Small.
-     - Confirmed: Pause, Stop, Play plays up to 0.2 s of the old buffer (Stop keeps the
-       chain). Rare: Stop is only on the taskbar and the media key. Small, with the
-       above.
-     - Confirmed: reopens (Bit-Perfect toggled mid-track, a device change, About's
-       return, a save that lets go of the playing file) resume from the decode
-       position, skipping up to 0.2 s; rate changes are fine. Small.
-     - Partly: DoP can reach a shared output once an exclusive open was refused for its
-       rate (refusals are remembered). By the format's maths it is quiet hiss, not
-       full-scale noise (unmeasured; the README's "full-scale noise" overstates it).
-       Medium.
+   - **Playback** (`AudioEngine`): **all five fixed in session 67** (a song that won't
+     open is skipped; Stop and the end of a queue let go of the device, so no old
+     buffer plays after Stop; reopens carry on from what was heard; DoP never on a
+     shared output). See *Where things are*, session 67.
    - **File writes:**
      - Partly: the one-song tag window writes Artist and Album Artist as one value on
        every save, dropping a song's second and later artists (the other windows write
@@ -1694,9 +1706,9 @@ Open items only; finished ones are in `HISTORY.md`.
      title separators, button order, Escape, the filter chip's colour, the art search
      comment, spec §6.5, §6.7 and §6.8).
    - **Project:**
-     - `AudioEngine` has no tests (confirmed in session 66: 1,500 lines, and nothing
-       covers it, `OutputChain` or `BassRuntime`). The decisions behind the playback
-       findings are the ones to pull out first.
+     - `AudioEngine` itself has no tests (1,500 lines; `OutputChain` and `BassRuntime`
+       neither). Session 67 pulled the playback findings' decisions out (`TrackEnd`,
+       `ReopenPoint`, `DopRule`, `PlayOrder.Candidates`, all tested); the rest is still in it.
      - The Last.fm secret is in plain text.
      - ~~`LiveSpectrumTests.An_update_allocates_nothing` fails now and then~~ Made
        sturdier in session 67: five rounds of 100 updates, the fewest bytes must be 0

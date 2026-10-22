@@ -218,4 +218,42 @@ public class PlayOrderTests
 
         Assert.Equal(Enumerable.Range(0, 12), order.Order.OrderBy(i => i));
     }
+
+    // ---------- candidates: skipping a song that won't open (session 67) ----------
+
+    [Fact]
+    public void Candidates_run_from_the_start_to_the_end_of_the_order()
+    {
+        Assert.Equal([2, 3, 4], Sequential(5).Candidates(2, forward: true, wrap: false));
+    }
+
+    [Fact]
+    public void Candidates_going_back_run_to_the_first()
+    {
+        Assert.Equal([2, 1, 0], Sequential(5).Candidates(2, forward: false, wrap: false));
+    }
+
+    [Fact]
+    public void Candidates_with_wrap_come_round_once_and_stop_before_the_start()
+    {
+        Assert.Equal([3, 4, 0, 1, 2], Sequential(5).Candidates(3, forward: true, wrap: true));
+        Assert.Equal([1, 0, 4, 3, 2], Sequential(5).Candidates(1, forward: false, wrap: true));
+    }
+
+    [Fact]
+    public void Candidates_follow_the_shuffled_order()
+    {
+        var order = Shuffled(8, currentIndex: 5);
+        var expected = order.Order.Skip(order.PositionOf(5)).ToList();
+
+        Assert.Equal(expected, order.Candidates(5, forward: true, wrap: false));
+    }
+
+    [Fact]
+    public void Candidates_of_one_song_or_none()
+    {
+        Assert.Equal([0], Sequential(1).Candidates(0, forward: true, wrap: true));
+        Assert.Empty(Sequential(3).Candidates(7, forward: true, wrap: true));
+        Assert.Empty(new PlayOrder().Candidates(0, forward: true, wrap: false));
+    }
 }

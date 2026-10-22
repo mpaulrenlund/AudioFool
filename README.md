@@ -756,6 +756,23 @@ The gap comes after the old track: its last ~0.2 s, still in the device's buffer
 plays out before the device is reopened (measured: 174 ms were cut before session
 61, 0 ms now). `playback.log` notes each change ("rate change:").
 
+**Stop, and the end of a queue, let go of the device.** Paused, AudioFool keeps it, so
+Play carries straight on; stopped (Stop on the taskbar or the media key) or finished,
+it closes the connection, so in Bit-Perfect other apps can sound through the DAC again,
+and the next play opens it afresh (none of the old buffer is heard). At the end of a
+queue the last ~0.2 s plays out first. While stopped in Bit-Perfect the volume slider
+stays greyed, as it will be when the next track starts.
+
+**A track that is closed and opened again carries on from what you heard**: a save that
+needs the playing file, a change of sound device, Bit-Perfect switched mid-track, the
+About intro. Until session 67 it carried on from the decoder's place, up to 0.2 s
+further on, so that much was skipped.
+
+**A song that won't open is skipped** (moved, deleted or damaged): Next, Previous and
+the queue moving on go to the next one that does, and the status bar names what was
+skipped. If nothing after it opens, the queue ends as usual. Double-clicking a song
+that won't open still plays nothing and says so.
+
 The line under the volume slider shows what the output is actually doing, e.g.
 `Exclusive 96 kHz/24-bit (bit-perfect)`. If exclusive mode is refused — another app
 already has the device exclusively — it falls back to shared and says so.
@@ -794,10 +811,13 @@ is just a delivery mechanism. BASSDSD generates it via `BassFlags.DSDOverPCM`, s
 markers aren't hand-rolled here.
 
 DoP is only offered over an exclusive connection, and refused per-file when the device
-can't clock that particular DoP rate — falling back to PCM conversion. That isn't
-caution for its own sake: DoP relies on the bits arriving *exactly*, and any
-resampling or volume change turns the markers into full-scale noise. Hence float
-throughout (float32 represents 24-bit integers exactly), unity gain, and matched rates.
+can't clock that particular DoP rate, or has refused exclusive mode at it (busy, say),
+falling back to PCM conversion. A DSD file opened ahead as DoP is never joined onto a
+shared output either: the device is reopened for it, exclusively if it can be, else
+the file is converted. That isn't caution for its own sake: DoP relies on the bits
+arriving *exactly*, and any resampling or volume change turns the markers into hiss
+(quiet, by the format's maths, but not music). Hence float throughout (float32
+represents 24-bit integers exactly), unity gain, and matched rates.
 
 If you want to check the marker stream yourself, the approach is to decode a chunk,
 recover each 24-bit word with `(int)Math.Round(sample * 8388608.0) & 0xFFFFFF`, and

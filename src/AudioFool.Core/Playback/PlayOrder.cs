@@ -93,6 +93,29 @@ public sealed class PlayOrder
     /// </summary>
     public int Previous(int fromIndex, bool wrap) => Step(fromIndex, -1, wrap);
 
+    /// <summary>
+    /// The queue indices a play starting at <paramref name="startIndex"/> tries in
+    /// turn, for skipping a song that won't open (session 67): the start first,
+    /// then each after it in the order (or before it, going back), each at most
+    /// once, until the order runs out or, with <paramref name="wrap"/>, comes round
+    /// to the start again. Empty for an index outside the order.
+    /// </summary>
+    public IReadOnlyList<int> Candidates(int startIndex, bool forward, bool wrap)
+    {
+        if (PositionOf(startIndex) < 0)
+            return [];
+
+        var candidates = new List<int>();
+        for (var index = startIndex; index >= 0 && candidates.Count < _order.Length; index = Step(index, forward ? 1 : -1, wrap))
+        {
+            if (candidates.Count > 0 && index == startIndex)
+                break;
+            candidates.Add(index);
+        }
+
+        return candidates;
+    }
+
     private int Step(int fromIndex, int delta, bool wrap)
     {
         var count = _order.Length;

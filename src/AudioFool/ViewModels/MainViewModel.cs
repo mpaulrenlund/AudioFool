@@ -67,6 +67,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _engine.TrackChanged += OnEngineTrackChanged;
         _engine.StateChanged += OnEngineStateChanged;
         _engine.PlaybackFinished += OnEnginePlaybackFinished;
+        _engine.TracksSkipped += OnEngineTracksSkipped;
         _runtime.DefaultOutputChanged += OnDefaultOutputChanged;
         ThemeService.Switched += OnThemeSwitched;
 
@@ -2452,6 +2453,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         NowPlayingArt = null;
     }
 
+    /// <summary>Next, Previous or the queue moving on passed over songs that wouldn't open (session 67).</summary>
+    private void OnEngineTracksSkipped(object? sender, IReadOnlyList<Track> skipped) =>
+        StatusText = skipped is [var one]
+            ? $"Skipped {Path.GetFileName(one.FilePath)}: it couldn't be opened (moved, deleted or damaged)."
+            : $"Skipped {skipped.Count:N0} songs that couldn't be opened (moved, deleted or damaged), from {Path.GetFileName(skipped[0].FilePath)}.";
+
     private void OnPositionTick(object? sender, EventArgs e)
     {
         // What the speakers are playing, not where the decoder is (~200 ms ahead).
@@ -2493,6 +2500,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _engine.TrackChanged -= OnEngineTrackChanged;
         _engine.StateChanged -= OnEngineStateChanged;
         _engine.PlaybackFinished -= OnEnginePlaybackFinished;
+        _engine.TracksSkipped -= OnEngineTracksSkipped;
 
         _scrobbler.AuthFailed -= OnScrobblerAuthFailed;
         _scrobbler.StatusChanged -= OnScrobblerStatusChanged;

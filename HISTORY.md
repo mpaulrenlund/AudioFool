@@ -4505,6 +4505,46 @@ recommendation, the user's pick):
   the same. 884 tests. ThemeLab `--window playlists` and `--window reorder` as before,
   with a `.bak` beside each scratch file.
 - Left as they were: library.json (a scan rebuilds it) and scrobbles.json.
+  Committed `ad165b6`, pushed.
+
+**Then the playback fixes as one batch** (session 66's second recommendation, the
+user's pick, with the decisions pulled out of the engine "the way shuffle was done"
+and checked on the DX5 with silent files):
+- **New tested pieces** (`Core/Playback`): `PlayOrder.Candidates(start, forward,
+  wrap)`; `TrackEnd.Decide` and `TrackEndAction`; `ReopenPoint.Choose`; `DopRule.MayOpen`
+  and `MayPlayOn`. `PlaybackDecisionTests` and five `PlayOrderTests`: 903 tests.
+- **Skipping:** `PlayCore(…, Skip)` opens each candidate in turn and raises
+  `TracksSkipped` for those that wouldn't open; `Next`, `Previous`, the END's
+  OpenNext and Reopen, and `Reacquire`'s move on after a save use it. Before, a next
+  track that wouldn't open ended the queue (the prefetch gave up silently), and Next
+  tried the same song for ever. A double-click (`Play`) still plays only that song.
+  The view model shows "Skipped x.flac: it couldn't be opened (moved, deleted or
+  damaged)." or a count.
+- **Letting go:** `Stop` closes the device connection; at the END with nothing to
+  play the engine waits until the last track is heard, then closes it, then raises
+  Stopped and PlaybackFinished (they came at once before, ~0.2 s early). The device
+  no longer runs on silence after a queue, and Play after Stop has no old buffer.
+  `SupportsVolume` with no device: the requested mode's answer.
+- **Reopens:** `Release` keeps `ReopenPoint.Choose(track, Heard, Position)`: the
+  heard place on the same track, 0 if a gapless join hasn't been heard yet, the
+  decoder's place when nothing is known.
+- **DoP:** `TryCreateDopStream` reads the refused rates (under the gate, which the
+  prefetch thread didn't take before); the END reopens instead of joining DoP onto a
+  shared output; `AttachOutputLocked` (`PlayCore`, `Reacquire`) reopens a DoP stream
+  as PCM if `EnsureOutput` fell back to shared. `CreateDecodeStream(path, allowDop)`.
+- **On the DX5** (`--window playbackfixes`, the user's go-ahead in the request; WAVs
+  of digital silence and a 6 s DSF of 0x69, DSD's idle pattern; AudioFool not
+  running): skipped at the end of a track, by Next and Previous, Next with nothing
+  after returning false and staying put, a queue ending on missing songs (Stopped,
+  Finished, device let go); in Bit-Perfect, others could open the DAC after Stop and
+  after a queue ended, not while playing or paused; reopened 0–1 ms from the heard
+  place playing and paused (the decoder was 188–200 ms ahead); DoP with the DAC
+  free, PCM at 352.8 kHz with 176.4 kHz refused, and a DSF after a shared track
+  reopened exclusive as DoP. ALL OK. Then `lend`, `ratechange` (both ways), `queue`,
+  `splice`, `device`: all OK, once three checks compared a reopen with the heard
+  place rather than the decoder's.
+- Not staged on hardware: a first-time exclusive refusal at a DoP rate (a DAC held by
+  another program refuses shared mode too, so the fallback can't be produced here).
 
 ---
 
