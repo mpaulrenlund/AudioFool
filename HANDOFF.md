@@ -365,6 +365,13 @@ new number in the release build.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
+- **65** (2026-10-21): Find and Replace confirmed in real use (Replace and Undo);
+  no more git walkthroughs; **the logo menu in alphabetical order** (Find and
+  Replace…, Last.fm…, Libraries, Statistics…, a line, About; the user's call,
+  `design/progress.md`). ThemeLab `--menushot` both themes; published 19:34,
+  installed at the user's OK (25 files hash-identical to `publish\`). Not yet seen
+  by the user on screen.
+
 - **64** (2026-10-21): **About**, the PlayStation start-up as an easter egg (logo
   menu), lending the DAC in Bit-Perfect, with the version under the logos.
   Confirmed by the user. See *Where things are* above.
@@ -1714,7 +1721,8 @@ Open items only; finished ones are in `HISTORY.md`.
      - The Last.fm secret is in plain text.
      - `LiveSpectrumTests.An_update_allocates_nothing` fails now and then on the first
        run after a build (twice in session 60, 7 KB allocated; every rerun passes, and
-       `Update` allocates nothing). Make the test sturdier (warm up longer, or allow
+       `Update` allocates nothing). In session 65 it failed **two full runs in a row**
+       after a build, then passed alone three times and in the full suite. Make the test sturdier (warm up longer, or allow
        the runtime's own allocations).
    - **Left out of session 60 on purpose (the user may want them):** a folder added
      during a scan is never scanned; flush-to-disk before the swap for playlists.json

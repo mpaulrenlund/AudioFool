@@ -342,6 +342,15 @@
                             <MenuItem.Header>
                                 <Border x:Name="LogoMenuSpacer" Height="20" Background="Transparent" />
                             </MenuItem.Header>
+                            <!-- In alphabetical order (the user's call), About last below a line. -->
+                            <MenuItem Header="Find and Replace…"
+                                      Icon="{ui:SymbolIcon TextEditStyle24}"
+                                      Command="{Binding ShowFindReplaceCommand}" />
+
+                            <MenuItem Header="Last.fm…"
+                                      Icon="{ui:SymbolIcon Live24}"
+                                      Command="{Binding ShowLastFmCommand}" />
+
                             <MenuItem Header="Libraries"
                                       Icon="{ui:SymbolIcon Folder24}">
                                 <MenuItem.ItemContainerStyle>
@@ -380,20 +389,10 @@
                                     </CompositeCollection>
                                 </MenuItem.ItemsSource>
                             </MenuItem>
-        
-                            <Separator />
-
-                            <MenuItem Header="Find and Replace…"
-                                      Icon="{ui:SymbolIcon TextEditStyle24}"
-                                      Command="{Binding ShowFindReplaceCommand}" />
 
                             <MenuItem Header="Statistics…"
                                       Icon="{ui:SymbolIcon DataBarVertical24}"
                                       Command="{Binding ShowStatisticsCommand}" />
-
-                            <MenuItem Header="Last.fm…"
-                                      Icon="{ui:SymbolIcon Live24}"
-                                      Command="{Binding ShowLastFmCommand}" />
 
                             <Separator />
 
