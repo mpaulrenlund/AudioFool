@@ -152,9 +152,9 @@ beat screen's Terminal tab, if still open, can be closed.
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
-1. **Find and Replace in real use** (step 1): how a real Replace and Undo went on
-   their own tags, and whether the all-unticked rows in their screenshot were the
-   header box (asked twice, unanswered; if not, a bug to chase).
+1. ~~Find and Replace in real use~~ **Confirmed by the user** (2026-10-21, session
+   65): "find and replace is working well", several songs edited and changed back
+   with Undo. Nothing open (see step 1).
 2. **The visualizer** (step 5): with the screened presets, does it follow the beat now,
    and is intensity 5 right? Then whether projectM stays, which decides the next
    release's file list.
@@ -1509,10 +1509,12 @@ Open items only; finished ones are in `HISTORY.md`.
    - **Session 64, About:** **confirmed by the user**: "About looks great". Not said
      whether it was tried with music playing or with Bit-Perfect on; only worth
      asking if a problem is reported.
-   - **Session 63, Find and Replace:** the user has run a real Find ("version"),
-     resized the window and confirmed its new width. Not yet reported: a real Replace
-     and Undo, and whether the all-unticked rows in their screenshot were the header
-     box (asked twice, unanswered; a bug if not). Offered, not taken up: tidying the
+   - **Session 63, Find and Replace:** **confirmed by the user in real use**
+     (2026-10-21, session 65): "find and replace is working well"; they replaced on
+     several songs and put them back with Undo, with D:\Music unplugged (Find leaves
+     out a missing drive's folders, which the user knows and expects). The all-unticked
+     rows in an earlier screenshot were never explained; don't ask again, chase it only
+     if the user reports it. Offered, not taken up: tidying the
      space a deletion leaves before a closing bracket ("(Film Version)" minus
      "version" gives "(Film )"; typing " version" avoids it). Off-screen over the
      real 26,861-song library (`--window findreplaceperf`), Find "e" listed 80,211
