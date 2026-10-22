@@ -33,6 +33,7 @@ public partial class IntroWindow : Window
     {
         InitializeComponent();
         OwnerActivation.Attach(this);
+        SonyVersion.Text = PlayStationVersion.Text = VersionLine();
 
         Owner = owner;
         CoverOwner(owner);
@@ -64,6 +65,10 @@ public partial class IntroWindow : Window
         SonyScreen.Opacity = sony;
         PlayStationScreen.Opacity = playStation;
     }
+
+    /// <summary>"AudioFool v0.6.1": the exe's version, from the csproj's &lt;Version&gt;, so a release bump shows here.</summary>
+    internal static string VersionLine() =>
+        $"AudioFool v{typeof(IntroWindow).Assembly.GetName().Version?.ToString(3) ?? "?"}";
 
     private void Start(bool withSound)
     {

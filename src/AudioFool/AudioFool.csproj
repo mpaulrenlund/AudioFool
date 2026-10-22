@@ -50,7 +50,7 @@
   -->
   <ItemGroup>
     <Resource Include="Resources\Intro\sony.jpg" />
-    <Resource Include="Resources\Intro\playstation.jpg" />
+    <Resource Include="Resources\Intro\playstation.png" />
     <EmbeddedResource Include="Resources\Intro\intro.mp3" LogicalName="AudioFool.intro.mp3" />
   </ItemGroup>
 

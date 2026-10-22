@@ -7481,6 +7481,12 @@ internal static class Program
         var playStation = (FrameworkElement)intro.FindName("PlayStationScreen");
         Console.WriteLine($"intro: window would cover {intro.Left:0.#},{intro.Top:0.#} {intro.Width:0.#}x{intro.Height:0.#} (main window off-screen)");
         Console.WriteLine($"intro: content {root.ActualWidth:0.#}x{root.ActualHeight:0.#}, screens {sony.ActualWidth:0.#} / {playStation.ActualWidth:0.#}, backdrops {((System.Windows.Controls.Panel)sony).Background} / {((System.Windows.Controls.Panel)playStation).Background}");
+        foreach (var name in new[] { "SonyVersion", "PlayStationVersion" })
+        {
+            var line = (System.Windows.Controls.TextBlock)intro.FindName(name);
+            var p = line.TranslatePoint(new Point(0, 0), root);
+            Console.WriteLine($"intro: {name} '{line.Text}' at {p.X:0.#},{p.Y:0.#} size {line.ActualWidth:0.#}x{line.ActualHeight:0.#}, {line.FontSize} px, {line.Foreground}, {root.ActualHeight - p.Y - line.ActualHeight:0.#} px above the bottom");
+        }
 
         foreach (var ms in new[] { 0, 200, 3000, 7100, 7300, 7500, 10000, 14450, 14900 })
         {
