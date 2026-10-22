@@ -4613,7 +4613,8 @@ double-click before), with the hand pointer and an underline on the text while t
 text or the dot is hovered (the user's addition to the plan). `LeftClick`
 MouseBindings, `MainWindow.HookStatusLineHover`; spec §6.8 and `design/progress.md`.
 ThemeLab `--window statusclick` ALL OK in Light and Dark; hovered renders looked at.
-Installed 15:26 (19 files hash-identical).
+Installed 15:26 (19 files hash-identical). **Confirmed by the user, with the header
+fix above, after the commit:** "These are both working well."
 
 **Then the old format line back in the now-playing bar** (the user's request; they
 remembered "bit depth · sample rate", but the line replaced on 2026-10-05 was

@@ -159,10 +159,9 @@ playback.log* under Gotchas).
 Open with the user, in this order (each is under *Suggested next steps*):
 
 1. **What they've tried** (step 1): session 68's drives with the real SSD (pull it
-   with AudioFool open, plug it back in, under a new letter if Windows gives one),
-   sorting by a click right on a header letter, and the status line's single click;
-   of session 67 only a song that won't open being skipped is unreported (the rest
-   confirmed, 2026-10-22). Ask; don't re-explain.
+   with AudioFool open, plug it back in, under a new letter if Windows gives one);
+   of session 67 only a song that won't open being skipped is unreported. The rest
+   of sessions 67 and 68 is confirmed (2026-10-22). Ask; don't re-explain.
 2. **A release** (*Releases*): v0.7.0 is the last. Unreleased: session 66's close-X
    safety net, all of session 67 and all of session 68, with new features, so the
    middle number: **v0.8.0**. Offer it; confirm the version and the notes before
@@ -207,12 +206,12 @@ it reads the new number in the release build.
     header letter starts at one of `LetterSpacing`'s Runs, and `FindAncestor` threw
     climbing from it ("…Run' is not a Visual or Visual3D"). It now climbs a text
     element's logical parent, as `IsWithin` does. ThemeLab `--window headerpress`: all
-    ten headers threw before, none now, each sorts. Installed 15:19. Not yet tried by
-    the user.
+    ten headers threw before, none now, each sorts. Installed 15:19. **Confirmed by
+    the user**: "working well".
   - **Then a single click on the status line or its dot opens Statistics** (was a
     double-click), with the hand pointer and the text underlined on hover (the user's
     request; spec §6.8, `design/progress.md`). ThemeLab `--window statusclick` ALL OK
-    in both themes. Installed 15:26. Not yet tried by the user.
+    in both themes. Installed 15:26. **Confirmed by the user**: "working well".
   - **Then "FLAC · 1,516 kbps · 96 kHz" back in the now-playing bar**, a fourth line
     above the tier (`NowPlayingDetails`; the user's pick over bit depth · sample
     rate). Fits: 85 px beside the 88 px art, bar height unchanged. ThemeLab
@@ -1649,10 +1648,8 @@ Open items only; finished ones are in `HISTORY.md`.
      warning clears; under another letter the status bar says "Music folder moved
      to …" and songs play (Next carries on in the queue). F5 does the same if the
      drive came back while AudioFool wasn't looking.
-   - **Session 68, the header crash:** click right on a letter of "#" or "SONG" in
-     the Songs table: it sorts, no error dialog.
-   - **Session 68, the status line:** one click on the text or the dot opens
-     Statistics; hovering underlines the text.
+   - **Session 68, the header crash and the status line's single click:**
+     **confirmed by the user** (2026-10-22): "These are both working well."
    - **Session 67, Find and Replace on a selection and the small fixes** (Escape in a
      tag window, Save left of Cancel, " · " titles): **confirmed by the user**
      (2026-10-22): "These all look good".
