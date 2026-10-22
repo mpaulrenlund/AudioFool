@@ -4298,6 +4298,22 @@ Ctrl+H). Then the plan, approved before any edit.
 - Installed 15:44 (AudioFool wasn't running): 25 files hash-identical.
 - Committed as `fb2b20b` (the feature) and a docs commit, pushed, at the user's
   request, with each git step explained.
+- **Then the user's two notes** ("We're on the right track"): the version under the
+  logos, and a better picture for the PlayStation screen.
+  - **The version:** "AudioFool v0.6.1" bottom centre on both screens (the user's
+    pick), read from the exe so a release bump shows by itself, 12 px, 24 px up, in
+    each picture's small-print colour measured from it (Sony blue `#103C8C`, the
+    "Licensed by" grey `#A0A0A0`).
+  - **The picture:** searched the web; the Audiovisual Identity Database's PlayStation
+    page has two 1439×1080 captures. Downloaded both to scratch with the user's OK:
+    one is the same North American screen (SCEA), the other the European one. The
+    user chose the SCEA one after seeing it beside theirs. Its edges are pure black.
+  - The first test run after the build had one failure; the rerun passed all 902.
+    Most likely the known flaky `LiveSpectrumTests.An_update_allocates_nothing`
+    (Suggested next steps, step 6), but its name wasn't captured.
+  - ThemeLab `--window intro` in both themes: byte-identical, 0 magenta, the line
+    centred. Installed 18:44 (AudioFool wasn't running): 25 files hash-identical.
+  - Committed as `942c013` and a docs commit, pushed, at the user's request.
 
 ---
 

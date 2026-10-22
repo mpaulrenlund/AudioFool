@@ -508,7 +508,8 @@ at once: deleting "(Remastered)" from every title and album, say.
 
 Logo menu → **About** plays the PlayStation's start-up over the main window: the Sony
 screen, then the PlayStation screen as the chime starts, with the start-up sound
-(about 15 seconds). A click or any key ends it early.
+(about 15 seconds), and AudioFool's version ("AudioFool v0.6.1") at the bottom of
+each. A click or any key ends it early.
 
 - Music that is playing pauses for it and carries on from the same place afterwards.
 - In Bit-Perfect, AudioFool holds the DAC for itself, even paused, so no other sound

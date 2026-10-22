@@ -137,10 +137,12 @@ and the commit fails, as it did for `275921e`.
 
 ### Start of the next session
 
-Session 64 built **About**, a PlayStation easter egg (see *Where things are*). **The
-installed app is that build** (2026-10-21 15:44, 25 files hash-identical to
-`publish\`), **committed and pushed**: `fb2b20b` (the feature, tests, tokens,
-ThemeLab and the intro's files) and the docs commit after it. 902 tests pass. Since session 63 an install is checked by hashing the files, not by
+Session 64 built **About**, a PlayStation easter egg (see *Where things are*), then,
+after the user saw it, added the version line and a sharper PlayStation picture.
+**The installed app is that build** (2026-10-21 18:44, 25 files hash-identical to
+`publish\`). **All committed and pushed**: the first version (`fb2b20b`, docs
+`74e8019`), then the version line and the new picture (`942c013`, and the docs
+commit after it). 902 tests pass. Since session 63 an install is checked by hashing the files, not by
 launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
 playback.log* under Gotchas). The beat screen's Terminal tab, if still open, can be
 closed.
@@ -199,7 +201,12 @@ feature, so the middle number goes up.
     125%; the sound opens, not played), `--window lend` on the DX5 with the user's OK
     (ALL OK: while lent another exclusive open succeeds; returned paused within 50 ms
     of where it was, Bit-Perfect; Resume plays on; from stopped nothing reopens).
-    Not yet seen or heard by the user.
+  - **Then, after the user saw it** ("We're on the right track"): "AudioFool v0.6.1"
+    bottom centre on both screens (`IntroWindow.VersionLine`, from the exe's version;
+    `color.intro.sonyText`, `.playstationText`, `intro.versionMarginBottom`), and a
+    1439×1080 PNG of the same SCEA screen from the Audiovisual Identity Database in
+    place of the user's 739×415 JPEG (`Resources/Intro/playstation.png`). ThemeLab
+    `--window intro`: both themes byte-identical, 0 magenta. Installed 18:44.
 - **Session 63** (2026-10-21): **Find and Replace**, the user's request and design,
   every question answered with the recommended option (details in `HISTORY.md` and
   README *Find and Replace*; the look in `design/progress.md`):
