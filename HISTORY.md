@@ -4545,6 +4545,9 @@ and checked on the DX5 with silent files):
   place rather than the decoder's.
 - Not staged on hardware: a first-time exclusive refusal at a DoP rate (a DAC held by
   another program refuses shared mode too, so the fallback can't be produced here).
+- Installed 09:29, committed `5689b7f`, pushed. **The user:** "Turning bit-perfect off
+  and on is working well." The rest not yet reported at the end of the session, when
+  the handoff's start-of-session section was rewritten for session 68.
 
 ---
 

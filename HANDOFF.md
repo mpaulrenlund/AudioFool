@@ -137,78 +137,94 @@ and the commit fails, as it did for `275921e`.
 
 ### Start of the next session
 
-Session 66 caught **the close X** in the act (WPF-UI's pressed mark wiped between
-press and release) and gave it **a safety net** (`Services/CloseButtonSafetyNet`) and
-**hit-test lines in the click log** (step 4). ThemeLab `--window closex` ALL OK in both
-themes; see *Recent sessions* for the install and commit state. It also checked
-session 60's review leads against the code: step 6 now holds the verdicts. 878 tests
-pass (the flaky `LiveSpectrumTests`, step 6, failed two runs in a row in session 65
-before passing). Since session 63 an install is checked by hashing the files, not by
-launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
+Session 67 (2026-10-22) did four pieces of work, each built, checked, installed,
+committed and pushed (details under *Where things are*):
+
+1. **Find and Replace on the selected songs** (`f4a994d`): two or more songs selected
+   limit it to those, titled "Find and Replace · N tracks".
+2. **The small fixes from session 60's review** (`dbde12f`): "…" everywhere, title-case
+   menu items, " · " in every window title, the main button first, Escape as Cancel
+   (asking first in a tag window when something was typed), the filter chip's
+   colour, spec §6.5/§6.7/§6.8, a sturdier `LiveSpectrumTests`.
+3. **Playlists, likes and clearances saved safely** (`ad165b6`): `SafeJsonFile`, a
+   `.bak` beside each, the backup read when the file is damaged, a status-bar warning.
+4. **The playback fixes** (`5689b7f`): songs that won't open are skipped; Stop and the
+   end of a queue let go of the DAC; reopens carry on from what was heard; DoP never
+   on a shared output. Checked on the DX5 with silence (`--window playbackfixes`).
+
+**903 tests** pass. Since session 63 an install is checked by hashing the files, not
+by launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
 playback.log* under Gotchas).
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
-1. **The close X** (step 4): the user, right after the install: "It's working well so
-   far" (five Statistics closes, each clicked by WPF-UI itself; the net wasn't needed
-   yet). Ask later whether the X has ignored a click since, and whether the window
-   buttons' hover highlight still shows (not mentioned yet). Either way, read the
-   `titlebar:` lines: "the safety net clicked it" marks a lost click it caught, and
-   the "hit test at" lines before it say what wiped WPF-UI's mark.
-2. **Changes the user hasn't tried on screen yet** (step 1): from session 59,
-   double-clicking songs in Explorer and Clear All; from session 60, closing mid-save
-   (cover saves themselves are confirmed, session 62) and the album window on a
-   compilation ("Varies" in Artist and Year); from session 61, the cover's source line
-   in the album tag window and the status-bar buttons' hover in Dark.
-3. **What to take next** (step 6): session 66's order: likes and playlists and the
-   playback fixes are done (session 67); next the drive handling, the tag
-   saves, and the queue view (step 3). The user picks.
+1. **What they've tried of session 67** (step 1). Confirmed so far: Bit-Perfect off
+   and on mid-song ("working well"). Not yet reported: Find and Replace on a selection,
+   the tag window's new button order and Escape, the " · " titles, a song that won't
+   open being skipped, the DAC free for other apps after Stop or an album's end, DSD in
+   Bit-Perfect. Ask; don't re-explain.
+2. **A release** (*Releases*): v0.7.0 is the last. Unreleased: session 66's close-X
+   safety net and all of session 67, with new features (Find and Replace on a
+   selection), so the middle number: **v0.8.0**. Offer it; confirm the version and
+   the notes before `gh release create`.
+3. **The close X** (step 4): "It's working well so far" right after session 66's
+   install. Ask whether it has ignored a click since and whether the window buttons'
+   hover highlight still shows. Either way, read the `titlebar:` lines in
+   `playback.log`: "the safety net clicked it" marks a lost click it caught, and the
+   "hit test at" lines before it say what wiped WPF-UI's mark.
+4. **What to take next** (step 6): session 66's order, with its first two done in
+   session 67: next **the drive handling** (a drive plugged in while AudioFool runs
+   isn't noticed; F5 doesn't relocate), then the tag-save fixes, then the queue view
+   (step 3). The user picks.
 
-**v0.7.0 is released** (session 65). Unreleased: session 66's close-X safety net and
-log. About's version line reads the exe's version, so a bump shows there by itself;
-check it reads the new number in the release build.
+About's version line reads the exe's version, so a bump shows there by itself; check
+it reads the new number in the release build.
 
 ### Where things are
 
 - **Everything in `README.md` is implemented and verified.** **903 tests** pass.
-- **Session 67** (2026-10-22): **Find and Replace on the selected songs**, the user's
-  request, the plan approved as proposed. With two or more songs selected in the
-  Songs table, Ctrl+H or the logo menu looks only through those
-  (`MainViewModel.NewFindReplace`, `FindReplaceSongs(picked)`, looked up by path in
-  `_library` at each Find), titled "Find and Replace · 12 tracks"
-  (`FindReplaceViewModel.WindowTitle`). Several artists or albums selected don't
-  count (offered, not taken). ThemeLab `--window findreplace` steps 10–11: ALL OK in
-  Light, Dark and 125%. Installed 08:22 (AudioFool wasn't running), 19 files
-  hash-identical. **Not yet tried by the user.** Committed `f4a994d` and pushed.
-  Then **the small review fixes** (session 60's UI and project leads, the user's calls
-  on four): "…" everywhere (two tag-window buttons and the progress lines); "Add
-  Folder…", "Remove Folder", "Album Art"; **every window title separates with " · "**
-  (the user's pick; the main window, so the taskbar and Alt-Tab, reads "Artist ·
-  Song", the tag windows "Edit Album Tags · X", the art viewer "Artist · Album");
-  **the main button first** in the tag window (Save, Cancel) and the art search (Use
-  Image, Cancel), as the prompts have it; **Escape is Cancel** in the art search, and
-  in a tag window too but **asking Save / Don't Save / Cancel first when something
-  was typed** (`TagEditWindow.Window_KeyDown`; Save in a following window saves, then
-  closes once the owner re-enables it); the filter chip's text `text.status`
-  (measured #33312F / #B3B9C4); spec §6.5, §6.7, §6.8 brought up to the user's
-  calls; README About no longer names v0.6.1; the flaky test made sturdy (step 6).
-  ThemeLab `--window albumeditor` steps 12–15 (Escape) as expected; tag window, art
-  search and the chip rendered in both themes, 0 magenta. Installed 08:56 (AudioFool
-  had already been closed), 19 files hash-identical. Committed `dbde12f`, pushed.
-  Then **likes, playlists and clearances saved safely** (step 6's first pick):
-  `Core/Library/SafeJsonFile` is settings.json's save made shared (flushed working
-  file, `File.Replace`, `.bak`) plus a load that reads the backup when the file is
-  missing or damaged (moved aside as before) and shows it, read-only, when the file
+- **Session 67** (2026-10-22), four pieces, each installed (AudioFool not running each
+  time, 19 files hash-identical), committed and pushed (details in `HISTORY.md`):
+- **67a, Find and Replace on the selected songs** (`f4a994d`), the user's request, the
+  plan approved as proposed. With two or more songs selected in the Songs table,
+  Ctrl+H or the logo menu looks only through those (`MainViewModel.NewFindReplace`,
+  `FindReplaceSongs(picked)`, looked up by path in `_library` at each Find), titled
+  "Find and Replace · 12 tracks" (`FindReplaceViewModel.WindowTitle`). Several
+  artists or albums selected don't count (offered, not taken: don't re-offer).
+  ThemeLab `--window findreplace` steps 10–11: ALL OK in Light, Dark and 125%. **Not
+  yet tried by the user.**
+- **67b, the small review fixes** (`dbde12f`; session 60's UI and project leads, the
+  user's calls on four, recorded in `design/progress.md`):
+  - "…" everywhere (two tag-window buttons and the progress lines); "Add Folder…",
+    "Remove Folder", "Album Art".
+  - **Every window title separates with " · "** (the user's pick): the main window,
+    so the taskbar and Alt-Tab, reads "Artist · Song"; the tag windows "Edit Album
+    Tags · X"; the art viewer "Artist · Album".
+  - **The main button first**: the tag window Save, Cancel; the art search Use Image,
+    Cancel, as the prompts have it.
+  - **Escape is Cancel** in the art search, and in a tag window too, but **asking Save
+    / Don't Save / Cancel first when something was typed** (`TagEditWindow.Window_KeyDown`;
+    Save in a following window saves, then closes once the owner re-enables it).
+  - The filter chip's text `text.status` (measured #33312F / #B3B9C4); spec §6.5,
+    §6.7, §6.8 brought up to the user's calls; README About no longer names v0.6.1;
+    the flaky test made sturdy (step 6).
+  - ThemeLab `--window albumeditor` steps 12–15 (Escape) as expected; the tag window,
+    art search and chip rendered in both themes, 0 magenta. Not tried with a real
+    keyboard.
+- **67c, likes, playlists and clearances saved safely** (`ad165b6`, step 6's first
+  pick): `Core/Library/SafeJsonFile` is settings.json's save made shared (flushed
+  working file, `File.Replace`, `.bak`) plus a load that reads the backup when the file
+  is missing or damaged (moved aside as before) and shows it, read-only, when the file
   is locked. `PlaylistStore`, `QualityClearances` and `AppSettings.Save` use it; a
   store read from its backup writes its file again at once. `PlaylistStore.LoadedHow`
   puts a warning in the status bar for the session (`MainViewModel.PlaylistsWarning`,
-  after the settings one). Clearances' saves now go one at a time. Six new tests (884).
-  Installed 09:09 (AudioFool wasn't running), 19 files hash-identical. Committed and
-  pushed. The first save after it makes `playlists.json.bak` beside the real file.
-  Then **the playback fixes as one batch** (step 6's second pick), the decisions pulled
-  out of `AudioEngine` into tested pieces: `PlayOrder.Candidates` (the songs a play
-  tries in turn), `TrackEnd.Decide` (the END sync's choice: RepeatOne, Splice, Reopen,
-  WaitForSave, OpenNext, Finish), `ReopenPoint.Choose`, `DopRule`. What changed:
+  after the settings one); not seen on screen. Clearances' saves now go one at a time.
+  The first save after the install makes `playlists.json.bak` beside the real file.
+- **67d, the playback fixes as one batch** (`5689b7f`, step 6's second pick), the
+  decisions pulled out of `AudioEngine` into tested pieces: `PlayOrder.Candidates` (the
+  songs a play tries in turn), `TrackEnd.Decide` (the END sync's choice: RepeatOne,
+  Splice, Reopen, WaitForSave, OpenNext, Finish), `ReopenPoint.Choose`, `DopRule`.
+  What changed:
   - **A song that won't open is skipped** by Next (forward), Previous (back), the end
     of a track and a rate-change reopen (`PlayCore`'s `Skip`; a next track the
     prefetch couldn't open is tried again at the END, once the last one is heard). The
@@ -229,8 +245,9 @@ check it reads the new number in the release build.
     idle pattern): ALL OK. `--window lend`, `ratechange` (with `--stopinwait`), `queue`,
     `splice` and `device` rerun: all OK, after `lend`, `queue` and `device` were set to
     compare a reopen with the heard place. 903 tests (19 new).
-  - Installed 09:29 (AudioFool wasn't running), 19 files hash-identical. Committed and
-    pushed. **Not yet heard by the user on music.**
+  - **Confirmed by the user** (2026-10-22): "Turning bit-perfect off and on is working
+    well" (the reopen at the heard place). Skipping, Stop and the end of a queue
+    letting go of the DAC, and DoP not yet reported.
 - **Session 66** (2026-10-22): **the close X caught in the act, and a safety net**
   (details in `HISTORY.md`):
   - The user's Statistics X ignored 19 clicks in a row, then closed on the 20th. Each
@@ -445,9 +462,12 @@ check it reads the new number in the release build.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
-- **67** (2026-10-22): **Find and Replace on the selected songs** (two or more
-  selected: only those, the title says how many). Installed 08:22. See *Where
-  things are*.
+- **67** (2026-10-22): **Find and Replace on the selected songs** (`f4a994d`); **the
+  small review fixes** (`dbde12f`: "…", title case, " · " titles, main button first,
+  Escape, the chip, the spec); **playlists and clearances saved safely** (`ad165b6`);
+  **the playback fixes** (`5689b7f`: skipping, letting go of the DAC, reopens where
+  heard, no DoP to shared; ALL OK on the DX5 with silence). 903 tests. All installed;
+  Bit-Perfect off and on confirmed by the user. See *Where things are*.
 
 - **66** (2026-10-22): the to-do list and recommendations, with session 60's review
   leads checked against the code (step 6); then **the close X caught in the act** and
@@ -1577,6 +1597,10 @@ Open items only; finished ones are in `HISTORY.md`.
    - **Session 67, the small fixes:** Escape in a tag window after typing (asks Save /
      Don't Save / Cancel), Save now left of Cancel, and " · " in the window titles
      (the taskbar reads "Artist · Song").
+   - **Session 67, playback:** a song that won't open skipped by Next or the queue
+     (the status bar names it); in Bit-Perfect, another app sounding through the DAC
+     right after Stop or an album's end; a DSD album in Bit-Perfect. Confirmed:
+     Bit-Perfect off and on mid-song.
    - **Session 64, About:** **confirmed by the user**: "About looks great". Not said
      whether it was tried with music playing or with Bit-Perfect on; only worth
      asking if a problem is reported.
