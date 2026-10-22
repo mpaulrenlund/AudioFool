@@ -648,8 +648,8 @@ Standing preferences from the user that the code doesn't show:
 - **Grey is primary; colour only in its spec role** (`design/theme-spec.md`).
 - **Explain plainly.** Findings first in everyday words, with an analogy where it
   helps; the technical names second.
-- **The user is learning git.** When committing, pushing or releasing, say what each
-  step does and why. Commit and push only when asked.
+- **Don't explain commit and push** (the user's call, 2026-10-21): they know it now.
+  Report the result in a line. Commit and push only when asked.
 - **Ask before closing AudioFool to install:** it stops whatever is playing. When the
   app isn't running, install without asking.
 - The features under *Dropped* in the next steps are dropped for good: don't build or
