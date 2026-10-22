@@ -336,6 +336,7 @@ _Record anything decided during implementation that isn't in the spec, or that c
   - **Then, after the user saw it** ("We're on the right track"), two changes, each the recommended option:
     - **The version under the logos, bottom centre, on both screens:** "AudioFool v0.6.1", read from the exe (the csproj's `<Version>`, so a release bump shows by itself), `type.status` (12 px), `intro.versionMarginBottom` 24 px above the bottom, fading with its screen. Its colour is that picture's small print, measured: `color.intro.sonyText` `#103C8C` (Sony's "COMPUTER ENTERTAINMENT" blue) and `color.intro.playstationText` `#A0A0A0` (the "Licensed by" grey), the same in both files. ThemeLab: centred (607 + 86 / 2 = 650 of 1300), 24 px up, both themes byte-identical, 0 magenta.
     - **A sharper PlayStation screen:** the user's 739×415 JPEG replaced by a 1439×1080 PNG capture of the same North American (SCEA) screen, from the Audiovisual Identity Database (`static.wikitide.net/avidwiki/6/6a/Screenshot_20250527-163451.png`, downloaded with the user's OK; a European one was also looked at and left). Its edges are pure black (every edge pixel 0), so it meets the backdrop without a seam. Its logo sits larger in the window than the old picture's.
+  - **Confirmed by the user** in the app: "About looks great".
 
 
 ## Session notes

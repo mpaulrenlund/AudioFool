@@ -149,8 +149,6 @@ closed.
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
-0. **About in real use** (step 1): the timing against the sound, the music pausing
-   and carrying on, and About with Bit-Perfect on.
 1. **Find and Replace in real use** (step 1): how a real Replace and Undo went on
    their own tags, and whether the all-unticked rows in their screenshot were the
    header box (asked twice, unanswered; if not, a bug to chase).
@@ -207,6 +205,7 @@ feature, so the middle number goes up.
     1439×1080 PNG of the same SCEA screen from the Audiovisual Identity Database in
     place of the user's 739×415 JPEG (`Resources/Intro/playstation.png`). ThemeLab
     `--window intro`: both themes byte-identical, 0 magenta. Installed 18:44.
+  - **Confirmed by the user:** "About looks great".
 - **Session 63** (2026-10-21): **Find and Replace**, the user's request and design,
   every question answered with the recommended option (details in `HISTORY.md` and
   README *Find and Replace*; the look in `design/progress.md`):
@@ -1501,9 +1500,9 @@ happily rewrite it.
 Open items only; finished ones are in `HISTORY.md`.
 
 1. **Ask the user to try what was checked off-screen only:**
-   - **Session 64, About:** does the PlayStation screen land on the chime, does music
-     pause and carry on, and is the intro heard with Bit-Perfect on (then Bit-Perfect
-     again afterwards)? Also: maximised, and on a second monitor.
+   - **Session 64, About:** **confirmed by the user**: "About looks great". Not said
+     whether it was tried with music playing or with Bit-Perfect on; only worth
+     asking if a problem is reported.
    - **Session 63, Find and Replace:** the user has run a real Find ("version"),
      resized the window and confirmed its new width. Not yet reported: a real Replace
      and Undo, and whether the all-unticked rows in their screenshot were the header

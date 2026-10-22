@@ -4314,6 +4314,8 @@ Ctrl+H). Then the plan, approved before any edit.
   - ThemeLab `--window intro` in both themes: byte-identical, 0 magenta, the line
     centred. Installed 18:44 (AudioFool wasn't running): 25 files hash-identical.
   - Committed as `942c013` and a docs commit, pushed, at the user's request.
+- **Confirmed by the user:** "About looks great" (not said whether with music playing
+  or Bit-Perfect on).
 
 ---
 
