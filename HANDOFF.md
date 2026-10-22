@@ -170,7 +170,7 @@ check it reads the new number in the release build.
 
 ### Where things are
 
-- **Everything in `README.md` is implemented and verified.** **878 tests** pass.
+- **Everything in `README.md` is implemented and verified.** **884 tests** pass.
 - **Session 67** (2026-10-22): **Find and Replace on the selected songs**, the user's
   request, the plan approved as proposed. With two or more songs selected in the
   Songs table, Ctrl+H or the logo menu looks only through those
@@ -194,7 +194,17 @@ check it reads the new number in the release build.
   calls; README About no longer names v0.6.1; the flaky test made sturdy (step 6).
   ThemeLab `--window albumeditor` steps 12–15 (Escape) as expected; tag window, art
   search and the chip rendered in both themes, 0 magenta. Installed 08:56 (AudioFool
-  had already been closed), 19 files hash-identical. Committed and pushed.
+  had already been closed), 19 files hash-identical. Committed `dbde12f`, pushed.
+  Then **likes, playlists and clearances saved safely** (step 6's first pick):
+  `Core/Library/SafeJsonFile` is settings.json's save made shared (flushed working
+  file, `File.Replace`, `.bak`) plus a load that reads the backup when the file is
+  missing or damaged (moved aside as before) and shows it, read-only, when the file
+  is locked. `PlaylistStore`, `QualityClearances` and `AppSettings.Save` use it; a
+  store read from its backup writes its file again at once. `PlaylistStore.LoadedHow`
+  puts a warning in the status bar for the session (`MainViewModel.PlaylistsWarning`,
+  after the settings one). Clearances' saves now go one at a time. Six new tests (884).
+  Installed 09:09 (AudioFool wasn't running), 19 files hash-identical. Committed and
+  pushed. The first save after it makes `playlists.json.bak` beside the real file.
 - **Session 66** (2026-10-22): **the close X caught in the act, and a safety net**
   (details in `HISTORY.md`):
   - The user's Statistics X ignored 19 clicks in a row, then closed on the 20th. Each
@@ -1615,8 +1625,8 @@ Open items only; finished ones are in `HISTORY.md`.
    settings.json, a drive lost mid-scan, edits during a scan, shared-mode gapless, the
    loud first block, tag saves in place, `CoverCleaner`'s swap without a backup,
    closing during a save, the album window writing four fields to every track.
-   - **Session 66's recommended order** (the user picks): (1) likes and playlists saved
-     safely; (2) the playback fixes as one batch, pulling the engine's decisions out
+   - **Session 66's recommended order** (the user picks): (1) ~~likes and playlists
+     saved safely~~ done in session 67; (2) the playback fixes as one batch, pulling the engine's decisions out
      into tested pieces as `PlayOrder` was; (3) the drive handling; (4) the tag-save
      fixes; then the queue view (step 3).
    - **Playback** (`AudioEngine`):
@@ -1674,12 +1684,12 @@ Open items only; finished ones are in `HISTORY.md`.
      - Partly, harmless: a new scrobble skips the backoff (one request each, the
        backoff isn't reset). An exception other than `LastFmException` escaping a send
        skips the backoff altogether (unlikely).
-   - **Data safety:** playlists.json, library.json, quality-cleared.json and
-     scrobbles.json are written to a temp file and moved over the real one without a
-     flush, so a crash in the seconds after a save can leave an empty or garbage file.
-     settings.json is safe (flush, `File.Replace`, .bak). **playlists.json is the
-     exposed one**: no backup, and a damaged file is moved aside and replaced with an
-     empty Liked without a word (`PlaylistStore.Load`). Small.
+   - **Data safety:** **playlists.json and quality-cleared.json fixed in session
+     67**: saved as settings.json is (`Library/SafeJsonFile`: flushed, `File.Replace`,
+     `.bak`; a damaged or missing file reads the backup), and a damaged playlists file
+     is named in the status bar. Still written the old way (temp file moved over the
+     real one, no flush): library.json (rebuilt by a scan, so nothing of the user's
+     is lost) and scrobbles.json (plays not yet sent to Last.fm). Small.
    - **UI (against the specs):** all fixed in session 67 (ellipses, capitalisation,
      title separators, button order, Escape, the filter chip's colour, the art search
      comment, spec §6.5, §6.7 and §6.8).

@@ -424,6 +424,14 @@ letter is matched up again. **A song whose file can't be found stays in its play
 and simply isn't shown (the header says how many are "not found"), so an unplugged
 drive never empties a playlist.
 
+The file is saved as `settings.json` is: each save is written beside it, flushed to
+the disk and swapped in, and the one before is kept as `playlists.json.bak`, so a
+crash or a power cut mid-save can't lose your playlists. If the file can't be read
+at startup, the backup is used (your last playlist change may be missing) and the
+damaged file is kept as `playlists.unreadable-<time>.json`; if it is locked,
+playlists are shown from the backup and nothing is saved over it that session. The
+status bar says which, for the session.
+
 ---
 
 ## Last.fm scrobbling
@@ -631,7 +639,9 @@ Clearances are kept in `%LOCALAPPDATA%\AudioFool\quality-cleared.json`, apart fr
 check's results, so a retag (here or in Mp3tag) or a later change to the check's rules
 doesn't undo them. They follow a song to a new drive letter, as playlists do. A song
 replaced by a file of a different format (another bit depth, sample rate, or an MP3's
-bitrate) is no longer cleared. Nothing is written to the music files.
+bitrate) is no longer cleared. Nothing is written to the music files. The file is
+saved as the playlists are, with the save before kept as `quality-cleared.json.bak`
+and read if the file is damaged.
 
 ---
 

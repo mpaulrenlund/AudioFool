@@ -162,6 +162,26 @@ public class QualityClearanceTests : IDisposable
     }
 
     [Fact]
+    public void A_damaged_file_is_read_from_the_save_before()
+    {
+        var a = Hires(Path.Combine(_dir, "a.flac"));
+        var b = Hires(Path.Combine(_dir, "b.flac"));
+        var store = QualityClearances.Load(FilePath, Stamp);
+        store.Clear([a], QualityFlag.Padded24Bit, Stamp);
+        store.Clear([b], QualityFlag.Padded24Bit, Stamp);
+        Assert.Equal(2, QualityClearances.Load(FilePath, Stamp).Count);
+
+        File.WriteAllText(FilePath, "");
+        var reloaded = QualityClearances.Load(FilePath, Stamp);
+
+        Assert.True(reloaded.IsCleared(a, QualityFlag.Padded24Bit));
+        Assert.False(reloaded.IsCleared(b, QualityFlag.Padded24Bit));
+        Assert.Single(Directory.GetFiles(_dir, "quality-cleared.unreadable-*.json"));
+        Assert.Equal(1, QualityClearances.Load(FilePath, Stamp).Count);
+        Assert.False(File.Exists(FilePath + ".tmp"));
+    }
+
+    [Fact]
     public void An_unreadable_file_is_moved_aside_not_overwritten()
     {
         Directory.CreateDirectory(_dir);

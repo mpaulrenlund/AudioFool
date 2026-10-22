@@ -1238,6 +1238,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (_settings.IsReadOnly)
             return "⚠ The settings file couldn't be read, so nothing is saved this session. Restart AudioFool to try again.";
 
+        // Playlists are the user's own work, which a scan can't bring back.
+        if (PlaylistsWarning is { } playlists)
+            return playlists;
+
         // A missing drive is the headline: the tracks are still listed but none of
         // them will play, and that needs saying before any counts.
         if (UnavailableFolders.Count > 0)

@@ -42,7 +42,8 @@ public sealed record QualityClearance(
 /// Kept apart from <see cref="QualityCache"/> on purpose: that file is keyed by
 /// write time, so a retag would lose a clearance, and it is thrown away whenever
 /// the rules change. A clearance is the user's word and outlives both. Each change
-/// is saved straight away, through a temporary file. Nothing is written to the
+/// is saved straight away, flushed and swapped in with the save before kept as
+/// <c>quality-cleared.json.bak</c> (<see cref="SafeJsonFile"/>). Nothing is written to the
 /// music files. Thread-safe: the library check reads it on its own threads.
 /// </para>
 /// </summary>
@@ -59,6 +60,7 @@ public sealed class QualityClearances
     private readonly string _path;
     private readonly List<QualityClearance> _entries;
     private readonly object _lock = new();
+    private readonly object _saveLock = new();
     private Dictionary<string, List<QualityClearance>> _byPath = [];
     private Dictionary<string, List<QualityClearance>> _byFileName = [];
     private bool _readOnly;
@@ -73,36 +75,25 @@ public sealed class QualityClearances
     public static QualityClearances Empty(string path) => new(path, []);
 
     /// <summary>
-    /// Never throws. A missing file is no clearances. An unreadable one is moved
-    /// aside rather than overwritten by the next save, so it can be recovered.
+    /// Never throws. A missing file is no clearances. A damaged or missing one falls
+    /// back to the backup of the save before (<see cref="SafeJsonFile"/>); a damaged
+    /// one is moved aside rather than overwritten by the next save, so it can be
+    /// recovered. One that can't be opened (locked) is read from the backup if there
+    /// is one, and never saved over this session.
     /// </summary>
     public static QualityClearances Load(string path, DateTime nowUtc)
     {
-        try
+        var (entries, how) = SafeJsonFile.Load<List<QualityClearance>>(path, nowUtc, JsonOptions);
+        var store = new QualityClearances(path, [.. (entries ?? []).Where(e => e is not null && e.FilePath is not null)])
         {
-            if (!File.Exists(path))
-                return Empty(path);
+            _readOnly = how == SafeLoad.Locked,
+        };
 
-            var entries = JsonSerializer.Deserialize<List<QualityClearance>>(File.ReadAllText(path), JsonOptions) ?? [];
-            return new QualityClearances(path, [.. entries.Where(e => e is not null && e.FilePath is not null)]);
-        }
-        catch (JsonException)
-        {
-            try
-            {
-                File.Move(path, Path.ChangeExtension(path, $".unreadable-{nowUtc:yyyyMMddHHmmss}.json"), overwrite: true);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-            }
+        // From the backup: a file of its own again, so the next start reads it.
+        if (how == SafeLoad.FromBackup)
+            store.Save();
 
-            return Empty(path);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
-        {
-            // Unreadable for now (locked, say): start empty but don't save over it.
-            return new QualityClearances(path, []) { _readOnly = true };
-        }
+        return store;
     }
 
     public int Count
@@ -275,20 +266,22 @@ public sealed class QualityClearances
         if (_readOnly)
             return;
 
-        string json;
-        lock (_lock)
-            json = JsonSerializer.Serialize(_entries, JsonOptions);
+        // One save at a time, each writing what it read: two at once would share the
+        // working file, and an older one could land after a newer.
+        lock (_saveLock)
+        {
+            byte[] json;
+            lock (_lock)
+                json = JsonSerializer.SerializeToUtf8Bytes(_entries, JsonOptions);
 
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            var temp = _path + ".tmp";
-            File.WriteAllText(temp, json);
-            File.Move(temp, _path, overwrite: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
-        {
-            // Still held in memory, and written with the next change.
+            try
+            {
+                SafeJsonFile.Write(_path, json);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+            {
+                // Still held in memory, and written with the next change.
+            }
         }
     }
 

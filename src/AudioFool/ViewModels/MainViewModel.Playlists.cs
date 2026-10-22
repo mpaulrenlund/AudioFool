@@ -126,6 +126,21 @@ public sealed partial class MainViewModel
         RefreshPlaylists();
     }
 
+    /// <summary>
+    /// For the status bar, all session: the playlists file couldn't be read as
+    /// saved (session 67). Null when it was, or on a first run.
+    /// </summary>
+    private string? PlaylistsWarning => _playlistStore?.LoadedHow switch
+    {
+        SafeLoad.FromBackup =>
+            "⚠ The playlists file couldn't be read, so the copy from before your last playlist change was used. That change may be missing.",
+        SafeLoad.Damaged =>
+            "⚠ The playlists file couldn't be read and had no backup, so playlists start empty. The damaged file is kept beside it as playlists.unreadable-….json.",
+        SafeLoad.Locked =>
+            "⚠ The playlists file couldn't be opened, so playlist changes aren't saved this session. Restart AudioFool to try again.",
+        _ => null,
+    };
+
     private PlaylistResolver Resolver
     {
         get

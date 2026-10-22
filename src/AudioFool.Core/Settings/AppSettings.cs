@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AudioFool.Core.Library;
 using AudioFool.Core.Theme;
 
 namespace AudioFool.Core.Settings;
@@ -131,7 +132,7 @@ public sealed class AppSettings
     public bool IsReadOnly { get; private set; }
 
     /// <summary>The copy of the previous save, kept by <see cref="Save"/>.</summary>
-    public static string BackupPathFor(string path) => path + ".bak";
+    public static string BackupPathFor(string path) => SafeJsonFile.BackupPathFor(path);
 
     public static AppSettings Load() => Load(SettingsPath, DateTime.UtcNow);
 
@@ -245,27 +246,14 @@ public sealed class AppSettings
         if (IsReadOnly)
             return;
 
-        var temp = _path + ".tmp";
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-
-            using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
-            {
-                JsonSerializer.Serialize(stream, this, JsonOptions);
-                stream.Flush(flushToDisk: true);
-            }
-
-            if (File.Exists(_path))
-                File.Replace(temp, _path, BackupPathFor(_path));
-            else
-                File.Move(temp, _path);
+            SafeJsonFile.Write(_path, JsonSerializer.SerializeToUtf8Bytes(this, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
             // Settings are a convenience; failing to save one shouldn't surface as an
             // error. The file on disk is still the last good one.
-            try { File.Delete(temp); } catch (IOException) { } catch (UnauthorizedAccessException) { }
         }
     }
 

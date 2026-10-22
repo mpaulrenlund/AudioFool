@@ -6,9 +6,9 @@ namespace AudioFool.Core.Playlists;
 
 /// <summary>
 /// Every playlist, Liked included, in <c>playlists.json</c> beside the library
-/// cache. Each change is saved straight away, to a temporary file moved over the
-/// old one, as <see cref="Scrobbling.ScrobbleQueue"/> does. Nothing is written to
-/// the music files.
+/// cache. Each change is saved straight away, flushed and swapped in with the
+/// save before kept as <c>playlists.json.bak</c> (<see cref="SafeJsonFile"/>, as
+/// settings.json is). Nothing is written to the music files.
 /// <para>
 /// A song whose file can't be found is never dropped from here: a drive that is
 /// unplugged, or back under another letter, isn't a deleted song. Only removing
@@ -46,52 +46,40 @@ public sealed class PlaylistStore
             .ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)];
 
     /// <summary>
-    /// Never throws. A missing file is no playlists but Liked. An unreadable one is
-    /// moved aside rather than overwritten by the next save, so it can be recovered.
+    /// Never throws. A missing file is no playlists but Liked. A damaged or missing
+    /// one falls back to the backup of the save before (<see cref="SafeJsonFile"/>);
+    /// a damaged one is moved aside rather than overwritten by the next save, so it
+    /// can be recovered. One that can't be opened (locked) is shown from the backup
+    /// if there is one, and never saved over this session. <see cref="LoadedHow"/>
+    /// says which, for the status bar.
     /// </summary>
     public static PlaylistStore Load(string path, DateTime nowUtc)
     {
-        List<Playlist> playlists = [];
-        try
+        var (playlists, how) = SafeJsonFile.Load<List<Playlist>>(path, nowUtc, JsonOptions);
+        var store = new PlaylistStore(path, [.. (playlists ?? []).Where(p => p is not null)])
         {
-            if (File.Exists(path))
-                playlists = JsonSerializer.Deserialize<List<Playlist>>(File.ReadAllText(path), JsonOptions) ?? [];
-        }
-        catch (JsonException)
-        {
-            MoveAside(path, nowUtc);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
-        {
-            // Unreadable for now (locked, say): start empty but don't save over it.
-            return new PlaylistStore(path, [NewLiked(nowUtc)]) { _readOnly = true };
-        }
+            LoadedHow = how,
+            _readOnly = how == SafeLoad.Locked,
+        };
 
-        var store = new PlaylistStore(path, [.. playlists.Where(p => p is not null)]);
-        if (!store._playlists.Any(p => p.IsLiked))
-        {
+        var addLiked = !store._playlists.Any(p => p.IsLiked);
+        if (addLiked)
             store._playlists.Add(NewLiked(nowUtc));
+
+        // From the backup: a file of its own again, so the next start reads it.
+        if (addLiked || how == SafeLoad.FromBackup)
             store.Save();
-        }
 
         return store;
     }
+
+    /// <summary>Whether the file itself was read, or its backup, or neither (<see cref="Load"/>).</summary>
+    public SafeLoad LoadedHow { get; private init; }
 
     private bool _readOnly;
 
     private static Playlist NewLiked(DateTime nowUtc) =>
         new() { Name = LikedName, IsLiked = true, ModifiedUtc = nowUtc };
-
-    private static void MoveAside(string path, DateTime nowUtc)
-    {
-        try
-        {
-            File.Move(path, Path.ChangeExtension(path, $".unreadable-{nowUtc:yyyyMMddHHmmss}.json"), overwrite: true);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-        }
-    }
 
     /// <summary>
     /// Why <paramref name="name"/> can't be used, or null when it can: it needs a
@@ -278,10 +266,7 @@ public sealed class PlaylistStore
 
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            var temp = _path + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(_playlists, JsonOptions));
-            File.Move(temp, _path, overwrite: true);
+            SafeJsonFile.Write(_path, JsonSerializer.SerializeToUtf8Bytes(_playlists, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {

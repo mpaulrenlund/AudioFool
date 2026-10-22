@@ -1,3 +1,4 @@
+using AudioFool.Core.Library;
 using AudioFool.Core.Models;
 using AudioFool.Core.Playlists;
 
@@ -134,8 +135,89 @@ public class PlaylistTests
         var store = PlaylistStore.Load(path, Monday);
 
         Assert.Single(store.Playlists);
+        Assert.Equal(SafeLoad.Damaged, store.LoadedHow);
         var aside = Directory.GetFiles(Path.GetDirectoryName(path)!, "playlists.unreadable-*.json");
         Assert.Equal("{ not json", File.ReadAllText(Assert.Single(aside)));
+    }
+
+    // Session 67: saved as settings.json is, with the save before kept.
+
+    /// <summary>Two likes saved: the file holds both, its backup the first, and no working file is left.</summary>
+    private static string TwoLikes()
+    {
+        var path = NewPath();
+        var store = PlaylistStore.Load(path, Monday);
+        store.Add(store.Liked, [T(@"D:\Music\a.flac")], Tuesday);
+        store.Add(store.Liked, [T(@"D:\Music\b.flac")], Wednesday);
+        return path;
+    }
+
+    private static string[] LikedIn(string path) =>
+        [.. PlaylistStore.Load(path, Wednesday).Liked.Entries.Select(e => Path.GetFileName(e.FilePath))];
+
+    [Fact]
+    public void A_save_keeps_the_one_before_as_the_backup()
+    {
+        var path = TwoLikes();
+
+        Assert.Equal(["a.flac", "b.flac"], LikedIn(path));
+        File.Copy(SafeJsonFile.BackupPathFor(path), path, overwrite: true);
+        Assert.Equal(["a.flac"], LikedIn(path));
+        Assert.False(File.Exists(path + ".tmp"));
+    }
+
+    [Fact]
+    public void A_damaged_file_is_read_from_its_backup_and_kept_aside()
+    {
+        var path = TwoLikes();
+        File.WriteAllText(path, "\0\0\0\0");
+
+        var store = PlaylistStore.Load(path, Wednesday);
+
+        Assert.Equal(SafeLoad.FromBackup, store.LoadedHow);
+        Assert.Equal([@"D:\Music\a.flac"], store.Liked.Entries.Select(e => e.FilePath));
+        var aside = Directory.GetFiles(Path.GetDirectoryName(path)!, "playlists.unreadable-*.json");
+        Assert.Equal("\0\0\0\0", File.ReadAllText(Assert.Single(aside)));
+        // Written again from the backup, so the next start reads the file itself.
+        Assert.Equal(SafeLoad.Read, PlaylistStore.Load(path, Wednesday).LoadedHow);
+        Assert.Equal(["a.flac"], LikedIn(path));
+    }
+
+    [Fact]
+    public void A_missing_file_with_a_backup_is_read_from_the_backup()
+    {
+        var path = TwoLikes();
+        File.Delete(path);
+
+        var store = PlaylistStore.Load(path, Wednesday);
+
+        Assert.Equal(SafeLoad.FromBackup, store.LoadedHow);
+        Assert.Equal([@"D:\Music\a.flac"], store.Liked.Entries.Select(e => e.FilePath));
+    }
+
+    [Fact]
+    public void A_file_that_is_held_open_is_shown_from_the_backup_and_never_saved_over()
+    {
+        var path = TwoLikes();
+        var bytes = File.ReadAllBytes(path);
+
+        PlaylistStore store;
+        using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            store = PlaylistStore.Load(path, Wednesday);
+            store.Add(store.Liked, [T(@"D:\Music\c.flac")], Wednesday);
+        }
+
+        Assert.Equal(SafeLoad.Locked, store.LoadedHow);
+        Assert.Equal([@"D:\Music\a.flac", @"D:\Music\c.flac"], store.Liked.Entries.Select(e => e.FilePath));
+        store.Add(store.Liked, [T(@"D:\Music\d.flac")], Wednesday);
+        Assert.Equal(bytes, File.ReadAllBytes(path));
+    }
+
+    [Fact]
+    public void A_first_run_is_missing_not_recovered()
+    {
+        Assert.Equal(SafeLoad.Missing, PlaylistStore.Load(NewPath(), Monday).LoadedHow);
     }
 
     [Fact]

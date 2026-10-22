@@ -4479,6 +4479,32 @@ flaky test, the README), the user's calls on four of them (asked together):
   must be 0.
 - README About: the version line no longer names v0.6.1.
 - Builds with 0 warnings; 878 tests. Rendered in both themes, 0 magenta.
+  Committed `dbde12f`, pushed.
+
+**Then likes, playlists and clearances saved safely** (session 66's first
+recommendation, the user's pick):
+- The finding: `PlaylistStore.Save` and `QualityClearances.Save` wrote a temp file
+  and moved it over the old one without flushing, so a crash or power cut in the
+  seconds after could leave an empty or garbage file; a damaged playlists.json was
+  then moved aside and replaced with an empty Liked, without a word.
+- `Core/Library/SafeJsonFile`: `Write` is settings.json's save, shared (working file
+  flushed to disk, then `File.Replace` keeping `.bak`, or a move on the first save);
+  `Load<T>` reads the file, else the backup, and says how (`SafeLoad`: Read,
+  Missing, FromBackup, Damaged, Locked). A damaged file (not JSON, or "null") is
+  moved aside as before; a locked one is shown from the backup and never saved over.
+  `AppSettings.Save` now calls `Write`; its own `Load`, with its retries, is unchanged.
+- A store read from its backup saves at once, so the next start reads its own file.
+- The status bar, for the session, after the settings warning: the playlists file
+  read from its backup ("That change may be missing"), damaged with no backup, or
+  locked (`MainViewModel.PlaylistsWarning`). Not seen on screen: no ThemeLab case.
+- `QualityClearances` saves one at a time (`_saveLock`), serialising and writing
+  together, so two saves can't share the working file or land out of order.
+- Six new tests: the backup holds the save before; a damaged file reads the backup,
+  is kept aside, and the file is written again; a missing file reads the backup; a
+  locked one shows the backup and isn't written; a first run is Missing; clearances
+  the same. 884 tests. ThemeLab `--window playlists` and `--window reorder` as before,
+  with a `.bak` beside each scratch file.
+- Left as they were: library.json (a scan rebuilds it) and scrobbles.json.
 
 ---
 
