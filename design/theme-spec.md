@@ -164,7 +164,7 @@ Font: **Segoe UI Variable Text**, falling back to **Segoe UI**.
 | Track number | 12.5 px | 400 | `text.muted` | Tabular figures |
 | Now-playing song title | 17 px | 600 | `text.primary` | |
 | Now-playing artist | 14 px | 600 | `accent.blue` | |
-| Now-playing format line | 13 px | 400 | `text.muted` | "MP3 · 320 kbps · 44.1 kHz" |
+| Now-playing details and format lines | 13 px | 400 | `text.muted` | "MP3 · 320 kbps · 44.1 kHz" / "Lossy" |
 | Time labels (seekbar) | 12 px | 400 | `text.muted` | Tabular figures |
 | Output readout | 11.5 px | 400 | `text.muted` | |
 | Search text / placeholder | 13 px | 400 | `text.primary` / `text.placeholder` | Placeholder: "Search" |
@@ -280,7 +280,7 @@ A panel-styled bar: `panel.bg`, 1 px `panel.border`, 4 px radius, inset top high
 
 **Zone 1 — Now playing** (width set by alignment rule 3; currently 451 px):
 - 88 px square art, `art.border`, shadow `0 0 6px rgba(0,0,0,0.25)` (even on all sides — no offset).
-- 16 px gap, then three lines, 3 px apart: song title (17 px) / artist (14 px, blue) / format line (13 px, `text.muted`): the quality tier, "Hi-Res Lossless", "CD Quality Lossless", "Lossy" or "DSD", by the rule of Statistics' Audio Quality rows (the user's call; it was "MP3 · 320 kbps · 44.1 kHz").
+- 16 px gap, then four lines, 3 px apart: song title (17 px) / artist (14 px, blue) / details line (13 px, `text.muted`): "FLAC · 1,516 kbps · 24 bit · 96 kHz", format · bitrate · bit depth · sample rate as the song table words them, leaving out what the file doesn't report (a lossy file has no bit depth) / format line (13 px, `text.muted`): the quality tier, "Hi-Res Lossless", "CD Quality Lossless", "Lossy" or "DSD", by the rule of Statistics' Audio Quality rows (the user's call; it was "MP3 · 320 kbps · 44.1 kHz", which came back above it as the details line on 2026-10-22). The four lines take 85 px beside the 88 px art.
 
 **Zone 2 — Transport buttons**: Previous, Play/Pause and Next in a row, 16 px apart, then **Repeat over Shuffle** as a vertical stack (10 px apart) 16 px after Next, centred on the row's height. This is also the Tab order. (Until 2026-10-02 the row was Shuffle, Previous, Play/Pause, Next, Repeat at 44 px; the user stacked the two mode buttons and made them smaller.)
 - All round, face `control.face`, 1 px `control.faceBorder`. Molded look: `inset 0 -3px 0 rgba(0,0,0,0.12)`, `inset 0 1px 0 rgba(255,255,255,0.8)`, `0 1px 3px rgba(0,0,0,0.25)`.
@@ -315,6 +315,8 @@ Background `window.bg`, 12 px horizontal padding, 12 px text in `text.status`.
 1. **Refresh button:** 26 × 26 px, 4 px radius, `status.chipBg`, 1 px `status.chipBorder`, 14 px circular-arrow icon, 6 px extra space after it. Rescans the library.
 2. Small 7 px `status.libraryDot` dot.
 3. "499 artists · 2,376 albums · 26,795 tracks · [size] GB" (all live values).
+
+A single click on the dot or the text opens Statistics, whatever the line says at the time (2026-10-22, the user's call; a double-click before that). Only the text itself is the target, not the empty space after it. Hovering either shows the hand pointer and underlines the text in its own colour; no tooltip.
 
 **Library size:** total size of all library files, using **1 GB = 1,024³ bytes** (matches Windows File Explorer), rounded to the nearest whole GB, with a thousands separator above 999 ("1,204 GB"). Recalculate when Refresh runs.
 

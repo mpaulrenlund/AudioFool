@@ -222,6 +222,16 @@ paths are re-pointed and **no tags are re-read**.
 Verified end to end with `subst`: a library scanned on `X:`, disconnected, then
 brought back as `Y:` was re-pointed with zero tags re-read.
 
+The same happens **while AudioFool runs**. Pressing **F5** (or the status bar's
+Refresh) looks for a missing folder under the other letters before it scans. And
+AudioFool hears drives being plugged in and pulled out: when one of the music
+folders has come or gone, it refreshes by itself about a second and a half later.
+Pull the drive and the "not available" warning shows; plug it back in and the
+warning clears, or, under a new letter, the status bar says "Music folder moved to
+…". The lists, the play queue and the song playing follow the new letter, so Next
+carries on. A drive that holds none of the music folders (a phone, a USB stick)
+changes nothing.
+
 ### When the drive isn't connected
 
 The library stays browsable, showing what the last scan found, and the status bar
@@ -259,7 +269,7 @@ letter works the same. Verified playing FLAC from a mounted drive letter in excl
 bit-perfect mode.
 
 If the drive is pulled *during* playback, the current track stops. Reconnect and
-press play again.
+press play again: the queue is still there, under the new letter if it changed.
 
 ---
 

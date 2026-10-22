@@ -4549,6 +4549,85 @@ and checked on the DX5 with silent files):
   and on is working well." The rest not yet reported at the end of the session, when
   the handoff's start-of-session section was rewritten for session 68.
 
+### Session 68 (2026-10-22): drives noticed while AudioFool runs
+
+**The user's confirmations first:** Find and Replace on a selection, the tag window's
+button order and Escape, the " · " titles ("These all look good"); the DAC free after
+Stop or an album's end, and DSD in Bit-Perfect ("These both check out as well"). Of
+session 67 only skipping a song that won't open is unreported.
+
+**Then the drive handling** (session 66's third recommendation; the plan approved with
+both extras the user was offered: refresh on unplugging too, and re-point the queue):
+- **Before:** relocation (`RelocateMovedFoldersAsync`) ran only at startup. F5 only
+  scanned, so a drive back under a new letter needed a restart; under the same letter
+  songs played but the warning stayed until F5. Nothing listened for drives.
+- **F5 relocates:** F5, Ctrl+R and the status bar's Refresh run `RefreshCommand`
+  (`MainViewModel.Drives.cs`: relocate, then `ScanAsync`). `ScanCommand` is still the
+  scan alone, used inside the view model.
+- **Mid-session relocation** (`RepointShownTracksAsync`): the lists on screen are
+  rebuilt from the re-pointed tracks first (a scan that finds nothing changed leaves
+  the lists alone, so they would have kept the old letter), then the engine's queue
+  (`AudioEngine.Repoint`, in place under the gate, order and index kept) and
+  `NowPlaying` through `LibraryRelocator.MovedCopy` (the library's copy at the new
+  path, else the track re-pointed). The scrobbler isn't told: a song can't play on
+  from a drive that was pulled.
+- **The move is said after the scan:** "Music folder moved to …" used to be replaced
+  by the counts when the scan ended (at startup too); now the scan shows it
+  (`_relocationNote`, `TakeRelocationNote`) unless a warning outranks it.
+- **Drives heard:** `Services/DriveWatcher` hooks the main window for WM_DEVICECHANGE
+  (DBT_DEVICEARRIVAL / DBT_DEVICEREMOVECOMPLETE of a volume; broadcast to every
+  top-level window, no registration) and reports once the notices stop for 1.5 s.
+  `DriveChange.WorthRefresh` decides: a folder back while listed unavailable, gone
+  while not, or (on an arrival) still missing. A change during a scan or a load
+  (`_loadingLibrary`) waits and is judged again after the scan
+  (`RunWaitingDriveChangeAsync`).
+- **Tests:** `DriveChangeTests` (7) and `MovedCopyTests` (3): 913 tests.
+- **ThemeLab `--window drives`** (new, `tools/themelab/DrivesCase.cs`): three songs on
+  a subst drive, the real main window off-screen, one song played at volume 0 and
+  paused. An unrelated drive came and went: no scan. The music drive pulled: the
+  warning, songs still listed. Back under another letter: folder, library, rows on
+  screen, queue, now playing, library.json and settings.json all on the new letter,
+  the status "Music folder moved to …", Next played the queue's next song from the
+  new letter and the queue ran on, nothing skipped. Pulled and back under the same
+  letter: the warning cleared. F5 with the watcher detached, after another letter
+  change: re-pointed. ALL OK. **Windows does send WM_DEVICECHANGE for subst**, though
+  not every time within a second; the case sends the same message itself when none
+  comes.
+- Installed 15:06 (AudioFool not running; 19 files hash-identical). Not yet tried by
+  the user with the real SSD.
+
+**Then a crash the user hit sorting the Songs table** (a screenshot of the error
+dialog): "'System.Windows.Documents.Run' is not a Visual or Visual3D" from
+`MainWindow.FindAncestor` in `TrackGrid_PreviewMouseLeftButtonDown`. The column
+headers are letter-spaced (`LetterSpacing.ApplyEm` writes one Run per letter), and a
+press right on a letter starts at a Run, which has no visual parent; `FindAncestor`
+climbed with `VisualTreeHelper.GetParent` only. Not new: every header since the
+press handler first climbed from the source. Fixed as `IsWithin` already did: a text
+element climbs its logical parent. New ThemeLab `--window headerpress`: a press
+raised on a letter of each of the ten headers, then the header's click: "old climb
+throws" for all ten, no exception now, each sorts. ALL OK. Installed 15:19 (19 files
+hash-identical).
+
+**Then a single click on the status line opens Statistics** (the user's request; a
+double-click before), with the hand pointer and an underline on the text while the
+text or the dot is hovered (the user's addition to the plan). `LeftClick`
+MouseBindings, `MainWindow.HookStatusLineHover`; spec §6.8 and `design/progress.md`.
+ThemeLab `--window statusclick` ALL OK in Light and Dark; hovered renders looked at.
+Installed 15:26 (19 files hash-identical).
+
+**Then the old format line back in the now-playing bar** (the user's request; they
+remembered "bit depth · sample rate", but the line replaced on 2026-10-05 was
+"FLAC · 1,516 kbps · 44.1 kHz", and they picked that). A fourth line,
+`NowPlayingDetails` (the pre-`309fb20` code), between the artist and the tier. New
+ThemeLab `--window nowplayinglines`: four formats, Light, Dark, Dark at 125%, the lines
+85 px beside the 88 px art, the bar 104 px as with nothing playing; ALL OK, renders
+looked at. Spec §6.7 and `design/progress.md`. Installed 15:33 (19 files
+hash-identical). **Confirmed by the user** with a screenshot: "new track information
+looks good". Then, at their request, **the bit depth before the sample rate** ("FLAC ·
+1,364 kbps · 24 bit · 44.1 kHz"; none for a lossy file, "1 bit" for DSD); the longest
+likely line fits at the minimum window width; `--window nowplayinglines` ALL OK in
+both themes.
+
 ---
 
 ## Reference notes retired from the handoff

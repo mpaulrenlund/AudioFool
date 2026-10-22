@@ -22,6 +22,7 @@ public partial class MainWindow : FluentWindow
 {
     private readonly MainViewModel _viewModel;
     private readonly GlobalHotkeys _hotkeys = new();
+    private readonly DriveWatcher _drives = new();
     private readonly TaskbarControls _taskbarControls;
     private ArtWindow? _artWindow;
     private string _typeAheadBuffer = "";
@@ -71,6 +72,7 @@ public partial class MainWindow : FluentWindow
         HookShortcuts();
         HookSearchFocus();
         HookClickWithoutScroll();
+        HookStatusLineHover();
         _viewModel.TracksChanging += OnTracksChanging;
         _viewModel.RevealTrackRequested += OnRevealTrackRequested;
 
@@ -81,6 +83,32 @@ public partial class MainWindow : FluentWindow
             if (e.PropertyName == nameof(MainViewModel.IsPlaylistMode))
                 ClearSort();
         };
+    }
+
+    /// <summary>
+    /// A click on the status line or its dot opens Statistics; hovering either
+    /// underlines the line (the user's call, session 68). Done here because the
+    /// line's style is a DynamicResource, which a style with a hover trigger
+    /// can't be based on.
+    /// </summary>
+    private void HookStatusLineHover()
+    {
+        var over = new HashSet<UIElement>();
+        void Update(object sender, MouseEventArgs e)
+        {
+            if (e.RoutedEvent == MouseEnterEvent)
+                over.Add((UIElement)sender);
+            else
+                over.Remove((UIElement)sender);
+
+            StatusLine.TextDecorations = over.Count > 0 ? TextDecorations.Underline : null;
+        }
+
+        foreach (var target in new UIElement[] { StatusLine, LibraryDot })
+        {
+            target.MouseEnter += Update;
+            target.MouseLeave += Update;
+        }
     }
 
     /// <summary>
@@ -149,6 +177,10 @@ public partial class MainWindow : FluentWindow
         if (_viewModel.SavedWindowBounds is { } bounds)
             WindowPlacement.Apply(this, bounds);
 
+        // A drive plugged in or pulled out while the app runs: the library follows.
+        _drives.Changed += OnDrivesChanged;
+        _drives.Attach(this);
+
         if (!_viewModel.GlobalHotkeysEnabled)
             return;
 
@@ -178,6 +210,8 @@ public partial class MainWindow : FluentWindow
 
     [DllImport("user32.dll")]
     private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    private void OnDrivesChanged(object? sender, bool arrived) => _viewModel.DrivesChanged(arrived);
 
     private void OnHotkeyPressed(object? sender, GlobalHotkeys.Action action)
     {
@@ -231,6 +265,8 @@ public partial class MainWindow : FluentWindow
         Closed -= OnClosed;
         _hotkeys.Pressed -= OnHotkeyPressed;
         _hotkeys.Dispose();
+        _drives.Changed -= OnDrivesChanged;
+        _drives.Dispose();
         _taskbarControls.Dispose();
         _slowClickTimer.Stop();
         _viewModel.TracksChanging -= OnTracksChanging;
@@ -934,10 +970,15 @@ public partial class MainWindow : FluentWindow
             ArmSlowClick(source);
     }
 
+    /// <summary>
+    /// The nearest <typeparamref name="T"/> at or above <paramref name="node"/>. A press
+    /// on a letter-spaced label starts at one of its Runs (<see cref="Formatting.LetterSpacing"/>),
+    /// which has no visual parent, so text elements climb to their TextBlock first.
+    /// </summary>
     private static T? FindAncestor<T>(DependencyObject? node) where T : DependencyObject
     {
         while (node is not null and not T)
-            node = VisualTreeHelper.GetParent(node);
+            node = node is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(node) : LogicalTreeHelper.GetParent(node);
 
         return node as T;
     }

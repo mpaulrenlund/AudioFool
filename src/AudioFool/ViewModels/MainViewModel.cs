@@ -153,6 +153,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(WindowTitle))]
     [NotifyPropertyChangedFor(nameof(NowPlayingFormat))]
+    [NotifyPropertyChangedFor(nameof(NowPlayingDetails))]
     private Track? _nowPlaying;
 
     /// <summary>
@@ -161,6 +162,22 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// "MP3 · 320 kbps · 44.1 kHz"). Same rule as the Statistics Audio Quality rows.
     /// </summary>
     public string NowPlayingFormat => NowPlaying is { } track ? LibraryStatistics.Badge(track) : "";
+
+    /// <summary>
+    /// The line above it: "FLAC · 1,516 kbps · 24 bit · 96 kHz", leaving out
+    /// whatever the file doesn't report, so a lossy file has no bit depth (the old
+    /// format line plus the bit depth, back above the tier at the user's request,
+    /// session 68). Worded as the grid's columns.
+    /// </summary>
+    public string NowPlayingDetails => NowPlaying is { } track
+        ? string.Join(" · ", new[]
+            {
+                track.Kind,
+                Display.Bitrate(track.Bitrate),
+                track.BitDepth is > 0 ? Display.BitDepth(track.BitDepth) : "",
+                Display.SampleRate(track.SampleRate),
+            }.Where(part => part.Length > 0))
+        : "";
 
     /// <summary>
     /// The window's own title, which the in-app title bar does not show. It is
@@ -671,20 +688,28 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _cache = await Task.Run(LibraryCache.Load);
-
-        // A portable drive can come back under a different letter. Re-point the
-        // folder and every cached path before scanning, so a letter change costs
-        // nothing instead of a full re-read of every tag.
-        await RelocateMovedFoldersAsync();
-
-        // Only display the cache directly when it was built from the folders being
-        // watched now - otherwise it could describe folders that have since been
-        // removed. Its tags stay useful to the scan below either way.
-        if (_cache is not null && _cache.CoversSameFolders(MusicFolders))
+        _loadingLibrary = true;
+        try
         {
-            ApplyLibrary(await Task.Run(() => LibraryScanner.Build(_cache.Tracks)), keepSelection: false);
-            StatusText = $"{DescribeLibrary()} · checking for changes…";
+            _cache = await Task.Run(LibraryCache.Load);
+
+            // A portable drive can come back under a different letter. Re-point the
+            // folder and every cached path before scanning, so a letter change costs
+            // nothing instead of a full re-read of every tag.
+            await RelocateMovedFoldersAsync();
+
+            // Only display the cache directly when it was built from the folders being
+            // watched now - otherwise it could describe folders that have since been
+            // removed. Its tags stay useful to the scan below either way.
+            if (_cache is not null && _cache.CoversSameFolders(MusicFolders))
+            {
+                ApplyLibrary(await Task.Run(() => LibraryScanner.Build(_cache.Tracks)), keepSelection: false);
+                StatusText = $"{DescribeLibrary()} · checking for changes…";
+            }
+        }
+        finally
+        {
+            _loadingLibrary = false;
         }
 
         await ScanAsync();
@@ -759,10 +784,31 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _cache = LibraryCache.From(MusicFolders, tracks, _cache.Version);
         await SaveCacheAsync();
 
+        // Mid-session (F5, a drive plugged in) the lists, the play queue and the
+        // now-playing song still hold the old paths, and the scan that follows
+        // leaves the lists alone when it finds nothing changed. At startup
+        // nothing is shown yet.
+        if (_library.AllTracks.Count > 0)
+            await RepointShownTracksAsync(moves, tracks);
+
         var first = moves[0];
-        StatusText = moves.Count == 1
+        StatusText = _relocationNote = moves.Count == 1
             ? $"Music folder moved to {first.NewFolder} - re-pointed {tracks.Count:N0} tracks."
             : $"{moves.Count} music folders moved to new drive letters - re-pointed {tracks.Count:N0} tracks.";
+    }
+
+    private async Task RepointShownTracksAsync(IReadOnlyList<LibraryRelocator.Relocation> moves, IReadOnlyList<Track> tracks)
+    {
+        ApplyLibrary(await Task.Run(() => LibraryScanner.Build(tracks)), keepSelection: true);
+
+        var byPath = new Dictionary<string, Track>(StringComparer.OrdinalIgnoreCase);
+        foreach (var track in _library.AllTracks)
+            byPath.TryAdd(track.FilePath, track);
+
+        _engine.Repoint(track => LibraryRelocator.MovedCopy(track, moves, byPath));
+
+        if (NowPlaying is { } playing && LibraryRelocator.MovedCopy(playing, moves, byPath) is { } moved)
+            NowPlaying = moved;
     }
 
 
@@ -916,7 +962,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 [.. MusicFolders], _cache?.ByPath(), progress, token, rereadTags: reread);
 
             UnavailableFolders = result.UnavailableFolders;
-            var leftoverNote = await ClearLeftoversAsync(result.Leftovers);
+            var relocated = TakeRelocationNote();
+            var leftoverNote = await ClearLeftoversAsync(result.Leftovers) ?? relocated;
 
             // Saved in the app while the scan ran: those copies win over the scan's.
             // On the UI thread, as the saves are, so none can land in between.
@@ -961,13 +1008,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         {
             // A cancelled or failed scan left the library as the saves made it.
             _editedDuringScan.Clear();
+            _relocationNote = null;
             IsScanning = false;
             ScanFraction = 0;
             ReclaimScanMemory();
 
             // A newer scan cancelled this one and will start it when it ends.
             if (!token.IsCancellationRequested)
+            {
                 StartArtPrefill();
+                _ = RunWaitingDriveChangeAsync();
+            }
         }
     }
 

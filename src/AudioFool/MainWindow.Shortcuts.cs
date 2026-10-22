@@ -137,8 +137,8 @@ public partial class MainWindow
             case Shortcut.Shuffle:
                 _viewModel.ToggleShuffleCommand.Execute(null);
                 break;
-            case Shortcut.Scan when _viewModel.ScanCommand.CanExecute(null):
-                _viewModel.ScanCommand.Execute(null);
+            case Shortcut.Scan when _viewModel.RefreshCommand.CanExecute(null):
+                _viewModel.RefreshCommand.Execute(null);
                 break;
             case Shortcut.Repeat:
                 _viewModel.CycleRepeatCommand.Execute(null);

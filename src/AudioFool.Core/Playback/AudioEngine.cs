@@ -366,6 +366,25 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         }
     }
 
+    /// <summary>
+    /// Swaps queued songs for their copies somewhere else: a drive back under
+    /// another letter (session 68). The queue keeps its order and its place, so
+    /// Next and the end of a track carry on from the new copies. A stream already
+    /// open keeps reading what it opened. <paramref name="moved"/> returns null for
+    /// a song that stays.
+    /// </summary>
+    public void Repoint(Func<Track, Track?> moved)
+    {
+        lock (_gate)
+        {
+            for (var i = 0; i < _queue.Count; i++)
+            {
+                if (moved(_queue[i]) is { } copy)
+                    _queue[i] = copy;
+            }
+        }
+    }
+
     private sealed record Released(List<Track> Queue, int Index, TimeSpan At, bool Paused);
 
     /// <summary>

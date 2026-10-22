@@ -22,7 +22,7 @@
         <KeyBinding Key="MediaNextTrack" Command="{Binding NextCommand}" />
         <KeyBinding Key="MediaPreviousTrack" Command="{Binding PreviousCommand}" />
         <KeyBinding Key="MediaStop" Command="{Binding StopCommand}" />
-        <KeyBinding Key="F5" Command="{Binding ScanCommand}" />
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}" />
     </ui:FluentWindow.InputBindings>
 
     <ui:FluentWindow.Resources>
@@ -1164,6 +1164,12 @@
                                    Style="{DynamicResource type.nowPlayingArtist}"
                                    Margin="{theme:Thickness Top=playbackBar.textLineGap}"
                                    TextTrimming="CharacterEllipsis" />
+                        <TextBlock x:Name="NowPlayingDetails"
+                                   Text="{Binding NowPlayingDetails}"
+                                   Style="{DynamicResource type.nowPlayingFormat}"
+                                   Margin="{theme:Thickness Top=playbackBar.textLineGap}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Visibility="{Binding NowPlaying, Converter={StaticResource NullToCollapsed}}" />
                         <TextBlock x:Name="NowPlayingFormat"
                                    Text="{Binding NowPlayingFormat}"
                                    Style="{DynamicResource type.nowPlayingFormat}"
@@ -1451,7 +1457,7 @@
                         Height="{theme:Token statusBar.refreshButton}"
                         Padding="0"
                         Margin="{theme:Thickness Right=statusBar.refreshAfterGap}"
-                        Command="{Binding ScanCommand}"
+                        Command="{Binding RefreshCommand}"
                         IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBool}}"
                         AutomationProperties.Name="Refresh library">
                     <Viewbox Width="{theme:Token statusBar.refreshIcon}" Height="{theme:Token statusBar.refreshIcon}">
@@ -1466,14 +1472,17 @@
                 <Ellipse x:Name="LibraryDot" Grid.Column="1"
                          Style="{StaticResource theme.statusDot}"
                          Fill="{DynamicResource color.status.libraryDot}"
-                         Margin="{theme:Thickness Left=statusBar.dotTextGap}">
+                         Margin="{theme:Thickness Left=statusBar.dotTextGap}"
+                         Cursor="Hand">
                     <Ellipse.InputBindings>
-                        <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding ShowStatisticsCommand}" />
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding ShowStatisticsCommand}" />
                     </Ellipse.InputBindings>
                 </Ellipse>
 
-                <!-- Double-click the dot or the line to open Statistics (the user's call; no tooltip).
-                     Left-aligned with a clear background so only the text itself is the target. -->
+                <!-- Click the dot or the line to open Statistics (the user's call, a single click
+                     since session 68; no tooltip). Hovering either underlines the line
+                     (HookStatusLineHover). Left-aligned with a clear background so only the
+                     text itself is the target. -->
                 <TextBlock x:Name="StatusLine" Grid.Column="2"
                            Text="{Binding StatusText}"
                            Style="{DynamicResource type.status}"
@@ -1481,9 +1490,10 @@
                            TextTrimming="CharacterEllipsis"
                            HorizontalAlignment="Left"
                            Background="Transparent"
+                           Cursor="Hand"
                            VerticalAlignment="Center">
                     <TextBlock.InputBindings>
-                        <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding ShowStatisticsCommand}" />
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding ShowStatisticsCommand}" />
                     </TextBlock.InputBindings>
                 </TextBlock>
             </Grid>

@@ -18,7 +18,7 @@ namespace ThemeLab;
 /// Renders the real AudioFool windows off-screen to PNG so a theme can be
 /// reviewed without showing a window, stealing focus, or touching the library.
 /// </summary>
-internal static class Program
+internal static partial class Program
 {
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern bool IsWindowVisible(IntPtr hWnd);
@@ -214,6 +214,9 @@ internal static class Program
             return 0;
         }
 
+        if (which == "drives")
+            return RunDrives();
+
         // A throwaway settings object: never Load()ed and never Save()d, so the
         // real settings.json is untouched. No music folders means InitialiseAsync
         // short-circuits before any scan.
@@ -289,6 +292,15 @@ internal static class Program
             RunOpenFiles(main, vm, engine, runtime);
             return 0;
         }
+
+        if (which == "headerpress")
+            return RunHeaderPress(main);
+
+        if (which == "statusclick")
+            return RunStatusClick(main, vm, outPath, w, h, scale);
+
+        if (which == "nowplayinglines")
+            return RunNowPlayingLines(main, vm, outPath, w, h, scale);
 
         if (which == "rowclick")
         {

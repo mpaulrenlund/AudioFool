@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-22, session 67. Read this alongside `README.md`: the README covers
+Updated 2026-10-22, session 68. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -137,52 +137,90 @@ and the commit fails, as it did for `275921e`.
 
 ### Start of the next session
 
-Session 67 (2026-10-22) did four pieces of work, each built, checked, installed,
-committed and pushed (details under *Where things are*):
+Session 68 (2026-10-22): the user confirmed nearly all of session 67 (see step 1),
+then four pieces, each built, checked with ThemeLab, installed, committed and pushed
+(details under *Where things are*):
 
-1. **Find and Replace on the selected songs** (`f4a994d`): two or more songs selected
-   limit it to those, titled "Find and Replace · N tracks".
-2. **The small fixes from session 60's review** (`dbde12f`): "…" everywhere, title-case
-   menu items, " · " in every window title, the main button first, Escape as Cancel
-   (asking first in a tag window when something was typed), the filter chip's
-   colour, spec §6.5/§6.7/§6.8, a sturdier `LiveSpectrumTests`.
-3. **Playlists, likes and clearances saved safely** (`ad165b6`): `SafeJsonFile`, a
-   `.bak` beside each, the backup read when the file is damaged, a status-bar warning.
-4. **The playback fixes** (`5689b7f`): songs that won't open are skipped; Stop and the
-   end of a queue let go of the DAC; reopens carry on from what was heard; DoP never
-   on a shared output. Checked on the DX5 with silence (`--window playbackfixes`).
+1. **Drives noticed while AudioFool runs**: F5 relocates a music folder back under
+   another letter, and a drive plugged in or pulled out refreshes the library by
+   itself, re-pointing the lists, the play queue and the song playing
+   (`--window drives`).
+2. **A crash sorting the Songs table** fixed: a press right on a header letter threw
+   (`--window headerpress`).
+3. **A single click on the status line opens Statistics**, underlined on hover
+   (`--window statusclick`).
+4. **"FLAC · 1,364 kbps · 24 bit · 44.1 kHz"** in the now-playing bar above the
+   quality tier (`--window nowplayinglines`). Confirmed by the user.
 
-**903 tests** pass. Since session 63 an install is checked by hashing the files, not
+**913 tests** pass. Since session 63 an install is checked by hashing the files, not
 by launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
 playback.log* under Gotchas).
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
-1. **What they've tried of session 67** (step 1). Confirmed so far: Bit-Perfect off
-   and on mid-song ("working well"). Not yet reported: Find and Replace on a selection,
-   the tag window's new button order and Escape, the " · " titles, a song that won't
-   open being skipped, the DAC free for other apps after Stop or an album's end, DSD in
-   Bit-Perfect. Ask; don't re-explain.
+1. **What they've tried** (step 1): session 68's drives with the real SSD (pull it
+   with AudioFool open, plug it back in, under a new letter if Windows gives one),
+   sorting by a click right on a header letter, and the status line's single click;
+   of session 67 only a song that won't open being skipped is unreported (the rest
+   confirmed, 2026-10-22). Ask; don't re-explain.
 2. **A release** (*Releases*): v0.7.0 is the last. Unreleased: session 66's close-X
-   safety net and all of session 67, with new features (Find and Replace on a
-   selection), so the middle number: **v0.8.0**. Offer it; confirm the version and
-   the notes before `gh release create`.
+   safety net, all of session 67 and all of session 68, with new features, so the
+   middle number: **v0.8.0**. Offer it; confirm the version and the notes before
+   `gh release create`.
 3. **The close X** (step 4): "It's working well so far" right after session 66's
    install. Ask whether it has ignored a click since and whether the window buttons'
    hover highlight still shows. Either way, read the `titlebar:` lines in
    `playback.log`: "the safety net clicked it" marks a lost click it caught, and the
    "hit test at" lines before it say what wiped WPF-UI's mark.
-4. **What to take next** (step 6): session 66's order, with its first two done in
-   session 67: next **the drive handling** (a drive plugged in while AudioFool runs
-   isn't noticed; F5 doesn't relocate), then the tag-save fixes, then the queue view
-   (step 3). The user picks.
+4. **What to take next** (step 6): session 66's order, with its first three done in
+   sessions 67 and 68: next **the tag-save fixes**, then the queue view (step 3). The
+   user picks.
 
 About's version line reads the exe's version, so a bump shows there by itself; check
 it reads the new number in the release build.
 
 ### Where things are
 
-- **Everything in `README.md` is implemented and verified.** **903 tests** pass.
+- **Everything in `README.md` is implemented and verified.** **913 tests** pass.
+- **Session 68** (2026-10-22): **drives noticed while AudioFool runs** (session 66's
+  third pick; the user approved the plan with both extras, refresh on unplugging and
+  the queue re-pointed; README *When the drive letter changes*; details in
+  `HISTORY.md`):
+  - **F5, Ctrl+R and Refresh** run `RefreshCommand` (`MainViewModel.Drives.cs`):
+    `RelocateMovedFoldersAsync`, then the scan. `ScanCommand` is the scan alone.
+  - **Mid-session relocation** rebuilds the lists from the re-pointed tracks first
+    (a scan that finds nothing changed leaves the lists alone), then re-points the
+    engine's queue (`AudioEngine.Repoint`) and `NowPlaying` (`LibraryRelocator.MovedCopy`).
+    "Music folder moved to …" now stays after the scan (at startup too), unless a
+    warning outranks it.
+  - **`Services/DriveWatcher`** hears WM_DEVICECHANGE volume arrivals and removals on
+    the main window and reports 1.5 s after the last; `DriveChange.WorthRefresh` refreshes
+    only when a music folder has come or gone (or, on an arrival, is still missing). A
+    change during a scan waits for it and is judged again.
+  - ThemeLab `--window drives`: ALL OK (an unrelated drive ignored; pulled: the
+    warning; back under another letter: folder, lists, queue, now playing, both files
+    re-pointed and Next plays from it; back under the same letter: warning cleared; F5
+    alone relocates). Windows sends the notice for `subst` drives too.
+  - Installed 15:06, 19 files hash-identical. **Not yet tried by the user with the
+    real SSD.**
+  - **Then a crash sorting the Songs table** (the user's report): a press right on a
+    header letter starts at one of `LetterSpacing`'s Runs, and `FindAncestor` threw
+    climbing from it ("…Run' is not a Visual or Visual3D"). It now climbs a text
+    element's logical parent, as `IsWithin` does. ThemeLab `--window headerpress`: all
+    ten headers threw before, none now, each sorts. Installed 15:19. Not yet tried by
+    the user.
+  - **Then a single click on the status line or its dot opens Statistics** (was a
+    double-click), with the hand pointer and the text underlined on hover (the user's
+    request; spec §6.8, `design/progress.md`). ThemeLab `--window statusclick` ALL OK
+    in both themes. Installed 15:26. Not yet tried by the user.
+  - **Then "FLAC · 1,516 kbps · 96 kHz" back in the now-playing bar**, a fourth line
+    above the tier (`NowPlayingDetails`; the user's pick over bit depth · sample
+    rate). Fits: 85 px beside the 88 px art, bar height unchanged. ThemeLab
+    `--window nowplayinglines` ALL OK. Installed 15:33. **Confirmed by the user**
+    (a screenshot, "new track information looks good"). Then the bit depth before
+    the sample rate at their request ("FLAC · 1,364 kbps · 24 bit · 44.1 kHz"; none
+    for lossy), ThemeLab ALL OK. Installed 15:39 at the user's OK (AudioFool closed
+    normally through its window, 19 files hash-identical).
 - **Session 67** (2026-10-22), four pieces, each installed (AudioFool not running each
   time, 19 files hash-identical), committed and pushed (details in `HISTORY.md`):
 - **67a, Find and Replace on the selected songs** (`f4a994d`), the user's request, the
@@ -191,8 +229,8 @@ it reads the new number in the release build.
   `FindReplaceSongs(picked)`, looked up by path in `_library` at each Find), titled
   "Find and Replace · 12 tracks" (`FindReplaceViewModel.WindowTitle`). Several
   artists or albums selected don't count (offered, not taken: don't re-offer).
-  ThemeLab `--window findreplace` steps 10–11: ALL OK in Light, Dark and 125%. **Not
-  yet tried by the user.**
+  ThemeLab `--window findreplace` steps 10–11: ALL OK in Light, Dark and 125%.
+  **Confirmed by the user** (2026-10-22): "These all look good".
 - **67b, the small review fixes** (`dbde12f`; session 60's UI and project leads, the
   user's calls on four, recorded in `design/progress.md`):
   - "…" everywhere (two tag-window buttons and the progress lines); "Add Folder…",
@@ -209,8 +247,8 @@ it reads the new number in the release build.
     §6.7, §6.8 brought up to the user's calls; README About no longer names v0.6.1;
     the flaky test made sturdy (step 6).
   - ThemeLab `--window albumeditor` steps 12–15 (Escape) as expected; the tag window,
-    art search and chip rendered in both themes, 0 magenta. Not tried with a real
-    keyboard.
+    art search and chip rendered in both themes, 0 magenta. **Confirmed by the user**
+    (2026-10-22): the button order, Escape asking first, and the " · " titles.
 - **67c, likes, playlists and clearances saved safely** (`ad165b6`, step 6's first
   pick): `Core/Library/SafeJsonFile` is settings.json's save made shared (flushed
   working file, `File.Replace`, `.bak`) plus a load that reads the backup when the file
@@ -246,8 +284,9 @@ it reads the new number in the release build.
     `splice` and `device` rerun: all OK, after `lend`, `queue` and `device` were set to
     compare a reopen with the heard place. 903 tests (19 new).
   - **Confirmed by the user** (2026-10-22): "Turning bit-perfect off and on is working
-    well" (the reopen at the heard place). Skipping, Stop and the end of a queue
-    letting go of the DAC, and DoP not yet reported.
+    well" (the reopen at the heard place); then Stop and the end of a queue letting go
+    of the DAC, and a DSD album in Bit-Perfect: "These both check out as well".
+    Skipping a song that won't open not yet reported.
 - **Session 66** (2026-10-22): **the close X caught in the act, and a safety net**
   (details in `HISTORY.md`):
   - The user's Statistics X ignored 19 clicks in a row, then closed on the 20th. Each
@@ -461,6 +500,15 @@ it reads the new number in the release build.
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **68** (2026-10-22): the user confirmed session 67 (all but skipping); then **drives
+  noticed while AudioFool runs** (F5 relocates; plugging in or pulling out refreshes;
+  lists, queue and now playing follow a new letter). 913 tests; `--window drives` ALL
+  OK; installed. Then **a crash on a press right on a Songs header letter** fixed
+  (`FindAncestor` and Runs), **a single click on the status line opens
+  Statistics** (underlined on hover), and **"FLAC · 1,364 kbps · 24 bit · 44.1 kHz"
+  in the now-playing bar** above the tier (confirmed). All installed, committed and
+  pushed. See *Where things are*.
 
 - **67** (2026-10-22): **Find and Replace on the selected songs** (`f4a994d`); **the
   small review fixes** (`dbde12f`: "…", title case, " · " titles, main button first,
@@ -1240,6 +1288,10 @@ ThemeLab.exe --bg "#FF00FF"                     # magenta behind the window: any
 ThemeLab.exe --output "Exclusive · 176.4 kHz · DSD over PCM"   # the output readout under the volume slider
 ThemeLab.exe --libshot libs.png --scale 3   # the Libraries submenu, one folder ticked, one not
 ThemeLab.exe --window folders               # folder list: merging, relocation, unticked status, Remove
+ThemeLab.exe --window nowplayinglines --w 1400 --h 700 [--theme dark] [--dpi 1.25]   # the now-playing bar's four lines for a hi-res FLAC, a CD FLAC, an MP3 and a DSF: prints both lower lines, text height against the art, bar height against nothing playing; renders <out>-1..4.png; "ALL OK" (session 68)
+ThemeLab.exe --window statusclick --w 1300 --h 700 [--theme dark]   # the status line and dot: a single click's gesture opens Statistics (not run: it is modal), hand pointer, underline on hover; renders <out>-plain/-hover.png; "ALL OK" (session 68)
+ThemeLab.exe --window headerpress           # a press on a letter of each Songs header (a LetterSpacing Run), then the header's click: no exception, each sorts; "ALL OK" (session 68)
+ThemeLab.exe --window drives                # drives plugged in and pulled out while running, on subst letters (Q:-Y:): an unrelated drive, the music drive pulled, back under another letter (lists, queue, now playing, Next), back under the same letter, F5 alone; silent; "ALL OK" (session 68)
 ThemeLab.exe --window tokens --out tokens.png   # the central theme: lookups from MainWindow, XAML usage, fonts, specimen
 ThemeLab.exe --dpi 1.25 --w 1720 --h 1080   # laid out and drawn as on a 125% monitor (all monitors here are 100%); with --window, the dialog too (session 53)
 ThemeLab.exe --focus ShuffleButton --focusvisual 1   # draw the keyboard focus outline, which focus alone doesn't
@@ -1592,15 +1644,22 @@ happily rewrite it.
 Open items only; finished ones are in `HISTORY.md`.
 
 1. **Ask the user to try what was checked off-screen only:**
-   - **Session 67, Find and Replace on a selection:** select several songs, Ctrl+H;
-     the title reads "Find and Replace · N tracks" and only those songs are listed.
-   - **Session 67, the small fixes:** Escape in a tag window after typing (asks Save /
-     Don't Save / Cancel), Save now left of Cancel, and " · " in the window titles
-     (the taskbar reads "Artist · Song").
+   - **Session 68, drives:** with AudioFool open, pull the SSD: the status bar says
+     D:\Music is not available within a couple of seconds. Plug it back in: the
+     warning clears; under another letter the status bar says "Music folder moved
+     to …" and songs play (Next carries on in the queue). F5 does the same if the
+     drive came back while AudioFool wasn't looking.
+   - **Session 68, the header crash:** click right on a letter of "#" or "SONG" in
+     the Songs table: it sorts, no error dialog.
+   - **Session 68, the status line:** one click on the text or the dot opens
+     Statistics; hovering underlines the text.
+   - **Session 67, Find and Replace on a selection and the small fixes** (Escape in a
+     tag window, Save left of Cancel, " · " titles): **confirmed by the user**
+     (2026-10-22): "These all look good".
    - **Session 67, playback:** a song that won't open skipped by Next or the queue
-     (the status bar names it); in Bit-Perfect, another app sounding through the DAC
-     right after Stop or an album's end; a DSD album in Bit-Perfect. Confirmed:
-     Bit-Perfect off and on mid-song.
+     (the status bar names it). Confirmed (2026-10-22): Bit-Perfect off and on
+     mid-song; in Bit-Perfect, another app sounding through the DAC right after Stop
+     or an album's end; a DSD album in Bit-Perfect.
    - **Session 64, About:** **confirmed by the user**: "About looks great". Not said
      whether it was tried with music playing or with Bit-Perfect on; only worth
      asking if a problem is reported.
@@ -1678,8 +1737,8 @@ Open items only; finished ones are in `HISTORY.md`.
    closing during a save, the album window writing four fields to every track.
    - **Session 66's recommended order** (the user picks): (1) ~~likes and playlists
      saved safely~~ done in session 67; (2) ~~the playback fixes~~ done in session 67, its decisions pulled out
-     into tested pieces as `PlayOrder` was; (3) the drive handling; (4) the tag-save
-     fixes; then the queue view (step 3).
+     into tested pieces as `PlayOrder` was; (3) ~~the drive handling~~ done in session
+     68; (4) the tag-save fixes; then the queue view (step 3).
    - **Playback** (`AudioEngine`): **all five fixed in session 67** (a song that won't
      open is skipped; Stop and the end of a queue let go of the device, so no old
      buffer plays after Stop; reopens carry on from what was heard; DoP never on a
@@ -1703,10 +1762,8 @@ Open items only; finished ones are in `HISTORY.md`.
        Last.fm, the art viewer and Analyze (which re-clamps on every resize). Find and
        Replace and About do it right (`FindReplaceWindow`'s `OwnerFrame`,
        `WorkAreaOf`, `CentreOver`). Medium.
-     - Confirmed: a drive plugged in while AudioFool runs isn't noticed. Relocation
-       runs only at startup, so a drive back under a new letter needs a restart (F5
-       doesn't relocate); under the same letter songs play, but the "not available"
-       warning stays until F5. Small for F5, medium to notice the drive.
+     - ~~A drive plugged in while AudioFool runs isn't noticed; F5 doesn't relocate~~
+       Fixed in session 68 (drives heard, F5 relocates, the queue follows).
      - Confirmed: every failed open says "The format may need an add-on" (a missing
        drive, a moved file, a busy device alike). Small.
      - Partly: Ctrl+J (and a click on the now-playing title) matches the lists on

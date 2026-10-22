@@ -113,6 +113,29 @@ public static class LibraryRelocator
         return result;
     }
 
+    /// <summary>
+    /// Where a track is after <paramref name="moves"/>: the library's copy at the new
+    /// path when <paramref name="byPath"/> holds one, else the track itself re-pointed.
+    /// Null for a track in none of the moved folders. Used for songs held outside
+    /// the library, such as the play queue, when a folder moves mid-session.
+    /// </summary>
+    public static Track? MovedCopy(Track track, IReadOnlyList<Relocation> moves, IReadOnlyDictionary<string, Track> byPath)
+    {
+        foreach (var move in moves)
+        {
+            if (!IsUnder(track.FilePath, move.OldFolder))
+                continue;
+
+            var path = Rebase(track.FilePath, move.OldFolder, move.NewFolder);
+            return byPath.TryGetValue(path, out var copy)
+                ? copy
+                : track.Relocated(path,
+                    track.FolderArtPath is null ? null : Rebase(track.FolderArtPath, move.OldFolder, move.NewFolder));
+        }
+
+        return null;
+    }
+
     /// <summary>Swaps one path prefix for another, preserving the rest verbatim.</summary>
     public static string Rebase(string path, string oldRoot, string newRoot) =>
         IsUnder(path, oldRoot)
