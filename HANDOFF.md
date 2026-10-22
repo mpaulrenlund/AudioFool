@@ -179,7 +179,7 @@ check it reads the new number in the release build.
   (`FindReplaceViewModel.WindowTitle`). Several artists or albums selected don't
   count (offered, not taken). ThemeLab `--window findreplace` steps 10–11: ALL OK in
   Light, Dark and 125%. Installed 08:22 (AudioFool wasn't running), 19 files
-  hash-identical. **Not yet tried by the user.** Not committed yet.
+  hash-identical. **Not yet tried by the user.** Committed `f4a994d` and pushed.
 - **Session 66** (2026-10-22): **the close X caught in the act, and a safety net**
   (details in `HISTORY.md`):
   - The user's Statistics X ignored 19 clicks in a row, then closed on the 20th. Each
