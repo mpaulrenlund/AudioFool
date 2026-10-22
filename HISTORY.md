@@ -4359,6 +4359,80 @@ Ctrl+H). Then the plan, approved before any edit.
   - The handoff's visualizer notes moved here, under *Reference notes retired from the
     handoff*.
 
+### Session 66 (2026-10-22): the to-do list; the close X caught in the act, and a safety net
+
+- **The to-do list and recommendations** (the user's question). Four read-only
+  reviewers checked session 60's 20 unchecked leads against the code; the verdicts are
+  in HANDOFF, step 6 (most real, most small). Recommended order: likes and playlists
+  saved safely, then the playback fixes as one batch (pulling the engine's decisions
+  out into tested pieces, as `PlayOrder` was), then the drive handling, the tag-save
+  fixes, then the queue view. New ideas offered: Windows' own media controls (SMTC)
+  and a Duplicates row in Statistics. Nothing picked yet.
+- **The close X caught in the act.** The user had Statistics open with its X ignoring
+  clicks, and said so while it was happening. `playback.log`:
+  - 19 lost clicks from 07:32:01 to 07:41:44, then one at 07:41:53 that closed it.
+    Each a clean "NC down hit CLOSE ... over Close; X pressed False, hovered True;
+    capture none, WPF capture none", then "NC up hit CLOSE ... X pressed False", then
+    "STILL OPEN". In the 40-odd working clicks since 20 October, the mark was True at
+    the release.
+  - Ruled out: mouse capture (none), a WM_NCMOUSELEAVE (none logged), how long the
+    button is held (44–150 ms failed; working ones 67–227 ms), the window's place (it
+    filled the work area's height at the top of the screen, but its X worked there on
+    20 and 21 October), the pointer moving (the same pixel, press and release).
+  - WPF-UI 4.3.0's source (`gh api` to the scratchpad, tag 4.3.0): `_buttons` is
+    maximize, minimize, close, help. `TitleBarButton.ReactToHwndHook`: a WM_NCHITTEST
+    over the button hovers it and returns its code, else `RemoveHover`; a
+    WM_NCMOUSELEAVE calls `RemoveHover`; WM_NCLBUTTONDOWN over it sets
+    `_isClickedDown`; WM_NCLBUTTONUP while set and over it calls `InvokeClick`.
+    `RemoveHover` clears `_isClickedDown` (only while hovered), and the title bar's
+    "another button hovered" fix calls it too. `IsMouseOverElement` is RenderSize
+    containing `PointFromScreen(lParam)`, and `IsHitTestVisible`. So between press and
+    release only a hit test off the X (or over another button) or a mouse leave clears
+    the mark, and hit tests are sent, never queued: the queue log couldn't see them.
+    WPF-UI also ignores WM_NCLBUTTONDBLCLK: seven of the 19 were a double-click's
+    second press, lost whatever else happened.
+  - The window (UI Automation, read-only): Statistics 900×1392 at 2131,0 on the
+    3440×1440 primary, X at 2985–3031 × 0–48. Nothing of ours hooks a dialog's window
+    procedure (`GlobalHotkeys` is on the main window only).
+  - Running on the laptop: PowerToys (FancyZones, Always On Top, Crop And Lock, Peek,
+    Color Picker, Run, Quick Access, Command Palette), Logi Options+, ShareX, Teams,
+    Dell Pair. Not proven to be any of them.
+  - A live test, posting the open window a press and then a mouse leave to see whether
+    the mark survives without the real mouse, was blocked by Claude's safety check:
+    messages into the user's running app need their OK first.
+- **The safety net** (the user's go-ahead, both parts): `Services/CloseButtonSafetyNet`,
+  installed in `App.Launch` after the log. It reads presses and releases off the
+  thread's queue and never handles one. A release on the X that followed a press on
+  it (a double-click's second press, or a client click while the mouse is captured,
+  count the same) waits for Background priority; if WPF-UI raised `CloseClicked`
+  meanwhile it does nothing, otherwise it calls the X's own `InvokeClick()`, so the
+  window closes by WPF-UI's own path (CloseClicked, then `Close`) and a cancelled close
+  stays cancelled. No reflection. Logs "WPF-UI lost the click on the X; the safety net
+  clicked it".
+- **The click log's hit tests:** a `WH_CALLWNDPROC` hook on the UI thread logs every
+  WM_NCHITTEST between a press on the X and its release (dropped after 3 s): the spot,
+  the real pointer (`GetCursorPos`), the button there, the X's mark and hover before
+  it, and "this thread" or "another thread" from `InSendMessageEx` (the hook's own
+  wParam read "this thread" for a send from a worker thread of the same process). The
+  after-release line moved from Background to ContextIdle, after the net.
+- **ThemeLab `--window closex`**, 8 cases, ALL OK in Light and Dark: a normal click
+  (WPF-UI clicks, the net doesn't); lost to a mouse leave, to another thread's hit test
+  on the caption, a double-click's second press, a client click while captured (the
+  net clicks, once each); a close the window cancels and a lost click on such a window
+  (stay open, no second click); a press on the X released on the caption (nothing).
+  Fixed in passing: the log is pointed at the scratch file before the library loads
+  (loading logs "memory clean-up ran", which could have reached the real
+  playback.log), and each case waits for its own report (the net now closes the
+  dialog before the case reports, so results ran into the next case).
+- Builds with 0 warnings; 878 tests pass. Published: 19 files, only `AudioFool.exe`
+  different from the installed copy. Installed 08:08 (AudioFool wasn't running, so
+  without asking, as the user's standing rule says): 19 files hash-identical.
+- **The user: "It's working well so far."** The log from their launch at 08:10: five
+  Statistics closes, each clicked by WPF-UI itself (X pressed True at the release),
+  so the net wasn't needed yet; each release's own hit test was logged "from this
+  thread" at the pointer, over Close. Hover highlight not mentioned. Committed
+  `5a4ba56` (code), then the docs, and pushed.
+
 ---
 
 ## Reference notes retired from the handoff

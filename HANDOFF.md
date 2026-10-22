@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-21, session 64. Read this alongside `README.md`: the README covers
+Updated 2026-10-22, session 66. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -137,39 +137,67 @@ and the commit fails, as it did for `275921e`.
 
 ### Start of the next session
 
-Session 65 put the logo menu in alphabetical order (confirmed by the user) and
-**removed the visualizer** at the user's call, keeping its tested groundwork for a
-visualizer of our own later (step 5). See *Recent sessions* for the install and commit
-state. 878 tests pass (the flaky `LiveSpectrumTests`, step 6, failed two runs in a row
-in session 65 before passing). Since session 63 an install is checked by hashing the
-files, not by launching AudioFool from Claude's shell (see *A launch from Claude's
-shell writes playback.log* under Gotchas).
+Session 66 caught **the close X** in the act (WPF-UI's pressed mark wiped between
+press and release) and gave it **a safety net** (`Services/CloseButtonSafetyNet`) and
+**hit-test lines in the click log** (step 4). ThemeLab `--window closex` ALL OK in both
+themes; see *Recent sessions* for the install and commit state. It also checked
+session 60's review leads against the code: step 6 now holds the verdicts. 878 tests
+pass (the flaky `LiveSpectrumTests`, step 6, failed two runs in a row in session 65
+before passing). Since session 63 an install is checked by hashing the files, not by
+launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
+playback.log* under Gotchas).
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
-1. ~~Find and Replace in real use~~ **Confirmed by the user** (2026-10-21, session
-   65): "find and replace is working well", several songs edited and changed back
-   with Undo. Nothing open (see step 1).
-2. ~~The visualizer~~ **Removed in session 65** at the user's call (step 5). Nothing
-   to ask; don't suggest projectM again.
-3. **The close X** (step 4): has it ignored clicks again? If so, roughly when; read the
-   `titlebar:` lines in `playback.log` around then.
-4. **Changes the user hasn't tried on screen yet** (step 1): from session 59,
+1. **The close X** (step 4): the user, right after the install: "It's working well so
+   far" (five Statistics closes, each clicked by WPF-UI itself; the net wasn't needed
+   yet). Ask later whether the X has ignored a click since, and whether the window
+   buttons' hover highlight still shows (not mentioned yet). Either way, read the
+   `titlebar:` lines: "the safety net clicked it" marks a lost click it caught, and
+   the "hit test at" lines before it say what wiped WPF-UI's mark.
+2. **Changes the user hasn't tried on screen yet** (step 1): from session 59,
    double-clicking songs in Explorer and Clear All; from session 60, closing mid-save
    (cover saves themselves are confirmed, session 62) and the album window on a
    compilation ("Varies" in Artist and Year); from session 61, the cover's source line
    in the album tag window and the status-bar buttons' hover in Dark.
-5. **What to take next from session 60's review** (step 6). What's left are code
-   fixes; step 6 suggests an order.
+3. **What to take next** (step 6): session 66 recommended making likes and playlists
+   safe first, then the playback fixes as one batch, then the drive handling, the tag
+   saves, and the queue view (step 3). The user picks.
 
-**v0.7.0 is released** (session 65): everything up to and including the visualizer's
-removal. Nothing is unreleased. About's version
-line reads the exe's version, so the bump shows there by itself; check it reads the
-new number in the release build.
+**v0.7.0 is released** (session 65). Unreleased: session 66's close-X safety net and
+log. About's version line reads the exe's version, so a bump shows there by itself;
+check it reads the new number in the release build.
 
 ### Where things are
 
 - **Everything in `README.md` is implemented and verified.** **878 tests** pass.
+- **Session 66** (2026-10-22): **the close X caught in the act, and a safety net**
+  (details in `HISTORY.md`):
+  - The user's Statistics X ignored 19 clicks in a row, then closed on the 20th. Each
+    was a clean non-client press and release on the X: no capture, no
+    WM_NCMOUSELEAVE, the pointer still, yet WPF-UI's `_isClickedDown` was False at
+    every release (True in all 40-odd working clicks since 20 October). In WPF-UI
+    4.3.0's source only `RemoveHover` clears the mark between press and release, from a
+    WM_NCHITTEST that isn't over the X (or is over another button) or a mouse leave;
+    hit tests are sent, never queued, so the log couldn't see them. WPF-UI also ignores
+    WM_NCLBUTTONDBLCLK, so a double-click's second press never counts. Suspect: another
+    program asking the window "what's here?" (PowerToys, Logi Options+, ShareX and
+    Teams run on the laptop); not proven.
+  - **`Services/CloseButtonSafetyNet`**: after a press and a release both on the X, if
+    WPF-UI raised no CloseClicked, it calls the X's own `InvokeClick()` (see *The close
+    X: safety net and click log*).
+  - **The click log** adds every hit test between a press on the X and its release,
+    through a `WH_CALLWNDPROC` hook: the spot, the real pointer, the button there, the
+    X's mark before it, and whether another thread sent it.
+  - ThemeLab `--window closex`: 8 cases, ALL OK in Light and Dark.
+  - A live test on the user's open window (posting it a press and a mouse leave) was
+    blocked by Claude's safety check. Ask before posting messages to the user's
+    running AudioFool.
+  - Installed 08:08. **The user: "It's working well so far."** In the log since: five
+    Statistics closes, each clicked by WPF-UI itself (X pressed True at the release),
+    so the net wasn't needed yet; each release's own hit test was logged "from this
+    thread" at the pointer, over Close, as expected. Committed `5a4ba56` (code) and
+    the docs, pushed.
 - **Session 64** (2026-10-21): **About, a PlayStation easter egg**, the user's request
   and their sound and pictures (`src/AudioFool/Resources/Intro/`); each question
   answered with the recommended option (README *About*; the look in
@@ -356,6 +384,14 @@ new number in the release build.
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **66** (2026-10-22): the to-do list and recommendations, with session 60's review
+  leads checked against the code (step 6); then **the close X caught in the act** and
+  **a safety net** for it, plus hit-test lines in the click log (see *Where things
+  are*). Builds with 0 warnings; 878 tests; ThemeLab `--window closex` ALL OK in both
+  themes. **Installed** 08:08 (AudioFool wasn't running): 19 files hash-identical to
+  `publish\`. **The user: "It's working well so far."** Committed `5a4ba56` and the
+  docs, pushed.
 
 - **65** (2026-10-21): Find and Replace confirmed in real use (Replace and Undo);
   no more git walkthroughs; **the logo menu in alphabetical order** (Find and
@@ -922,13 +958,22 @@ entries for Add folder bind their commands via
   double-click needs the same: a row style based on `BrowserRow` and an entry in
   `HookClickWithoutScroll`.
 
-### The title-bar click log (session 59, diagnostic)
-- `Services/TitleBarClickLog`, installed in `App.OnStartup`, reads mouse messages off
-  the thread's queue (`ComponentDispatcher.ThreadPreprocessMessage`) for any window
-  with a WPF-UI `TitleBar`, and writes `titlebar:` lines through
-  `PlaybackDiagnostics.Note`. It reads the X's private `_isClickedDown` by reflection
-  (WPF-UI 4.3.0; a newer WPF-UI may rename it, and the log then says False). It never
-  handles a message. Once the close-X bug is fixed, it can go.
+### The close X: safety net and click log (sessions 59 and 66)
+- **`Services/CloseButtonSafetyNet`** (session 66, installed in `App.Launch`) stays.
+  WPF-UI 4.3.0 clicks title-bar buttons from WM_NC* messages and loses a click when
+  anything clears the X's mark between press and release. The net reads presses and
+  releases off the thread's queue (`ComponentDispatcher.ThreadPreprocessMessage`),
+  never handles one, and after a release on the X that followed a press on it waits
+  for Background priority (WPF-UI's own click is queued at Input) and calls the X's
+  `TitleBarButton.InvokeClick()` unless WPF-UI raised `CloseClicked`. A double-click's
+  second press and a client click while captured count as presses. No reflection.
+- **`Services/TitleBarClickLog`** (diagnostic, sessions 59 and 66) reads the same
+  queue for any window with a WPF-UI `TitleBar`, and through a `WH_CALLWNDPROC` hook on
+  the UI thread every WM_NCHITTEST between a press on the X and its release; it writes
+  `titlebar:` lines through `PlaybackDiagnostics.Note`. It reads the X's private
+  `_isClickedDown` by reflection (a newer WPF-UI may rename it, and the log then says
+  False). It never handles a message. Once the hit-test lines have named what wipes
+  the mark, it can go; the net stays.
 
 ---
 
@@ -1092,7 +1137,7 @@ ThemeLab.exe --rows 1,2,3,4       # several selected grid rows
 ThemeLab.exe --window edit --w 1300 --h 600   # in-place grid edits
 ThemeLab.exe --window queue       # edit queued and playing tracks while the real engine plays silently
 ThemeLab.exe --window queue --long "D:/Music/x/a.flac;D:/Music/y/b.dsf" [--longcomment 3000000]   # also save to real tracks (copied to scratch) while they play
-ThemeLab.exe --window closex          # Statistics' close button: normal click, a click WPF-UI loses and a client click while captured (both WRONG = the open bug), a cancelled close, press-and-slide-off (posted messages); prints the title-bar click log
+ThemeLab.exe --window closex [--theme dark]   # Statistics' close button, posted messages: a normal click (WPF-UI clicks); clicks WPF-UI loses (a mouse leave, another thread's hit test, a double-click's second press, a client click while captured: the safety net clicks, once); cancelled closes stay cancelled; press-and-slide-off does nothing. "ALL OK"; prints the click log with its hit-test lines (session 66)
 ThemeLab.exe --window intro --w 1300 --h 800 [--theme dark] [--dpi 1.25]   # the About intro at nine moments, never shown (no sound): renders <out>-<ms>.png, prints opacities and centre/corner colours, opens the sound without playing it (session 64)
 ThemeLab.exe --window lend   # About's loan of the device in Bit-Perfect, real engine and default device, digital silence: while lent another exclusive open succeeds, returned paused in place, Resume plays ("ALL OK"). Ask the user first: it takes their DAC ~5 s
 ThemeLab.exe --window ratechange [--stopinwait 1]   # a Bit-Perfect rate change (44.1 → 96 kHz) through the real engine and default device, exclusively for ~5 s, on two WAVs of digital silence (Bit-Perfect is full volume: never real music); prints "rate change: waited N ms; ... dropped by the reopen: M ms" (0 since session 61). --stopinwait presses Stop during the wait. Ask the user first: it takes their DAC
@@ -1490,26 +1535,27 @@ Open items only; finished ones are in `HISTORY.md`.
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
 3. **A visible, editable queue view**: the most conspicuous missing player feature.
-4. **The close X that sometimes ignores clicks** (sessions 51 and 59). In tag windows
-   and Statistics the X sometimes ignores **several clicks in a row**; the window
-   buttons do highlight on hover (the user likes that). The user chose a log over the
-   old fallback (session 51's `CloseButtonFallback`, removed the same day).
-   - **The log:** `Services/TitleBarClickLog` (installed in `App.OnStartup`) writes
-     `titlebar:` lines to `playback.log`: every WM_NCLBUTTON down/up, any client click
-     over a title-bar button, a WM_NCMOUSELEAVE while the X is marked pressed, WPF-UI's
-     CloseClicked, and after each release on the X whether the window is still open.
-     Each line has the X's `_isClickedDown` and `IsHovered`, Win32 and WPF mouse
-     capture, enabled, active and modal. It changes nothing.
-   - **Leading suspect (WPF-UI 4.3.0's source):** while anything in the window holds
-     the mouse captured, Windows sends clicks on the X as client WM_LBUTTONDOWN/UP,
-     which WPF-UI ignores, so every click is lost until the capture goes. The log would
-     show "client down ... over Close; capture this window" and the WPF element holding
-     it. The other way to lose one: "NC mouse leave" with X pressed True between the
-     down and the up.
-   - ThemeLab `--window closex` prints the log; its "click WPF-UI loses" and client-click
-     cases report WRONG while the bug is open.
-   - **Next:** when the user says it happened, read the `titlebar:` lines around that
-     time and fix the real cause.
+4. **The close X that sometimes ignores clicks** (sessions 51, 59 and 66). In tag
+   windows and Statistics the X sometimes ignores **several clicks in a row**; the
+   window buttons do highlight on hover (the user likes that). Caught in session 66:
+   19 lost clicks on Statistics' X, each a clean non-client press and release on the
+   X with no capture and no mouse leave, WPF-UI's mark gone by the release (see *Where
+   things are*). The capture theory is ruled out.
+   - **Done in session 66, the user's go-ahead:** `Services/CloseButtonSafetyNet`
+     clicks the X when WPF-UI loses a click, and the click log adds every hit test
+     between a press on the X and its release (*The close X: safety net and click
+     log*). Committed `5a4ba56`. The user, right after the install: "It's working well
+     so far" (five closes, all WPF-UI's own; the net not needed yet). Still to ask
+     whether the window buttons highlight on hover: session 51's fallback was removed
+     over that, though it was never shown to be the cause.
+   - **Next:** after the user's next spell, read the `titlebar:` lines. "WPF-UI lost
+     the click on the X; the safety net clicked it" marks each catch. The "hit test at
+     x,y from another thread, pointer at ..., over nothing; X pressed True" line
+     before it is the question that wiped the mark: a spot far from the pointer, sent
+     by another thread, means another program (PowerToys, Logi Options+, ShareX and
+     Teams run here; quitting them one at a time during a spell would name it). If no
+     hit test shows and the mark is already False at the first one, the press never
+     registered: look at WPF-UI's handling of the press instead.
    - Also open: **edge scrolling while dragging in a playlist** (session 39). Real drags
      are confirmed; edge scrolling hasn't been tried (asked 2026-10-20: not yet).
 5. **The visualizer: removed in session 65** (the user's call; they may build one of
@@ -1529,32 +1575,78 @@ Open items only; finished ones are in `HISTORY.md`.
    private AppData copy of the preset clone is invisible to everything and can be
    ignored.
 
-6. **Session 60's review: open findings** (checked against the code unless marked
-   "reported"; the review's full text is not kept, so these are the leads). Ask the
-   user which to take next. Fixed in session 60 and gone from this list: settings.json,
-   a drive lost mid-scan, edits during a scan, shared-mode gapless, the loud first
-   block, tag saves in place, `CoverCleaner`'s swap without a backup, closing during a
-   save, the album window writing four fields to every track.
-   - **A suggested order** (the user picks; the tooltips, the Dark chip hover,
-     `SingleInstance`, the startup exception and the Bit-Perfect rate-change tail
-     were done in session 61, `WriteFolderArt` and `ReleaseDate` in session 62; the
-     visualizer keep-awake and the projectM DLLs went with the visualizer in session
-     65): the reported ones, each checked first.
-   - **Playback:**
-     - Reported: DoP played through shared mode as noise if the exclusive open fails;
-       a next track that won't open stops the queue and Next can't pass it; Pause →
-       Stop → Play plays the old buffer; the DAC stays held exclusively after Stop in
-       Bit-Perfect; reopens resume from the decode position, not `Heard`.
+6. **Session 60's review: open findings.** The leads that were only "reported" were
+   checked against the code in session 66 by four read-only reviewers (the file and
+   line evidence was in that session, not kept; the main ones were re-read by hand).
+   Ask the user which to take next. Fixed in session 60 and gone from this list:
+   settings.json, a drive lost mid-scan, edits during a scan, shared-mode gapless, the
+   loud first block, tag saves in place, `CoverCleaner`'s swap without a backup,
+   closing during a save, the album window writing four fields to every track.
+   - **Session 66's recommended order** (the user picks): (1) likes and playlists saved
+     safely; (2) the playback fixes as one batch, pulling the engine's decisions out
+     into tested pieces as `PlayOrder` was; (3) the drive handling; (4) the tag-save
+     fixes; then the queue view (step 3).
+   - **Playback** (`AudioEngine`):
+     - Confirmed: a next track that won't open (moved, deleted, undecodable) ends the
+       queue with no message, and Next retries that track for ever: the prefetch gives
+       up silently and `PlayCore` returns before `_index` moves. Medium.
+     - Confirmed: in Bit-Perfect the DAC stays exclusive after Stop **and after a
+       queue ends by itself** (`Stop` only calls `BassWasapi.Stop`; only
+       `OutputChain.Dispose` frees the device), so other apps stay silent. A finished
+       queue also leaves the device running on silence, which may keep the laptop
+       awake (not checked). Small.
+     - Confirmed: Pause, Stop, Play plays up to 0.2 s of the old buffer (Stop keeps the
+       chain). Rare: Stop is only on the taskbar and the media key. Small, with the
+       above.
+     - Confirmed: reopens (Bit-Perfect toggled mid-track, a device change, About's
+       return, a save that lets go of the playing file) resume from the decode
+       position, skipping up to 0.2 s; rate changes are fine. Small.
+     - Partly: DoP can reach a shared output once an exclusive open was refused for its
+       rate (refusals are remembered). By the format's maths it is quiet hiss, not
+       full-scale noise (unmeasured; the README's "full-scale noise" overstates it).
+       Medium.
    - **File writes:**
-     - Reported: an image's format taken from its extension; a FLAC with a front ID3
-       tag keeps a new cover only in the ID3 tag; artists with several values cut to
-       the first; a bad APIC frame aborting an album save silently.
-   - **Startup and windows:**
-     - Reported: dialogs centred on the maximised owner's restore bounds, and Analyze
-       clamped to the primary monitor; a drive plugged in while running isn't picked
-       up; "format may need an add-on" for a missing drive; Ctrl+J does nothing under
-       a search; a Quality Check clearance matching the other disc's same-named file;
-       Analyze crashing on files under ~46 ms; new scrobbles ignoring the backoff.
+     - Partly: the one-song tag window writes Artist and Album Artist as one value on
+       every save, dropping a song's second and later artists (the other windows write
+       only boxes that changed; Find and Replace keeps every value). Small.
+     - Confirmed from the code: a new cover on a FLAC with an ID3v2 tag in front ends
+       up only in the ID3 tag (`TagPadding.TryShrink` keeps the first match, the ID3
+       copy). AudioFool shows it; other players don't. Small.
+     - Partly: *Choose Image…* takes the format from the extension, so a WebP renamed
+       .jpg is embedded as the only cover, labelled JPEG; Search Internet and playlist
+       pictures check the bytes. Small.
+     - Partly: an album save stops part-way without a word if the picked image was
+       moved or a truncated APIC frame throws in `TagPadding.FrameImage` (the save isn't
+       awaited; only `DispatcherUnhandledException` is hooked). Small.
+   - **Startup, windows and drives:**
+     - Confirmed: six windows centre on a maximised owner's restore bounds and clamp
+       to the primary monitor's work area: the tag windows, Statistics, prompts,
+       Last.fm, the art viewer and Analyze (which re-clamps on every resize). Find and
+       Replace and About do it right (`FindReplaceWindow`'s `OwnerFrame`,
+       `WorkAreaOf`, `CentreOver`). Medium.
+     - Confirmed: a drive plugged in while AudioFool runs isn't noticed. Relocation
+       runs only at startup, so a drive back under a new letter needs a restart (F5
+       doesn't relocate); under the same letter songs play, but the "not available"
+       warning stays until F5. Small for F5, medium to notice the drive.
+     - Confirmed: every failed open says "The format may need an add-on" (a missing
+       drive, a moved file, a busy device alike). Small.
+     - Partly: Ctrl+J (and a click on the now-playing title) matches the lists on
+       screen by artist and album name, so under a search or filter it does nothing
+       or lands on the wrong album, and it never selects or scrolls to the song.
+       Small; whether it may clear the search is the user's call.
+     - Confirmed, rare: a Quality Check clearance falls back to file name, artist,
+       album and format, so it also clears the other disc's same-named file. Small.
+     - Partly: Analyze on a file under ~46 ms shows "The analysis failed" (caught, no
+       crash): `SpectrumAccumulator`'s column index goes negative. Small.
+     - Partly, harmless: a new scrobble skips the backoff (one request each, the
+       backoff isn't reset). An exception other than `LastFmException` escaping a send
+       skips the backoff altogether (unlikely).
+   - **Data safety:** playlists.json, library.json, quality-cleared.json and
+     scrobbles.json are written to a temp file and moved over the real one without a
+     flush, so a crash in the seconds after a save can leave an empty or garbage file.
+     settings.json is safe (flush, `File.Replace`, .bak). **playlists.json is the
+     exposed one**: no backup, and a damaged file is moved aside and replaced with an
+     empty Liked without a word (`PlaylistStore.Load`). Small.
    - **UI (against the specs):**
      - Mixed "..." and "…"; "Add folder…"/"Remove folder" in sentence case; three
        window-title separators; dialog button order and Escape differ between dialogs.
@@ -1563,7 +1655,9 @@ Open items only; finished ones are in `HISTORY.md`.
        but the code accepts 600 (the tag window's tooltip said so too; gone in session 61).
      - Spec drift: theme-spec §6.8 (Last.fm chip), §6.5, §6.7.
    - **Project:**
-     - `AudioEngine` has no tests.
+     - `AudioEngine` has no tests (confirmed in session 66: 1,500 lines, and nothing
+       covers it, `OutputChain` or `BassRuntime`). The decisions behind the playback
+       findings are the ones to pull out first.
      - The Last.fm secret is in plain text.
      - `LiveSpectrumTests.An_update_allocates_nothing` fails now and then on the first
        run after a build (twice in session 60, 7 KB allocated; every rerun passes, and
@@ -1571,8 +1665,12 @@ Open items only; finished ones are in `HISTORY.md`.
        after a build, then passed alone three times and in the full suite. Make the test sturdier (warm up longer, or allow
        the runtime's own allocations).
    - **Left out of session 60 on purpose (the user may want them):** a folder added
-     during a scan is never scanned; flush-to-disk before the swap for playlists.json
-     and library.json.
+     during a scan (session 66: that scan skips it, F5 or the next start reads it;
+     small); flush-to-disk before the swap (session 66: see *Data safety*).
+   - **Ideas offered in session 66, not picked yet:** Windows' own media controls
+     (SMTC: the media keys from any app, the song and cover in Windows 11's media
+     pop-up, headphone buttons; F9–F11 could then go) and a Duplicates row in
+     Statistics (albums held twice, and the space they take).
 
 Confirmed by the user (2026-10-14, session 50): Edit Artist Tags on a big artist opens
 at once (session 47's background read).
