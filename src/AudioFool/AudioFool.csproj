@@ -74,14 +74,4 @@
     <None Include="..\..\lib\bass\x64\*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!--
-    The projectM trial (session 58): libprojectM 4.1.6 and what it needs, from
-    MSYS2's UCRT64 packages, in lib/projectm/x64 (kept out of git while it is a
-    trial). The glob matches nothing without them, and the visualizer keeps its
-    bars.
-  -->
-  <ItemGroup>
-    <None Include="..\..\lib\projectm\x64\*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-
 </Project>

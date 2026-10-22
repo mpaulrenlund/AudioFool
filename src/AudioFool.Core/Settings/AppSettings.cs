@@ -74,25 +74,6 @@ public sealed class AppSettings
     public const AppTheme DefaultTheme = AppTheme.Dark;
 
     /// <summary>
-    /// How lively the visualizer is, from 1 (calm) to 10; Up and Down change it in
-    /// its window (<see cref="Analysis.LiveSpectrum.Intensity"/>). A number outside
-    /// that range in the file is brought into it.
-    /// </summary>
-    public int VisualizerIntensity
-    {
-        get => _visualizerIntensity;
-        set => _visualizerIntensity = Math.Clamp(value, Analysis.LiveSpectrum.LowestIntensity, Analysis.LiveSpectrum.HighestIntensity);
-    }
-
-    private int _visualizerIntensity = Analysis.LiveSpectrum.DefaultIntensity;
-
-    /// <summary>
-    /// Where the visualizer window was when it last closed (as a window, not
-    /// fullscreen); null until it has been closed once.
-    /// </summary>
-    public WindowBounds? VisualizerWindow { get; set; }
-
-    /// <summary>
     /// A personal API key from fanart.tv, for the tag dialog's "Search Internet".
     /// Without one that search uses the iTunes Store and the Cover Art Archive
     /// only. There is deliberately no UI for it: it is set once, by hand, here.

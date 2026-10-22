@@ -319,7 +319,6 @@ These only apply when AudioFool has focus:
 | **Ctrl+H** | [Find and Replace](#find-and-replace) |
 | **Ctrl+Q** | Analyze the selected song, or the playing one if no song is selected |
 | **Ctrl+D** | Album-art viewer for the playing album, or the selected album if nothing is playing; Ctrl+D again closes it |
-| **Ctrl+Shift+F** | The [visualizer](#the-visualizer) (as the status bar's Visualizer button does); again to close it, from either window |
 
 Space is left to the text while you type in the search box or edit a cell, and to
 the name while you type to jump in Artists or Albums ("pink floyd"); otherwise it is
@@ -547,48 +546,6 @@ brings the window forward.
 
 Opened while AudioFool is starting, a song waits for the audio engine, and a song in
 a music folder also for the library, so it can be shown in its album.
-
----
-
-## The visualizer
-
-The status bar's **Visualizer** button (three bars, left of Theme) or **Ctrl+Shift+F**
-opens it in a window of its own; the same again closes it.
-
-**On trial: projectM**, the open-source MilkDrop. When its DLLs are in `lib/projectm/x64`
-(libprojectM 4.1.6 from MSYS2) and its presets in a `visualizer` folder beside
-`AudioFool.exe` (your Delete list goes to `%LOCALAPPDATA%\AudioFool\visualizer\skipped.txt`),
-the picture is projectM, set up calm: no sudden cuts on beats, 15 s blends between
-presets, each kept 90 s, the 9,795 "Cream of the Crop" presets shuffled. Presets that
-crashed, wouldn't load or were too slow when screened are left out
-(`screened-out.txt`), and so are those whose picture barely follows a drum beat
-(`no-beat.txt`, from `tools/presetscreen`'s beat screen). **B** switches between
-projectM and 32 plain bars (bass on the left, treble on the right); **Right / Left** next
-and previous preset; **L** stays on one (again to move on); **Delete** never shows it
-again (`skipped.txt`). **Up/Down** set how punchy the beats are in the copy of the sound
-projectM is given: higher turns the quiet between beats down further, so presets jump
-more on each beat; 1 is about the music as it is. Its speed can't be set: projectM 4.1.6
-has no way to slow its clock. Without the DLLs or presets, the bars.
-
-- **On time.** It draws what is coming out of the speakers, not what the decoder has
-  reached ~200 ms earlier: the window it analyses is centred on the moment you hear.
-- **It never touches the audio.** It reads a copy of what is sent to the DAC, taken
-  before the volume (so turning down doesn't shrink it), and only while the window is
-  open. In Bit-Perfect the DAC still gets exactly the same samples, DSD over PCM
-  included.
-- **DSD looks like the CD.** DoP is unwrapped and filtered back to PCM for the
-  picture, and everything above 20 kHz is left out, so DSD's ultrasonic noise and
-  hi-res content up there don't make it busier.
-- **Fullscreen:** double-click the picture or press **Alt+Enter**; again, or
-  **Escape**, to come back. It covers the monitor it is on, hides the cursor after
-  3 s still, and keeps the display awake while music plays. Unplug that monitor and
-  it comes back as a window. Escape in a window closes it.
-- **Up / Down:** livelier or calmer, 1 to 10 (saved). The level shows for a moment
-  in the bottom-right corner.
-- **Playback keys work in it too:** Space, Ctrl+Left/Right, Ctrl+Up/Down, Ctrl+M,
-  Ctrl+L, Ctrl+S, Ctrl+E, Ctrl+B and Ctrl+T.
-
-The window follows Light and Dark; the picture keeps its own colours in both.
 
 ---
 

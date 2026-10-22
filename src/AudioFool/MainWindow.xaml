@@ -1435,7 +1435,6 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <!-- Refresh, then the library dot and totals. -->
@@ -1522,33 +1521,12 @@
             </Button>
 
             <!--
-                Visualizer (session 58): opens the visualizer window, and closes it
-                again, as Ctrl+Shift+F does. Icon only, like Theme beside it: three
-                bars of different heights, drawn like the refresh icon. An ordinary
-                button; no tooltip.
-            -->
-            <Button x:Name="VisualizerButton" Grid.Column="3"
-                    Style="{StaticResource theme.chip}"
-                    Margin="{theme:Thickness Left=statusBar.chipGap}"
-                    Click="VisualizerButton_Click"
-                    AutomationProperties.Name="Visualizer">
-                <Viewbox Width="{theme:Token statusBar.refreshIcon}"
-                         Height="{theme:Token statusBar.refreshIcon}">
-                    <Canvas Width="24" Height="24">
-                        <Path Style="{StaticResource theme.iconStroke}"
-                              StrokeThickness="{theme:Token statusBar.refreshIconStrokeOn24Grid}"
-                              Data="M 6,20 V 13 M 12,20 V 4 M 18,20 V 9" />
-                    </Canvas>
-                </Viewbox>
-            </Button>
-
-            <!--
                 Theme (PS2 Dark spec 3.1): the icon alone shows the theme on screen,
                 a moon for Dark or a sun for Light, drawn like the refresh icon (no
                 label; the accessible name says it). A click switches to the other
                 one, as Ctrl+T does. An ordinary button, not a toggle; no tooltip.
             -->
-            <Button x:Name="ThemeButton" Grid.Column="4"
+            <Button x:Name="ThemeButton" Grid.Column="3"
                     Style="{StaticResource theme.chip}"
                     Margin="{theme:Thickness Left=statusBar.chipGap}"
                     Command="{Binding ToggleThemeCommand}"
@@ -1576,7 +1554,7 @@
 
             <!-- Bit-Perfect: the dot alone shows the state (no On/Off text);
                  as a toggle button, screen readers still announce it. -->
-            <ToggleButton x:Name="BitPerfectToggle" Grid.Column="5"
+            <ToggleButton x:Name="BitPerfectToggle" Grid.Column="4"
                           Style="{StaticResource theme.chip}"
                           Margin="{theme:Thickness Left=statusBar.chipGap}"
                           IsChecked="{Binding IsExclusiveOutput, Mode=TwoWay}"

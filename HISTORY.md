@@ -4317,9 +4317,235 @@ Ctrl+H). Then the plan, approved before any edit.
 - **Confirmed by the user:** "About looks great" (not said whether with music playing
   or Bit-Perfect on).
 
+### Session 65 (2026-10-21): the logo menu in alphabetical order; the visualizer removed
+
+- **Find and Replace confirmed in real use:** "find and replace is working well"; the
+  user replaced on several songs and put them back with Undo, with D:\Music unplugged
+  (they keep one album on the laptop and know Find skips a missing drive's folders).
+- **No more git walkthroughs** (the user's call): commits and pushes are reported in a
+  line. Committed `e1bdd91` and `abd44ef` (docs).
+- **The logo menu in alphabetical order** (the user's request, plan approved): Find and
+  Replace…, Last.fm…, Libraries, Statistics…, then a line and About. The line under
+  Libraries went, so the four are one group. Only the order in `MainWindow.xaml`
+  changed. ThemeLab `--menushot` in both themes. The tests failed twice in a row on
+  `LiveSpectrumTests.An_update_allocates_nothing` before passing (902). Installed
+  (AudioFool had already closed by the time UI Automation looked for its window); 25
+  files hash-identical. Committed `b30812c`. **Confirmed by the user:**
+  "Alphabetization looks good".
+- **The visualizer removed** (the user's verdict on the screened presets: "I honestly
+  can't tell if the visualizer is in time with the music. The visualizers aren't that
+  great either. I'm not sure we'll keep this feature."). Offered: remove it all, keep
+  only the bars, or park it; the user chose removal and to keep the tested groundwork,
+  since they may build a visualizer of their own later.
+  - **Gone:** the status bar's Visualizer chip, Ctrl+Shift+F, the shortcut guide's row
+    and VISUALIZER section, `VisualizerWindow`, `ProjectMHost`, `Core/Visualizer/*`
+    (`BeatShaper`, `GlContext`, `PresetLibrary`, `ProjectMNative`, `ProjectMSession`)
+    and their tests, `tools/presetscreen`, ThemeLab's `--window visualizer` and
+    `--window projectm`, `AppSettings.VisualizerIntensity` and `VisualizerWindow`
+    (a settings.json that still has them loads, tested), `WindowPlacement.MonitorOf`,
+    `Monitors` and `Cover` (fullscreen only), the `color.visualizer.*` and
+    `visualizer.*` tokens in both files, the csproj's projectM glob and the
+    `.gitignore` line for `lib/projectm/`.
+  - **Kept:** the hearing clock (`AudioEngine.Heard`, the seek bar's timing), the tap
+    (`SampleTap`, `TapEnabled`, `TryReadHeard`; off unless something turns it on),
+    `TapConverter`, `LiveSpectrum` and `VisualizerFeed`, with their tests. The playback
+    engine wasn't touched.
+  - **Checked:** builds with 0 warnings; 878 tests pass. ThemeLab against renders made
+    before the change: the main window differs only in the status bar's right-hand
+    chips (Last.fm shifted right), in both themes; Statistics is 198 px shorter, and
+    with the old shortcut guide put back temporarily it was 0 pixels different in both
+    themes, so the guide is the only change there. The magenta row at the bottom of the
+    shorter Statistics render is the known fractional-height artifact.
+  - The handoff's visualizer notes moved here, under *Reference notes retired from the
+    handoff*.
+
 ---
 
 ## Reference notes retired from the handoff
+
+
+### The visualizer and the projectM trial (sessions 58–59; removed in session 65)
+
+Retired from the handoff when the user dropped the visualizer (session 65). The
+window, projectM host and preset tools can be read in git at `b30812c`; the Core
+groundwork (hearing clock, tap, `TapConverter`, `LiveSpectrum`, `VisualizerFeed`)
+is still in the code. Below: the handoff's session 58 summary, then its next step 5,
+as they stood.
+
+- **58** (2026-10-19, finished 2026-10-20): **visualizer: groundwork built and
+  confirmed; projectM runs for the user; beats made visible.**
+  - **Where it stands:**
+    1. projectM runs for the user: "projectM 4.1.6 on NVIDIA RTX PRO 500 … 9728 of
+       9795 presets". The pack is beside the exe (9,795 presets, 68 textures, 67
+       screened out, the six DLLs).
+    2. **The user's first verdict:** they "couldn't tell if the visualizer was doing
+       anything related to the beat". Measured why (HISTORY, session 58): the feed is
+       right and on time, the old Up/Down did nothing in 4.1.6, and only ~6 of 20
+       random presets clearly pulse.
+    3. **The user chose:** keep projectM, play only presets that pulse, make Up/Down
+       real. Built: **`BeatShaper`** (Up/Down turn the quiet between beats down in the
+       copy of the sound handed to projectM, never the DAC's; swing 2.0 at 5, ×1.25 a
+       step; `playback.log`'s projectM line ends "beats shaped at intensity N"),
+       **`no-beat.txt`** (left out by `PresetLibrary.Playable()`), and
+       **`tools/presetscreen`** (see *The preset screens* under next step 5).
+    4. **The beat screen is done** (2026-10-20 14:19, after two restarts; HISTORY has
+       the story): all 9,728 OK, **5,005 kept at R² ≥ 0.25**, 4,723 in `no-beat.txt`.
+       Kept at other cutoffs: 0.10 6,789 · 0.15 6,077 · 0.20 5,538 · 0.30 4,485 ·
+       0.40 3,496 · 0.50 2,380. `PresetScreen cutoff <R²>` rewrites the list in
+       seconds, no rescreen. The visualizer reads it each time it opens; no reinstall.
+    5. The user last opened the visualizer at intensity 1 (2026-10-20 06:52, from
+       `playback.log`), probably left there by Down presses while Up/Down did nothing.
+       5 is the default; told them to press Up.
+    6. **Next:** the user watches again. Does it follow the beat now, and is 5 the right
+       default? Record the verdict here and in HISTORY, then decide whether projectM
+       stays (next steps, 5).
+  - **A long job belongs in a Terminal tab**, not a background shell of Claude's
+    session: those end with the session (see *Background shells end with the session*
+    under Gotchas). A closed lid or sleep stops it too.
+  - **Why projectM never started for the user:** see *Claude's shells and AppData*
+    under Gotchas. The presets Claude cloned into AppData went into the Claude app's
+    private package storage, invisible to AudioFool.
+  - **The plan, settled with the user** (see next step 5): build the groundwork with a
+    placeholder picture, then try projectM.
+  - **Built: the hearing clock.** The seek bar, the time and the scrobbler follow what
+    the speakers play (`AudioEngine.Heard`, via `Core/Playback/HearingTimeline`), not
+    the decoder ~200 ms ahead.
+  - **Built: the tap** (`SampleTap`, `AudioEngine.TryReadHeard`), not used by anything
+    yet. With it on, the probe found the DAC's samples bit-for-bit unchanged, PCM and
+    DoP.
+  - **Built: the visualizer window** with placeholder bars. It opens from a new status
+    bar chip left of Theme, or Ctrl+Shift+F; fullscreen by double-click or Alt+Enter.
+    Installed and committed. **Confirmed by the user:** the bars land on the clicks,
+    and Bit-Perfect, DSD and fullscreen are "all fine". The click tracks are deleted.
+  - **Built: the live analysis** (`Core/Analysis/LiveSpectrum`, the intensity
+    setting), now used by the window. On *Money*, DSD and BASS's PCM of it look the
+    same through the whole chain: bands within 0.08 dB, bass/mid/treble correlated
+    1.000.
+  - **Built: the conversion** (`Core/Analysis/TapConverter`), not used by anything yet,
+    so not installed. On *Dark Side of the Moon* (R2R, DSD128) it agrees with BASSDSD
+    within 0.05 dB below 2 kHz. BASS's own conversion falls 2 dB at 16 kHz on a made
+    DSF; this one is flat.
+  - **At a gapless join,** `TrackChanged` fires when the new track is heard.
+  - **Checked by a silent probe** in shared, exclusive and DoP. 705 tests.
+  - Installed and committed. The user hasn't tried it yet.
+
+
+5. **The visualizer (sessions 58–59, waiting on the user).** **Next:** the user watches
+   it again with the screened presets: does it follow the beat now, and is intensity 5
+   right? Then decide whether projectM stays (its to-do list is at the end of this
+   item). The groundwork's steps, as agreed with the user:
+   1. ~~A hearing clock~~ Done in session 58 (`AudioEngine.Heard`).
+   2. ~~A tap~~ Done in session 58. `Core/Playback/SampleTap` keeps the last second of
+      what the device is given, before the volume and numbered as the timeline is.
+      `AudioEngine.TapEnabled` (off by default), `TapFormat` and `TryReadHeard`.
+   3. ~~Conversion on the visualizer's side~~ Done in session 58. `Core/Analysis/TapConverter`
+      takes one window of the tap at a time, with nothing carried over:
+      - **PCM:** halved down to 44.1 or 48 kHz through half-band filters (127 taps for
+        the last halving, 27 for earlier ones), flat to 20 kHz, ≥80 dB against anything
+        that would fold below it.
+      - **DoP:** detected from its markers, then a 128-tap filter over the bit stream
+        through byte tables, with 6 dB gain (BASSDSD's own).
+      - Fill `Input` with `InputFrames` from `TryReadHeard`, call `Convert`, read
+        `Output`. It allocates nothing; about 1 ms per 4,096-frame DSD128 window in
+        Release.
+   4. ~~Live analysis~~ Done in session 58: `Core/Analysis/LiveSpectrum`.
+      - **What it measures:** 32 log-spaced bands from 20 Hz to 20 kHz (in dBFS, a sine
+        reading its own level), the whole band's level, and bass/mid/treble (20–250 Hz,
+        250 Hz–4 kHz, 4–20 kHz). Bass/mid/treble are each against their own last
+        ~3 s: 1 is usual, 0 silence.
+      - **Smoothing:** quick to rise, slow to fall.
+      - **Intensity:** sets the rise (50→12 ms), the fall (600→80 ms) and how far
+        bass/mid/treble swing (raised to 0.5→1.4).
+      - **Shared with Analyze:** `SpectrumScale` holds the window and the 0 dB
+        calibration now, and Analyze's results are unchanged.
+      - **Settings:** `AppSettings.VisualizerIntensity`, 1–10, default 5.
+      - **Centring:** `TryReadHeard(..., framesAhead)` centres the window on what's
+        heard: read half a window ahead, which the device's buffer always holds.
+   5. ~~A window~~ Built in session 58 (`VisualizerWindow`, `Core/Analysis/VisualizerFeed`,
+      `WindowPlacement.MonitorOf`/`Monitors`/`Cover`; ThemeLab `--window visualizer --file
+      <audio>`), as below. Fullscreen was checked by the user, not by ThemeLab, which
+      can't cover a monitor without showing on the user's screen.
+      With Analyze's chrome:
+      - **Opening it:** Ctrl+Shift+F, or an icon-only chip left of Theme. No logo-menu
+        item.
+      - **Fullscreen:** double-click or Alt+Enter, Escape leaves. It covers the monitor
+        it's on, hides the cursor after 3 s, keeps the display awake, and drops back to
+        a window if that monitor goes.
+      - **Keys:** Up/Down change the intensity, with a level number that fades after a
+        second. The playback shortcuts work there too.
+      - **Nothing is drawn** while it's hidden or minimised, or the PC is locked.
+   6. ~~A placeholder spectrum~~ Built with step 5 (32 bars). **The user judged the timing
+      on 2026-10-19:** "click seems to be on time", and Bit-Perfect, DSD and fullscreen are
+      "all fine". The click tracks (`heardprobe x --clicks <folder>` makes them again)
+      were deleted from `D:\Music` to the Recycle Bin.
+   - **The projectM trial (session 58, built; the user to judge whether projectM
+     stays).**
+     - **The DLLs:** libprojectM **4.1.6**, the newest any prebuilt has. From MSYS2's
+       UCRT64 packages (libprojectm, glew, libgcc, libstdc++, libwinpthread; each
+       checked against MSYS2's published SHA-256), in `lib/projectm/x64` (**git-ignored
+       while a trial**) and copied beside the exe by the csproj.
+     - **The presets:** "Cream of the Crop" (9,795) and the MilkDrop texture pack,
+       shallow-cloned from projectM's GitHub. Some names pass Windows' path limit, so
+       the clone needs `git config core.longpaths true`.
+       - **Where AudioFool reads them:** beside the exe, in
+         `Programs\AudioFool\visualizer\presets` and `textures`, with
+         `screened-out.txt`.
+       - **The clone itself** sits in Claude's private AppData copy, at
+         `%LOCALAPPDATA%\AudioFool\visualizer` as Claude's shells see it, and was
+         copied from there with robocopy.
+       - **Not in `publish\`:** an install doesn't carry them, but doesn't delete them
+         either.
+     - **Core:**
+       - `Visualizer/ProjectMNative` (P/Invoke from the package's own headers).
+       - `GlContext` (a Win32 window, `wglCreateContext`, `DwmFlush` pacing,
+         `ReadPixels`).
+       - `ProjectMSession` (calm settings, the playlist). **The host must call
+         `glewInit`** first, as projectM's own frontend does: without it
+         `projectm_create` crashes on null GL pointers.
+       - `BeatShaper` (the intensity: the sound handed to projectM, its quiet between
+         beats turned down per band; see session 58's "Where it stands").
+       - `PresetLibrary` (the pack less `screened-out.txt`, `no-beat.txt` and
+         `skipped.txt`).
+     - **App:** `ProjectMHost`, an `HwndHost` child window with projectM on its own
+       thread and its own `VisualizerFeed`. It hands projectM the frames since the
+       last one, ending at what is heard, through a `BeatShaper`.
+     - **4.1.6's limits:** it **always draws into framebuffer 0** (so OpenTK's
+       GLWpfControl couldn't be used, and no NuGet packages were added), and it has
+       **no `projectm_set_frame_time`**, so no speed knob. Both exist only in
+       projectM's unreleased master, not in 4.1.7 or 4.1.8. Building master or 4.1.8
+       needs Visual Studio's C++ tools and CMake, which this laptop doesn't have.
+       **Its beat sensitivity only decides hard cuts** (measured: 0.48 and 2.49 give
+       presets the same bass/mid/treb), so it can't be the intensity.
+     - **The preset screens:**
+       - **Load and crash** (session 58, scratch `heardprobe x --screen`, not kept):
+         every preset in a hidden window, a child process restarted after a crash. It
+         wrote `screen-results.tsv` and `screened-out.txt`. On NVIDIA: 9,728 OK, 67
+         failed to load (now skipped), none crashed, none slower than 40 ms. Not
+         screened on Intel.
+       - **Beat** (`tools/presetscreen`, tracked, outside the solution; build it with
+         `dotnet build tools\presetscreen -c Release`): `PresetScreen beat [--workers 3]
+         [--limit N]` plays each preset a 120 BPM drum loop for 4 s at the default
+         intensity, through the real `VisualizerFeed` and `BeatShaper`, at 320×180,
+         reads every frame back, and scores how much of the picture's change follows
+         the beat (R², ~0.06 by chance). Resumable (`%TEMP%\AudioFoolBeatScreen`).
+         Writes `beat-screen.tsv` and `no-beat.txt` (R² < 0.25) into the pack;
+         `PresetScreen cutoff <R²>` rewrites the list. The same 30 presets twice: 27
+         the same verdict, the rest near the cutoff. Re-screen after changing
+         `BeatShaper`'s default or projectM's version.
+       - **Meter** (`PresetScreen meter [--music <file>] [--intensities 0,1,5,10]`):
+         projectM's own bass/mid/treb, painted into the border by `meter.milk` (and
+         `_att` by `meteratt.milk`) and read back. Intensity 0 is unshaped.
+     - **ThemeLab `--window projectm --file <audio>`** reads frames back from the
+       context.
+     - **If projectM stays:**
+       - Move it into its own process, so a crash can't stop the music.
+       - Package the DLLs (the release file list grows by six).
+       - Ship the LGPL notice and the other licences (in the MSYS2 packages:
+         `share/licenses`).
+       - Decide about the presets folder.
+       - Consider building 4.1.8 or master, for the crash fixes and the speed knob.
+   - **The user's theming call:** the window follows Light/Dark; the visualization
+     itself may use any colours (recorded in `design/progress.md`).
 
 Notes that described one session's work or features since removed. Kept as written.
 

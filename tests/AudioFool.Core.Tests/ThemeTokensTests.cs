@@ -144,29 +144,16 @@ public class ThemeTokensTests
 
         // 48, plus control.faceHover and status.lastFmOff, scanTrack and scanFill (session 4),
         // plus the spectrogram's six levels and marker (the Analyze window), plus
-        // window.titleGlow and control.playRing (PS2 Dark's effects), plus the
-        // visualizer's background, bar and level (session 58; the same in both),
-        // plus status.chipHover (session 61), plus the About intro's two
-        // backdrops and two version-line colours (session 64; the same in both).
-        Assert.Equal(70, t.Colors.Count);
+        // window.titleGlow and control.playRing (PS2 Dark's effects), plus
+        // status.chipHover (session 61), plus the About intro's two backdrops and
+        // two version-line colours (session 64; the same in both). The visualizer's
+        // three (session 58) went with it in session 65.
+        Assert.Equal(67, t.Colors.Count);
         // 19, plus statValue (dialogs, Statistics).
         Assert.Equal(20, t.TextStyles.Count);
         // 8, plus playGlow (PS2 Dark).
         Assert.Equal(9, t.Shadows.Count);
         Assert.Equal(["Segoe UI Variable Text", "Segoe UI"], t.FontFamily);
-    }
-
-    [Fact]
-    public void The_visualizer_s_colours_are_the_same_in_both_themes()
-    {
-        // The window follows the theme; the picture doesn't (the user's call, 2026-10-19).
-        var light = Real(LightFile);
-        var dark = Real(DarkFile);
-        var keys = light.Colors.Keys.Where(k => k.StartsWith("color.visualizer.", StringComparison.Ordinal)).ToList();
-
-        Assert.Equal(3, keys.Count);
-        foreach (var key in keys)
-            Assert.Equal(light.Colors[key], dark.Colors[key]);
     }
 
     [Fact]

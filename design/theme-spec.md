@@ -320,7 +320,6 @@ Background `window.bg`, 12 px horizontal padding, 12 px text in `text.status`.
 
 **Right, 10 px apart:**
 - **Last.fm:** 26 px tall chip, 4 px radius, `status.chipBg`/`status.chipBorder`, 7 px `accent.playback` dot + "Last.fm".
-- **Visualizer** (added 2026-10-19): the same chip, icon only (38 × 26): three bars of different heights, drawn like the refresh icon. Opens the visualizer window, and closes it again, as Ctrl+Shift+F does. Left of the Theme button (PS2 Dark spec §3.1), which stays next to Bit-Perfect. Accessible name "Visualizer"; no tooltip.
 - **Bit-Perfect:** same chip, 7 px dot + "Bit-Perfect". **No "On"/"Off" text** — the dot shows state: `status.bitPerfectOff` when off, `status.bitPerfectOn` when on, with a faint `status.dotRing`. Screen readers should still announce on/off (toggle-button semantics).
 
 ### 6.9 Playlists (added 2026-10-07)

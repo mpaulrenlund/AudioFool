@@ -44,8 +44,8 @@ absolute path, and never let a missing folder be interpreted as a deleted librar
 
 Playback, DSD correctness and drive behaviour have all been verified by driving the real
 app or a headless probe against `AudioFool.Core` — not by reasoning about the code. Keep
-that standard. `dotnet test` runs the unit tests over `AudioFool.Core` (852 as of
-session 60). They cover the logic, not the windows: anything visual is checked with
+that standard. `dotnet test` runs the unit tests over `AudioFool.Core` (878 as of
+session 65). They cover the logic, not the windows: anything visual is checked with
 ThemeLab or the installed app, as HANDOFF.md describes.
 
 

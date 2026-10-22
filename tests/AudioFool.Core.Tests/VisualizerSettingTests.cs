@@ -3,35 +3,19 @@ using AudioFool.Core.Settings;
 
 namespace AudioFool.Core.Tests;
 
-/// <summary>AppSettings.VisualizerIntensity: 5 when missing, saved as a number, kept between 1 and 10.</summary>
+/// <summary>
+/// The visualizer was removed (session 65); a settings.json saved while it was
+/// there still holds VisualizerIntensity and VisualizerWindow, which must be passed over.
+/// </summary>
 public class VisualizerSettingTests
 {
     [Fact]
-    public void A_file_without_it_is_at_5()
+    public void A_file_with_the_old_visualizer_settings_still_loads()
     {
-        Assert.Equal(5, JsonSerializer.Deserialize<AppSettings>("""{"Volume":1.0}""")!.VisualizerIntensity);
-        Assert.Equal(5, new AppSettings().VisualizerIntensity);
-    }
+        var settings = JsonSerializer.Deserialize<AppSettings>(
+            """{"VisualizerIntensity":8,"VisualizerWindow":{"Left":10,"Top":20,"Width":960,"Height":540},"Volume":0.5}""")!;
 
-    [Fact]
-    public void It_is_saved_and_read_back()
-    {
-        var json = JsonSerializer.Serialize(new AppSettings { VisualizerIntensity = 8 });
-
-        Assert.Contains("\"VisualizerIntensity\":8", json);
-        Assert.Equal(8, JsonSerializer.Deserialize<AppSettings>(json)!.VisualizerIntensity);
-    }
-
-    [Theory]
-    [InlineData(0, 1)]
-    [InlineData(-3, 1)]
-    [InlineData(11, 10)]
-    [InlineData(99, 10)]
-    public void A_number_out_of_range_is_brought_in(int saved, int expected)
-    {
-        var settings = JsonSerializer.Deserialize<AppSettings>($$"""{"VisualizerIntensity":{{saved}},"Volume":0.5}""")!;
-
-        Assert.Equal(expected, settings.VisualizerIntensity);
         Assert.Equal(0.5, settings.Volume);
+        Assert.DoesNotContain("Visualizer", JsonSerializer.Serialize(settings));
     }
 }
