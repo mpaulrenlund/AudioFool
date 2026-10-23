@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-22, session 70. Read this alongside `README.md`: the README covers
+Updated 2026-10-23, session 71. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -160,15 +160,15 @@ Then **session 70** (2026-10-22): **cut-off covers** caught and kept out, the pl
 approved with both recommended answers. Built, tested, checked with ThemeLab,
 installed 19:31 (19 files hash-identical); see *Where things are*. **Unreleased.**
 
+Then **session 71** (2026-10-23): the user ran *Check covers* on the real library;
+cut-off covers checked off (see *Where things are*, session 71).
+
 **968 tests** pass. Since session 63 an install is checked by hashing the files, not
 by launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
 playback.log* under Gotchas).
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
-0. **Cut-off covers on the real library** (step 2): once the SSD is plugged in, ask the
-   user to press *Check covers* in Statistics (covers.json is version 3, so it reads
-   every song again), then read CUT-OFF COVERS with them, and look at the FLO files.
 1. **What they've tried** (step 1): session 69's tag saves are confirmed; session 68's drives with the real SSD (pull it
    with AudioFool open, plug it back in, under a new letter if Windows gives one);
    of session 67 only a song that won't open being skipped is unreported. The rest
@@ -190,6 +190,25 @@ it reads the new number in the release build.
 ### Where things are
 
 - **Everything in `README.md` is implemented and verified.** **968 tests** pass.
+- **Session 71** (2026-10-23): **cut-off covers on the real library, done.** The user
+  ran *Check covers* (27,095 songs read). Two albums came up, each cut off in every
+  copy (all songs' embedded picture and `cover.jpg` the same bytes):
+  - **Night Verses, *Live Sessions Vol. 1*** (4 songs, 1400×1400, exactly 1,835,008
+    bytes: a stopped download; files from 2026-07-28, before AudioFool touched them).
+    **The user saved a new cover**: now 3000×3000, whole in all four songs and
+    `cover.jpg`.
+  - **311, *Full Bloom*** (10 songs, 1500×1500): only its last bytes are missing (no
+    end marker). WIC draws all of it, no grey band; the user: "311 seems fine". Left
+    as is, so it **stays listed in CUT-OFF COVERS** (one album, 10 tracks); a new cover
+    would clear it. Its `cover.jpg` was already cut off in March 2026, before
+    AudioFool; the songs were rewritten 2026-10-08 by session 44's Keep Best Cover
+    run, so whether a smaller whole copy was dropped then can't be known (no backup).
+  - **FLO**: all three albums are whole now. *FLO - Chill*'s songs, `cover.jpg` and
+    saved thumbnails were all rewritten 2026-10-20 12:04 (a new cover saved in the
+    app), which fixed the one the user saw.
+  - The check deleted both albums' saved thumbnails, as built. Six grey-bottomed
+    96 px thumbnails from 2026-10-14 remain in `art\`, keyed to none of these albums;
+    harmless leftovers.
 - **Session 70** (2026-10-22): **cut-off covers** (the user saw two albums showing only
   the top of their cover, one Marcus Johnson's *FLO*; README *Cut-off covers*,
   `design/progress.md`; details in `HISTORY.md`):
@@ -223,8 +242,8 @@ it reads the new number in the release build.
     now end properly, since the check called them cut off.
   - ThemeLab `--window stats --cutoffdemo 1` (new): ALL OK in Light and Dark;
     `--window tags --scratch <folder> --album x --pickimage <cut-off JPEG>`: the message.
-  - Installed 19:31 (AudioFool not running; 19 files hash-identical). **Not tried on the
-    real library**: the SSD was away. Committed `5db5ac5`, pushed.
+  - Installed 19:31 (AudioFool not running; 19 files hash-identical). Committed
+    `5db5ac5`, pushed. Tried on the real library in session 71 (above).
 - **Session 69** (2026-10-22): **the tag-save fixes** (session 60's four file-write
   findings, each checked against the code first; README *Editing tags*, *A new cover
   is the only cover*; details in `HISTORY.md`):
@@ -577,10 +596,14 @@ it reads the new number in the release build.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
+- **71** (2026-10-23): **cut-off covers on the real library**: two albums found;
+  Night Verses given a new cover by the user, 311 left (draws whole, stays listed);
+  FLO already whole. Docs only. See *Where things are*.
+
 - **70** (2026-10-22): the close X fine so far; **cut-off covers**: a whole cover is
   shown and kept over a cut-off one, a cut-off one is never saved, and Statistics'
   new CUT-OFF COVERS section finds them. 968 tests; ThemeLab ALL OK in both themes;
-  installed; not yet tried on the real library (SSD away). See *Where things are*.
+  installed; tried on the real library in session 71. See *Where things are*.
 
 - **69** (2026-10-22): **the tag-save fixes**: the song window keeps a song's other
   artists, a FLAC's new cover stays in its own tag, *Choose Image…* judges the bytes
@@ -1777,21 +1800,6 @@ Open items only; finished ones are in `HISTORY.md`.
      unless changed", and saving another field leaves each track's own.
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
-   - **Cut-off covers (reported 2026-10-22, session 70):** two albums show only the
-     top of their cover, one of them Marcus Johnson's *FLO* (three FLO albums,
-     `D:\Music\Marcus Johnson\[2008] FLO - …`). A JPEG whose data stops early decodes
-     without an error in WIC: the rows it has, then flat #808080. Of the 7,894 saved
-     thumbnails in `%LOCALAPPDATA%\AudioFool\art`, exactly four (two pictures, 96 px,
-     made 2026-10-14 07:30 and 23:05) end in #808080; none matched an album in
-     Claude's stale library.json copy, so the second album is unnamed. Marcus Johnson
-     isn't in the PNG backup, so the PNG conversion didn't touch FLO. The SSD was
-     away. **Built in session 70** (see *Where things are*): CUT-OFF COVERS in
-     Statistics, whole covers shown first, cut-off ones never saved. **With the SSD
-     plugged in:** the user presses *Check covers* (covers.json v3 reads every song
-     again); read the two rows with them; `CutOffImage.Is` on the FLO songs' embedded
-     art and `cover.jpg`, and their write times against session 44's Keep Best Cover
-     run, to see whether AudioFool wrote them (it could have kept a cut-off copy over
-     a smaller whole one before session 70).
 3. **A visible, editable queue view**: the most conspicuous missing player feature.
 4. **The close X that sometimes ignores clicks** (sessions 51, 59 and 66). In tag
    windows and Statistics the X sometimes ignores **several clicks in a row**; the
