@@ -98,7 +98,7 @@ the only thing that catches a file you forgot to track.
 
 Nine so far, all on GitHub (private, so downloads need a signed-in account):
 **v0.1.0** (2026-09-30, the user by hand), **v0.2.0** (2026-10-02), **v0.3.0**
-(2026-10-09, session 45), **v0.4.0** (2026-10-12, session 47), **v0.5.0** (2026-10-13, session 48), **v0.6.0** and **v0.6.1** (both 2026-10-15, session 54), **v0.7.0** (2026-10-21, session 65), all eight by Claude.
+(2026-10-09, session 45), **v0.4.0** (2026-10-12, session 47), **v0.5.0** (2026-10-13, session 48), **v0.6.0** and **v0.6.1** (both 2026-10-15, session 54), **v0.7.0** (2026-10-21, session 65), **v0.8.0** (2026-10-22, session 69); every one after v0.1.0 by Claude.
 `AudioFool.csproj` starts with a byte-order mark: keep it when bumping the version
 (v0.6.0's bump dropped it and needed a follow-up commit). Handle a release end to end when asked, but
 **confirm the version number and the notes with the user before `gh release create`**:
@@ -166,10 +166,8 @@ Open with the user, in this order (each is under *Suggested next steps*):
    with AudioFool open, plug it back in, under a new letter if Windows gives one);
    of session 67 only a song that won't open being skipped is unreported. The rest
    of sessions 67 and 68 is confirmed (2026-10-22). Ask; don't re-explain.
-2. **A release** (*Releases*): v0.7.0 is the last. Unreleased: session 66's close-X
-   safety net, all of sessions 67, 68 and 69, with new features, so the
-   middle number: **v0.8.0**. Offer it; confirm the version and the notes before
-   `gh release create`.
+2. **Releases** (*Releases*): **v0.8.0 released and installed** (2026-10-22, session
+   69) at the user's OK of the version and notes; nothing unreleased.
 3. **The close X** (step 4): "It's working well so far" right after session 66's
    install. Ask whether it has ignored a click since and whether the window buttons'
    hover highlight still shows. Either way, read the `titlebar:` lines in
@@ -490,7 +488,14 @@ it reads the new number in the release build.
   - **The beat screen finished** (14:19). The visualizer has since been removed
     (session 65).
   - The user has seen PS2 Dark's glows and search selection on screen: "looks good".
-- **Last release: v0.7.0** (2026-10-21, session 65, tag on `7c2cac7`, 60.7 MB zip,
+- **Last release: v0.8.0** (2026-10-22, session 69, tag on `4893ac4` "Version 0.8.0",
+  60.7 MB zip, 19 files, the same names as v0.7.0): sessions 66–69, so the close-X
+  safety net, Find and Replace on a selection, the review's small UI fixes, playlists
+  and clearances saved safely, the playback fixes, drives noticed while running, the
+  header crash, the status line's single click, the now-playing format line and the
+  tag-save fixes. Notes grouped New / Improved / Fixed, approved by the user.
+  Installed 18:36 (AudioFool not running; 19 files hash-identical, exe 0.8.0).
+  Before it: v0.7.0 (2026-10-21, session 65, tag on `7c2cac7`, 60.7 MB zip,
   19 files, the same names as v0.6.1): sessions 55–65, so the seek bar's hearing
   clock, the click fix, songs from Explorer, Clear All, the click log, session 60's
   six fixes, session 61's and 62's fixes, Find and Replace, About and the
@@ -534,7 +539,8 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
   artists, a FLAC's new cover stays in its own tag, *Choose Image…* judges the bytes
   (and holds them from the pick), a cut-off picture frame no longer stops an album
   save, and save errors reach the status bar. 928 tests; installed, committed
-  `5a33adc` and pushed; confirmed by the user. See *Where things are*.
+  `5a33adc` and pushed; confirmed by the user. See *Where things are*. Then
+  **v0.8.0 released** (tag on `4893ac4`) and installed.
 
 - **68** (2026-10-22): the user confirmed session 67 (all but skipping); then **drives
   noticed while AudioFool runs** (F5 relocates; plugging in or pulling out refreshes;

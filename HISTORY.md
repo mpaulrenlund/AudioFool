@@ -4668,6 +4668,15 @@ instead of refusing" was offered for the third and not taken).
   ALL OK. Installed 18:11 (AudioFool not running; 19 files hash-identical).
   Committed `5a33adc`, pushed. **Confirmed by the user:** "Fixes are working well".
 
+**Then v0.8.0** (the user asked how the version numbers work first: last number for
+fixes only, middle for new features, 0 in front until the user calls it finished).
+Tests 928 passed; "Version 0.8.0" (`4893ac4`, the csproj's byte-order mark kept),
+pushed; the release build reads 0.8.0 and has v0.7.0's 19 file names; 60.7 MB zip.
+Notes New / Improved / Fixed from `git log v0.7.0..HEAD`, approved by the user as
+drafted; `gh release create` with the tag on `4893ac4`, the uploaded zip the same
+size as the local one. Installed 18:36 (AudioFool not running; 19 files
+hash-identical, exe 0.8.0).
+
 ---
 
 ## Reference notes retired from the handoff
