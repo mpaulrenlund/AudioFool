@@ -224,7 +224,7 @@ it reads the new number in the release build.
   - ThemeLab `--window stats --cutoffdemo 1` (new): ALL OK in Light and Dark;
     `--window tags --scratch <folder> --album x --pickimage <cut-off JPEG>`: the message.
   - Installed 19:31 (AudioFool not running; 19 files hash-identical). **Not tried on the
-    real library**: the SSD was away. Not committed yet.
+    real library**: the SSD was away. Committed `5db5ac5`, pushed.
 - **Session 69** (2026-10-22): **the tag-save fixes** (session 60's four file-write
   findings, each checked against the code first; README *Editing tags*, *A new cover
   is the only cover*; details in `HISTORY.md`):
