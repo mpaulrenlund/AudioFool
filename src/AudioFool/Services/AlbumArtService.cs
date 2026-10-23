@@ -105,20 +105,9 @@ public sealed class AlbumArtService
     private (BitmapSource? Art, bool Saved) LoadFromSource(Album album, int width, bool save)
     {
         var certain = album.Tracks.Count > 0;
-        BitmapSource? art = null;
-        foreach (var track in album.Tracks.Take(5))
-        {
-            if (!TagReader.TryReadEmbeddedArt(track.FilePath, out var embedded))
-                certain = false;
-            if ((art = DecodeBytes(embedded, width)) is not null)
-                break;
-        }
-
-        if (art is null && album.FolderArtPath is { } folderArt)
-        {
-            art = DecodeFile(folderArt, width);
-            certain &= art is not null;
-        }
+        var art = DecodeFirst(AlbumPictures(album, couldNotRead: () => certain = false), width);
+        if (art is null && album.FolderArtPath is not null)
+            certain = false;
 
         if (!save || _disk is null)
             return (art, false);
@@ -168,8 +157,7 @@ public sealed class AlbumArtService
     /// </summary>
     public Task<BitmapSource?> GetTrackArtAsync(Track track, int decodeWidth) =>
         GetOrLoad($"track␟{track.FilePath}␟{decodeWidth}",
-                  () => DecodeBytes(TagReader.ReadEmbeddedArt(track.FilePath), decodeWidth)
-                        ?? DecodeFile(track.FolderArtPath, decodeWidth));
+                  () => DecodeFirst(TrackPictures(track), decodeWidth));
 
     /// <summary>
     /// Ceiling for the full-size viewer. Plenty of detail on any current display,
@@ -179,23 +167,42 @@ public sealed class AlbumArtService
 
     /// <summary>Album art at close to native resolution, for the art viewer.</summary>
     public Task<BitmapSource?> GetFullAlbumArtAsync(Album album) =>
-        GetOrLoad($"full␟{album.ArtistName}␟{album.Title}", () =>
-        {
-            foreach (var track in album.Tracks.Take(5))
-            {
-                var art = DecodeBytesFull(TagReader.ReadEmbeddedArt(track.FilePath));
-                if (art is not null)
-                    return art;
-            }
-
-            return DecodeFileFull(album.FolderArtPath);
-        });
+        GetOrLoad($"full␟{album.ArtistName}␟{album.Title}", () => DecodeFirstFull(AlbumPictures(album)));
 
     /// <summary>Track art at close to native resolution, for the art viewer.</summary>
     public Task<BitmapSource?> GetFullTrackArtAsync(Track track) =>
-        GetOrLoad($"fulltrack␟{track.FilePath}", () =>
-            DecodeBytesFull(TagReader.ReadEmbeddedArt(track.FilePath))
-            ?? DecodeFileFull(track.FolderArtPath));
+        GetOrLoad($"fulltrack␟{track.FilePath}", () => DecodeFirstFull(TrackPictures(track)));
+
+    /// <summary>
+    /// An album's pictures in the order looked in: the first few tracks' covers
+    /// (plenty of albums only tag art on track one, and plenty of others miss
+    /// exactly that one), then the folder's cover file. Read as they're asked for.
+    /// </summary>
+    private static IEnumerable<byte[]?> AlbumPictures(Album album, Action? couldNotRead = null)
+    {
+        foreach (var track in album.Tracks.Take(5))
+        {
+            if (!TagReader.TryReadEmbeddedArt(track.FilePath, out var embedded))
+                couldNotRead?.Invoke();
+            yield return embedded;
+        }
+
+        yield return ReadFile(album.FolderArtPath);
+    }
+
+    /// <summary>A track's own cover, then its folder's, so a compilation with art on only some files still shows something.</summary>
+    private static IEnumerable<byte[]?> TrackPictures(Track track)
+    {
+        yield return TagReader.ReadEmbeddedArt(track.FilePath);
+        yield return ReadFile(track.FolderArtPath);
+    }
+
+    /// <summary>The first picture that decodes, whole ones before cut-off ones (<see cref="CutOffImage.WholeFirst"/>).</summary>
+    private static BitmapSource? DecodeFirst(IEnumerable<byte[]?> pictures, int decodeWidth) =>
+        CutOffImage.WholeFirst(pictures).Select(p => DecodeBytes(p, decodeWidth)).FirstOrDefault(a => a is not null);
+
+    private static BitmapSource? DecodeFirstFull(IEnumerable<byte[]?> pictures) =>
+        CutOffImage.WholeFirst(pictures).Select(DecodeBytesFull).FirstOrDefault(a => a is not null);
 
     /// <summary>
     /// Drops every cached image belonging to this album - its own thumbnail/header/
@@ -279,15 +286,15 @@ public sealed class AlbumArtService
         }
     }
 
-    private static BitmapSource? DecodeFileFull(string? path)
+    /// <summary>A cover file's bytes, read whole so its end can be checked; null when there's none or it can't be read.</summary>
+    private static byte[]? ReadFile(string? path)
     {
         if (string.IsNullOrEmpty(path) || !File.Exists(path))
             return null;
 
         try
         {
-            // Read whole, so the header can be measured as well as decoded.
-            return DecodeBytesFull(File.ReadAllBytes(path));
+            return File.ReadAllBytes(path);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -362,19 +369,8 @@ public sealed class AlbumArtService
     private static long EstimateBytes(BitmapSource? image) =>
         image is null ? 0 : (long)image.PixelWidth * image.PixelHeight * 4;
 
-    private static BitmapSource? LoadForAlbum(Album album, int decodeWidth)
-    {
-        // Try the first few tracks: plenty of albums only tag art on track one,
-        // and plenty of others miss exactly that one.
-        foreach (var track in album.Tracks.Take(5))
-        {
-            var art = DecodeBytes(TagReader.ReadEmbeddedArt(track.FilePath), decodeWidth);
-            if (art is not null)
-                return art;
-        }
-
-        return DecodeFile(album.FolderArtPath, decodeWidth);
-    }
+    private static BitmapSource? LoadForAlbum(Album album, int decodeWidth) =>
+        DecodeFirst(AlbumPictures(album), decodeWidth);
 
     private static BitmapSource? DecodeBytes(byte[]? data, int decodeWidth)
     {
@@ -389,26 +385,6 @@ public sealed class AlbumArtService
         catch (Exception ex) when (ex is NotSupportedException or ArgumentException or FileFormatException)
         {
             return null;   // Malformed embedded image; treat as "no art".
-        }
-    }
-
-    private static BitmapSource? DecodeFile(string? path, int decodeWidth)
-    {
-        if (string.IsNullOrEmpty(path) || !File.Exists(path))
-            return null;
-
-        try
-        {
-            using var stream = File.OpenRead(path);
-            return Decode(stream, decodeWidth);
-        }
-        catch (Exception ex) when (ex is IOException
-                                     or UnauthorizedAccessException
-                                     or NotSupportedException
-                                     or ArgumentException
-                                     or FileFormatException)
-        {
-            return null;
         }
     }
 

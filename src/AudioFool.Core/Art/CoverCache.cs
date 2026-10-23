@@ -15,8 +15,8 @@ namespace AudioFool.Core.Art;
 public sealed class CoverCache
 {
     /// <summary>Bump when what <see cref="CoverCleaner.Survey"/> records changes: an older file is ignored.</summary>
-    /// <remarks>2: PNG bytes (session 48).</remarks>
-    public const int CurrentVersion = 2;
+    /// <remarks>2: PNG bytes (session 48). 3: cut-off pictures (session 70).</remarks>
+    public const int CurrentVersion = 3;
 
     public static string DefaultPath { get; } = Path.Combine(LibraryCache.CacheDirectory, "covers.json");
 

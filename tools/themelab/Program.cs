@@ -2517,8 +2517,12 @@ internal static partial class Program
             // LibraryCache.Load only opens the file for reading. Falls back to
             // the sample tracks when there is no cache on this machine.
             var cached = AudioFool.Core.Library.LibraryCache.Load();
-            var tracks = cached?.Tracks ?? SampleTracks();
+            // --cutoffdemo 1: scratch albums with cut-off covers instead (session 70).
+            var cutOffDemo = Arg(args, "--cutoffdemo") is not null;
+            var tracks = cutOffDemo ? LoadCutOffLibrary(vm) : cached?.Tracks ?? SampleTracks();
             var library = AudioFool.Core.Library.LibraryScanner.Build(tracks);
+            if (cutOffDemo)
+                RunCutOffChecks(vm, library);
 
             var clock = System.Diagnostics.Stopwatch.StartNew();
             var stats = AudioFool.Core.Library.LibraryStatistics.Compute(library);
@@ -2606,7 +2610,21 @@ internal static partial class Program
                 foreach (var folder in matched.Select(t => Path.GetDirectoryName(t.FilePath)).Distinct().Take(8))
                     Console.WriteLine($"    {folder}");
             }
-            var statsVm = new StatisticsViewModel(stats, someFoldersHidden: Arg(args, "--hidden") is not null) { QualityCheck = quality, CoverCheck = covers, PngCovers = pngs, Shortcuts = ShortcutGuide.For(Arg(args, "--nohotkeys") is null) };
+            var cutOffs = new CutOffSectionViewModel(vm);
+            var cutOffClock = System.Diagnostics.Stopwatch.StartNew();
+            while (cutOffs.Rows.LastOrDefault()?.Value.StartsWith("Reading") == true && cutOffClock.Elapsed < TimeSpan.FromMinutes(2))
+                Settle(50);
+            Console.WriteLine($"  [cut-off covers] {cutOffs.Summary}  (cover files read in {cutOffClock.ElapsedMilliseconds} ms)");
+            foreach (var r in cutOffs.Rows) Console.WriteLine($"    {r.Label,-32} {r.Value,-40} clickable={r.IsClickable}");
+            // --cutofffilter <row start>: the albums that row's filter shows.
+            if (Arg(args, "--cutofffilter") is { } cutOffRow && cutOffs.Rows.FirstOrDefault(r => r.Label.StartsWith(cutOffRow, StringComparison.OrdinalIgnoreCase))?.Filter is { } cutOffFilter)
+            {
+                var matched = cutOffFilter.Apply(vm.StatisticsTracks);
+                Console.WriteLine($"  filter '{cutOffFilter.Description}': {matched.Count:N0} tracks");
+                foreach (var folder in matched.Select(t => Path.GetDirectoryName(t.FilePath)).Distinct().Take(20))
+                    Console.WriteLine($"    {folder}");
+            }
+            var statsVm = new StatisticsViewModel(stats, someFoldersHidden: Arg(args, "--hidden") is not null) { QualityCheck = quality, CoverCheck = covers, PngCovers = pngs, CutOffCovers = cutOffs, Shortcuts = ShortcutGuide.For(Arg(args, "--nohotkeys") is null) };
             Console.WriteLine($"  [extra covers] {covers.Summary}  button '{covers.ButtonText}' enabled={covers.CanToggle}");
             foreach (var r in covers.Rows) Console.WriteLine($"    {r.Label,-32} {r.Value,-30} clickable={r.IsClickable}  ({r.Detail})");
             Console.WriteLine($"  [quality check] {quality.Summary}  button '{quality.ButtonText}' enabled={quality.CanToggle}");
@@ -2639,6 +2657,16 @@ internal static partial class Program
             Save(root, outPath, w, height, scale);
             Console.WriteLine($"  size {w}x{height} (content measured {root.DesiredSize.Height:0.##}, rows {Descendants<System.Windows.Controls.Button>(root).Count(b => b.DataContext is BarRow)})");
             PrintTitleBar(statsBar, root);
+            DependencyObject? up = dialog.FindName("CutOffList") as DependencyObject;
+            while (up is not null and not System.Windows.Controls.HeaderedContentControl)
+                up = VisualTreeHelper.GetParent(up);
+            if (up is System.Windows.Controls.HeaderedContentControl cutOffSection)
+            {
+                var at = cutOffSection.TranslatePoint(new Point(0, 0), root);
+                Console.WriteLine($"  cut-off section at {at.X:0},{at.Y:0} {cutOffSection.ActualWidth:0}x{cutOffSection.ActualHeight:0}, {cutOffSection.Visibility}");
+            }
+            if (cutOffDemo && _scratchDir is not null)
+                Directory.Delete(_scratchDir, recursive: true);
 
             // --clearall 1 (with --qualitycache and --clearances scratch files): the
             // Quality Check's Clear All, its prompt answered yes without opening it,
@@ -4658,6 +4686,120 @@ internal static partial class Program
             .GetMethod("ApplyLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(vm, [AudioFool.Core.Library.LibraryScanner.Build(tracks), false]);
         Console.WriteLine($"library: {tracks.Count} scratch copies of {albums} in {dir}");
+    }
+
+    /// <summary>
+    /// --window stats --cutoffdemo 1 (session 70): five scratch albums made from the
+    /// test fixtures, each a way a cover can be cut off, so the CUT-OFF COVERS
+    /// section and the art shown can be checked without the music drive.
+    /// </summary>
+    private static List<Track> LoadCutOffLibrary(MainViewModel vm)
+    {
+        // tools\themelab\bin\<config>\net10.0-windows\win-x64 -> the repo.
+        var fixtures = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\..\..\..\tests\AudioFool.Core.Tests\TestData"));
+        var whole = File.ReadAllBytes(Path.Combine(fixtures, "noise-64.jpg"));
+        var cut = whole.AsSpan(0, whole.Length / 3).ToArray();
+        var small = File.ReadAllBytes(Path.Combine(fixtures, "cover.jpg"));
+
+        var dir = Path.Combine(Path.GetTempPath(), "themelab-cutoffs-" + Guid.NewGuid().ToString("N")[..8]);
+        _scratchDir = dir;
+        var tracks = new List<Track>();
+
+        // Album name -> each track's embedded pictures, and the folder's cover.jpg.
+        (string Album, byte[][][] Pictures, byte[]? CoverJpg)[] albums =
+        [
+            ("First Track Cut", [[cut], [whole], [whole]], null),
+            ("Folder File Cut", [[], []], cut),
+            ("Whole", [[whole], [whole]], whole),
+            ("Only Cut", [[cut], [cut]], null),
+            ("Cut Beside Whole", [[cut, small]], null),
+        ];
+
+        foreach (var (album, pictures, coverJpg) in albums)
+        {
+            var albumDir = Path.Combine(dir, "Cut-Off Demo", album);
+            Directory.CreateDirectory(albumDir);
+            if (coverJpg is not null)
+                File.WriteAllBytes(Path.Combine(albumDir, "cover.jpg"), coverJpg);
+
+            for (var i = 0; i < pictures.Length; i++)
+            {
+                var path = Path.Combine(albumDir, $"{i + 1:00} Track.flac");
+                File.Copy(Path.Combine(fixtures, "sample.flac"), path);
+                using (var file = TagLib.File.Create(path))
+                {
+                    file.Tag.Title = $"Track {i + 1}";
+                    file.Tag.Performers = ["Cut-Off Demo"];
+                    file.Tag.AlbumArtists = ["Cut-Off Demo"];
+                    file.Tag.Album = album;
+                    file.Tag.Track = (uint)(i + 1);
+                    file.Tag.Pictures = [.. pictures[i].Select(p => new TagLib.Picture(new TagLib.ByteVector(p))
+                        { Type = TagLib.PictureType.FrontCover, MimeType = "image/jpeg" })];
+                    file.Save();
+                }
+                tracks.Add(AudioFool.Core.Library.TagReader.Read(path));
+            }
+        }
+
+        typeof(MainViewModel)
+            .GetMethod("ApplyLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(vm, [AudioFool.Core.Library.LibraryScanner.Build(tracks), false]);
+        vm.CoverCachePath = Path.Combine(dir, "covers.json");
+        Console.WriteLine($"library: {tracks.Count} scratch tracks in {albums.Length} albums in {dir}");
+        return tracks;
+    }
+
+    /// <summary>
+    /// The cover check over the cut-off demo, then each album's art as the app
+    /// draws it (the header width): grey (#808080) along the bottom row means the
+    /// cut-off picture was shown. Prints OK or BROKEN for each expectation.
+    /// </summary>
+    private static void RunCutOffChecks(MainViewModel vm, AudioFool.Core.Library.MusicLibrary library)
+    {
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
+        vm.StartCoverCheck();
+        Settle(300);
+        while (vm.IsCheckingCovers)
+            Settle(200);
+        Console.WriteLine($"cover check: '{vm.StatusText}'");
+
+        var art = new AlbumArtService();
+        var allOk = true;
+        void Expect(string what, bool ok)
+        {
+            allOk &= ok;
+            Console.WriteLine($"  {(ok ? "OK    " : "BROKEN")} {what}");
+        }
+
+        bool ShowsCut(Album album)
+        {
+            var task = art.GetAlbumArtAsync(album, AlbumArtService.HeaderWidth);
+            while (!task.IsCompleted)
+                Settle(20);
+            if (task.Result is not { } bitmap)
+                return false;
+            var converted = new FormatConvertedBitmap(bitmap, PixelFormats.Bgr24, null, 0);
+            var stride = converted.PixelWidth * 3;
+            var row = new byte[stride];
+            converted.CopyPixels(new Int32Rect(0, converted.PixelHeight - 1, converted.PixelWidth, 1), row, stride, 0);
+            return row.All(b => Math.Abs(b - 128) <= 2);
+        }
+
+        var albums = library.Artists.SelectMany(a => a.Albums).ToDictionary(a => a.Title);
+        Expect("First Track Cut shows track 2's whole cover", !ShowsCut(albums["First Track Cut"]));
+        Expect("Folder File Cut shows its cut-off file, nothing else to show", ShowsCut(albums["Folder File Cut"]));
+        Expect("Whole shows its cover", !ShowsCut(albums["Whole"]));
+        Expect("Only Cut shows its cut-off cover, nothing else to show", ShowsCut(albums["Only Cut"]));
+        // cover.jpg is plain #808080 itself, so this one is judged by the bytes picked.
+        Expect("Cut Beside Whole shows the small whole cover",
+            AudioFool.Core.Library.TagReader.ReadEmbeddedArt(albums["Cut Beside Whole"].Tracks[0].FilePath) is { } picked
+            && picked.Length == 220 && !AudioFool.Core.Art.CutOffImage.Is(picked));
+
+        var stats = vm.ComputeCutOffStatistics(AudioFool.Core.Art.CutOffCoverStatistics.CountFiles(vm.StatisticsTracks));
+        Expect($"songs row: {stats.EmbeddedAlbums} albums, {stats.EmbeddedTracks} tracks (3, 4)", (stats.EmbeddedAlbums, stats.EmbeddedTracks) == (3, 4));
+        Expect($"files row: {stats.Files!.Albums} album, {stats.Files.Files} of {stats.Files.AllFiles} files (1, 1 of 2)",
+            (stats.Files.Albums, stats.Files.Files, stats.Files.AllFiles) == (1, 1, 2));
+        Console.WriteLine(allOk ? "cut-off checks: ALL OK" : "cut-off checks: SOMETHING BROKE");
     }
 
     /// <summary>

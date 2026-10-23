@@ -52,6 +52,10 @@ public sealed partial class MainViewModel
     public PngCoverStatistics ComputePngStatistics(PngFileCount? files = null) =>
         PngCoverStatistics.Compute(_folderFilteredLibrary.AllTracks, CoverResults, files);
 
+    /// <summary>The CUT-OFF COVERS section's embedded row, from the same results; <paramref name="files"/> fills the other.</summary>
+    public CutOffCoverStatistics ComputeCutOffStatistics(CutOffFileCount? files = null) =>
+        CutOffCoverStatistics.Compute(_folderFilteredLibrary.AllTracks, CoverResults, files);
+
     /// <summary>The tracks Statistics counts, for looking in their folders off the UI thread.</summary>
     public IReadOnlyList<Track> StatisticsTracks => _folderFilteredLibrary.AllTracks;
 
@@ -68,6 +72,7 @@ public sealed partial class MainViewModel
     {
         var cache = CoverResults;
         var tracks = _folderFilteredLibrary.AllTracks;
+        var unread = tracks.Where(t => !cache.TryGet(t, out _)).ToList();
         var dispatcher = Application.Current.Dispatcher;
 
         _coverCts?.Dispose();
@@ -94,6 +99,7 @@ public sealed partial class MainViewModel
             // Kept, so closing the app can wait for the last save.
             var summary = await _coverScan;
             StatusText = DescribeCoverCheck(summary);
+            RedrawCutOffCovers(unread, cache);
         }
         catch (Exception ex)
         {
@@ -106,6 +112,25 @@ public sealed partial class MainViewModel
             // Reading every cover churns through buffers, as a tag scan does.
             ReclaimScanMemory();
         }
+    }
+
+    /// <summary>
+    /// The albums of the songs this check found a cut-off picture in lose their
+    /// saved and cached pictures (session 70): drawn before, they may show the cut
+    /// one, where another track's whole cover or the folder's file now comes first.
+    /// Only songs read by this check, so a later check leaves them be.
+    /// </summary>
+    private void RedrawCutOffCovers(IReadOnlyList<Track> read, CoverCache cache)
+    {
+        var cutOff = read.Where(t => cache.TryGet(t, out var f) && f.HasCutOff)
+            .Select(t => t.FilePath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (cutOff.Count == 0)
+            return;
+
+        // The library's own albums, whole: a saved copy is named after an album's first tracks.
+        foreach (var album in _library.Artists.SelectMany(a => a.Albums).Where(a => a.Tracks.Any(t => cutOff.Contains(t.FilePath))))
+            InvalidateAlbumArt(album);
     }
 
     private static string DescribeCoverCheck(CoverScanSummary s)

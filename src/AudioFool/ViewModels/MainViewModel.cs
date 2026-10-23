@@ -1530,7 +1530,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         using var quality = new QualitySectionViewModel(this);
         using var covers = new CoverSectionViewModel(this);
         using var pngs = new PngSectionViewModel(this);
-        var statsVm = new StatisticsViewModel(stats, someHidden) { QualityCheck = quality, CoverCheck = covers, PngCovers = pngs, Shortcuts = ShortcutGuide.For(_settings.GlobalHotkeys) };
+        using var cutOffs = new CutOffSectionViewModel(this);
+        var statsVm = new StatisticsViewModel(stats, someHidden) { QualityCheck = quality, CoverCheck = covers, PngCovers = pngs, CutOffCovers = cutOffs, Shortcuts = ShortcutGuide.For(_settings.GlobalHotkeys) };
         if (new StatisticsWindow(statsVm, owner).ShowDialog() == true && statsVm.Chosen is { } row)
             ApplyStatisticsChoice(row);
     }

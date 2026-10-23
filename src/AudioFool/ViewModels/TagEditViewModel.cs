@@ -612,7 +612,8 @@ public sealed partial class TagEditViewModel : ObservableObject
 
     /// <summary>
     /// Takes the image file "Choose Image…" picked, read now and judged by its
-    /// bytes, not its name: a WebP renamed .jpg is refused on the message line.
+    /// bytes, not its name: a WebP renamed .jpg is refused on the message line, and
+    /// so is a picture whose data stops before its end (session 70).
     /// </summary>
     public void UseImageFile(string path)
     {
@@ -621,7 +622,7 @@ public sealed partial class TagEditViewModel : ObservableObject
             var bytes = File.ReadAllBytes(path);
             if (ArtPayload.FromImage(bytes) is not { } picked)
             {
-                ValidationError = "That image isn't a JPEG or PNG.";
+                ValidationError = CutOffImage.Is(bytes) ? "That image is cut off." : "That image isn't a JPEG or PNG.";
                 return;
             }
 
@@ -764,6 +765,13 @@ public sealed partial class TagEditViewModel : ObservableObject
     /// <summary>Takes a cover from "Search Internet" in place of any file picked earlier.</summary>
     public void UseDownloadedArt(byte[] jpeg)
     {
+        // The search refuses one already; this is the last door before the tags.
+        if (CutOffImage.Is(jpeg))
+        {
+            ValidationError = "That image is cut off.";
+            return;
+        }
+
         try
         {
             ArtPreview = ArtSearchViewModel.Decode(jpeg, 200);

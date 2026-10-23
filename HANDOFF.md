@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-22, session 69. Read this alongside `README.md`: the README covers
+Updated 2026-10-22, session 70. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -156,12 +156,19 @@ Then **session 69** (2026-10-22): **the tag-save fixes**, session 66's fourth pi
 the plan approved as proposed. Built, tested, checked with ThemeLab, installed 18:11
 (19 files hash-identical); see *Where things are*.
 
-**928 tests** pass. Since session 63 an install is checked by hashing the files, not
+Then **session 70** (2026-10-22): **cut-off covers** caught and kept out, the plan
+approved with both recommended answers. Built, tested, checked with ThemeLab,
+installed 19:31 (19 files hash-identical); see *Where things are*. **Unreleased.**
+
+**968 tests** pass. Since session 63 an install is checked by hashing the files, not
 by launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
 playback.log* under Gotchas).
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
+0. **Cut-off covers on the real library** (step 2): once the SSD is plugged in, ask the
+   user to press *Check covers* in Statistics (covers.json is version 3, so it reads
+   every song again), then read CUT-OFF COVERS with them, and look at the FLO files.
 1. **What they've tried** (step 1): session 69's tag saves are confirmed; session 68's drives with the real SSD (pull it
    with AudioFool open, plug it back in, under a new letter if Windows gives one);
    of session 67 only a song that won't open being skipped is unreported. The rest
@@ -182,7 +189,42 @@ it reads the new number in the release build.
 
 ### Where things are
 
-- **Everything in `README.md` is implemented and verified.** **928 tests** pass.
+- **Everything in `README.md` is implemented and verified.** **968 tests** pass.
+- **Session 70** (2026-10-22): **cut-off covers** (the user saw two albums showing only
+  the top of their cover, one Marcus Johnson's *FLO*; README *Cut-off covers*,
+  `design/progress.md`; details in `HISTORY.md`):
+  - **Why:** WIC decodes a JPEG whose data stops early without an error: the rows it
+    has, then flat #808080 (a PNG: black). Checked on a fixture cut to 40%. The header
+    still gives the full size, so `BestCover` could pick a cut-off copy over a smaller
+    whole one, and Keep Best Cover keep it and drop the whole one (a test shows the
+    old pick; whether that happened to FLO is unknown until its files are read).
+  - **`Core/Art/CutOffImage`:** a JPEG walked block by block to the end marker after
+    its last scan (an APP1 thumbnail's own end is skipped over), a PNG chunk by chunk
+    to IEND; trailing bytes fine; anything else "not ours to judge". `IsFile` reads a
+    file's last 4 KB first and the whole file only when that isn't a clean end.
+    `WholeFirst` orders an album's pictures, lazily.
+  - **Shown:** `TagReader.BestCover` restricts to whole JPEG/PNG pictures when there are
+    any, before the front-cover rule. `AlbumArtService` tries the first five tracks'
+    covers and the folder file whole ones first (`AlbumPictures`, `TrackPictures`,
+    `DecodeFirst`); a cut-off one only when nothing else decodes. After a cover check,
+    the albums of songs it read with a cut-off picture lose their saved thumbnails
+    (`RedrawCutOffCovers`).
+  - **Kept out:** `ArtPayload.FromImage` returns null for a cut-off picture ("That image
+    is cut off." on the message line); `OnlineArtSearch.DownloadAsync` throws for one;
+    `UseDownloadedArt` refuses one; `EmbeddedArtExtractor` never writes one as
+    cover.jpg and replaces a bigger cut-off cover.jpg; `PngCoverConverter` skips a
+    cut-off PNG and doesn't count a cut-off JPEG beside one as a duplicate.
+  - **Found:** `CoverFinding.CutOff` (`CoverCache` version 3: the next check reads every
+    song again), `CutOffCoverStatistics`, `CutOffSectionViewModel`, Statistics' new
+    **CUT-OFF COVERS** section below PNG COVERS (two rows, built as PNG COVERS is).
+  - 40 new tests (`CutOffImageTests`, `CutOffCoverTests`, and in `BestCoverTests`,
+    `CoverCleanerTests`, `ArtPayloadTests`, `EmbeddedArtExtractorTests`,
+    `PngCoverConverterTests`). Three test files' made-up pictures (a header and filler)
+    now end properly, since the check called them cut off.
+  - ThemeLab `--window stats --cutoffdemo 1` (new): ALL OK in Light and Dark;
+    `--window tags --scratch <folder> --album x --pickimage <cut-off JPEG>`: the message.
+  - Installed 19:31 (AudioFool not running; 19 files hash-identical). **Not tried on the
+    real library**: the SSD was away. Not committed yet.
 - **Session 69** (2026-10-22): **the tag-save fixes** (session 60's four file-write
   findings, each checked against the code first; README *Editing tags*, *A new cover
   is the only cover*; details in `HISTORY.md`):
@@ -534,6 +576,11 @@ it reads the new number in the release build.
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **70** (2026-10-22): the close X fine so far; **cut-off covers**: a whole cover is
+  shown and kept over a cut-off one, a cut-off one is never saved, and Statistics'
+  new CUT-OFF COVERS section finds them. 968 tests; ThemeLab ALL OK in both themes;
+  installed; not yet tried on the real library (SSD away). See *Where things are*.
 
 - **69** (2026-10-22): **the tag-save fixes**: the song window keeps a song's other
   artists, a FLAC's new cover stays in its own tag, *Choose Image…* judges the bytes
@@ -1296,6 +1343,7 @@ ThemeLab.exe --brushdump 1 --out shot.png   # also writes shot.brushes.txt: ever
 ThemeLab.exe --menu               # does the logo open the menu?
 ThemeLab.exe --menu --menutree   # sizes and clips under the menu item
 ThemeLab.exe --window stats --w 900 # statistics, from the real library.json (add --qualitycache <scratch> --fakeflags 1 --clearances <scratch> --clearall 1 for Clear All, session 59)
+ThemeLab.exe --window stats --w 900 --cutoffdemo 1 [--cutofffilter "Cut off"]   # five scratch albums with cut-off covers, the cover check, the art shown: ALL OK (session 70; no music drive needed)
 ThemeLab.exe --window click --click Year        # click a Statistics row, render the result
 ThemeLab.exe --window click --click Rush --search Buckethead
 ThemeLab.exe --window click --click Year --fix 1964   # simulate fixing the selected album
@@ -1729,6 +1777,21 @@ Open items only; finished ones are in `HISTORY.md`.
      unless changed", and saving another field leaves each track's own.
 2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
    happy with the converted covers.
+   - **Cut-off covers (reported 2026-10-22, session 70):** two albums show only the
+     top of their cover, one of them Marcus Johnson's *FLO* (three FLO albums,
+     `D:\Music\Marcus Johnson\[2008] FLO - …`). A JPEG whose data stops early decodes
+     without an error in WIC: the rows it has, then flat #808080. Of the 7,894 saved
+     thumbnails in `%LOCALAPPDATA%\AudioFool\art`, exactly four (two pictures, 96 px,
+     made 2026-10-14 07:30 and 23:05) end in #808080; none matched an album in
+     Claude's stale library.json copy, so the second album is unnamed. Marcus Johnson
+     isn't in the PNG backup, so the PNG conversion didn't touch FLO. The SSD was
+     away. **Built in session 70** (see *Where things are*): CUT-OFF COVERS in
+     Statistics, whole covers shown first, cut-off ones never saved. **With the SSD
+     plugged in:** the user presses *Check covers* (covers.json v3 reads every song
+     again); read the two rows with them; `CutOffImage.Is` on the FLO songs' embedded
+     art and `cover.jpg`, and their write times against session 44's Keep Best Cover
+     run, to see whether AudioFool wrote them (it could have kept a cut-off copy over
+     a smaller whole one before session 70).
 3. **A visible, editable queue view**: the most conspicuous missing player feature.
 4. **The close X that sometimes ignores clicks** (sessions 51, 59 and 66). In tag
    windows and Statistics the X sometimes ignores **several clicks in a row**; the

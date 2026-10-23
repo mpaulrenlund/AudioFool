@@ -726,6 +726,37 @@ converted, even the few that come out bigger.
   of the same name with at least as many pixels is only removed; a bigger PNG replaces
   the JPEG. Replaced files go to the **Recycle Bin**. On a drive without one (an SD
   card) the PNG is kept and the status bar says so, and a JPEG is never overwritten.
+- A cut-off PNG (see below) is left as it is: its missing part would become black in the
+  JPEG for good. A cut-off JPEG beside a PNG doesn't count as a copy of it.
+
+---
+
+## Cut-off covers
+
+A cover whose data stops partway through (a download or copy that ended early, a tagger
+that wrote the picture without its end) still opens: Windows draws the rows it has and
+fills the rest with flat grey (a JPEG) or black (a PNG), without an error. The picture's
+header still gives its full size, so nothing else notices. AudioFool looks for the end
+itself: a JPEG's end-of-image marker after its last scan (a small thumbnail tucked
+inside, with an end of its own, isn't taken for it), a PNG's closing IEND chunk.
+
+- **Shown:** a whole picture always comes before a cut-off one. In a file holding
+  several, a whole one wins whatever the sizes; for an album, another track's whole
+  cover or the folder's cover file is shown over a cut-off one. A cut-off cover is shown
+  only when nothing else will do, so it can be seen and replaced.
+- **Kept:** Keep Best Cover keeps the whole copy and removes the cut-off one, and never
+  writes a cut-off cover as `cover.jpg`; a bigger `cover.jpg` that is cut off gives way.
+- **Refused:** *Choose Image…* says "That image is cut off." and keeps the old cover;
+  *Search Internet* refuses a download that stops short.
+- **Found:** Statistics → **CUT-OFF COVERS**, below PNG COVERS. **Cut off in songs**
+  comes from the Extra Covers check (no button of its own; since this was added, the
+  check reads every song once more, so press *Check covers* after updating). **Cut-off cover files** reads
+  the folder cover files the songs show each time the window opens, each from its end
+  first, so a whole one costs one small read. Clicking a row narrows the library to those
+  albums. To fix one: *Edit Album Tags…* → *Search Internet* or *Choose Image…*; when
+  the song also holds a whole copy, Keep Best Cover is enough (it shows under Extra
+  covers).
+- A song's saved thumbnails are drawn again once the check finds a cut-off picture in it.
 
 ---
 
@@ -1021,9 +1052,10 @@ folder. Songs with the same album name count as this album; songs with no album 
 never do.
 
 **When a file carries several covers.** Many files hold the cover two or three times,
-sometimes at different sizes. AudioFool shows the best one wherever it is stored: a front
-cover over other pictures (such as a band photo), then the most pixels, then a JPEG over
-a PNG of the same size, then the larger file. The same choice is used everywhere the
+sometimes at different sizes. AudioFool shows the best one wherever it is stored: a whole
+picture over a cut-off one (see *Cut-off covers*), then a front cover over other pictures
+(such as a band photo), then the most pixels, then a JPEG over a PNG of the same size,
+then the larger file. The same choice is used everywhere the
 embedded cover is: the album header, the full-size viewer, the tag editor and *Save
 Embedded Art*. Nothing is written to the files; to remove the extra copies, see
 *Extra covers* above.

@@ -275,10 +275,20 @@ public static class TagReader
     /// several times the size and looks no different), then the most bytes (the same
     /// JPEG saved at a higher quality), then the first. A picture whose size can't be
     /// read counts as 0 pixels, so a readable cover beats it. Null when none has any data.
+    /// <para>
+    /// Before all that, a whole picture beats a cut-off one (<see cref="Art.CutOffImage"/>,
+    /// session 70), front cover or not: a cut-off JPEG's header still gives its full
+    /// size, so it could win and be all Keep Best Cover kept. Whole means a JPEG or
+    /// PNG that isn't cut off; with none, the rules run over every picture.
+    /// </para>
     /// </summary>
     public static TagLib.IPicture? BestCover(IReadOnlyList<TagLib.IPicture> pictures)
     {
         var withData = pictures.Where(p => p.Data is { Count: > 0 }).ToList();
+        var whole = withData.Where(p => Art.ImageInfo.Read(p.Data.Data) is not null && !Art.CutOffImage.Is(p.Data.Data)).ToList();
+        if (whole.Count > 0)
+            withData = whole;
+
         var fronts = withData.Where(p => p.Type == TagLib.PictureType.FrontCover).ToList();
         var candidates = fronts.Count > 0 ? fronts : withData;
 

@@ -85,6 +85,7 @@ public static class EmbeddedArtExtractor
     {
         byte[]? best = null;
         ImageInfo? bestInfo = null;
+        ImageInfo? cutOffInfo = null;
         var sawUnsupported = false;
         foreach (var track in tracks)
         {
@@ -97,6 +98,13 @@ public static class EmbeddedArtExtractor
                 continue;
             }
 
+            // Never written out (session 70): the file would be cut off too.
+            if (CutOffImage.Is(bytes))
+            {
+                cutOffInfo ??= info;
+                continue;
+            }
+
             if (bestInfo is null || Better(info, bytes.Length, bestInfo, best!.Length))
                 (best, bestInfo) = (bytes, info);
         }
@@ -104,14 +112,19 @@ public static class EmbeddedArtExtractor
         var target = Path.Combine(directory, FileName);
         if (best is null || bestInfo is null)
         {
+            if (cutOffInfo is not null)
+                return Failed(directory, cutOffInfo, null, "the cover is cut off");
             return new FolderExtract(directory, sawUnsupported ? ExtractOutcome.Unsupported : ExtractOutcome.NoArt,
                                      null, null, 0, false, null, null);
         }
 
         try
         {
-            ImageInfo? existing = File.Exists(target) ? ImageInfo.Read(File.ReadAllBytes(target)) : null;
-            if (existing is not null && Pixels(existing) >= Pixels(bestInfo))
+            var existingBytes = File.Exists(target) ? File.ReadAllBytes(target) : null;
+            ImageInfo? existing = existingBytes is null ? null : ImageInfo.Read(existingBytes);
+
+            // A bigger file that is cut off gives way to the whole cover.
+            if (existing is not null && Pixels(existing) >= Pixels(bestInfo) && !CutOffImage.Is(existingBytes))
                 return new FolderExtract(directory, ExtractOutcome.KeptExisting, target, bestInfo, best.Length, false, existing, null);
 
             var converted = bestInfo.Format == ImageFormat.Png;

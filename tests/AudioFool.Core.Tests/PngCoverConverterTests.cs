@@ -15,22 +15,27 @@ public sealed class PngCoverConverterTests : IDisposable
 
     public void Dispose() => Directory.Delete(_folder, recursive: true);
 
+    // Laid out as a PNG is, chunk by chunk to IEND, so it reads as whole (session
+    // 70); the filler is an IDAT chunk of random bytes. The checksums are zeros:
+    // nothing here reads them.
     private static byte[] Png(int width, int height, int filler)
     {
-        byte[] head =
+        var data = new byte[filler];
+        new Random(width).NextBytes(data);
+        return
         [
             0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
             0, 0, 0, 13, (byte)'I', (byte)'H', (byte)'D', (byte)'R',
             (byte)(width >> 24), (byte)(width >> 16), (byte)(width >> 8), (byte)width,
             (byte)(height >> 24), (byte)(height >> 16), (byte)(height >> 8), (byte)height,
+            0x08, 0x02, 0x00, 0x00, 0x00, 0, 0, 0, 0,
+            (byte)(filler >> 24), (byte)(filler >> 16), (byte)(filler >> 8), (byte)filler,
+            (byte)'I', (byte)'D', (byte)'A', (byte)'T', .. data, 0, 0, 0, 0,
+            0, 0, 0, 0, (byte)'I', (byte)'E', (byte)'N', (byte)'D', 0xAE, 0x42, 0x60, 0x82,
         ];
-        var bytes = new byte[head.Length + filler];
-        head.CopyTo(bytes, 0);
-        new Random(width).NextBytes(bytes.AsSpan(head.Length));
-        return bytes;
     }
 
-    // A JPEG up to its frame header; the APP0 segment's padding is the filler.
+    // A JPEG's frame header, a short scan and its end; the APP0 segment's padding is the filler.
     private static byte[] Jpeg(int width, int height, int filler)
     {
         var app0Length = filler + 2;
@@ -38,7 +43,9 @@ public sealed class PngCoverConverterTests : IDisposable
         [
             0xFF, 0xD8, 0xFF, 0xE0, (byte)(app0Length >> 8), (byte)app0Length, .. new byte[filler],
             0xFF, 0xC0, 0x00, 0x11, 0x08,
-            (byte)(height >> 8), (byte)height, (byte)(width >> 8), (byte)width, 0x03,
+            (byte)(height >> 8), (byte)height, (byte)(width >> 8), (byte)width, 0x03, .. new byte[9],
+            0xFF, 0xDA, 0x00, 0x08, .. new byte[6], 0x12, 0x34,
+            0xFF, 0xD9,
         ];
     }
 
@@ -123,6 +130,42 @@ public sealed class PngCoverConverterTests : IDisposable
         Assert.Equal(CoverCleanOutcome.Failed, wrongSize.Outcome);
         Assert.Equal(bytes, File.ReadAllBytes(path));
         Assert.Empty(Directory.EnumerateFiles(_folder, CoverCleaner.TempPrefix + "*"));
+    }
+
+    [Fact]
+    public void A_cut_off_png_is_left_as_it_was()
+    {
+        var png = Png(1000, 1000, 50_000);
+        var cut = png.AsSpan(0, png.Length / 2).ToArray();
+        using var source = WithCover("sample.flac", cut);
+        var path = Path.Combine(_folder, "song.flac");
+        File.Copy(source.Path, path);
+        File.WriteAllBytes(Path.Combine(_folder, "cover.png"), cut);
+        var song = File.ReadAllBytes(path);
+
+        var embedded = PngCoverConverter.ConvertEmbedded(path, ToJpeg);
+        var folder = Assert.Single(PngCoverConverter.ConvertFolder(_folder, ToJpeg, Recycle));
+
+        Assert.Equal((CoverCleanOutcome.Failed, PngCoverConverter.CutOffError), (embedded.Outcome, embedded.Error));
+        Assert.Equal((PngFileOutcome.Failed, PngCoverConverter.CutOffError), (folder.Outcome, folder.Error));
+        Assert.Equal(song, File.ReadAllBytes(path));
+        Assert.Equal(cut, File.ReadAllBytes(Path.Combine(_folder, "cover.png")));
+        Assert.Empty(_recycled);
+    }
+
+    [Fact]
+    public void A_cut_off_jpeg_beside_a_png_gives_way_to_it()
+    {
+        var jpeg = Jpeg(1000, 1000, 30_000);
+        File.WriteAllBytes(Path.Combine(_folder, "cover.jpg"), jpeg.AsSpan(0, jpeg.Length - 10).ToArray());
+        var png = Png(1000, 1000, 90_000);
+        File.WriteAllBytes(Path.Combine(_folder, "cover.png"), png);
+
+        var result = Assert.Single(PngCoverConverter.ConvertFolder(_folder, ToJpeg, Recycle));
+
+        Assert.Equal(PngFileOutcome.Converted, result.Outcome);
+        Assert.Equal(ToJpeg(png), File.ReadAllBytes(Path.Combine(_folder, "cover.jpg")));
+        Assert.Equal(["cover.jpg", "cover.png"], _recycled);
     }
 
     [Fact]

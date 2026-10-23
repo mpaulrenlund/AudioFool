@@ -12,11 +12,7 @@ public class ArtPayloadTests
         File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", "cover.jpg"));
 
     private static readonly byte[] Png =
-    [
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-        0, 0, 0, 13, (byte)'I', (byte)'H', (byte)'D', (byte)'R',
-        0, 0, 1, 0, 0, 0, 1, 0, 8, 2, 0, 0, 0,
-    ];
+        File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", "noise-64.png"));
 
     /// <summary>The start of a real WebP: "RIFF", a size, "WEBP", a VP8 chunk.</summary>
     private static readonly byte[] WebP =
@@ -39,6 +35,17 @@ public class ArtPayloadTests
     {
         Assert.Null(ArtPayload.FromImage([]));
         Assert.Null(ArtPayload.FromImage([1, 2, 3, 4, 5, 6, 7, 8]));
+    }
+
+    // Session 70: it would be saved as the only cover.
+    [Theory]
+    [InlineData("cover.jpg")]
+    [InlineData("noise-64.png")]
+    public void A_cut_off_picture_is_refused(string fixture)
+    {
+        var whole = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", fixture));
+
+        Assert.Null(ArtPayload.FromImage(whole.AsSpan(0, whole.Length / 2).ToArray()));
     }
 
     [Fact]

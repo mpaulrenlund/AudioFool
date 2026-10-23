@@ -203,6 +203,8 @@ public sealed partial class OnlineArtSearch
         var probe = JpegSize.TryRead(bytes, out var width, out var height);
         return Classify(probe, width, height) switch
         {
+            // A store can serve a picture that stops short (session 70).
+            Verdict.Accept when CutOffImage.Is(bytes) => throw new InvalidDataException("The image is cut off."),
             Verdict.Accept => bytes,
             Verdict.TooSmall => throw new InvalidDataException($"The image is only {width} × {height}."),
             _ => throw new InvalidDataException("The download is not a JPEG."),

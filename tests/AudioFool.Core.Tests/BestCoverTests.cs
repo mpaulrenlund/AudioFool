@@ -121,6 +121,40 @@ public class BestCoverTests
         Assert.Same(readable, TagReader.BestCover([unreadable, readable]));
     }
 
+    // A cut-off JPEG's header still gives its full size (session 70).
+    private static byte[] Fixture(string name) =>
+        File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", name));
+
+    private static byte[] CutOff(byte[] whole) => whole.AsSpan(0, whole.Length / 2).ToArray();
+
+    [Fact]
+    public void A_whole_cover_beats_a_bigger_one_that_is_cut_off()
+    {
+        var whole = Picture(Fixture("cover.jpg"));            // 8 × 8
+        var cut = Picture(CutOff(Fixture("noise-64.jpg")));   // 64 × 64, half of it
+
+        Assert.Same(whole, TagReader.BestCover([cut, whole]));
+        Assert.Same(whole, TagReader.BestCover([whole, cut]));
+    }
+
+    [Fact]
+    public void A_whole_picture_of_another_kind_beats_a_cut_off_front_cover()
+    {
+        var front = Picture(CutOff(Fixture("noise-64.jpg")));
+        var back = Picture(Fixture("cover.jpg"), TagLib.PictureType.BackCover);
+
+        Assert.Same(back, TagReader.BestCover([front, back]));
+    }
+
+    [Fact]
+    public void With_only_cut_off_pictures_the_usual_rules_pick_one()
+    {
+        var small = Picture(CutOff(Fixture("cover.jpg")));
+        var large = Picture(CutOff(Fixture("noise-64.jpg")));
+
+        Assert.Same(large, TagReader.BestCover([small, large]));
+    }
+
     [Fact]
     public void No_pictures_or_only_empty_ones_give_null()
     {

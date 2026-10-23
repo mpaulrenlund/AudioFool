@@ -310,6 +310,28 @@
                                               Margin="{theme:Thickness Bottom=statistics.sectionPaddingY}" />
                             </StackPanel>
                         </HeaderedContentControl>
+
+                        <!--
+                            Covers whose data stops before the end (session 70): embedded,
+                            from the cover check above (no button of its own), and the
+                            folder cover files. Built as PNG COVERS is; yellow: something to fix.
+                        -->
+                        <HeaderedContentControl Style="{StaticResource Section}"
+                                                Visibility="{Binding CutOffCovers, Converter={StaticResource NullToCollapsed}}">
+                            <HeaderedContentControl.Header>
+                                <TextBlock Text="CUT-OFF COVERS" Style="{StaticResource SectionHeader}" />
+                            </HeaderedContentControl.Header>
+                            <StackPanel DataContext="{Binding CutOffCovers}"
+                                        Margin="{theme:Thickness X=layout.panelHeaderPaddingX, Y=statistics.sectionPaddingY}">
+                                <TextBlock x:Name="CutOffSummary" Text="{Binding Summary}"
+                                           Style="{StaticResource Body}"
+                                           Margin="{theme:Thickness Bottom=statistics.summaryGap}" />
+                                <ItemsControl x:Name="CutOffList" ItemsSource="{Binding Rows}"
+                                              Style="{StaticResource SectionList}"
+                                              Tag="{DynamicResource color.status.lastFmOff}"
+                                              Margin="{theme:Thickness Bottom=statistics.sectionPaddingY}" />
+                            </StackPanel>
+                        </HeaderedContentControl>
                     </StackPanel>
 
                     <StackPanel Grid.Column="2">

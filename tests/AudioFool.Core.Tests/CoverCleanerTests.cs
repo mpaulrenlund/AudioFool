@@ -147,7 +147,37 @@ public class CoverCleanerTests
         Assert.Equal(3 * 24 + 40_000 + 120_000 + 30_000, finding.PngBytes);
         // The survey counts picture bytes; the file also loses each one's few header bytes.
         Assert.InRange(finding.Freeable, freed - 200, freed);
-        Assert.Equal(new CoverFinding(1, 0, 24 + 120_000), CoverCleaner.Survey(file.Path));
+        // A header and filler has no IEND, so each counts as cut off.
+        Assert.Equal(3, finding.CutOff);
+        Assert.Equal(new CoverFinding(1, 0, 24 + 120_000, CutOff: 1), CoverCleaner.Survey(file.Path));
+    }
+
+    [Theory]
+    [InlineData("sample.flac")]
+    [InlineData("sample.mp3")]
+    public void Keep_best_cover_keeps_a_whole_cover_over_a_bigger_cut_off_one(string fixture)
+    {
+        // How a whole cover could be lost before session 70: the cut-off one's
+        // header gives the bigger size.
+        var whole = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", "cover.jpg"));
+        var big = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "TestData", "noise-64.jpg"));
+        var cut = big.AsSpan(0, big.Length / 2).ToArray();
+        using var file = new TempAudioFile(fixture);
+        using (var tagged = TagLib.File.Create(file.Path))
+        {
+            tagged.Tag.Pictures =
+            [
+                new TagLib.Picture(new TagLib.ByteVector(cut)) { Type = TagLib.PictureType.FrontCover, MimeType = "image/jpeg" },
+                new TagLib.Picture(new TagLib.ByteVector(whole)) { Type = TagLib.PictureType.FrontCover, MimeType = "image/jpeg" },
+            ];
+            tagged.Save();
+        }
+
+        Assert.Equal(new CoverFinding(2, CoverCleaner.Survey(file.Path)!.Freeable, 0, CutOff: 1), CoverCleaner.Survey(file.Path));
+        Assert.Equal(CoverCleanOutcome.Cleaned, CoverCleaner.Clean(file.Path).Outcome);
+
+        using var after = TagLib.File.Create(file.Path);
+        Assert.Equal(whole, Assert.Single(after.Tag.Pictures).Data.Data);
     }
 
     [Theory]

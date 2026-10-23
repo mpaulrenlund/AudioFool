@@ -9,25 +9,33 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
 
     public void Dispose() => _root.Delete(recursive: true);
 
-    /// <summary>A JPEG head (SOI, APP0, frame header of the given size) plus a tail, so each call can differ in length.</summary>
+    /// <summary>
+    /// A JPEG (SOI, APP0, frame header of the given size, a scan of <paramref name="tail"/>
+    /// bytes so each call can differ in length, the end), whole as session 70 checks.
+    /// </summary>
     private static byte[] Jpeg(int width, int height, int tail = 0)
     {
         var bytes = new List<byte> { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10 };
         bytes.AddRange(new byte[14]);
         bytes.AddRange([0xFF, 0xC0, 0x00, 0x11, 0x08,
             (byte)(height >> 8), (byte)height, (byte)(width >> 8), (byte)width, 0x03]);
+        bytes.AddRange(new byte[9]);
+        bytes.AddRange([0xFF, 0xDA, 0x00, 0x08, 0, 0, 0, 0, 0, 0]);
         for (var i = 0; i < tail; i++)
-            bytes.Add((byte)(i * 31 + 7));
+            bytes.Add((byte)(i * 31 + 7 & 0x7F));   // never FF: that would start a marker
+        bytes.AddRange([0xFF, 0xD9]);
         return [.. bytes];
     }
 
+    /// <summary>A PNG's signature, IHDR and IEND (checksums zero): whole as session 70 checks.</summary>
     private static byte[] Png(int width, int height) =>
     [
         0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
         0x00, 0x00, 0x00, 0x0D, (byte)'I', (byte)'H', (byte)'D', (byte)'R',
         (byte)(width >> 24), (byte)(width >> 16), (byte)(width >> 8), (byte)width,
         (byte)(height >> 24), (byte)(height >> 16), (byte)(height >> 8), (byte)height,
-        0x08, 0x06, 0x00, 0x00, 0x00,
+        0x08, 0x06, 0x00, 0x00, 0x00, 0, 0, 0, 0,
+        0, 0, 0, 0, (byte)'I', (byte)'E', (byte)'N', (byte)'D', 0xAE, 0x42, 0x60, 0x82,
     ];
 
     /// <summary>A copy of a fixture in <paramref name="folder"/>, with <paramref name="art"/> embedded if given.</summary>
@@ -262,6 +270,34 @@ public sealed class EmbeddedArtExtractorTests : IDisposable
         EmbeddedArtExtractor.ExtractToFolders([track], NoConverter, NotShared);
 
         Assert.Equal(embedded, File.ReadAllBytes(Cover("album")));
+    }
+
+    // Session 70: a cut-off picture is never written out, and a cut-off file gives way.
+    [Fact]
+    public void A_bigger_existing_cover_that_is_cut_off_is_replaced()
+    {
+        var embedded = Jpeg(800, 800, tail: 30);
+        var track = Make("album", "01.flac", "sample.flac", embedded);
+        var big = Jpeg(3000, 3000, tail: 500);
+        File.WriteAllBytes(Cover("album"), big.AsSpan(0, big.Length - 100).ToArray());
+
+        var results = EmbeddedArtExtractor.ExtractToFolders([track], NoConverter, NotShared);
+
+        Assert.Equal(ExtractOutcome.Saved, Assert.Single(results).Outcome);
+        Assert.Equal(embedded, File.ReadAllBytes(Cover("album")));
+    }
+
+    [Fact]
+    public void A_cut_off_embedded_cover_is_not_written_out()
+    {
+        var whole = Jpeg(1200, 1200, tail: 300);
+        var track = Make("album", "01.flac", "sample.flac", whole.AsSpan(0, whole.Length - 100).ToArray());
+
+        var only = Assert.Single(EmbeddedArtExtractor.ExtractToFolders([track], NoConverter, NotShared));
+
+        Assert.Equal(ExtractOutcome.Failed, only.Outcome);
+        Assert.Equal("the cover is cut off", only.Error);
+        Assert.False(File.Exists(Cover("album")));
     }
 
     [Fact]

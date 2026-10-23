@@ -13,13 +13,17 @@ namespace AudioFool.Core.Art;
 /// The bytes of the pictures that are PNG by their contents (not their MIME type,
 /// which files get wrong). 0 when none is.
 /// </param>
-public sealed record CoverFinding(int Pictures, long Freeable, long PngBytes = 0)
+/// <param name="CutOff">How many of the pictures stop before their end (<see cref="CutOffImage"/>).</param>
+public sealed record CoverFinding(int Pictures, long Freeable, long PngBytes = 0, int CutOff = 0)
 {
     [System.Text.Json.Serialization.JsonIgnore]
     public bool HasExtras => Pictures > 1;
 
     [System.Text.Json.Serialization.JsonIgnore]
     public bool HasPng => PngBytes > 0;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasCutOff => CutOff > 0;
 }
 
 public enum CoverCleanOutcome
@@ -65,13 +69,14 @@ public static class CoverCleaner
             var png = pictures
                 .Where(p => p.Data?.Data is { } data && ImageInfo.Read(data)?.Format == ImageFormat.Png)
                 .Sum(p => (long)p.Data.Count);
+            var cutOff = pictures.Count(p => p.Data?.Data is { } data && CutOffImage.Is(data));
             if (pictures.Length <= 1 || TagReader.BestCover(pictures) is not { } best)
-                return new CoverFinding(pictures.Length, 0, png);
+                return new CoverFinding(pictures.Length, 0, png, cutOff);
 
             // The extra covers become padding, which is then cut to the reserve.
             var extra = pictures.Where(p => !ReferenceEquals(p, best)).Sum(p => (long)(p.Data?.Count ?? 0));
             var padding = TagPadding.Read(path)?.Padding ?? 0;
-            return new CoverFinding(pictures.Length, Math.Max(0, extra + padding - TagPadding.Reserve), png);
+            return new CoverFinding(pictures.Length, Math.Max(0, extra + padding - TagPadding.Reserve), png, cutOff);
         }
         catch (Exception ex) when (ex is TagLib.UnsupportedFormatException or TagLib.CorruptFileException
                                      or IOException or UnauthorizedAccessException or NotSupportedException)

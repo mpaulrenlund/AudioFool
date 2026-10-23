@@ -4677,6 +4677,43 @@ drafted; `gh release create` with the tag on `4893ac4`, the uploaded zip the sam
 size as the local one. Installed 18:36 (AudioFool not running; 19 files
 hash-identical, exe 0.8.0).
 
+### Session 70 (2026-10-22): cut-off covers
+
+The user: the close X has been fine. Then two albums showing only the top of their
+cover, one Marcus Johnson's *FLO*. The SSD was away, so the investigation used what's
+on C:. Marcus Johnson isn't in `C:\AudioFool PNG backup\`, so the PNG conversion never
+touched FLO. Of the 7,894 saved thumbnails, four (two pictures, 96 px, made 2026-10-14)
+end in flat #808080, and that is how WIC draws a JPEG whose data stops early: a
+fixture cut to 40% decoded without an error, the bottom 128,128,128 (a cut PNG: black).
+The 18 other flat-bottomed thumbnails were covers meant to look that way (AC/DC's
+*Back In Black* and the like). None of the four matched an album in Claude's stale
+library.json copy, so the second album is still unnamed.
+
+Found on the way: `BestCover` ranked by the header's size, which a cut-off JPEG still
+gives in full, so a cut-off copy could beat a smaller whole one, and Keep Best Cover
+keep it and drop the whole one. Whether that is what happened to FLO needs its files.
+
+Built, the plan approved with both recommended answers (a cut-off cover still shows
+when it's all there is; its own section):
+
+- `Core/Art/CutOffImage`: the end looked for, a JPEG block by block to the end marker
+  after its last scan (an APP1 thumbnail's own end skipped over), a PNG chunk by chunk
+  to IEND. `IsFile` reads the last 4 KB first. `WholeFirst` orders an album's pictures.
+- Shown: `BestCover` takes whole JPEG/PNG pictures over the rest before any other rule;
+  `AlbumArtService` tries tracks' covers and the folder file whole ones first; the
+  cover check has the albums of cut-off songs it read draw their thumbnails again.
+- Kept out: Choose Image… ("That image is cut off."), Search Internet's download,
+  `UseDownloadedArt`, `EmbeddedArtExtractor` (never writes one, replaces a bigger
+  cut-off cover.jpg), `PngCoverConverter` (skips a cut-off PNG; a cut-off JPEG beside a
+  PNG isn't a duplicate).
+- Found: `CoverFinding.CutOff`, `CoverCache` version 3, `CutOffCoverStatistics`,
+  `CutOffSectionViewModel`, Statistics' CUT-OFF COVERS (two rows, as PNG COVERS).
+- 40 new tests (968). Three test files' made-up pictures now end properly. ThemeLab
+  `--window stats --cutoffdemo 1` (new: five scratch albums, the real check, the art
+  as drawn) ALL OK in Light and Dark; `--window tags --pickimage` with a cut-off JPEG
+  shows the message. Installed 19:31 (19 files hash-identical). Not tried on the real
+  library.
+
 ---
 
 ## Reference notes retired from the handoff

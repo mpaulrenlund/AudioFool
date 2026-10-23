@@ -179,9 +179,10 @@ public sealed record ArtPayload(byte[] Bytes, string MimeType)
     /// A picked image, its format judged by its bytes (<see cref="Art.ImageInfo"/>),
     /// never its file name: until session 69 a WebP renamed .jpg was embedded,
     /// labelled JPEG, as the only cover. Null for anything that isn't a readable
-    /// JPEG or PNG.
+    /// JPEG or PNG, and for one that is cut off (<see cref="Art.CutOffImage"/>,
+    /// session 70), which would be saved as the only cover.
     /// </summary>
-    public static ArtPayload? FromImage(byte[] bytes) => Art.ImageInfo.Read(bytes)?.Format switch
+    public static ArtPayload? FromImage(byte[] bytes) => Art.CutOffImage.Is(bytes) ? null : Art.ImageInfo.Read(bytes)?.Format switch
     {
         Art.ImageFormat.Jpeg => new ArtPayload(bytes, "image/jpeg"),
         Art.ImageFormat.Png => new ArtPayload(bytes, "image/png"),

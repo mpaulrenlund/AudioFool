@@ -85,6 +85,9 @@ public sealed class StatisticsViewModel
     /// <summary>PNG covers, embedded and as files, which updates with the cover check.</summary>
     public PngSectionViewModel? PngCovers { get; init; }
 
+    /// <summary>Cut-off covers, embedded and as files, which updates with the cover check.</summary>
+    public CutOffSectionViewModel? CutOffCovers { get; init; }
+
     /// <summary>The row the window was closed by clicking, if any.</summary>
     public BarRow? Chosen { get; set; }
 

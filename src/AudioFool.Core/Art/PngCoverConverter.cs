@@ -29,6 +29,12 @@ public sealed record PngFileResult(string Path, PngFileOutcome Outcome, long Sav
 public static class PngCoverConverter
 {
     /// <summary>
+    /// A cut-off PNG is left as it is (session 70): decoded, its missing part is
+    /// black, and the JPEG made from it would keep that black for good.
+    /// </summary>
+    public const string CutOffError = "the PNG is cut off";
+
+    /// <summary>
     /// The song's cover, converted, as its only picture. A song whose best cover
     /// is already a JPEG and carries a PNG only as an extra has the extra removed
     /// instead (<see cref="CoverCleaner.Clean"/>). NothingToDo when it has no PNG.
@@ -57,6 +63,8 @@ public static class PngCoverConverter
             return CoverCleaner.Clean(path, holder);
 
         var png = best.Data.Data;
+        if (CutOffImage.Is(png))
+            return new CoverCleanResult(path, CoverCleanOutcome.Failed, 0, false, CutOffError);
         if (Encode(png, toJpeg) is not { } jpeg)
             return new CoverCleanResult(path, CoverCleanOutcome.Failed, 0, false, "the PNG couldn't be converted");
 
@@ -99,13 +107,17 @@ public static class PngCoverConverter
             var bytes = File.ReadAllBytes(png);
             if (ImageInfo.Read(bytes) is not { Format: ImageFormat.Png } pngInfo)
                 return new PngFileResult(png, PngFileOutcome.Failed, 0, "not a readable PNG");
+            if (CutOffImage.Is(bytes))
+                return new PngFileResult(png, PngFileOutcome.Failed, 0, CutOffError);
 
             var existing = new[] { ".jpg", ".jpeg" }
                 .Select(e => Path.ChangeExtension(png, e))
                 .FirstOrDefault(File.Exists);
 
-            if (existing is not null && ImageInfo.Read(File.ReadAllBytes(existing)) is { Format: ImageFormat.Jpeg } jpegInfo
-                && Pixels(jpegInfo) >= Pixels(pngInfo))
+            // A cut-off JPEG beside it is no duplicate: it gives way, as a smaller one does.
+            var existingBytes = existing is null ? null : File.ReadAllBytes(existing);
+            if (existingBytes is not null && ImageInfo.Read(existingBytes) is { Format: ImageFormat.Jpeg } jpegInfo
+                && Pixels(jpegInfo) >= Pixels(pngInfo) && !CutOffImage.Is(existingBytes))
             {
                 return recycle(png)
                     ? new PngFileResult(png, PngFileOutcome.Duplicate, bytes.Length, null)
