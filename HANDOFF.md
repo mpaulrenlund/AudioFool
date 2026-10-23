@@ -163,7 +163,8 @@ installed 19:31 (19 files hash-identical); see *Where things are*. **Unreleased.
 Then **session 71** (2026-10-23): the user ran *Check covers* on the real library;
 cut-off covers checked off; then a × in the status bar that clears a Statistics
 filter, installed, not yet seen by the user; then the same × dismisses any
-one-off message, published but not installed (see *Where things are*, session 71).
+one-off message, installed 08:06, not yet seen by the user (see *Where things are*,
+session 71).
 **Unreleased:** sessions 70 and 71.
 
 **968 tests** pass. Since session 63 an install is checked by hashing the files, not
@@ -228,8 +229,9 @@ it reads the new number in the release build.
     empty, or a filter on), `DismissStatusCommand`, `StatusDismissName`; the button
     renamed `StatusDismiss`. Resting warnings get no ×. `--window statusfilter`
     extended: ALL OK in both themes at 100% and 125%; 0 pixels different at rest.
-    968 tests. Published; **not installed yet**: AudioFool was open (ask before
-    closing it).
+    968 tests. Installed 08:06 at the user's OK (AudioFool closed through UI
+    Automation's window Close, so it shut down normally; 19 files hash-identical).
+    **Not yet seen by the user.**
 - **Session 70** (2026-10-22): **cut-off covers** (the user saw two albums showing only
   the top of their cover, one Marcus Johnson's *FLO*; README *Cut-off covers*,
   `design/progress.md`; details in `HISTORY.md`):
