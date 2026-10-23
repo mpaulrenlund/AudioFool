@@ -162,8 +162,7 @@ playback.log* under Gotchas).
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
-1. **What they've tried** (step 1): session 69's tag saves (a title fix on a song
-   with two artists; a picked image), session 68's drives with the real SSD (pull it
+1. **What they've tried** (step 1): session 69's tag saves are confirmed; session 68's drives with the real SSD (pull it
    with AudioFool open, plug it back in, under a new letter if Windows gives one);
    of session 67 only a song that won't open being skipped is unreported. The rest
    of sessions 67 and 68 is confirmed (2026-10-22). Ask; don't re-explain.
@@ -210,8 +209,8 @@ it reads the new number in the release build.
   - 15 new tests (`TrackEditArtistsTests`, `FlacCoverPlacementTests`,
     `ArtPayloadTests`, `TruncatedPictureTests`). ThemeLab `--window tags --pickimage`
     (new) in Light and Dark, renders looked at; `--window albumkeep` ALL OK.
-  - Installed 18:11 (AudioFool not running; 19 files hash-identical). **Not yet tried
-    by the user.**
+  - Installed 18:11 (AudioFool not running; 19 files hash-identical). Committed
+    `5a33adc`, pushed. **Confirmed by the user** (2026-10-22): "Fixes are working well".
 - **Session 68** (2026-10-22): **drives noticed while AudioFool runs** (session 66's
   third pick; the user approved the plan with both extras, refresh on unplugging and
   the queue re-pointed; README *When the drive letter changes*; details in
@@ -534,8 +533,8 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
 - **69** (2026-10-22): **the tag-save fixes**: the song window keeps a song's other
   artists, a FLAC's new cover stays in its own tag, *Choose Image…* judges the bytes
   (and holds them from the pick), a cut-off picture frame no longer stops an album
-  save, and save errors reach the status bar. 928 tests; installed. See *Where
-  things are*.
+  save, and save errors reach the status bar. 928 tests; installed, committed
+  `5a33adc` and pushed; confirmed by the user. See *Where things are*.
 
 - **68** (2026-10-22): the user confirmed session 67 (all but skipping); then **drives
   noticed while AudioFool runs** (F5 relocates; plugging in or pulling out refreshes;
@@ -1681,9 +1680,8 @@ happily rewrite it.
 Open items only; finished ones are in `HISTORY.md`.
 
 1. **Ask the user to try what was checked off-screen only:**
-   - **Session 69, tag saves:** fix a title in *Edit Tags…* on a song with two
-     artists (both still there, in Mp3tag say); *Choose Image…* on a JPEG or PNG
-     saves as before.
+   - **Session 69, tag saves:** **confirmed by the user** (2026-10-22): "Fixes are
+     working well".
    - **Session 68, drives:** with AudioFool open, pull the SSD: the status bar says
      D:\Music is not available within a couple of seconds. Plug it back in: the
      warning clears; under another letter the status bar says "Music folder moved

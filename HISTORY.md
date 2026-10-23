@@ -4665,8 +4665,8 @@ instead of refusing" was offered for the third and not taken).
   "Saturn Return" --pickimage <file>` (new) in Light and Dark: a renamed WebP gives the
   message and no cover on Save; a PNG named .jpg shows "PNG · Unsaved" and Save still
   gets image/png after the file is moved away; renders looked at. `--window albumkeep`
-  ALL OK. Installed 18:11 (AudioFool not running; 19 files hash-identical). Not yet
-  tried by the user.
+  ALL OK. Installed 18:11 (AudioFool not running; 19 files hash-identical).
+  Committed `5a33adc`, pushed. **Confirmed by the user:** "Fixes are working well".
 
 ---
 
