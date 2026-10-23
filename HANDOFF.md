@@ -198,9 +198,10 @@ it reads the new number in the release build.
     **The user saved a new cover**: now 3000×3000, whole in all four songs and
     `cover.jpg`.
   - **311, *Full Bloom*** (10 songs, 1500×1500): only its last bytes are missing (no
-    end marker). WIC draws all of it, no grey band; the user: "311 seems fine". Left
-    as is, so it **stays listed in CUT-OFF COVERS** (one album, 10 tracks); a new cover
-    would clear it. Its `cover.jpg` was already cut off in March 2026, before
+    end marker). WIC draws all of it, no grey band; the user: "311 seems fine". **Then
+    the user saved a new cover anyway**: 1400×1400, whole in all ten songs and
+    `cover.jpg`. The songs changed, so the next *Check covers* reads them again and
+    CUT-OFF COVERS should then be empty. The old `cover.jpg` was already cut off in March 2026, before
     AudioFool; the songs were rewritten 2026-10-08 by session 44's Keep Best Cover
     run, so whether a smaller whole copy was dropped then can't be known (no backup).
   - **FLO**: all three albums are whole now. *FLO - Chill*'s songs, `cover.jpg` and
@@ -597,8 +598,7 @@ it reads the new number in the release build.
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
 - **71** (2026-10-23): **cut-off covers on the real library**: two albums found;
-  Night Verses given a new cover by the user, 311 left (draws whole, stays listed);
-  FLO already whole. Docs only. See *Where things are*.
+  the user gave both new covers (now whole everywhere); FLO already whole. Docs only. See *Where things are*.
 
 - **70** (2026-10-22): the close X fine so far; **cut-off covers**: a whole cover is
   shown and kept over a cut-off one, a cut-off one is never saved, and Statistics'
