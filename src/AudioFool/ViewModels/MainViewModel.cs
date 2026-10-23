@@ -1754,22 +1754,33 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// <summary>
     /// Leaves an album's tag window behind, saved or not. "Save Embedded Art"
     /// writes its files at once, so this runs without a save too.
+    /// <para>
+    /// Its callers don't wait on it, so nothing may escape: an error is named in
+    /// the status bar. Until session 69 one stopped the save without a word.
+    /// </para>
     /// </summary>
     private async Task FinishAlbumDialogAsync(Album album, TagEditViewModel editVm, bool saved,
         bool followTracks = false)
     {
-        await editVm.ArtExtraction;
+        try
+        {
+            await editVm.ArtExtraction;
 
-        if (editVm.SavedCovers.Count > 0)
-            await AdoptFolderCoversAsync(album, editVm.SavedCovers);
+            if (editVm.SavedCovers.Count > 0)
+                await AdoptFolderCoversAsync(album, editVm.SavedCovers);
 
-        // Save works from the album's tracks as they are now. Covers adopted just
-        // above, or a save or rescan while the window was open, would otherwise
-        // be written back over with the copies the window was opened with.
-        album = _folderFilteredLibrary.WholeAlbumOf(album);
+            // Save works from the album's tracks as they are now. Covers adopted just
+            // above, or a save or rescan while the window was open, would otherwise
+            // be written back over with the copies the window was opened with.
+            album = _folderFilteredLibrary.WholeAlbumOf(album);
 
-        if (saved)
-            await ApplyAlbumEditAsync(album, editVm.BuildAlbumEdit(), editVm.PickedArtPayload(), followTracks);
+            if (saved)
+                await ApplyAlbumEditAsync(album, editVm.BuildAlbumEdit(), editVm.PickedArtPayload(), followTracks);
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Couldn't save the tags for {album.Title}: {ex.Message}";
+        }
     }
 
     /// <summary>
@@ -1868,7 +1879,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (window.ShowDialog() != true)
             return;
 
-        _ = ApplySelectedTracksEditAsync(tracks, editVm.BuildTracksEdit(), followTracks);
+        _ = SaveSelectedTracksAsync();
+
+        // Not waited on, so nothing may escape: an error is named in the status bar.
+        async Task SaveSelectedTracksAsync()
+        {
+            try
+            {
+                await ApplySelectedTracksEditAsync(tracks, editVm.BuildTracksEdit(), followTracks);
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Couldn't save the tags for {tracks.Count} track(s): {ex.Message}";
+            }
+        }
     }
 
     /// <summary>

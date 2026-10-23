@@ -958,6 +958,11 @@ song and the window shows it, with the same question about unsaved changes. It m
 only when one song is selected, so Ctrl-clicking a second row leaves it alone. The
 dialog for several selected songs still blocks the main window while open.
 
+**A song with several artists.** The song window shows the first artist a file holds.
+Leave the Artist or Album Artist box as it opened and every artist the file holds is
+kept; type a new name and it becomes the only one. A song with only an album artist
+shows it in the Artist box, and saving doesn't copy it into an artist tag.
+
 **Editing several artists or albums at once.** The Artists and Albums lists take
 Ctrl-click and Shift-click, like the song table. Right-click one of the selected artists
 for *Edit Artist Tags…*, or one of the selected albums for *Edit Album Tags…*: one
@@ -986,14 +991,23 @@ claims. Covers by the album's artist are shown, exact title matches first, then 
 first; anything by other artists is hidden. Double-click one to use it. Like a picked
 file, it is only written when you press Save.
 
+**A file from *Choose Image…*** is read when you pick it, and judged by what's inside,
+not its name: a PNG named `.jpg` is saved as the PNG it is, and anything that isn't a
+JPEG or PNG (a WebP renamed `.jpg`, say) is turned down with "That image isn't a JPEG or
+PNG." on the window's message line. Moving or deleting the file before Save doesn't
+matter; the picture is already held.
+
 **A new cover is the only cover.** When Save writes a new cover (from *Choose Image…* or
 *Search Internet…*), each song is then left with that one picture and no room held for
 the old one, so the file shrinks when the new cover is smaller. A plain save leaves some
 files with two copies otherwise: an MP3 with an APE tag gets the cover in that tag too,
-and one with two ID3 tags keeps the old cover in the second. This is the same rewrite and
+and one with two ID3 tags keeps the old cover in the second. A FLAC that also has an ID3
+tag in front keeps the cover in its own FLAC tag, where other players look. This is the same rewrite and
 check as *Keep Best Cover* (below), and only happens when a file needs it; a save that
 doesn't change the cover is as before. A song that fails the check keeps what Save wrote,
-and the status bar says so.
+and the status bar says so. A song holding a damaged old picture (one cut off inside its
+tag) is saved like any other, and the save goes on to the next song. Any other error
+during a save is named in the status bar.
 
 **The folder's cover file.** Save also writes the new cover as `cover.jpg` (or
 `cover.png` for a PNG) in the album's folder, over the cover file already there. It is

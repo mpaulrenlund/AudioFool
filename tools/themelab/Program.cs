@@ -1899,6 +1899,19 @@ internal static partial class Program
                             editVm.UseDownloadedArt(File.ReadAllBytes(artFile));
                             Console.WriteLine($"  new art   '{editVm.ArtSizeText}' '{editVm.ArtFormatText}' [{editVm.ArtSourceText}]");
                         }
+
+                        // --pickimage <file>: as Choose Image… with that file picked, then
+                        // the file is moved away, as before a Save, and Save's cover read.
+                        if (Arg(args, "--pickimage") is { } pickedFile)
+                        {
+                            editVm.UseImageFile(pickedFile);
+                            Console.WriteLine($"  picked    '{editVm.ArtSizeText}' '{editVm.ArtFormatText}' [{editVm.ArtSourceText}]  footer '{editVm.FooterMessage}'");
+                            var moved = pickedFile + ".moved";
+                            File.Move(pickedFile, moved);
+                            var payload = editVm.PickedArtPayload();
+                            File.Move(moved, pickedFile);
+                            Console.WriteLine($"  on Save   {(payload is null ? "no new cover" : $"{payload.MimeType} {payload.Bytes.Length} B")} (file moved away first)");
+                        }
                     }
                 }
                 else

@@ -46,12 +46,24 @@ public static partial class TagWriter
     public static TagWriteResult WriteTrackTags(Track track, TrackTagEdit edit, ArtPayload? art, string? folderArtPath,
                                                 IFileHolder? holder = null)
     {
+        string? artistAfter = null;
         var save = SaveTags(track.FilePath, file =>
         {
             var tag = file.Tag;
             tag.Title = edit.Title;
-            tag.Performers = [edit.Artist];
-            tag.AlbumArtists = [edit.AlbumArtist];
+
+            // The song window shows one artist, the first the file holds (as
+            // TagReader.Read: the first performer, else the first album artist).
+            // A box that still reads that keeps every value, so fixing a title no
+            // longer drops the "B" of "A; B" (until session 69 both were always
+            // written as the one value), nor gives a song with only an album
+            // artist an artist tag of the same name.
+            if (!SameText(edit.Artist, tag.FirstPerformer ?? tag.FirstAlbumArtist))
+                tag.Performers = edit.Artist.Length == 0 ? [] : [edit.Artist];
+            if (!SameText(edit.AlbumArtist, tag.FirstAlbumArtist))
+                tag.AlbumArtists = edit.AlbumArtist.Length == 0 ? [] : [edit.AlbumArtist];
+            artistAfter = (tag.FirstPerformer ?? tag.FirstAlbumArtist)?.Trim() ?? "";
+
             tag.Album = edit.Album;
             WriteDate(file, edit.Date, edit.Year);
             WriteNumbers(file, new NumberEdit(edit.TrackNumber), new NumberEdit(edit.TrackCount),
@@ -62,9 +74,15 @@ public static partial class TagWriter
         if (!save.Success)
             return TagWriteResult.Fail(save.ErrorMessage!);
 
+        // The library's copy shows what the file now reads: a kept artist the box
+        // took from the album artist follows a change to the album artist.
+        var written = edit with { Artist = artistAfter ?? edit.Artist };
         var warning = TidyCover(track.FilePath, art, holder);
-        return TagWriteResult.Ok(track.WithTags(edit, FileStamp.For(track.FilePath), folderArtPath)) with { CoverWarning = warning };
+        return TagWriteResult.Ok(track.WithTags(written, FileStamp.For(track.FilePath), folderArtPath)) with { CoverWarning = warning };
     }
+
+    private static bool SameText(string box, string? file) =>
+        string.Equals(box.Trim(), file?.Trim() ?? "", StringComparison.Ordinal);
 
     /// <summary>
     /// Applies one track's share of a whole-album batch edit. Title and track
@@ -115,8 +133,18 @@ public static partial class TagWriter
         if (art is null)
             return null;
 
-        var tidy = Art.CoverCleaner.KeepOnly(path, art.Bytes, holder);
-        return tidy.Outcome == Art.CoverCleanOutcome.Failed ? tidy.Error : null;
+        // Never thrown on: the tags are saved by now, and an album save goes on
+        // to the next song. (Until session 69 a cut-off picture threw here and
+        // stopped the album save without a word.)
+        try
+        {
+            var tidy = Art.CoverCleaner.KeepOnly(path, art.Bytes, holder);
+            return tidy.Outcome == Art.CoverCleanOutcome.Failed ? tidy.Error : null;
+        }
+        catch (Exception ex)
+        {
+            return $"the old cover couldn't be cleared ({ex.Message})";
+        }
     }
 
     /// <summary>

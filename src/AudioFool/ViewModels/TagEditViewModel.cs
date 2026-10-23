@@ -139,11 +139,12 @@ public sealed partial class TagEditViewModel : ObservableObject
     [ObservableProperty]
     private BitmapSource? _artPreview;
 
-    [ObservableProperty]
-    private string? _pickedArtFilePath;
-
-    /// <summary>A cover chosen from "Search Internet" - always a JPEG, held in memory until Save.</summary>
-    private byte[]? _downloadedArt;
+    /// <summary>
+    /// The new cover, from "Choose Image…" or "Search Internet", held in memory
+    /// until Save. A chosen file is read when it is picked, so moving it before
+    /// Save no longer stops the save (until session 69 it was read on Save).
+    /// </summary>
+    private ArtPayload? _pickedArt;
 
     /// <summary>Album mode: the online cover search behind "Search Internet".</summary>
     public OnlineArtSearch ArtSearch { get; } = new(fanartApiKey: null);
@@ -486,7 +487,7 @@ public sealed partial class TagEditViewModel : ObservableObject
         var (info, source) = await infoTask;
 
         // A cover picked while this was reading has already replaced both.
-        if (PickedArtFilePath is null && _downloadedArt is null)
+        if (_pickedArt is null)
             ShowArtInfo(info, source);
     }
 
@@ -605,25 +606,32 @@ public sealed partial class TagEditViewModel : ObservableObject
             InitialDirectory = _artStartDirectory ?? "",
         };
 
-        if (dialog.ShowDialog() != true)
-            return;
+        if (dialog.ShowDialog() == true)
+            UseImageFile(dialog.FileName);
+    }
 
+    /// <summary>
+    /// Takes the image file "Choose Image…" picked, read now and judged by its
+    /// bytes, not its name: a WebP renamed .jpg is refused on the message line.
+    /// </summary>
+    public void UseImageFile(string path)
+    {
         try
         {
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.DecodePixelWidth = 200;
-            bitmap.UriSource = new Uri(dialog.FileName);
-            bitmap.EndInit();
-            bitmap.Freeze();
+            var bytes = File.ReadAllBytes(path);
+            if (ArtPayload.FromImage(bytes) is not { } picked)
+            {
+                ValidationError = "That image isn't a JPEG or PNG.";
+                return;
+            }
 
-            PickedArtFilePath = dialog.FileName;
-            _downloadedArt = null;
-            ArtPreview = bitmap;
-            ShowArtInfo(ImageInfo.Read(File.ReadAllBytes(dialog.FileName)), "Unsaved");
+            ArtPreview = ArtSearchViewModel.Decode(bytes, 200);
+            _pickedArt = picked;
+            ShowArtInfo(ImageInfo.Read(bytes), "Unsaved");
+            Revalidate();
         }
-        catch (Exception ex) when (ex is NotSupportedException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is NotSupportedException or IOException or UnauthorizedAccessException
+                                       or ArgumentException)
         {
             ValidationError = $"Couldn't open that image: {ex.Message}";
         }
@@ -715,7 +723,7 @@ public sealed partial class TagEditViewModel : ObservableObject
         || NumberIfChanged(nameof(TrackCount), TrackCount) is not null
         || NumberIfChanged(nameof(DiscNumber), DiscNumber) is not null
         || NumberIfChanged(nameof(DiscCount), DiscCount) is not null
-        || RemovesLeadingZeros || PickedArtFilePath is not null || _downloadedArt is not null;
+        || RemovesLeadingZeros || _pickedArt is not null;
 
     private bool Typed(string name, string value) =>
         !string.Equals(value.Trim(), _initial.GetValueOrDefault(name, "").Trim(), StringComparison.Ordinal);
@@ -759,8 +767,7 @@ public sealed partial class TagEditViewModel : ObservableObject
         try
         {
             ArtPreview = ArtSearchViewModel.Decode(jpeg, 200);
-            _downloadedArt = jpeg;
-            PickedArtFilePath = null;
+            _pickedArt = new ArtPayload(jpeg, "image/jpeg");
             ShowArtInfo(ImageInfo.Read(jpeg), "Unsaved");
         }
         catch (Exception ex) when (ex is NotSupportedException or IOException or ArgumentException)
@@ -769,19 +776,5 @@ public sealed partial class TagEditViewModel : ObservableObject
         }
     }
 
-    public ArtPayload? PickedArtPayload()
-    {
-        if (_downloadedArt is { } downloaded)
-            return new ArtPayload(downloaded, "image/jpeg");
-
-        if (PickedArtFilePath is null)
-            return null;
-
-        var bytes = File.ReadAllBytes(PickedArtFilePath);
-        var mimeType = Path.GetExtension(PickedArtFilePath).Equals(".png", StringComparison.OrdinalIgnoreCase)
-            ? "image/png"
-            : "image/jpeg";
-
-        return new ArtPayload(bytes, mimeType);
-    }
+    public ArtPayload? PickedArtPayload() => _pickedArt;
 }

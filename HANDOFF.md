@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-22, session 68. Read this alongside `README.md`: the README covers
+Updated 2026-10-22, session 69. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -152,18 +152,23 @@ then four pieces, each built, checked with ThemeLab, installed, committed and pu
 4. **"FLAC · 1,364 kbps · 24 bit · 44.1 kHz"** in the now-playing bar above the
    quality tier (`--window nowplayinglines`). Confirmed by the user.
 
-**913 tests** pass. Since session 63 an install is checked by hashing the files, not
+Then **session 69** (2026-10-22): **the tag-save fixes**, session 66's fourth pick,
+the plan approved as proposed. Built, tested, checked with ThemeLab, installed 18:11
+(19 files hash-identical); see *Where things are*.
+
+**928 tests** pass. Since session 63 an install is checked by hashing the files, not
 by launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
 playback.log* under Gotchas).
 
 Open with the user, in this order (each is under *Suggested next steps*):
 
-1. **What they've tried** (step 1): session 68's drives with the real SSD (pull it
+1. **What they've tried** (step 1): session 69's tag saves (a title fix on a song
+   with two artists; a picked image), session 68's drives with the real SSD (pull it
    with AudioFool open, plug it back in, under a new letter if Windows gives one);
    of session 67 only a song that won't open being skipped is unreported. The rest
    of sessions 67 and 68 is confirmed (2026-10-22). Ask; don't re-explain.
 2. **A release** (*Releases*): v0.7.0 is the last. Unreleased: session 66's close-X
-   safety net, all of session 67 and all of session 68, with new features, so the
+   safety net, all of sessions 67, 68 and 69, with new features, so the
    middle number: **v0.8.0**. Offer it; confirm the version and the notes before
    `gh release create`.
 3. **The close X** (step 4): "It's working well so far" right after session 66's
@@ -171,16 +176,42 @@ Open with the user, in this order (each is under *Suggested next steps*):
    hover highlight still shows. Either way, read the `titlebar:` lines in
    `playback.log`: "the safety net clicked it" marks a lost click it caught, and the
    "hit test at" lines before it say what wiped WPF-UI's mark.
-4. **What to take next** (step 6): session 66's order, with its first three done in
-   sessions 67 and 68: next **the tag-save fixes**, then the queue view (step 3). The
-   user picks.
+4. **What to take next** (step 6): session 66's order is done (sessions 67–69); next
+   is **the queue view** (step 3), or one of step 6's remaining findings. The user
+   picks.
 
 About's version line reads the exe's version, so a bump shows there by itself; check
 it reads the new number in the release build.
 
 ### Where things are
 
-- **Everything in `README.md` is implemented and verified.** **913 tests** pass.
+- **Everything in `README.md` is implemented and verified.** **928 tests** pass.
+- **Session 69** (2026-10-22): **the tag-save fixes** (session 60's four file-write
+  findings, each checked against the code first; README *Editing tags*, *A new cover
+  is the only cover*; details in `HISTORY.md`):
+  - **The song window keeps a song's other artists:** `TagWriter.WriteTrackTags`
+    writes Artist or Album Artist only when the box no longer reads the file's first
+    value (the reader's: first performer, else first album artist), so a title fix
+    leaves "A; B" alone, and a song with only an album artist isn't given an artist
+    tag. The library's copy takes the artist the file now reads.
+  - **A FLAC with an ID3v2 tag in front keeps a new cover in its own blocks:**
+    `TagPadding.TryShrink` looks through the FLAC PICTURE blocks before the ID3 frames
+    (the test failed before: no FLAC picture left).
+  - **Choose Image… judges the bytes:** `ArtPayload.FromImage` (JPEG or PNG by
+    `ImageInfo`, else null); `TagEditViewModel.UseImageFile` reads the file at the
+    pick and holds it (`_pickedArt`, shared with Search Internet), so a moved file no
+    longer stops Save; anything else: "That image isn't a JPEG or PNG." on the
+    message line (`design/progress.md`).
+  - **A cut-off picture frame no longer throws:** `TagPadding.FrameImage` returned
+    past the end of a frame ending at its MIME type, and `Array.IndexOf` threw
+    ArgumentOutOfRangeException, which nothing caught (reproduced by a test first).
+    `TidyCover` now catches anything, as the writer's contract says, and
+    `FinishAlbumDialogAsync` and the selection save name any error in the status bar.
+  - 15 new tests (`TrackEditArtistsTests`, `FlacCoverPlacementTests`,
+    `ArtPayloadTests`, `TruncatedPictureTests`). ThemeLab `--window tags --pickimage`
+    (new) in Light and Dark, renders looked at; `--window albumkeep` ALL OK.
+  - Installed 18:11 (AudioFool not running; 19 files hash-identical). **Not yet tried
+    by the user.**
 - **Session 68** (2026-10-22): **drives noticed while AudioFool runs** (session 66's
   third pick; the user approved the plan with both extras, refresh on unplugging and
   the queue re-pointed; README *When the drive letter changes*; details in
@@ -499,6 +530,12 @@ it reads the new number in the release build.
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **69** (2026-10-22): **the tag-save fixes**: the song window keeps a song's other
+  artists, a FLAC's new cover stays in its own tag, *Choose Image…* judges the bytes
+  (and holds them from the pick), a cut-off picture frame no longer stops an album
+  save, and save errors reach the status bar. 928 tests; installed. See *Where
+  things are*.
 
 - **68** (2026-10-22): the user confirmed session 67 (all but skipping); then **drives
   noticed while AudioFool runs** (F5 relocates; plugging in or pulling out refreshes;
@@ -1261,6 +1298,7 @@ ThemeLab.exe --window tags --album "Saturn Return" --w 460   # album dialog on a
 ThemeLab.exe --window tags --track "Polygon Weather"         # track dialog on a real track
 ThemeLab.exe --window tags --album "Saturn Return" --set "!Comment;Genre=Ambient"
 ThemeLab.exe --window tags --album "The Inevitable End" --set "^Zeros"   # press Remove Leading Zeros
+ThemeLab.exe --window tags --album "Saturn Return" --pickimage <file> [--theme dark]   # Choose Image… with that file picked: prints the size, format and message line, then moves the file away and prints what Save would embed (session 69)
 ThemeLab.exe --window artsearch --artist "Rush" --album "Moving Pictures" --use 1 --w 820 --h 640
 ThemeLab.exe --artmenu 1          # the playlist header picture's context menu. Opens a REAL popup, which Windows keeps on a monitor: it can flash on the desktop
 ThemeLab.exe --window tags --album "Goodbye Yellow Brick Road" --pick 1-8 --set "DiscCount=2"  # a grid selection
@@ -1643,6 +1681,9 @@ happily rewrite it.
 Open items only; finished ones are in `HISTORY.md`.
 
 1. **Ask the user to try what was checked off-screen only:**
+   - **Session 69, tag saves:** fix a title in *Edit Tags…* on a song with two
+     artists (both still there, in Mp3tag say); *Choose Image…* on a JPEG or PNG
+     saves as before.
    - **Session 68, drives:** with AudioFool open, pull the SSD: the status bar says
      D:\Music is not available within a couple of seconds. Plug it back in: the
      warning clears; under another letter the status bar says "Music folder moved
@@ -1735,24 +1776,16 @@ Open items only; finished ones are in `HISTORY.md`.
    - **Session 66's recommended order** (the user picks): (1) ~~likes and playlists
      saved safely~~ done in session 67; (2) ~~the playback fixes~~ done in session 67, its decisions pulled out
      into tested pieces as `PlayOrder` was; (3) ~~the drive handling~~ done in session
-     68; (4) the tag-save fixes; then the queue view (step 3).
+     68; (4) ~~the tag-save fixes~~ done in session 69; then the queue view (step 3).
    - **Playback** (`AudioEngine`): **all five fixed in session 67** (a song that won't
      open is skipped; Stop and the end of a queue let go of the device, so no old
      buffer plays after Stop; reopens carry on from what was heard; DoP never on a
      shared output). See *Where things are*, session 67.
-   - **File writes:**
-     - Partly: the one-song tag window writes Artist and Album Artist as one value on
-       every save, dropping a song's second and later artists (the other windows write
-       only boxes that changed; Find and Replace keeps every value). Small.
-     - Confirmed from the code: a new cover on a FLAC with an ID3v2 tag in front ends
-       up only in the ID3 tag (`TagPadding.TryShrink` keeps the first match, the ID3
-       copy). AudioFool shows it; other players don't. Small.
-     - Partly: *Choose Image…* takes the format from the extension, so a WebP renamed
-       .jpg is embedded as the only cover, labelled JPEG; Search Internet and playlist
-       pictures check the bytes. Small.
-     - Partly: an album save stops part-way without a word if the picked image was
-       moved or a truncated APIC frame throws in `TagPadding.FrameImage` (the save isn't
-       awaited; only `DispatcherUnhandledException` is hooked). Small.
+   - **File writes:** **all four fixed in session 69** (the song window keeps a
+     song's other artists; a FLAC's new cover stays in its own blocks; *Choose Image…*
+     judges the bytes and holds them from the pick; a cut-off picture frame no longer
+     throws, and an album or selection save names any error in the status bar). See
+     *Where things are*, session 69.
    - **Startup, windows and drives:**
      - Confirmed: six windows centre on a maximised owner's restore bounds and clamp
        to the primary monitor's work area: the tag windows, Statistics, prompts,

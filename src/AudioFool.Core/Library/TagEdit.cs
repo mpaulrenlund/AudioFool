@@ -5,6 +5,9 @@ namespace AudioFool.Core.Library;
 /// authoritative - the caller always pre-fills every field with the track's
 /// current value, so there is no "null means leave alone" case to model.
 /// <see cref="Details"/> is the exception; see <see cref="TagDetailsEdit"/>.
+/// Artist and Album Artist hold one value where a file can hold several, so a
+/// box that still reads the file's first value leaves them all in place
+/// (<see cref="TagWriter.WriteTrackTags"/>).
 /// </summary>
 public sealed record TrackTagEdit(
     string Title,
@@ -170,4 +173,18 @@ public sealed record NumberTexts(string TrackNumber, string TrackCount, string D
 }
 
 /// <summary>An image to embed in a track's tags and/or write as a folder cover file.</summary>
-public sealed record ArtPayload(byte[] Bytes, string MimeType);
+public sealed record ArtPayload(byte[] Bytes, string MimeType)
+{
+    /// <summary>
+    /// A picked image, its format judged by its bytes (<see cref="Art.ImageInfo"/>),
+    /// never its file name: until session 69 a WebP renamed .jpg was embedded,
+    /// labelled JPEG, as the only cover. Null for anything that isn't a readable
+    /// JPEG or PNG.
+    /// </summary>
+    public static ArtPayload? FromImage(byte[] bytes) => Art.ImageInfo.Read(bytes)?.Format switch
+    {
+        Art.ImageFormat.Jpeg => new ArtPayload(bytes, "image/jpeg"),
+        Art.ImageFormat.Png => new ArtPayload(bytes, "image/png"),
+        _ => null,
+    };
+}

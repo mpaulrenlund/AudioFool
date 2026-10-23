@@ -4629,6 +4629,45 @@ looks good". Then, at their request, **the bit depth before the sample rate** ("
 likely line fits at the minimum window width; `--window nowplayinglines` ALL OK in
 both themes.
 
+### Session 69 (2026-10-22): the tag-save fixes
+
+Session 66's fourth pick: session 60's four "file writes" findings. Each was checked
+against the code before the plan; the user approved the plan as proposed ("convert
+instead of refusing" was offered for the third and not taken).
+- **The song window dropped a song's other artists.** The library holds only the
+  first artist (`TagReader.Read`: first performer, else first album artist), the
+  window shows that, and `WriteTrackTags` wrote `[box]` on every save, so a title fix
+  turned "A; B" into "A", and a song with only an album artist was given an artist
+  tag of the same name. Now each of the two is written only when the box no longer
+  reads the file's first value (checked inside the save against the file itself),
+  empty as no value (it wrote `[""]`); the returned track takes the artist the file
+  now reads. `TrackEditArtistsTests` (8).
+- **A FLAC with an ID3v2 tag in front lost its new cover from its own blocks.**
+  TagLib writes the cover into both tags; `TagPadding.TryShrink`'s keep-only pass
+  kept the first copy found, the ID3 one. It now looks through the FLAC PICTURE
+  blocks first. `FlacCoverPlacementTests` failed before (no FLAC picture), passes now.
+- **Choose Image… went by the extension.** `ArtPayload.FromImage` judges the bytes
+  through `ImageInfo` (null for anything but a readable JPEG or PNG);
+  `TagEditViewModel.UseImageFile` reads the file when picked and holds the payload
+  (`_pickedArt`, which replaces `PickedArtFilePath` and `_downloadedArt`), so moving
+  the file before Save no longer fails the save. A refused file: "That image isn't a
+  JPEG or PNG." on the message line. `ArtPayloadTests` (5).
+- **An album save could stop part-way without a word.** Besides the moved file
+  (above), `TagPadding.FrameImage` read past a frame cut off right after its MIME
+  type: `Array.IndexOf` with a start past the end threw ArgumentOutOfRangeException,
+  which `CoverCleaner`'s catch (file errors only) let through `TidyCover`, out of the
+  album save's `Task.Run`, into a task nobody awaited. Reproduced by
+  `TruncatedPictureTests` (an MP3 with two ID3v2 tags, the second holding the
+  cut-off frame) before the fix. Now `FrameImage` returns null there, `TidyCover`
+  turns any exception into the song's cover warning, and `FinishAlbumDialogAsync`
+  and the selection window's save put any error in the status bar.
+- **Checks:** 928 tests (15 new), 0 warnings. ThemeLab `--window tags --album
+  "Saturn Return" --pickimage <file>` (new) in Light and Dark: a renamed WebP gives the
+  message and no cover on Save; a PNG named .jpg shows "PNG · Unsaved" and Save still
+  gets image/png after the file is moved away; renders looked at. `--window albumkeep`
+  ALL OK. Installed 18:11 (AudioFool not running; 19 files hash-identical). Not yet
+  tried by the user.
+
 ---
 
 ## Reference notes retired from the handoff

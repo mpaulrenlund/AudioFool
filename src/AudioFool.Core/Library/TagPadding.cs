@@ -73,7 +73,8 @@ public static class TagPadding
     /// Writes <paramref name="source"/> to <paramref name="target"/> with the
     /// padding cut to <see cref="Reserve"/>. With <paramref name="keepOnlyPicture"/>,
     /// every picture goes (PICTURE blocks, APIC and PIC frames, in every tag) but
-    /// the first holding exactly those image bytes. False, writing nothing, when the
+    /// the first holding exactly those image bytes, a FLAC's own blocks looked
+    /// through before any ID3v2 tag. False, writing nothing, when the
     /// layout isn't understood, a picture can't be read, the picture to keep isn't
     /// there, or there is nothing to gain.
     /// </summary>
@@ -87,7 +88,18 @@ public static class TagPadding
         var droppedFrames = new HashSet<Id3Frame>();
         if (keepOnlyPicture is not null)
         {
+            // A FLAC's own PICTURE blocks come first: they are where players look.
+            // An ID3v2 tag in front of "fLaC" is read by few, AudioFool among them,
+            // and until session 69 its copy was the one kept.
             var kept = false;
+            foreach (var block in layout.Flac?.Where(b => b.Type == FlacPicture) ?? [])
+            {
+                if (!kept && BlockImage(input, block).AsSpan().SequenceEqual(keepOnlyPicture))
+                    kept = true;
+                else
+                    droppedBlocks.Add(block);
+            }
+
             foreach (var tag in layout.Id3)
             {
                 foreach (var frame in tag.Frames.Where(f => f.IsPicture))
@@ -99,14 +111,6 @@ public static class TagPadding
                     else
                         droppedFrames.Add(frame);
                 }
-            }
-
-            foreach (var block in layout.Flac?.Where(b => b.Type == FlacPicture) ?? [])
-            {
-                if (!kept && BlockImage(input, block).AsSpan().SequenceEqual(keepOnlyPicture))
-                    kept = true;
-                else
-                    droppedBlocks.Add(block);
             }
 
             if (!kept)
@@ -316,7 +320,7 @@ public static class TagPadding
     /// <summary>
     /// The image bytes inside an APIC (or v2.2 PIC) frame, after its text encoding,
     /// MIME type (or 3-letter format), picture type and description. Null for a
-    /// frame that is compressed, encrypted, unsynchronised or otherwise not plain.
+    /// frame that is compressed, encrypted, unsynchronised, cut short or otherwise not plain.
     /// </summary>
     private static byte[]? FrameImage(Stream stream, Id3Layout tag, Id3Frame frame)
     {
@@ -344,6 +348,10 @@ public static class TagPadding
         }
 
         pos++; // picture type
+        // A frame cut off before its description: until session 69 the search
+        // below threw ArgumentOutOfRangeException, which stopped an album save.
+        if (pos > body.Length)
+            return null;
         if (encoding is 1 or 2)
         {
             // UTF-16: a 16-bit null on an even boundary from the description's start.
