@@ -296,12 +296,20 @@ public sealed class QualityClearances
             : [];
     }
 
-    /// <summary>The entry's song: the same path, or the same file name, artist and album.</summary>
+    /// <summary>
+    /// The entry's song: the same path, or the same file name, folder name, artist
+    /// and album. The folder name tells two discs' "01 Intro.flac" apart (CD1, CD2,
+    /// or "Album (Disc 2)"), which share everything else; a new drive letter or
+    /// music folder keeps it.
+    /// </summary>
     private static bool SameSong(QualityClearance entry, Track track) =>
         string.Equals(entry.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase)
         || (string.Equals(Path.GetFileName(entry.FilePath), Path.GetFileName(track.FilePath), StringComparison.OrdinalIgnoreCase)
+            && string.Equals(FolderName(entry.FilePath), FolderName(track.FilePath), StringComparison.OrdinalIgnoreCase)
             && SortRules.NameComparer.Equals(entry.Artist, track.GroupingArtist)
             && SortRules.NameComparer.Equals(entry.Album, track.Album));
+
+    private static string FolderName(string path) => Path.GetFileName(Path.GetDirectoryName(path)) ?? "";
 
     private void Reindex()
     {

@@ -113,6 +113,39 @@ public class QualityClearanceTests : IDisposable
         Assert.True(reloaded.IsCleared(Hires(@"E:\Music\Artist\Album\a.flac", album: "Renamed"), QualityFlag.Padded24Bit));
     }
 
+    [Theory]
+    [InlineData(@"D:\Music\Artist\Album\CD1\01 Intro.flac", @"D:\Music\Artist\Album\CD2\01 Intro.flac")]
+    [InlineData(@"D:\Music\Artist\Album (Disc 1)\01 Intro.flac", @"D:\Music\Artist\Album (Disc 2)\01 Intro.flac")]
+    public void Another_discs_song_of_the_same_name_is_not_cleared_with_it(string disc1, string disc2)
+    {
+        var store = QualityClearances.Empty(FilePath);
+        var first = Hires(disc1);
+        var second = Hires(disc2);
+        store.Clear([first], QualityFlag.Padded24Bit, Stamp);
+
+        Assert.True(store.IsCleared(first, QualityFlag.Padded24Bit));
+        Assert.False(store.IsCleared(second, QualityFlag.Padded24Bit));
+        Assert.False(store.IsClearedFromAny(second));
+
+        // Putting the other disc's song back leaves this one's clearance.
+        Assert.Equal(0, store.PutBack([second]));
+        Assert.True(store.IsCleared(first, QualityFlag.Padded24Bit));
+
+        // And clearing it is a clearance of its own.
+        Assert.Equal(1, store.Clear([second], QualityFlag.Padded24Bit, Stamp));
+        Assert.Equal(2, store.Count);
+    }
+
+    [Fact]
+    public void A_moved_music_folder_still_finds_a_discs_song()
+    {
+        var store = QualityClearances.Empty(FilePath);
+        store.Clear([Hires(@"D:\Music\Artist\Album\CD2\01 Intro.flac")], QualityFlag.Padded24Bit, Stamp);
+
+        Assert.True(store.IsCleared(Hires(@"E:\Audio\Artist\Album\CD2\01 Intro.flac"), QualityFlag.Padded24Bit));
+        Assert.False(store.IsCleared(Hires(@"E:\Audio\Artist\Album\CD1\01 Intro.flac"), QualityFlag.Padded24Bit));
+    }
+
     [Fact]
     public void Repointing_leaves_an_entry_whose_own_file_is_still_there()
     {

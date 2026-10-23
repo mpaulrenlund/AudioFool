@@ -27,16 +27,8 @@ public partial class LastFmWindow : FluentWindow
         Closed += (_, _) => _viewModel.Dispose();
     }
 
-    private void CenterOverOwner(Window owner)
-    {
-        var work = SystemParameters.WorkArea;
-
-        var centreX = owner.Left + (owner.ActualWidth / 2);
-        var centreY = owner.Top + (owner.ActualHeight / 2);
-
-        Left = Math.Clamp(centreX - (Width / 2), work.Left, Math.Max(work.Left, work.Right - Width));
-        Top = Math.Clamp(centreY - (ActualHeight / 2), work.Top, Math.Max(work.Top, work.Bottom - ActualHeight));
-    }
+    private void CenterOverOwner(Window owner) =>
+        Services.DialogPlacement.CentreOverOwner(this, owner, Width, ActualHeight);
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 }

@@ -71,20 +71,18 @@ public partial class AnalysisWindow : FluentWindow
         var others = Application.Current.Windows.OfType<AnalysisWindow>().Count(w => w != this && w.IsLoaded);
         var step = TokenResources.Current!.Numbers["layout.titleBarHeight"] * (others % 6);
 
-        Left = owner.Left + ((owner.ActualWidth - ActualWidth) / 2) + step;
-        Top = owner.Top + ((owner.ActualHeight - ActualHeight) / 2) + step;
+        var work = DialogPlacement.WorkAreaOf(owner);
+        var corner = DialogPlacement.CentreOver(DialogPlacement.OwnerFrame(owner, work), work, ActualWidth, ActualHeight);
+        Left = corner.X + step;
+        Top = corner.Y + step;
         KeepOnScreen();
     }
 
-    /// <summary>The opinion arrives after the window opens and makes it taller.</summary>
+    /// <summary>The opinion arrives after the window opens and makes it taller: kept on the monitor it is on.</summary>
     private void KeepOnScreen()
     {
-        if (!IsLoaded)
-            return;
-
-        var work = SystemParameters.WorkArea;
-        Left = Math.Clamp(Left, work.Left, Math.Max(work.Left, work.Right - ActualWidth));
-        Top = Math.Clamp(Top, work.Top, Math.Max(work.Top, work.Bottom - ActualHeight));
+        if (IsLoaded)
+            DialogPlacement.KeepOnScreen(this);
     }
 
     /// <summary>

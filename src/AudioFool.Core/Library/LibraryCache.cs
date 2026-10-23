@@ -79,31 +79,20 @@ public sealed class LibraryCache
     /// <summary>
     /// Loads the cache, or null when there isn't a usable one. Never throws: a
     /// corrupt or half-written cache should cost a slow startup, not a crash.
+    /// A missing or damaged one is read from the save before (session 71,
+    /// <see cref="SafeJsonFile"/>): with the music drive unplugged, no cache would
+    /// mean no library until it is back.
     /// </summary>
-    public static LibraryCache? Load()
+    public static LibraryCache? Load(string? path = null)
     {
-        try
-        {
-            if (!File.Exists(CachePath))
-                return null;
+        var (cache, _) = SafeJsonFile.Load<LibraryCache>(path ?? CachePath, DateTime.UtcNow, JsonOptions);
 
-            using var stream = File.OpenRead(CachePath);
-            var cache = JsonSerializer.Deserialize<LibraryCache>(stream, JsonOptions);
-
-            if (cache is null
-                || cache.Version is < OldestShownVersion or > CurrentVersion
-                || cache.Tracks.Count == 0)
-                return null;
-
-            return cache;
-        }
-        catch (Exception ex) when (ex is IOException
-                                     or UnauthorizedAccessException
-                                     or JsonException
-                                     or NotSupportedException)
-        {
+        if (cache is null
+            || cache.Version is < OldestShownVersion or > CurrentVersion
+            || cache.Tracks.Count == 0)
             return null;
-        }
+
+        return cache;
     }
 
     /// <summary>
@@ -121,20 +110,15 @@ public sealed class LibraryCache
         };
 
     /// <summary>
-    /// Writes via a temporary file and then moves it into place, so an interrupted
-    /// write leaves the previous good cache rather than a truncated one.
+    /// Written beside the old one, flushed to the disk and swapped in, the old one
+    /// kept as <c>library.json.bak</c> (<see cref="SafeJsonFile"/>, session 71), so a
+    /// crash or power cut mid-save leaves a good cache, and a damaged one has a copy.
     /// </summary>
-    public void Save()
+    public void Save(string? path = null)
     {
         try
         {
-            Directory.CreateDirectory(CacheDirectory);
-
-            var temp = CachePath + ".tmp";
-            using (var stream = File.Create(temp))
-                JsonSerializer.Serialize(stream, this, JsonOptions);
-
-            File.Move(temp, CachePath, overwrite: true);
+            SafeJsonFile.Write(path ?? CachePath, stream => JsonSerializer.Serialize(stream, this, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException
                                      or UnauthorizedAccessException
@@ -148,8 +132,12 @@ public sealed class LibraryCache
     {
         try
         {
-            if (File.Exists(CachePath))
-                File.Delete(CachePath);
+            // The backup too, or the next load would bring it back.
+            foreach (var file in new[] { CachePath, SafeJsonFile.BackupPathFor(CachePath) })
+            {
+                if (File.Exists(file))
+                    File.Delete(file);
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

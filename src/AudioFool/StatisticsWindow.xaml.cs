@@ -25,7 +25,7 @@ public partial class StatisticsWindow : FluentWindow
         // Opens as tall as its content, but never taller than the screen - past
         // that the content scrolls. The cap is lifted once open, so the window
         // can still be resized or maximised like any other.
-        MaxHeight = SystemParameters.WorkArea.Height;
+        MaxHeight = Services.DialogPlacement.WorkAreaOf(owner).Height;
 
         Loaded += (_, _) =>
         {
@@ -35,16 +35,8 @@ public partial class StatisticsWindow : FluentWindow
         };
     }
 
-    private void CenterOverOwner(Window owner)
-    {
-        var work = SystemParameters.WorkArea;
-
-        var centreX = owner.Left + (owner.ActualWidth / 2);
-        var centreY = owner.Top + (owner.ActualHeight / 2);
-
-        Left = Math.Clamp(centreX - (ActualWidth / 2), work.Left, Math.Max(work.Left, work.Right - ActualWidth));
-        Top = Math.Clamp(centreY - (ActualHeight / 2), work.Top, Math.Max(work.Top, work.Bottom - ActualHeight));
-    }
+    private void CenterOverOwner(Window owner) =>
+        Services.DialogPlacement.CentreOverOwner(this, owner, ActualWidth, ActualHeight);
 
     /// <summary>
     /// Closes with the row as the answer. The window stays a modal snapshot, so

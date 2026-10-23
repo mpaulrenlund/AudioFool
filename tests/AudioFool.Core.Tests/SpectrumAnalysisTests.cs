@@ -89,6 +89,17 @@ public class SpectrumAnalysisTests
     }
 
     [Fact]
+    public void A_track_shorter_than_half_a_transform_still_gets_a_picture()
+    {
+        // 20 ms: the one transform's centre falls before the start of the track,
+        // which used to put it in column -1 ("The analysis failed").
+        var analysis = Feed(44100, 2, seconds: 0.02, (t, _) => 0.1 * Math.Sin(2 * Math.PI * 1000 * t));
+
+        Assert.True(analysis.Average.Max() > -60);
+        Assert.True(analysis.Picture.Max() > -100);
+    }
+
+    [Fact]
     public void Silence_reads_as_the_floor()
     {
         var analysis = Feed(44100, 2, seconds: 1, (_, _) => 0);

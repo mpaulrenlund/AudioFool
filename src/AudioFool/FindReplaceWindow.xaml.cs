@@ -32,17 +32,14 @@ public partial class FindReplaceWindow : FluentWindow
         Owner = owner;
         ApplyTableLayout();
 
-        var work = WorkAreaOf(owner);
-        Width = OpeningWidth(OwnerFrame(owner, work), work, MinWidth,
+        var work = Services.DialogPlacement.WorkAreaOf(owner);
+        Width = OpeningWidth(Services.DialogPlacement.OwnerFrame(owner, work), work, MinWidth,
             Theming.TokenResources.Current!.Numbers["findReplace.ownerMarginX"]);
 
         viewModel.PropertyChanged += OnViewModelChanged;
         Loaded += (_, _) =>
         {
-            var area = WorkAreaOf(owner);
-            var corner = CentreOver(OwnerFrame(owner, area), area, ActualWidth, ActualHeight);
-            Left = corner.X;
-            Top = corner.Y;
+            Services.DialogPlacement.CentreOverOwner(this, owner, ActualWidth, ActualHeight);
             FindBox.Focus();
         };
     }
@@ -56,32 +53,6 @@ public partial class FindReplaceWindow : FluentWindow
     internal static double OpeningWidth(Rect frame, Rect work, double minWidth, double margin) =>
         Math.Min(Math.Max(minWidth, frame.Width - (2 * margin)), work.Width);
 
-    /// <summary>The top-left corner that centres a window of this size over <paramref name="frame"/>, kept on the work area.</summary>
-    internal static Point CentreOver(Rect frame, Rect work, double width, double height) =>
-        new(Math.Clamp(frame.Left + ((frame.Width - width) / 2), work.Left, Math.Max(work.Left, work.Right - width)),
-            Math.Clamp(frame.Top + ((frame.Height - height) / 2), work.Top, Math.Max(work.Top, work.Bottom - height)));
-
-    /// <summary>
-    /// Where the main window is on screen. Maximised, that is its monitor's work
-    /// area: its Left and Top then say where it would restore to, and a window this
-    /// wide centred on them could sit against one edge. (The other dialogs still
-    /// centre on them; it is on session 60's list.)
-    /// </summary>
-    private static Rect OwnerFrame(Window owner, Rect work) =>
-        owner.WindowState == WindowState.Maximized
-            ? work
-            : new Rect(owner.Left, owner.Top, owner.ActualWidth, owner.ActualHeight);
-
-    /// <summary>The work area of the main window's monitor, in WPF's units; the primary monitor's if it can't be had.</summary>
-    private static Rect WorkAreaOf(Window owner)
-    {
-        if (Services.WindowPlacement.WorkAreaOf(owner) is not { } area)
-            return SystemParameters.WorkArea;
-
-        var dpi = VisualTreeHelper.GetDpi(owner);
-        return new Rect(area.Left / dpi.DpiScaleX, area.Top / dpi.DpiScaleY,
-                        (area.Right - area.Left) / dpi.DpiScaleX, (area.Bottom - area.Top) / dpi.DpiScaleY);
-    }
 
     /// <summary>
     /// The Songs table's paddings and cell styles, and this table's column widths:

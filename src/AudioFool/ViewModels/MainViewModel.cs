@@ -717,7 +717,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _loadingLibrary = true;
         try
         {
-            _cache = await Task.Run(LibraryCache.Load);
+            _cache = await Task.Run(() => LibraryCache.Load());
 
             // A portable drive can come back under a different letter. Re-point the
             // folder and every cached path before scanning, so a letter change costs
@@ -1074,8 +1074,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private bool _restoreLastPlayed = true;
 
     /// <summary>
-    /// Raised at startup with the song that was playing when the app last closed,
-    /// for the window to select in the track grid and scroll to.
+    /// Raised with a song for the window to select in the track grid and scroll
+    /// to: at startup the one playing when the app last closed, and on Ctrl+J
+    /// the one playing now.
     /// </summary>
     public event EventHandler<Track>? RevealTrackRequested;
 
@@ -1142,6 +1143,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// The status line for a play of <paramref name="track"/> that didn't start:
+    /// the drive, the file, the format or the device, as the engine found it
+    /// (session 71; it always blamed the format before).
+    /// </summary>
+    private string DescribePlayFailure(Track track) =>
+        (_engine.LastPlayFailure ?? new PlayFailure(PlayFailureKind.Format, track.FilePath)).Describe();
+
+    /// <summary>
     /// Plays the restored track if Play is pressed before anything else has
     /// played. The queue is mapped to the library's current copies, so a tag save
     /// since startup is honoured.
@@ -1159,7 +1168,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return false;
 
         if (!_engine.Play(current, index))
-            StatusText = $"Couldn't play {Path.GetFileName(shown.FilePath)}. The format may need an add-on that isn't installed.";
+            StatusText = DescribePlayFailure(shown);
 
         return true;
     }
@@ -1273,22 +1282,57 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             isScanning: IsScanning);
 
 
+    /// <summary>
+    /// Ctrl+J and a click on the now-playing title: the playing song's artist and
+    /// album, with the song selected and scrolled to (session 71). Its album is
+    /// the one holding its file, not the first of that name. A search or a
+    /// Statistics filter that hides it is cleared first, only the one that does
+    /// (the user's call, 2026-10-23). A song in an unticked folder, or not in the
+    /// library at all, goes nowhere.
+    /// </summary>
     public void NavigateToNowPlaying()
     {
-        if (NowPlaying is not { } track)
+        if (NowPlaying is not { } playing)
             return;
 
         IsPlaylistMode = false;
 
-        var artist = Artists.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Name, track.GroupingArtist));
-        if (artist is null)
+        var path = playing.FilePath;
+        bool IsIt(Track t) => string.Equals(t.FilePath, path, StringComparison.OrdinalIgnoreCase);
+
+        var track = LibraryCopyOf(playing);
+        var searchHides = IsSearching && LibrarySearch.Filter([track], SearchQuery).Count == 0;
+        var filterHides = LibraryFilter is { } filter && !filter.Apply(_folderFilteredLibrary.AllTracks).Any(IsIt);
+
+        if (searchHides)
+        {
+            SearchQuery = "";
+            _searchDebounce.Stop();
+        }
+
+        // Clearing the filter rebuilds the lists, with the search as it is now.
+        if (filterHides)
+        {
+            LibraryFilter = null;
+        }
+        else if (searchHides)
+        {
+            ApplyToView(keepSelection: true);
+            StatusText = DescribeStatus(default);
+        }
+
+        if (Artists.FirstOrDefault(a => a.Albums.Any(al => al.Tracks.Any(IsIt))) is not { } artist)
             return;
 
         SelectedArtist = artist;
 
-        var album = Albums.FirstOrDefault(a => SortRules.NameComparer.Equals(a.Album.Title, track.Album));
-        if (album is not null)
-            SelectedAlbum = album;
+        if (Albums.FirstOrDefault(a => a.Album.Tracks.Any(IsIt)) is not { } album)
+            return;
+
+        SelectedAlbum = album;
+
+        if (Tracks.FirstOrDefault(IsIt) is { } shown)
+            RevealTrackRequested?.Invoke(this, shown);
     }
 
     private string DescribeLibrary()
@@ -2245,7 +2289,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (_cache is not { } cache || _settings.IsReadOnly)
             return;
 
-        await Task.Run(cache.Save, CancellationToken.None);
+        await Task.Run(() => cache.Save(), CancellationToken.None);
     }
 
     private static IEnumerable<string> AlbumDirectories(Album album) =>
@@ -2293,7 +2337,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
 
         if (!_engine.Play(queue, index))
-            StatusText = $"Couldn't play {Path.GetFileName(track.FilePath)}. The format may need an add-on that isn't installed.";
+            StatusText = DescribePlayFailure(track);
     }
 
     [RelayCommand]

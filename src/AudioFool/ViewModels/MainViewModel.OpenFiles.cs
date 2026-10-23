@@ -95,7 +95,7 @@ public sealed partial class MainViewModel
         }
 
         if (!_engine.Play(tracks, 0))
-            StatusText = $"Couldn't play {Path.GetFileName(tracks[0].FilePath)}. The format may need an add-on that isn't installed.";
+            StatusText = DescribePlayFailure(tracks[0]);
     }
 
     private Track? InLibrary(string path) =>

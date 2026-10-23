@@ -163,4 +163,52 @@ public sealed class SettingsFileTests : IDisposable
 
         Assert.Equal("{ \"MusicFolders\": [", File.ReadAllText(_path));
     }
+
+    // ------------------------------------------------- the Last.fm secret (session 71)
+
+    [Fact]
+    public void The_lastfm_secret_and_session_are_kept_encrypted_and_read_back()
+    {
+        var settings = AppSettings.Load(_path, Now);
+        settings.LastFmApiKey = "public-key-123";
+        settings.LastFmApiSecret = "secret-abc-456";
+        settings.LastFmSessionKey = "session-def-789";
+        settings.Save();
+
+        var file = File.ReadAllText(_path);
+        Assert.DoesNotContain("secret-abc-456", file);
+        Assert.DoesNotContain("session-def-789", file);
+        Assert.Contains("\"dpapi:", file);
+        Assert.Contains("public-key-123", file);
+
+        var reloaded = AppSettings.Load(_path, Now);
+        Assert.Equal("secret-abc-456", reloaded.LastFmApiSecret);
+        Assert.Equal("session-def-789", reloaded.LastFmSessionKey);
+    }
+
+    [Fact]
+    public void A_plain_secret_from_before_is_read_and_encrypted_on_the_next_save()
+    {
+        File.WriteAllText(_path, """{"MusicFolders":["D:\\Music"],"LastFmApiSecret":"old-plain","LastFmSessionKey":"old-session"}""");
+
+        var settings = AppSettings.Load(_path, Now);
+        Assert.Equal("old-plain", settings.LastFmApiSecret);
+        Assert.Equal("old-session", settings.LastFmSessionKey);
+
+        settings.Save();
+        Assert.DoesNotContain("old-plain", File.ReadAllText(_path));
+        Assert.Equal("old-plain", AppSettings.Load(_path, Now).LastFmApiSecret);
+    }
+
+    [Fact]
+    public void A_secret_that_cant_be_decrypted_reads_as_missing_and_keeps_the_rest()
+    {
+        // As on another PC, or with the bytes damaged: Last.fm asks to connect again.
+        File.WriteAllText(_path, """{"MusicFolders":["D:\\Music"],"LastFmApiSecret":"dpapi:AAAAAAAA","LastFmSessionKey":"dpapi:not base64!"}""");
+
+        var settings = AppSettings.Load(_path, Now);
+        Assert.Null(settings.LastFmApiSecret);
+        Assert.Null(settings.LastFmSessionKey);
+        Assert.Equal([@"D:\Music"], settings.MusicFolders);
+    }
 }

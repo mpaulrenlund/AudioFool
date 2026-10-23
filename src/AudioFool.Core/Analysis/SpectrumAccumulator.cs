@@ -266,10 +266,11 @@ public sealed class SpectrumAccumulator
 
         _transforms++;
 
-        // The column this transform's centre falls in.
+        // The column this transform's centre falls in. A track shorter than half a
+        // transform has its one, zero-padded, centred before the start: column 0.
         var centre = _frames - (_size / 2);
         var length = Math.Max(_expectedFrames, _frames);
-        var column = (int)Math.Min(_columns - 1, centre * _columns / length);
+        var column = (int)Math.Clamp(centre * _columns / length, 0, _columns - 1);
         var offset = column * _rows;
 
         for (var r = 0; r < _rows; r++)

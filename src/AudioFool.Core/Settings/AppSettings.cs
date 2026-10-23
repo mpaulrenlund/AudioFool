@@ -88,12 +88,16 @@ public sealed class AppSettings
     /// </summary>
     public string? LastFmApiKey { get; set; }
 
+    /// <summary>Encrypted in the file (<see cref="ProtectedStringConverter"/>, session 71).</summary>
+    [JsonConverter(typeof(ProtectedStringConverter))]
     public string? LastFmApiSecret { get; set; }
 
     /// <summary>
     /// The session from the browser approval. It does not expire; the user can
-    /// revoke it on last.fm. It grants scrobbling, not the password.
+    /// revoke it on last.fm. It grants scrobbling, not the password. Encrypted in
+    /// the file, as the secret is.
     /// </summary>
+    [JsonConverter(typeof(ProtectedStringConverter))]
     public string? LastFmSessionKey { get; set; }
 
     public string? LastFmUserName { get; set; }

@@ -598,6 +598,12 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     public string? OutputWarning { get; private set; }
 
     /// <summary>
+    /// Why the last play that returned false failed, for the status bar (session
+    /// 71); null once one starts. With songs skipped, the one asked for.
+    /// </summary>
+    public PlayFailure? LastPlayFailure { get; private set; }
+
+    /// <summary>
     /// Where the decoder is in the current track: about 200 ms ahead of what the
     /// speakers play, the audio the device holds. What the engine itself works
     /// from (Previous's three seconds, a save's reopen); for showing, see
@@ -748,11 +754,17 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     /// </summary>
     private bool PlayCore(IReadOnlyList<Track> queue, int startIndex, bool resetOrder, Skip skip)
     {
-        if (!_runtime.Initialise() || queue.Count == 0)
+        if (queue.Count == 0)
             return false;
 
         if (startIndex < 0 || startIndex >= queue.Count)
             startIndex = 0;
+
+        if (!_runtime.Initialise())
+        {
+            LastPlayFailure = new PlayFailure(PlayFailureKind.Engine, queue[startIndex].FilePath, _runtime.InitError);
+            return false;
+        }
 
         IReadOnlyList<int> candidates = [startIndex];
         if (skip != Skip.None)
@@ -768,6 +780,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         // whatever is currently playing undisturbed.
         var stream = 0;
         var skipped = new List<Track>();
+        PlayFailure? failure = null;
         foreach (var candidate in candidates)
         {
             stream = OpenStream(queue[candidate].FilePath);
@@ -777,6 +790,8 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 break;
             }
 
+            // Straight after the open, on this thread, so BASS's error is its own.
+            failure ??= PlayFailure.ForFile(queue[candidate].FilePath, Bass.LastError);
             skipped.Add(queue[candidate]);
         }
 
@@ -787,7 +802,10 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         }
 
         if (stream == 0)
+        {
+            LastPlayFailure = failure;
             return false;
+        }
 
         var track = queue[startIndex];
         lock (_gate)
@@ -821,8 +839,11 @@ public sealed class AudioEngine : IFileHolder, IDisposable
             if (stream == 0 || _output is null)
             {
                 FreeStream(stream);
+                LastPlayFailure = new PlayFailure(PlayFailureKind.Output, track.FilePath, OutputWarning);
                 return false;
             }
+
+            LastPlayFailure = null;
 
             // Anything a save was holding back is superseded by this play.
             _releasedNextIndex = -1;

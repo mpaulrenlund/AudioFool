@@ -161,6 +161,41 @@ public class LibraryCacheTests
         Assert.Null(parsed.Tracks[0].TrackCount);
         Assert.NotEqual(LibraryCache.CurrentVersion, parsed.Version);
     }
+
+    private static string TempCachePath() =>
+        Path.Combine(Path.GetTempPath(), "AudioFoolTests", Guid.NewGuid().ToString("N"), "library.json");
+
+    [Fact]
+    public void A_save_keeps_the_one_before_as_a_backup()
+    {
+        var path = TempCachePath();
+        LibraryCache.From([@"C:\music"], [Sample(@"C:\music\a.flac")]).Save(path);
+        LibraryCache.From([@"C:\music"], [Sample(@"C:\music\a.flac"), Sample(@"C:\music\b.flac")]).Save(path);
+
+        Assert.Equal(2, LibraryCache.Load(path)!.Tracks.Count);
+        Assert.True(File.Exists(SafeJsonFile.BackupPathFor(path)));
+        Assert.False(File.Exists(path + ".tmp"));
+    }
+
+    [Theory]
+    [InlineData("damaged")]
+    [InlineData("missing")]
+    public void A_damaged_or_missing_cache_is_read_from_the_save_before(string what)
+    {
+        // With the music drive unplugged, no cache would mean an empty library.
+        var path = TempCachePath();
+        LibraryCache.From([@"C:\music"], [Sample(@"C:\music\a.flac")]).Save(path);
+        LibraryCache.From([@"C:\music"], [Sample(@"C:\music\a.flac"), Sample(@"C:\music\b.flac")]).Save(path);
+
+        if (what == "damaged")
+            File.WriteAllText(path, """{"Version":4,"Folders":["C:/mu""");
+        else
+            File.Delete(path);
+
+        var loaded = LibraryCache.Load(path);
+        Assert.NotNull(loaded);
+        Assert.Equal(@"C:\music\a.flac", Assert.Single(loaded.Tracks).FilePath);
+    }
 }
 
 public class ScanSummaryTests

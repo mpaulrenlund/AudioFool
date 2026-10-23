@@ -24,7 +24,8 @@ public enum SafeLoad
 /// <summary>
 /// A small JSON file saved the way settings.json is (session 60), for the ones
 /// that can't be rebuilt from the music: playlists and Quality Check clearances
-/// (session 67). <see cref="Write"/> makes the new file beside the old one, makes
+/// (session 67), plays waiting for Last.fm (session 71), and library.json, which a
+/// scan rebuilds but only with the drive there (session 71). <see cref="Write"/> makes the new file beside the old one, makes
 /// sure it is on the disk, and only then swaps it in, keeping the old one as
 /// <c>.bak</c>; <see cref="Load{T}"/> reads that backup when the file is missing
 /// or damaged. Before, a save moved an unflushed file over the old one, so a crash
@@ -41,7 +42,13 @@ public static class SafeJsonFile
     /// file becoming the backup. Throws as file calls do; the file on disk is then
     /// still the last good one.
     /// </summary>
-    public static void Write(string path, byte[] bytes)
+    public static void Write(string path, byte[] bytes) => Write(path, stream => stream.Write(bytes));
+
+    /// <summary>
+    /// The same, with the file written by <paramref name="write"/>: for a file too
+    /// big to want in memory twice, library.json (session 71).
+    /// </summary>
+    public static void Write(string path, Action<Stream> write)
     {
         var temp = path + ".tmp";
         try
@@ -50,7 +57,7 @@ public static class SafeJsonFile
 
             using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None))
             {
-                stream.Write(bytes);
+                write(stream);
                 stream.Flush(flushToDisk: true);
             }
 
@@ -99,7 +106,9 @@ public static class SafeJsonFile
             if (!File.Exists(path))
                 return (null, ReadState.Missing);
 
-            return JsonSerializer.Deserialize<T>(File.ReadAllText(path), options) is { } value
+            // Read as it streams in: library.json is 15 MB.
+            using var stream = File.OpenRead(path);
+            return JsonSerializer.Deserialize<T>(stream, options) is { } value
                 ? (value, ReadState.Read)
                 : (null, ReadState.Broken);
         }

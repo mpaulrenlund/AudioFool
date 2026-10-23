@@ -99,6 +99,9 @@ internal static partial class Program
 
         // --window placement: WindowPlacement's round trip on a window that gets
         // a handle but is never shown, so nothing appears on the desktop.
+        if (which == "dialogplacement")
+            return RunDialogPlacement();
+
         if (which == "placement")
         {
             var areas = AudioFool.Services.WindowPlacement.WorkAreas();
@@ -299,6 +302,9 @@ internal static partial class Program
         if (which == "statusclick")
             return RunStatusClick(main, vm, outPath, w, h, scale);
 
+        if (which == "playfailure")
+            return RunPlayFailure(vm, engine);
+
         if (which == "nowplayinglines")
             return RunNowPlayingLines(main, vm, outPath, w, h, scale);
 
@@ -419,6 +425,9 @@ internal static partial class Program
 
         if (which == "statusfilter")
             return RunStatusFilter(main, vm, outPath, w, h, scale);
+
+        if (which == "nowplayingjump")
+            return RunNowPlayingJump(main, vm);
 
         // --paused 1: the sample track loaded but not playing, so the transport
         // key shows Play rather than Pause.
@@ -5885,11 +5894,10 @@ internal static partial class Program
 
         // The placement itself, on made-up screens: (left, width) of the window.
         var widthOf = typeof(FindReplaceWindow).GetMethod("OpeningWidth", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
-        var cornerOf = typeof(FindReplaceWindow).GetMethod("CentreOver", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
         (double Left, double Width) Place(Rect frame, Rect work)
         {
             var width = (double)widthOf.Invoke(null, [frame, work, window.MinWidth, 48.0])!;
-            return (((Point)cornerOf.Invoke(null, [frame, work, width, 620.0])!).X, width);
+            return (AudioFool.Services.DialogPlacement.CentreOver(frame, work, width, 620.0).X, width);
         }
 
         var screen = new Rect(0, 0, 1920, 1032);

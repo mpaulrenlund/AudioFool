@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using AudioFool.Core.Library;
 using AudioFool.Core.Models;
 using AudioFool.Core.Scrobbling;
 
@@ -329,6 +330,25 @@ public class ScrobblingTests
         File.WriteAllText(path, "{ not json");
 
         Assert.Equal(0, ScrobbleQueue.Load(path, T0).Count);
+    }
+
+    [Fact]
+    public void A_damaged_queue_file_is_read_from_the_save_before()
+    {
+        var path = TempQueuePath();
+        var q = ScrobbleQueue.Load(path, T0);
+        q.Add(Entry("a", T0));
+        q.Add(Entry("b", T0));
+        Assert.True(File.Exists(SafeJsonFile.BackupPathFor(path)));
+
+        // Cut short, as a crash mid-save could leave it before session 71.
+        File.WriteAllText(path, "[{\"Artist\":\"Ru");
+
+        var reloaded = ScrobbleQueue.Load(path, T0);
+        Assert.Equal(["a"], reloaded.Peek(50).Select(e => e.Track));
+
+        // Written again from the backup, so the next start reads the file itself.
+        Assert.Equal(["a"], ScrobbleQueue.Load(path, T0).Peek(50).Select(e => e.Track));
     }
 
     // ------------------------------------------------------------ scrobbler

@@ -33,8 +33,8 @@ public partial class ArtWindow : FluentWindow
     /// Matches the window to the cover's aspect ratio, so a square cover doesn't
     /// sit in a tall window with dead space above and below. Only the cover is
     /// scaled; the title bar, caption, margins and frame keep their size.
-    /// Clamped to the work area, and positioned over the owner rather than the
-    /// screen centre.
+    /// Clamped to the work area of the owner's monitor, and positioned over the
+    /// owner as it is on screen rather than the screen centre.
     /// </summary>
     private void SizeToArt(BitmapSource art, Window owner)
     {
@@ -46,7 +46,7 @@ public partial class ArtWindow : FluentWindow
         var chromeY = n["layout.titleBarHeight"] + Caption.DesiredSize.Height + frame;
         var margin = n["artViewer.screenMargin"];
 
-        var work = SystemParameters.WorkArea;
+        var work = Services.DialogPlacement.WorkAreaOf(owner);
         var maxWidth = work.Width - margin - chromeX;
         var maxHeight = work.Height - margin - chromeY;
 
@@ -59,11 +59,7 @@ public partial class ArtWindow : FluentWindow
         Width = Math.Max(MinWidth, Math.Ceiling(Math.Floor(art.PixelWidth * scale) + chromeX));
         Height = Math.Max(MinHeight, Math.Ceiling(Math.Floor(art.PixelHeight * scale) + chromeY));
 
-        var centreX = owner.Left + (owner.ActualWidth / 2);
-        var centreY = owner.Top + (owner.ActualHeight / 2);
-
-        Left = Math.Clamp(centreX - (Width / 2), work.Left, Math.Max(work.Left, work.Right - Width));
-        Top = Math.Clamp(centreY - (Height / 2), work.Top, Math.Max(work.Top, work.Bottom - Height));
+        Services.DialogPlacement.CentreOverOwner(this, owner, Width, Height);
     }
 
     /// <summary>

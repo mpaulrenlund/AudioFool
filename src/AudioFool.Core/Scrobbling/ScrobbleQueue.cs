@@ -5,8 +5,9 @@ namespace AudioFool.Core.Scrobbling;
 /// <summary>
 /// Scrobbles waiting to be sent, persisted so none are lost to the network being
 /// down, Last.fm being offline, or the app closing first. Every change is saved
-/// straight away, written to a temporary file and moved over the old one, as
-/// <see cref="Library.LibraryCache"/> does.
+/// straight away, flushed and swapped in with the save before kept as
+/// <c>scrobbles.json.bak</c>, which is read if the file is missing or damaged
+/// (<see cref="Library.SafeJsonFile"/>, session 71).
 /// <para>
 /// Entries older than <see cref="MaxAge"/> are dropped on load: Last.fm ignores
 /// scrobbles more than two weeks old, so sending them would only waste requests.
@@ -34,24 +35,22 @@ public sealed class ScrobbleQueue
         get { lock (_gate) return _entries.Count; }
     }
 
-    /// <summary>Never throws: an unreadable file is an empty queue.</summary>
+    /// <summary>
+    /// Never throws. The file, else the save before it; with neither, an empty
+    /// queue: a lost queue costs a few plays, refusing to start would cost more.
+    /// </summary>
     public static ScrobbleQueue Load(string path, DateTimeOffset now)
     {
         var queue = new ScrobbleQueue(path);
-        try
+        var (saved, how) = Library.SafeJsonFile.Load<List<ScrobbleEntry>>(path, now.UtcDateTime, JsonOptions);
+        if (saved is not null)
         {
-            if (File.Exists(path)
-                && JsonSerializer.Deserialize<List<ScrobbleEntry>>(File.ReadAllText(path), JsonOptions) is { } saved)
-            {
-                var oldest = (now - MaxAge).ToUnixTimeSeconds();
-                queue._entries.AddRange(saved.Where(e => e.Timestamp >= oldest));
-                if (queue._entries.Count != saved.Count)
-                    queue.Save();
-            }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or NotSupportedException)
-        {
-            // A lost queue costs a few plays; refusing to start would cost more.
+            var oldest = (now - MaxAge).ToUnixTimeSeconds();
+            queue._entries.AddRange(saved.Where(e => e is not null && e.Timestamp >= oldest));
+
+            // From the backup: a file of its own again, so the next start reads it.
+            if (queue._entries.Count != saved.Count || how == Library.SafeLoad.FromBackup)
+                queue.Save();
         }
 
         return queue;
@@ -88,10 +87,7 @@ public sealed class ScrobbleQueue
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            var temp = _path + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(_entries, JsonOptions));
-            File.Move(temp, _path, overwrite: true);
+            Library.SafeJsonFile.Write(_path, JsonSerializer.SerializeToUtf8Bytes(_entries, JsonOptions));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
