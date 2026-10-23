@@ -23,7 +23,7 @@ public sealed partial class MainViewModel
     private Task<CoverScanSummary>? _coverScan;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction))]
+    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction), nameof(CanDismissStatus))]
     private bool _isCheckingCovers;
 
     [ObservableProperty]
@@ -154,7 +154,7 @@ public sealed partial class MainViewModel
     private static readonly TimeSpan KeepCommitEvery = TimeSpan.FromSeconds(30);
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction), nameof(KeepBestCoverHeader), nameof(CanKeepBestCover), nameof(CanConvertPngs))]
+    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction), nameof(KeepBestCoverHeader), nameof(CanKeepBestCover), nameof(CanConvertPngs), nameof(CanDismissStatus))]
     private bool _isKeepingCovers;
 
     [ObservableProperty]

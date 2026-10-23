@@ -259,7 +259,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private bool _isPlaying;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction))]
+    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction), nameof(CanDismissStatus))]
     private bool _isScanning;
 
     [ObservableProperty]
@@ -278,6 +278,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private static double Fraction(int done, int total) => total == 0 ? 0 : (double)done / total;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanDismissStatus))]
     private string _statusText = "Ready";
 
     [ObservableProperty]
@@ -420,7 +421,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// </para>
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsFiltered))]
+    [NotifyPropertyChangedFor(nameof(IsFiltered), nameof(CanDismissStatus), nameof(StatusDismissName))]
     private TrackFilter? _libraryFilter;
 
     public bool IsFiltered => LibraryFilter is not null;
@@ -440,6 +441,31 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void ClearLibraryFilter() => LibraryFilter = null;
+
+    /// <summary>
+    /// The status bar's × (2026-10-23, the user's request): while a filter is on,
+    /// and after any one-off message (a save, a check's result, new and removed
+    /// tracks) once nothing is under way, so the line can go back to what it says
+    /// at rest: the totals, a search's matches, or a warning that still holds,
+    /// which gets no ×. None while the library is empty: its line is the help.
+    /// </summary>
+    public bool CanDismissStatus =>
+        IsFiltered
+        || (!ShowsProgress && !IsWriting && _folderFilteredLibrary.AllTracks.Count > 0
+            && StatusText != DescribeStatus(default));
+
+    public string StatusDismissName =>
+        LibraryFilter is { } filter ? $"Clear filter: {filter.Description}" : "Dismiss message";
+
+    /// <summary>Clears the filter while one is on, as its chip does; otherwise puts the line back at rest.</summary>
+    [RelayCommand]
+    private void DismissStatus()
+    {
+        if (IsFiltered)
+            LibraryFilter = null;
+        else
+            StatusText = DescribeStatus(default);
+    }
 
     private void OnSearchDebounceTick(object? sender, EventArgs e)
     {
@@ -1543,7 +1569,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private Task<QualityScanSummary>? _qualityScan;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction))]
+    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction), nameof(CanDismissStatus))]
     private bool _isCheckingQuality;
 
     [ObservableProperty]

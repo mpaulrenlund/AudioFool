@@ -1484,8 +1484,9 @@
                      (HookStatusLineHover). Left-aligned with a clear background so only the
                      text itself is the target.
                      While a Statistics filter is on, a bare × right after the text clears
-                     it, as the title bar's chip does (the user's request, 2026-10-23). The
-                     grid is left-aligned so the × follows the text; when space runs out
+                     it, as the title bar's chip does (the user's request, 2026-10-23); after
+                     any one-off message (a save, a check, new and removed tracks) it puts
+                     the line back at rest (CanDismissStatus). The grid is left-aligned so the × follows the text; when space runs out
                      the text is trimmed and the × stays. Drawn like the search box's clear
                      ×, at the refresh icon's size and stroke, in a hit area the size of the
                      refresh button: text.muted, text.primary on hover. No tooltip. -->
@@ -1509,10 +1510,10 @@
                         </TextBlock.InputBindings>
                     </TextBlock>
 
-                    <Button x:Name="StatusClearFilter" Grid.Column="1"
-                            Command="{Binding ClearLibraryFilterCommand}"
-                            Visibility="{Binding IsFiltered, Converter={StaticResource BoolToVisibility}}"
-                            AutomationProperties.Name="{Binding LibraryFilter.Description, StringFormat=Clear filter: {0}}">
+                    <Button x:Name="StatusDismiss" Grid.Column="1"
+                            Command="{Binding DismissStatusCommand}"
+                            Visibility="{Binding CanDismissStatus, Converter={StaticResource BoolToVisibility}}"
+                            AutomationProperties.Name="{Binding StatusDismissName}">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource theme.bareIconButton}">
                                 <Setter Property="Width" Value="{theme:Token statusBar.refreshButton}" />

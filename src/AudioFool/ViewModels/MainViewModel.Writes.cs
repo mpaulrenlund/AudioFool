@@ -21,6 +21,7 @@ public sealed partial class MainViewModel
     private WriteScope BeginWrite()
     {
         _writesRunning++;
+        OnPropertyChanged(nameof(CanDismissStatus));
         return new WriteScope(this);
     }
 
@@ -34,6 +35,8 @@ public sealed partial class MainViewModel
         if (--_writesRunning > 0)
             return;
 
+        // The save's message is set before its scope ends, so the × shows from here.
+        OnPropertyChanged(nameof(CanDismissStatus));
         _writesDone?.TrySetResult();
         _writesDone = null;
     }

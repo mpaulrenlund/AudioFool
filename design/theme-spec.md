@@ -318,7 +318,10 @@ Background `window.bg`, 12 px horizontal padding, 12 px text in `text.status`.
 
 A single click on the dot or the text opens Statistics, whatever the line says at the time (2026-10-22, the user's call; a double-click before that). Only the text itself is the target, not the empty space after it. Hovering either shows the hand pointer and underlines the text in its own colour; no tooltip.
 
-**Clearing a filter from the status bar** (2026-10-23, the user's request): while a Statistics filter is on, a bare × follows the text, whatever the line says, in a 26 px hit area (`statusBar.refreshButton`) with no face: the search box's × drawn at the refresh icon's 14 px and stroke, `text.muted`, `text.primary` on hover, hand pointer, no tooltip. A click clears the filter as the title bar's filter chip does, and the line goes back to the totals; it doesn't open Statistics. A line too long for the bar is trimmed with "…" and the × stays beside it. Hidden with no filter.
+**The × after the text** (2026-10-23, the user's requests): a bare × follows the text in a 26 px hit area (`statusBar.refreshButton`) with no face: the search box's × drawn at the refresh icon's 14 px and stroke, `text.muted`, `text.primary` on hover, hand pointer, no tooltip. It doesn't open Statistics. A line too long for the bar is trimmed with "…" and the × stays beside it.
+- **While a Statistics filter is on**, whatever the line says: a click clears the filter, as the title bar's filter chip does, and the line goes back to the totals.
+- **After any one-off message**, once nothing is under way (a scan, a check, Keep Best Cover, a PNG conversion or a save): a save's result, a check's result, "12 new or changed, 3 removed" after a scan, a moved music folder, an error. A click puts the line back at rest: the totals, or a search's matches while searching.
+- **Never** on the line at rest, which includes the warnings that still hold (settings unreadable, playlists damaged, a drive not available), nor while the library is empty, where the line is the help.
 
 **Library size:** total size of all library files, using **1 GB = 1,024³ bytes** (matches Windows File Explorer), rounded to the nearest whole GB, with a thousands separator above 999 ("1,204 GB"). Recalculate when Refresh runs.
 

@@ -8,19 +8,21 @@ using AudioFool.ViewModels;
 namespace ThemeLab;
 
 /// <summary>
-/// --window statusfilter (2026-10-23): the bare × after the status text that
-/// clears a Statistics filter. Hidden with no filter; shown right after the text
-/// with one, after a save's message too; a long line is trimmed and the × stays
-/// in the status bar; hover turns it text.primary; a click clears the filter and
-/// brings back the line from before. Renders &lt;out&gt;-off, -on, -saved, -long
-/// and -hover .png.
+/// --window statusfilter (2026-10-23): the bare × after the status text. Hidden at
+/// rest; shown right after the text with a filter on, after a save's message too;
+/// a long line is trimmed and the × stays in the status bar; hover turns it
+/// text.primary; a click clears the filter and brings back the line from before.
+/// Then any one-off message (a scan's new and removed tracks, a save): shown, not
+/// while a scan or save is under way, and a click puts the totals back; a
+/// search's line gets none. Renders &lt;out&gt;-off, -on, -saved, -long, -hover and
+/// -scan .png.
 /// </summary>
 internal static partial class Program
 {
     private static int RunStatusFilter(MainWindow main, MainViewModel vm, string outPath, double w, double h, double scale)
     {
         var line = (TextBlock)main.FindName("StatusLine");
-        var clear = (Button)main.FindName("StatusClearFilter");
+        var clear = (Button)main.FindName("StatusDismiss");
         var bar = (FrameworkElement)main.FindName("StatusBar");
         var stem = System.IO.Path.ChangeExtension(outPath, null);
 
@@ -95,6 +97,50 @@ internal static partial class Program
         Check(!vm.IsFiltered, "click: filter cleared");
         Check(clear.Visibility == Visibility.Collapsed, $"click: × {clear.Visibility}");
         Check(vm.StatusText == before && before == Totals() && before.Contains(" artists · "), $"click: line back to '{vm.StatusText}'");
+
+        // Any one-off message: a scan's new and removed tracks, a save.
+        var withChanges = (string)describe.Invoke(vm, [new ScanSummary(0, 12, 3)])!;
+        vm.StatusText = withChanges;
+        Settle(200);
+        Check(clear.Visibility == Visibility.Visible, $"scan changes: × {clear.Visibility}, line '{vm.StatusText}'");
+        name = System.Windows.Automation.AutomationProperties.GetName(clear);
+        Check(name == "Dismiss message", $"scan changes: name '{name}'");
+        gap = Left(clear) - (Left(line) + line.ActualWidth);
+        Check(Math.Abs(gap) < 0.5, $"scan changes: gap {gap:0.##} px");
+        Save(main, stem + "-scan.png", w, h, scale);
+        clear.Command.Execute(null);
+        Settle(200);
+        Check(vm.StatusText == before && clear.Visibility == Visibility.Collapsed, $"scan changes, click: '{vm.StatusText}', × {clear.Visibility}");
+
+        vm.StatusText = "Saved tags for 14 track(s).";
+        Settle(200);
+        Check(clear.Visibility == Visibility.Visible, $"a save: × {clear.Visibility}");
+
+        // Nothing to dismiss while something is under way: its line is progress.
+        vm.IsScanning = true;
+        Settle(100);
+        Check(clear.Visibility == Visibility.Collapsed, $"while scanning: × {clear.Visibility}");
+        vm.IsScanning = false;
+        Settle(100);
+        Check(clear.Visibility == Visibility.Visible, $"scan over: × {clear.Visibility}");
+        var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        typeof(MainViewModel).GetMethod("BeginWrite", flags)!.Invoke(vm, null);
+        Settle(100);
+        Check(clear.Visibility == Visibility.Collapsed, $"while saving: × {clear.Visibility}");
+        typeof(MainViewModel).GetMethod("EndWrite", flags)!.Invoke(vm, null);
+        Settle(100);
+        Check(clear.Visibility == Visibility.Visible, $"save over: × {clear.Visibility}");
+        clear.Command.Execute(null);
+        Settle(200);
+        Check(vm.StatusText == before, $"a save, click: '{vm.StatusText}'");
+
+        // A search's own line is its line at rest: no ×.
+        vm.SearchQuery = "zzqxw no such thing";
+        Settle(600);
+        Check(clear.Visibility == Visibility.Collapsed, $"searching: × {clear.Visibility}, line '{vm.StatusText}'");
+        vm.SearchQuery = "";
+        Settle(600);
+        Check(clear.Visibility == Visibility.Collapsed && vm.StatusText == before, $"search cleared: × {clear.Visibility}, line '{vm.StatusText}'");
 
         Console.WriteLine(allOk ? "ALL OK" : "SOMETHING WRONG");
         return allOk ? 0 : 1;

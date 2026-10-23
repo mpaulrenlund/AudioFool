@@ -22,7 +22,7 @@ public sealed partial class MainViewModel
     private CancellationTokenSource? _pngCts;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction), nameof(ConvertPngHeader), nameof(CanConvertPngs), nameof(CanKeepBestCover))]
+    [NotifyPropertyChangedFor(nameof(ShowsProgress), nameof(ProgressFraction), nameof(ConvertPngHeader), nameof(CanConvertPngs), nameof(CanKeepBestCover), nameof(CanDismissStatus))]
     private bool _isConvertingPngs;
 
     [ObservableProperty]
