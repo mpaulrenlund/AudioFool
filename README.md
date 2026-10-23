@@ -320,7 +320,7 @@ These only apply when AudioFool has focus:
 | **Ctrl+Up / Ctrl+Down** | Volume up / down by 5% (unmutes; nothing in Bit-Perfect, where the volume is fixed) |
 | **Ctrl+M** | Mute / unmute |
 | **Ctrl+L** | Like / unlike the playing song |
-| **Ctrl+J** | Jump to the playing song in the lists |
+| **Ctrl+J** | Jump to the playing song in the lists and select it (clears a search or Statistics filter that hides it; a click on the now-playing title does the same) |
 | **Ctrl+F** | Go to the search box |
 | **Ctrl+B** | Bit-Perfect on / off |
 | **Ctrl+T** | Switch between the Light and Dark themes (as the status bar's Theme button does) |
@@ -467,8 +467,8 @@ compilations and features.
   Going back to the start of a track (Previous in its first 3 s, or a Repeat One loop)
   is a new play.
 - **Offline plays are kept.** Anything that can't be sent waits in
-  `%LOCALAPPDATA%\AudioFool\scrobbles.json` and goes out later, retried from one minute
-  up to every half hour. Last.fm refuses scrobbles more than two weeks old, so older
+  `%LOCALAPPDATA%\AudioFool\scrobbles.json` (saved as the playlists are, with a `.bak`)
+  and goes out later, retried from one minute up to every half hour. Last.fm refuses scrobbles more than two weeks old, so older
   ones are dropped.
 - **The status bar shows the state** left of Bit-Perfect once connected. The label
   is **Last.fm** while scrobbling, **Last.fm: off** when switched off,
@@ -481,8 +481,11 @@ compilations and features.
   as well, remove AudioFool on your
   [applications page](https://www.last.fm/settings/applications).
 
-The key, secret and session are stored in `settings.json`. The session key allows
-scrobbling but does not reveal your password.
+The key, secret and session are stored in `settings.json`, the secret and session
+encrypted with Windows' own per-account encryption (DPAPI): a copy of the file is no
+use on another PC or to another Windows account. On another PC, or if those values
+are damaged, Last.fm asks you to connect again. The session key allows scrobbling but
+does not reveal your password.
 
 ---
 
@@ -647,7 +650,9 @@ under the others; click it, then right-click → **Put Back in Quality Check** t
 
 Clearances are kept in `%LOCALAPPDATA%\AudioFool\quality-cleared.json`, apart from the
 check's results, so a retag (here or in Mp3tag) or a later change to the check's rules
-doesn't undo them. They follow a song to a new drive letter, as playlists do. A song
+doesn't undo them. They follow a song to a new drive letter, as playlists do, and are
+told apart by folder, so clearing disc 1's "01 Intro.flac" (in `CD1`) doesn't clear
+disc 2's in `CD2`. A song
 replaced by a file of a different format (another bit depth, sample rate, or an MP3's
 bitrate) is no longer cleared. Nothing is written to the music files. The file is
 saved as the playlists are, with the save before kept as `quality-cleared.json.bak`
@@ -880,7 +885,10 @@ only slow part of a scan. Measured on a 25,977-file, 691 GB library:
 | Load 13.4 MB cache and rebuild the tree | **0.28s** |
 
 So tags are the only thing worth persisting. `LibraryCache` writes them to
-`%LOCALAPPDATA%\AudioFool\library.json`, and startup now goes:
+`%LOCALAPPDATA%\AudioFool\library.json`, saved as `settings.json` is: written beside
+it, flushed to the disk, swapped in, the save before kept as `library.json.bak` and
+read if the file is missing or damaged (so with the drive unplugged the library still
+shows). Startup now goes:
 
 1. Load the cache and show the library — about **0.3 seconds**.
 2. In the background, enumerate and stat everything (~1s) and re-read tags only for

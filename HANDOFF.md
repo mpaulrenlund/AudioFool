@@ -163,11 +163,14 @@ installed 19:31 (19 files hash-identical); see *Where things are*. **Unreleased.
 Then **session 71** (2026-10-23): the user ran *Check covers* on the real library;
 cut-off covers checked off; then a × in the status bar that clears a Statistics
 filter, installed, not yet seen by the user; then the same × dismisses any
-one-off message, installed 08:06, not yet seen by the user (see *Where things are*,
-session 71).
+one-off message, installed 08:06, not yet seen by the user; then session 60's
+seven remaining review findings, installed 11:43, not yet seen by the user (see
+*Where things are*, session 71). Ask the user to try: a dialog with the main window
+maximised on the second monitor, Ctrl+J under a search, Last.fm still connected
+after the update.
 **Unreleased:** sessions 70 and 71.
 
-**968 tests** pass. Since session 63 an install is checked by hashing the files, not
+**988 tests** pass. Since session 63 an install is checked by hashing the files, not
 by launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
 playback.log* under Gotchas).
 
@@ -193,7 +196,7 @@ it reads the new number in the release build.
 
 ### Where things are
 
-- **Everything in `README.md` is implemented and verified.** **968 tests** pass.
+- **Everything in `README.md` is implemented and verified.** **988 tests** pass.
 - **Session 71** (2026-10-23): **cut-off covers on the real library, done.** The user
   ran *Check covers* (27,095 songs read). Two albums came up, each cut off in every
   copy (all songs' embedded picture and `cover.jpg` the same bytes):
@@ -232,6 +235,43 @@ it reads the new number in the release build.
     968 tests. Installed 08:06 at the user's OK (AudioFool closed through UI
     Automation's window Close, so it shut down normally; 19 files hash-identical).
     **Not yet seen by the user.**
+  - **Then session 60's remaining review findings** (the user asked for all seven;
+    the plan approved with both recommended answers). 988 tests (20 new). Installed
+    11:43 (AudioFool not running; 19 files hash-identical). **None yet seen by the
+    user.**
+    - **Windows open over the main window as it is, on its monitor**
+      (`Services/DialogPlacement`, Find and Replace's helpers moved there): tag
+      windows, Statistics (its height cap too), prompts, Last.fm, the art viewer (its
+      size cap too), Analyze (kept on its own monitor as it grows). ThemeLab
+      `--window dialogplacement` (new; hidden windows on each of the three monitors):
+      ALL OK. Not seen on a real second monitor by the user.
+    - **A failed play says why** (`Core/Playback/PlayFailure`, `AudioEngine.LastPlayFailure`,
+      `MainViewModel.DescribePlayFailure`): drive not connected, file gone, file held by
+      another program, the device's own reason, or a real format failure. ThemeLab
+      `--window playfailure` (new, the real engine and BASS, nothing reaches the
+      device): ALL OK for the four file cases; the device case is unit-tested only.
+    - **Ctrl+J and the now-playing title**: the album holding the song's file, the song
+      selected and scrolled to (`RevealTrackRequested`), a search or filter cleared only
+      when it hides the song (the user's call). ThemeLab `--window nowplayingjump`
+      (new, real library.json): ALL OK; the library has no artist with two albums of
+      one title, so that case wasn't met.
+    - **Clearances tell discs apart**: the name-artist-album fallback also needs the
+      same folder name (`QualityClearances.SameSong`); a moved drive or music folder
+      still matches. Three new tests failed on the old code.
+    - **Analyze on a file under ~46 ms**: the column clamped at 0; the new 20 ms test
+      failed on the old code.
+    - **library.json and scrobbles.json saved safely** (`SafeJsonFile`, now with a
+      streaming `Write(path, Action<Stream>)` and a streamed read): flushed, swapped
+      in, `.bak` kept and read when the file is missing or damaged (a damaged one is
+      moved aside as `library.unreadable-….json`). `LibraryCache.Load/Save` take an
+      optional path for the tests; `Delete` removes the backup too. The first save
+      after the install makes `library.json.bak` (~15 MB).
+    - **The Last.fm secret and session key encrypted** with DPAPI, current user
+      (`Settings/ProtectedStringConverter`, P/Invoke to crypt32, no new package):
+      `"dpapi:…"` in the file; a plain value from before is read and encrypted at the
+      next save (settings.json.bak keeps the plain one until the save after); one that
+      can't be decrypted (another PC, damaged) reads as missing, so Last.fm asks to
+      connect again.
 - **Session 70** (2026-10-22): **cut-off covers** (the user saw two albums showing only
   the top of their cover, one Marcus Johnson's *FLO*; README *Cut-off covers*,
   `design/progress.md`; details in `HISTORY.md`):
@@ -622,7 +662,11 @@ Recent sessions, newest first (full notes in `HISTORY.md`):
 - **71** (2026-10-23): **cut-off covers on the real library**: two albums found;
   the user gave both new covers (now whole everywhere); FLO already whole. Then **a
   bare × after the status text clears a Statistics filter**; installed. Then **the
-  same × dismisses any one-off message**. See *Where things are*.
+  same × dismisses any one-off message**. Then **session 60's seven remaining
+  findings**: windows on the main window's monitor, failed plays say why, Ctrl+J
+  selects the song, discs' clearances apart, Analyze on tiny files, library.json and
+  scrobbles.json saved safely, the Last.fm secret encrypted. 988 tests; installed.
+  See *Where things are*.
 
 - **70** (2026-10-22): the close X fine so far; **cut-off covers**: a whole cover is
   shown and kept over a cut-off one, a cut-off one is never saved, and Statistics'
@@ -1427,6 +1471,9 @@ ThemeLab.exe --libshot libs.png --scale 3   # the Libraries submenu, one folder 
 ThemeLab.exe --window folders               # folder list: merging, relocation, unticked status, Remove
 ThemeLab.exe --window nowplayinglines --w 1400 --h 700 [--theme dark] [--dpi 1.25]   # the now-playing bar's four lines for a hi-res FLAC, a CD FLAC, an MP3 and a DSF: prints both lower lines, text height against the art, bar height against nothing playing; renders <out>-1..4.png; "ALL OK" (session 68)
 ThemeLab.exe --window statusclick --w 1300 --h 700 [--theme dark]   # the status line and dot: a single click's gesture opens Statistics (not run: it is modal), hand pointer, underline on hover; renders <out>-plain/-hover.png; "ALL OK" (session 68)
+ThemeLab.exe --window dialogplacement   # a hidden main window on each monitor, maximised and normal, and a hidden dialog placed by DialogPlacement: centred on its monitor, kept on it; never shown (session 71)
+ThemeLab.exe --window playfailure   # the real engine and BASS on a missing file, an unused drive letter, text named .flac and a file this process holds: each PlayFailure and its line; nothing reaches the device (session 71)
+ThemeLab.exe --window nowplayingjump   # Ctrl+J over the real library.json (read only): its album, the song selected, a search/filter cleared only when it hides the song (session 71)
 ThemeLab.exe --window statusfilter [--theme dark] [--dpi 1.25]   # the status bar's ×, over the real library.json (read only): a filter (hidden/shown, right after the text, trimmed long line, hover, a click clears and restores the totals), then one-off messages (scan counts, a save; none while scanning or saving, none on a search's line); renders <out>-off/-on/-saved/-long/-hover/-scan.png; "ALL OK" (session 71)
 ThemeLab.exe --window headerpress           # a press on a letter of each Songs header (a LetterSpacing Run), then the header's click: no exception, each sorts; "ALL OK" (session 68)
 ThemeLab.exe --window drives                # drives plugged in and pulled out while running, on subst letters (Q:-Y:): an unrelated drive, the music drive pulled, back under another letter (lists, queue, now playing, Next), back under the same letter, F5 alone; silent; "ALL OK" (session 68)
@@ -1886,33 +1933,17 @@ Open items only; finished ones are in `HISTORY.md`.
      judges the bytes and holds them from the pick; a cut-off picture frame no longer
      throws, and an album or selection save names any error in the status bar). See
      *Where things are*, session 69.
-   - **Startup, windows and drives:**
-     - Confirmed: six windows centre on a maximised owner's restore bounds and clamp
-       to the primary monitor's work area: the tag windows, Statistics, prompts,
-       Last.fm, the art viewer and Analyze (which re-clamps on every resize). Find and
-       Replace and About do it right (`FindReplaceWindow`'s `OwnerFrame`,
-       `WorkAreaOf`, `CentreOver`). Medium.
-     - ~~A drive plugged in while AudioFool runs isn't noticed; F5 doesn't relocate~~
-       Fixed in session 68 (drives heard, F5 relocates, the queue follows).
-     - Confirmed: every failed open says "The format may need an add-on" (a missing
-       drive, a moved file, a busy device alike). Small.
-     - Partly: Ctrl+J (and a click on the now-playing title) matches the lists on
-       screen by artist and album name, so under a search or filter it does nothing
-       or lands on the wrong album, and it never selects or scrolls to the song.
-       Small; whether it may clear the search is the user's call.
-     - Confirmed, rare: a Quality Check clearance falls back to file name, artist,
-       album and format, so it also clears the other disc's same-named file. Small.
-     - Partly: Analyze on a file under ~46 ms shows "The analysis failed" (caught, no
-       crash): `SpectrumAccumulator`'s column index goes negative. Small.
+   - **Startup, windows and drives:** **all fixed in session 71** but one (window
+     placement, failed-play messages, Ctrl+J, the other disc's clearance, Analyze on a
+     very short file; see *Where things are*, session 71). Earlier: drives noticed
+     while running (session 68). Still open:
      - Partly, harmless: a new scrobble skips the backoff (one request each, the
        backoff isn't reset). An exception other than `LastFmException` escaping a send
        skips the backoff altogether (unlikely).
-   - **Data safety:** **playlists.json and quality-cleared.json fixed in session
-     67**: saved as settings.json is (`Library/SafeJsonFile`: flushed, `File.Replace`,
-     `.bak`; a damaged or missing file reads the backup), and a damaged playlists file
-     is named in the status bar. Still written the old way (temp file moved over the
-     real one, no flush): library.json (rebuilt by a scan, so nothing of the user's
-     is lost) and scrobbles.json (plays not yet sent to Last.fm). Small.
+   - **Data safety:** **all fixed**: playlists.json and quality-cleared.json in
+     session 67, library.json and scrobbles.json in session 71, all through
+     `Library/SafeJsonFile` (flushed, `File.Replace`, `.bak`, a damaged or missing
+     file reads the backup).
    - **UI (against the specs):** all fixed in session 67 (ellipses, capitalisation,
      title separators, button order, Escape, the filter chip's colour, the art search
      comment, spec §6.5, §6.7 and §6.8).
@@ -1920,7 +1951,8 @@ Open items only; finished ones are in `HISTORY.md`.
      - `AudioEngine` itself has no tests (1,500 lines; `OutputChain` and `BassRuntime`
        neither). Session 67 pulled the playback findings' decisions out (`TrackEnd`,
        `ReopenPoint`, `DopRule`, `PlayOrder.Candidates`, all tested); the rest is still in it.
-     - The Last.fm secret is in plain text.
+     - ~~The Last.fm secret is in plain text~~ Encrypted with DPAPI in session 71
+       (the secret and the session key; the API key stays plain).
      - ~~`LiveSpectrumTests.An_update_allocates_nothing` fails now and then~~ Made
        sturdier in session 67: five rounds of 100 updates, the fewest bytes must be 0
        (the runtime's own allocation lands in one round; one of `Update`'s would show
