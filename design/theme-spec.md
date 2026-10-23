@@ -318,6 +318,8 @@ Background `window.bg`, 12 px horizontal padding, 12 px text in `text.status`.
 
 A single click on the dot or the text opens Statistics, whatever the line says at the time (2026-10-22, the user's call; a double-click before that). Only the text itself is the target, not the empty space after it. Hovering either shows the hand pointer and underlines the text in its own colour; no tooltip.
 
+**Clearing a filter from the status bar** (2026-10-23, the user's request): while a Statistics filter is on, a bare × follows the text, whatever the line says, in a 26 px hit area (`statusBar.refreshButton`) with no face: the search box's × drawn at the refresh icon's 14 px and stroke, `text.muted`, `text.primary` on hover, hand pointer, no tooltip. A click clears the filter as the title bar's filter chip does, and the line goes back to the totals; it doesn't open Statistics. A line too long for the bar is trimmed with "…" and the × stays beside it. Hidden with no filter.
+
 **Library size:** total size of all library files, using **1 GB = 1,024³ bytes** (matches Windows File Explorer), rounded to the nearest whole GB, with a thousands separator above 999 ("1,204 GB"). Recalculate when Refresh runs.
 
 **Right, 10 px apart:**

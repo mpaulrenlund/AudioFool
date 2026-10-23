@@ -417,6 +417,9 @@ internal static partial class Program
         if (Arg(args, "--artistsort") is "recent" or "size")
             vm.ArtistOrder = Arg(args, "--artistsort") == "size" ? AudioFool.Core.Library.ArtistOrder.Size : AudioFool.Core.Library.ArtistOrder.Recent;
 
+        if (which == "statusfilter")
+            return RunStatusFilter(main, vm, outPath, w, h, scale);
+
         // --paused 1: the sample track loaded but not playing, so the transport
         // key shows Play rather than Pause.
         if (Arg(args, "--paused") is not null)

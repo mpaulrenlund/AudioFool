@@ -161,7 +161,9 @@ approved with both recommended answers. Built, tested, checked with ThemeLab,
 installed 19:31 (19 files hash-identical); see *Where things are*. **Unreleased.**
 
 Then **session 71** (2026-10-23): the user ran *Check covers* on the real library;
-cut-off covers checked off (see *Where things are*, session 71).
+cut-off covers checked off; then a × in the status bar that clears a Statistics
+filter, installed, not yet seen by the user (see *Where things are*, session 71).
+**Unreleased:** sessions 70 and 71.
 
 **968 tests** pass. Since session 63 an install is checked by hashing the files, not
 by launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
@@ -210,6 +212,15 @@ it reads the new number in the release build.
   - The check deleted both albums' saved thumbnails, as built. Six grey-bottomed
     96 px thumbnails from 2026-10-14 remain in `art\`, keyed to none of these albums;
     harmless leftovers.
+  - **Then a bare × after the status text clears a Statistics filter** (the user's
+    request: they hadn't noticed the title bar's chip and used Refresh to get the
+    totals back; they picked a bare × over a chip). `StatusClearFilter` in
+    `MainWindow.xaml`, beside `StatusLine` in a left-aligned grid; runs
+    `ClearLibraryFilterCommand`. No new tokens; spec §6.8 and `design/progress.md`.
+    ThemeLab `--window statusfilter` (new) ALL OK in Light and Dark at 100% and 125%;
+    with no filter 0 pixels different from HEAD (main, paused, scanning, stats).
+    968 tests. Installed 07:44 (AudioFool not running; 19 files hash-identical).
+    **Not yet seen by the user.**
 - **Session 70** (2026-10-22): **cut-off covers** (the user saw two albums showing only
   the top of their cover, one Marcus Johnson's *FLO*; README *Cut-off covers*,
   `design/progress.md`; details in `HISTORY.md`):
@@ -598,7 +609,9 @@ it reads the new number in the release build.
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
 - **71** (2026-10-23): **cut-off covers on the real library**: two albums found;
-  the user gave both new covers (now whole everywhere); FLO already whole. Docs only. See *Where things are*.
+  the user gave both new covers (now whole everywhere); FLO already whole. Then **a
+  bare × after the status text clears a Statistics filter**; installed. See *Where
+  things are*.
 
 - **70** (2026-10-22): the close X fine so far; **cut-off covers**: a whole cover is
   shown and kept over a cut-off one, a cut-off one is never saved, and Statistics'
@@ -1403,6 +1416,7 @@ ThemeLab.exe --libshot libs.png --scale 3   # the Libraries submenu, one folder 
 ThemeLab.exe --window folders               # folder list: merging, relocation, unticked status, Remove
 ThemeLab.exe --window nowplayinglines --w 1400 --h 700 [--theme dark] [--dpi 1.25]   # the now-playing bar's four lines for a hi-res FLAC, a CD FLAC, an MP3 and a DSF: prints both lower lines, text height against the art, bar height against nothing playing; renders <out>-1..4.png; "ALL OK" (session 68)
 ThemeLab.exe --window statusclick --w 1300 --h 700 [--theme dark]   # the status line and dot: a single click's gesture opens Statistics (not run: it is modal), hand pointer, underline on hover; renders <out>-plain/-hover.png; "ALL OK" (session 68)
+ThemeLab.exe --window statusfilter [--theme dark] [--dpi 1.25]   # the status bar's × while a filter is on, over the real library.json (read only): hidden/shown, right after the text, trimmed long line, hover, a click clears and restores the totals; renders <out>-off/-on/-saved/-long/-hover.png; "ALL OK" (session 71)
 ThemeLab.exe --window headerpress           # a press on a letter of each Songs header (a LetterSpacing Run), then the header's click: no exception, each sorts; "ALL OK" (session 68)
 ThemeLab.exe --window drives                # drives plugged in and pulled out while running, on subst letters (Q:-Y:): an unrelated drive, the music drive pulled, back under another letter (lists, queue, now playing, Next), back under the same letter, F5 alone; silent; "ALL OK" (session 68)
 ThemeLab.exe --window tokens --out tokens.png   # the central theme: lookups from MainWindow, XAML usage, fonts, specimen

@@ -1482,20 +1482,58 @@
                 <!-- Click the dot or the line to open Statistics (the user's call, a single click
                      since session 68; no tooltip). Hovering either underlines the line
                      (HookStatusLineHover). Left-aligned with a clear background so only the
-                     text itself is the target. -->
-                <TextBlock x:Name="StatusLine" Grid.Column="2"
-                           Text="{Binding StatusText}"
-                           Style="{DynamicResource type.status}"
-                           Margin="{theme:Thickness Left=statusBar.dotTextGap}"
-                           TextTrimming="CharacterEllipsis"
-                           HorizontalAlignment="Left"
-                           Background="Transparent"
-                           Cursor="Hand"
-                           VerticalAlignment="Center">
-                    <TextBlock.InputBindings>
-                        <MouseBinding MouseAction="LeftClick" Command="{Binding ShowStatisticsCommand}" />
-                    </TextBlock.InputBindings>
-                </TextBlock>
+                     text itself is the target.
+                     While a Statistics filter is on, a bare × right after the text clears
+                     it, as the title bar's chip does (the user's request, 2026-10-23). The
+                     grid is left-aligned so the × follows the text; when space runs out
+                     the text is trimmed and the × stays. Drawn like the search box's clear
+                     ×, at the refresh icon's size and stroke, in a hit area the size of the
+                     refresh button: text.muted, text.primary on hover. No tooltip. -->
+                <Grid Grid.Column="2" HorizontalAlignment="Left" VerticalAlignment="Center"
+                      Margin="{theme:Thickness Left=statusBar.dotTextGap}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock x:Name="StatusLine"
+                               Text="{Binding StatusText}"
+                               Style="{DynamicResource type.status}"
+                               TextTrimming="CharacterEllipsis"
+                               HorizontalAlignment="Left"
+                               Background="Transparent"
+                               Cursor="Hand"
+                               VerticalAlignment="Center">
+                        <TextBlock.InputBindings>
+                            <MouseBinding MouseAction="LeftClick" Command="{Binding ShowStatisticsCommand}" />
+                        </TextBlock.InputBindings>
+                    </TextBlock>
+
+                    <Button x:Name="StatusClearFilter" Grid.Column="1"
+                            Command="{Binding ClearLibraryFilterCommand}"
+                            Visibility="{Binding IsFiltered, Converter={StaticResource BoolToVisibility}}"
+                            AutomationProperties.Name="{Binding LibraryFilter.Description, StringFormat=Clear filter: {0}}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource theme.bareIconButton}">
+                                <Setter Property="Width" Value="{theme:Token statusBar.refreshButton}" />
+                                <Setter Property="Height" Value="{theme:Token statusBar.refreshButton}" />
+                                <Setter Property="Foreground" Value="{DynamicResource color.text.muted}" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Viewbox Width="{theme:Token statusBar.refreshIcon}" Height="{theme:Token statusBar.refreshIcon}">
+                            <Canvas Width="24" Height="24">
+                                <Path Style="{StaticResource theme.iconStroke}"
+                                      StrokeThickness="{theme:Token statusBar.refreshIconStrokeOn24Grid}"
+                                      Data="M 7,7 L 17,17 M 17,7 L 7,17" />
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
+                </Grid>
             </Grid>
 
             <ProgressBar Grid.Column="1"
