@@ -96,9 +96,9 @@ the only thing that catches a file you forgot to track.
 
 ### Releases
 
-Nine so far, all on GitHub (private, so downloads need a signed-in account):
+Ten so far, all on GitHub (private, so downloads need a signed-in account):
 **v0.1.0** (2026-09-30, the user by hand), **v0.2.0** (2026-10-02), **v0.3.0**
-(2026-10-09, session 45), **v0.4.0** (2026-10-12, session 47), **v0.5.0** (2026-10-13, session 48), **v0.6.0** and **v0.6.1** (both 2026-10-15, session 54), **v0.7.0** (2026-10-21, session 65), **v0.8.0** (2026-10-22, session 69); every one after v0.1.0 by Claude.
+(2026-10-09, session 45), **v0.4.0** (2026-10-12, session 47), **v0.5.0** (2026-10-13, session 48), **v0.6.0** and **v0.6.1** (both 2026-10-15, session 54), **v0.7.0** (2026-10-21, session 65), **v0.8.0** (2026-10-22, session 69), **v0.8.1** (2026-10-24, session 71); every one after v0.1.0 by Claude.
 `AudioFool.csproj` starts with a byte-order mark: keep it when bumping the version
 (v0.6.0's bump dropped it and needed a follow-up commit). Handle a release end to end when asked, but
 **confirm the version number and the notes with the user before `gh release create`**:
@@ -158,7 +158,7 @@ the plan approved as proposed. Built, tested, checked with ThemeLab, installed 1
 
 Then **session 70** (2026-10-22): **cut-off covers** caught and kept out, the plan
 approved with both recommended answers. Built, tested, checked with ThemeLab,
-installed 19:31 (19 files hash-identical); see *Where things are*. **Unreleased.**
+installed 19:31 (19 files hash-identical); see *Where things are*. Released in v0.8.1.
 
 Then **session 71** (2026-10-23): the user ran *Check covers* on the real library;
 cut-off covers checked off; then a × in the status bar that clears a Statistics
@@ -168,7 +168,7 @@ seven remaining review findings, installed 11:43, not yet seen by the user (see
 *Where things are*, session 71). Ask the user to try: a dialog with the main window
 maximised on the second monitor, Ctrl+J under a search, Last.fm still connected
 after the update.
-**Unreleased:** sessions 70 and 71.
+**Released as v0.8.1** (2026-10-24): sessions 70 and 71.
 
 **988 tests** pass. Since session 63 an install is checked by hashing the files, not
 by launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
@@ -180,8 +180,9 @@ Open with the user, in this order (each is under *Suggested next steps*):
    with AudioFool open, plug it back in, under a new letter if Windows gives one);
    of session 67 only a song that won't open being skipped is unreported. The rest
    of sessions 67 and 68 is confirmed (2026-10-22). Ask; don't re-explain.
-2. **Releases** (*Releases*): **v0.8.0 released and installed** (2026-10-22, session
-   69) at the user's OK of the version and notes; nothing unreleased.
+2. **Releases** (*Releases*): **v0.8.1 released and installed** (2026-10-24, session
+   71) at the user's OK of the notes (they picked 0.8.1 over the 0.9.0 offered);
+   nothing unreleased.
 3. **The close X** (step 4): "It's working well so far" right after session 66's
    install. Ask whether it has ignored a click since and whether the window buttons'
    hover highlight still shows. Either way, read the `titlebar:` lines in
@@ -612,7 +613,12 @@ it reads the new number in the release build.
   - **The beat screen finished** (14:19). The visualizer has since been removed
     (session 65).
   - The user has seen PS2 Dark's glows and search selection on screen: "looks good".
-- **Last release: v0.8.0** (2026-10-22, session 69, tag on `4893ac4` "Version 0.8.0",
+- **Last release: v0.8.1** (2026-10-24, session 71, tag on `7b2766a` "Version 0.8.1",
+  60.7 MB zip, 19 files, the same names as v0.8.0): sessions 70 and 71, so cut-off
+  covers, the status bar's ×, and session 60's seven remaining findings. Notes grouped
+  New / Improved / Fixed, approved by the user, who named the version 0.8.1 (0.9.0
+  was offered). Installed 16:53 (AudioFool not running; 19 files hash-identical, exe
+  0.8.1). Before it: v0.8.0 (2026-10-22, session 69, tag on `4893ac4` "Version 0.8.0",
   60.7 MB zip, 19 files, the same names as v0.7.0): sessions 66–69, so the close-X
   safety net, Find and Replace on a selection, the review's small UI fixes, playlists
   and clearances saved safely, the playback fixes, drives noticed while running, the
