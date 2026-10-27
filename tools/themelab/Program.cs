@@ -236,7 +236,7 @@ internal static partial class Program
 
         // --window queue plays for real, and the engine posts its events to the
         // context it is built on - as the app's does - so it needs one first.
-        if (which is "queue" or "clicks" or "seek" or "rowclick" or "openfiles" or "analysis" or "clear" or "waveform" or "device" or "splice" or "ratechange" or "lend" or "playbackfixes" or "themeswitch" || Arg(args, "--qualitycheck") is not null
+        if (which is "queue" or "clicks" or "seek" or "rowclick" or "openfiles" or "analysis" or "clear" or "waveform" or "device" or "splice" or "ratechange" or "lend" or "playbackfixes" or "themeswitch" or "queueend" || Arg(args, "--qualitycheck") is not null
             || Arg(args, "--restoreplay") is not null)
             SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(Dispatcher.CurrentDispatcher));
 
@@ -428,6 +428,9 @@ internal static partial class Program
 
         if (which == "nowplayingjump")
             return RunNowPlayingJump(main, vm);
+
+        if (which == "queueend")
+            return RunQueueEnd(main, vm, engine, runtime, outPath, w, h, scale);
 
         // --paused 1: the sample track loaded but not playing, so the transport
         // key shows Play rather than Pause.

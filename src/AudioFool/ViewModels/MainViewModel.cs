@@ -1129,11 +1129,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// <summary>
     /// Fills the now-playing bar with last time's track (the user's request), at
     /// 0:00 and stopped: nothing is loaded into the engine and nothing is sent to
-    /// Last.fm. Pressing Play starts this track, in its album.
+    /// Last.fm. Pressing Play starts this track, in its album, or in
+    /// <paramref name="queue"/> when one is given.
     /// </summary>
-    private void ShowRestoredTrack(Track track)
+    private void ShowRestoredTrack(Track track, IReadOnlyList<Track>? queue = null)
     {
-        _restoredQueue = Tracks.ToList();
+        _restoredQueue = (queue ?? Tracks).ToList();
 
         NowPlaying = track;
         DurationSeconds = track.Duration.TotalSeconds;
@@ -2593,10 +2594,24 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// The end of the queue: back to its first song (the user's request, session
+    /// 72), shown as at startup: 0:00, stopped, its cover. Play starts the queue
+    /// again from there; the lists aren't moved.
+    /// </summary>
     private void OnEnginePlaybackFinished(object? sender, EventArgs e)
     {
-        NowPlaying = null;
-        NowPlayingArt = null;
+        var queue = _engine.Queue;
+        if (queue.Count == 0)
+        {
+            NowPlaying = null;
+            NowPlayingArt = null;
+            return;
+        }
+
+        var first = LibraryCopyOf(queue[0]);
+        RememberLastPlayed(first);
+        ShowRestoredTrack(first, queue);
     }
 
     /// <summary>Next, Previous or the queue moving on passed over songs that wouldn't open (session 67).</summary>

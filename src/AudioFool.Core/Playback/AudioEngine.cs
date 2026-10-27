@@ -204,6 +204,19 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     }
 
     /// <summary>
+    /// A copy of the queue last played, in its own order (shuffle aside). Kept
+    /// after the end of the queue, so the first song can be shown again.
+    /// </summary>
+    public IReadOnlyList<Track> Queue
+    {
+        get
+        {
+            lock (_gate)
+                return [.. _queue];
+        }
+    }
+
+    /// <summary>
     /// Whether a stream is decoding <paramref name="path"/> right now: the current
     /// track (paused included) or the next one, opened ahead for the gapless
     /// handover. A tag save that resizes such a file moves the audio under the
