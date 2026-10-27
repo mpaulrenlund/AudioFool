@@ -809,6 +809,12 @@ and the next play opens it afresh (none of the old buffer is heard). At the end 
 queue the last ~0.2 s plays out first. While stopped in Bit-Perfect the volume slider
 stays greyed, as it will be when the next track starts.
 
+**The end of a queue goes back to its first song.** When the last song of an album (or
+playlist) finishes, the now-playing bar shows the queue's first song at 0:00, with its
+cover, still stopped: Play starts the album again from the top. With shuffle on it is
+still the first song in the album's order. The lists aren't moved, nothing is sent to
+Last.fm, and that first song is what the next launch opens on.
+
 **A track that is closed and opened again carries on from what you heard**: a save that
 needs the playing file, a change of sound device, Bit-Perfect switched mid-track, the
 About intro. Until session 67 it carried on from the decoder's place, up to 0.2 s

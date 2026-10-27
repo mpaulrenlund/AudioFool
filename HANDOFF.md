@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-23, session 71. Read this alongside `README.md`: the README covers
+Updated 2026-10-27, session 72. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -170,6 +170,11 @@ maximised on the second monitor, Ctrl+J under a search, Last.fm still connected
 after the update.
 **Released as v0.8.1** (2026-10-24): sessions 70 and 71.
 
+Then **session 72** (2026-10-27): **the end of a queue goes back to its first song**
+(the user's request, the plan approved as proposed): the now-playing bar shows the
+first song at 0:00, its cover, stopped; Play starts the album from there. See *Where
+things are*. Unreleased.
+
 **988 tests** pass. Since session 63 an install is checked by hashing the files, not
 by launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
 playback.log* under Gotchas).
@@ -198,6 +203,19 @@ it reads the new number in the release build.
 ### Where things are
 
 - **Everything in `README.md` is implemented and verified.** **988 tests** pass.
+- **Session 72** (2026-10-27): **the end of a queue goes back to its first song** (the
+  user's request; README *The end of a queue goes back to its first song*,
+  `design/progress.md`). Until now `OnEnginePlaybackFinished` cleared the bar. It now
+  shows the queue's first song (`AudioEngine.Queue`, a copy kept after the end) through
+  `ShowRestoredTrack(track, queue)`, the launch's path: 0:00, its length and cover,
+  stopped, nothing to Last.fm. Play starts the queue from it (`PlayRestoredTrack`).
+  Shuffle on: still the first in queue order. The lists don't move. The song is
+  remembered for the next launch. Next and Previous while stopped are unchanged: the
+  engine's place is still the last song, so Previous plays the one before it.
+  ThemeLab `--window queueend` (new): ALL OK in Light and Dark. One unnamed unit test
+  failed once in the first run, then passed five runs in a row. Installed 13:54 at
+  the user's OK (AudioFool closed through UI Automation's window Close, so it shut
+  down normally; 19 files hash-identical). **Not yet seen by the user.**
 - **Session 71** (2026-10-23): **cut-off covers on the real library, done.** The user
   ran *Check covers* (27,095 songs read). Two albums came up, each cut off in every
   copy (all songs' embedded picture and `cover.jpg` the same bytes):
@@ -664,6 +682,10 @@ it reads the new number in the release build.
 - **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
 
 Recent sessions, newest first (full notes in `HISTORY.md`):
+
+- **72** (2026-10-27): **the end of a queue goes back to its first song**, at 0:00 with
+  its cover, stopped. `--window queueend` ALL OK in both themes. See *Where things
+  are*.
 
 - **71** (2026-10-23): **cut-off covers on the real library**: two albums found;
   the user gave both new covers (now whole everywhere); FLO already whole. Then **a
@@ -1481,6 +1503,7 @@ ThemeLab.exe --window dialogplacement   # a hidden main window on each monitor, 
 ThemeLab.exe --window playfailure   # the real engine and BASS on a missing file, an unused drive letter, text named .flac and a file this process holds: each PlayFailure and its line; nothing reaches the device (session 71)
 ThemeLab.exe --window nowplayingjump   # Ctrl+J over the real library.json (read only): its album, the song selected, a search/filter cleared only when it hides the song (session 71)
 ThemeLab.exe --window statusfilter [--theme dark] [--dpi 1.25]   # the status bar's ×, over the real library.json (read only): a filter (hidden/shown, right after the text, trimmed long line, hover, a click clears and restores the totals), then one-off messages (scan counts, a save; none while scanning or saving, none on a search's line); renders <out>-off/-on/-saved/-long/-hover/-scan.png; "ALL OK" (session 71)
+ThemeLab.exe --window queueend [--theme dark]   # the end of a queue through the real engine (shared, 5%, silent WAVs, a blue cover.jpg) and the view model: the bar back on the first song at 0:00, its cover, stopped, device let go; Play starts from it; shuffle; a one-song queue; renders <out>-end.png; "ALL OK" (session 72). Run with Start-Process -Wait -RedirectStandardOutput to see its lines
 ThemeLab.exe --window headerpress           # a press on a letter of each Songs header (a LetterSpacing Run), then the header's click: no exception, each sorts; "ALL OK" (session 68)
 ThemeLab.exe --window drives                # drives plugged in and pulled out while running, on subst letters (Q:-Y:): an unrelated drive, the music drive pulled, back under another letter (lists, queue, now playing, Next), back under the same letter, F5 alone; silent; "ALL OK" (session 68)
 ThemeLab.exe --window tokens --out tokens.png   # the central theme: lookups from MainWindow, XAML usage, fonts, specimen

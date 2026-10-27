@@ -4714,6 +4714,24 @@ when it's all there is; its own section):
   shows the message. Installed 19:31 (19 files hash-identical). Not tried on the real
   library.
 
+### Session 72 (2026-10-27): the end of a queue goes back to its first song
+
+The user's request: when an album ends, the now-playing bar should go back to its first
+song at 0:00, the cover still showing, the music staying stopped. The plan was
+approved as proposed: for playlists and other queues, the first song of the queue;
+with shuffle on, the first in queue order; the lists don't move; the first song is
+remembered for the next launch.
+
+- `AudioEngine.Queue`: a copy of the queue last played, kept after it ends.
+- `MainViewModel.OnEnginePlaybackFinished` no longer clears the bar. It shows the
+  queue's first song through `ShowRestoredTrack(track, queue)`, the launch's "last
+  time's song" path, which now takes the queue Play should start. `RememberLastPlayed`
+  records that song.
+- ThemeLab `--window queueend` (new, `QueueEndCase.cs`): ALL OK in Light and Dark.
+  No new unit test: the choice is one line, and the check runs through the real engine.
+  988 tests; one unnamed test failed once and then passed five runs in a row.
+  Installed 13:54 at the user's OK (19 files hash-identical).
+
 ---
 
 ## Reference notes retired from the handoff
