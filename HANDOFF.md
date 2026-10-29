@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-27, session 72. Read this alongside `README.md`: the README covers
+Updated 2026-10-28, session 72. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -96,9 +96,9 @@ the only thing that catches a file you forgot to track.
 
 ### Releases
 
-Ten so far, all on GitHub (private, so downloads need a signed-in account):
+Eleven so far, all on GitHub (private, so downloads need a signed-in account):
 **v0.1.0** (2026-09-30, the user by hand), **v0.2.0** (2026-10-02), **v0.3.0**
-(2026-10-09, session 45), **v0.4.0** (2026-10-12, session 47), **v0.5.0** (2026-10-13, session 48), **v0.6.0** and **v0.6.1** (both 2026-10-15, session 54), **v0.7.0** (2026-10-21, session 65), **v0.8.0** (2026-10-22, session 69), **v0.8.1** (2026-10-24, session 71); every one after v0.1.0 by Claude.
+(2026-10-09, session 45), **v0.4.0** (2026-10-12, session 47), **v0.5.0** (2026-10-13, session 48), **v0.6.0** and **v0.6.1** (both 2026-10-15, session 54), **v0.7.0** (2026-10-21, session 65), **v0.8.0** (2026-10-22, session 69), **v0.8.1** (2026-10-24, session 71), **v0.9.0** (2026-10-28, session 72); every one after v0.1.0 by Claude.
 `AudioFool.csproj` starts with a byte-order mark: keep it when bumping the version
 (v0.6.0's bump dropped it and needed a follow-up commit). Handle a release end to end when asked, but
 **confirm the version number and the notes with the user before `gh release create`**:
@@ -173,7 +173,8 @@ after the update.
 Then **session 72** (2026-10-27): **the end of a queue goes back to its first song**
 (the user's request, the plan approved as proposed): the now-playing bar shows the
 first song at 0:00, its cover, stopped; Play starts the album from there. See *Where
-things are*. Unreleased.
+things are*. **Confirmed by the user** ("looks good"). **Released as v0.9.0**
+(2026-10-28) and installed.
 
 **988 tests** pass. Since session 63 an install is checked by hashing the files, not
 by launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
@@ -185,8 +186,8 @@ Open with the user, in this order (each is under *Suggested next steps*):
    with AudioFool open, plug it back in, under a new letter if Windows gives one);
    of session 67 only a song that won't open being skipped is unreported. The rest
    of sessions 67 and 68 is confirmed (2026-10-22). Ask; don't re-explain.
-2. **Releases** (*Releases*): **v0.8.1 released and installed** (2026-10-24, session
-   71) at the user's OK of the notes (they picked 0.8.1 over the 0.9.0 offered);
+2. **Releases** (*Releases*): **v0.9.0 released and installed** (2026-10-28, session
+   72) at the user's OK of the notes (they picked 0.9.0 over the 0.8.2 offered);
    nothing unreleased.
 3. **The close X** (step 4): "It's working well so far" right after session 66's
    install. Ask whether it has ignored a click since and whether the window buttons'
@@ -215,7 +216,8 @@ it reads the new number in the release build.
   ThemeLab `--window queueend` (new): ALL OK in Light and Dark. One unnamed unit test
   failed once in the first run, then passed five runs in a row. Installed 13:54 at
   the user's OK (AudioFool closed through UI Automation's window Close, so it shut
-  down normally; 19 files hash-identical). **Not yet seen by the user.**
+  down normally; 19 files hash-identical). Committed `3d83668` and pushed. **Confirmed
+  by the user** (2026-10-28): "looks good". Released as v0.9.0.
 - **Session 71** (2026-10-23): **cut-off covers on the real library, done.** The user
   ran *Check covers* (27,095 songs read). Two albums came up, each cut off in every
   copy (all songs' embedded picture and `cover.jpg` the same bytes):
@@ -631,7 +633,11 @@ it reads the new number in the release build.
   - **The beat screen finished** (14:19). The visualizer has since been removed
     (session 65).
   - The user has seen PS2 Dark's glows and search selection on screen: "looks good".
-- **Last release: v0.8.1** (2026-10-24, session 71, tag on `7b2766a` "Version 0.8.1",
+- **Last release: v0.9.0** (2026-10-28, session 72, tag on `4762fbd` "Version 0.9.0",
+  60.7 MB zip, 19 files, the same names as v0.8.1): session 72, the end of a queue
+  going back to its first song. Notes under Improved, approved by the user, who picked
+  0.9.0 over the 0.8.2 offered. Installed 18:16 (AudioFool not running; 19 files
+  hash-identical, exe 0.9.0). Before it: v0.8.1 (2026-10-24, session 71, tag on `7b2766a` "Version 0.8.1",
   60.7 MB zip, 19 files, the same names as v0.8.0): sessions 70 and 71, so cut-off
   covers, the status bar's ×, and session 60's seven remaining findings. Notes grouped
   New / Improved / Fixed, approved by the user, who named the version 0.8.1 (0.9.0
@@ -684,7 +690,8 @@ it reads the new number in the release build.
 Recent sessions, newest first (full notes in `HISTORY.md`):
 
 - **72** (2026-10-27): **the end of a queue goes back to its first song**, at 0:00 with
-  its cover, stopped. `--window queueend` ALL OK in both themes. See *Where things
+  its cover, stopped. `--window queueend` ALL OK in both themes; confirmed by the
+  user. Then **v0.9.0 released** (tag on `4762fbd`) and installed. See *Where things
   are*.
 
 - **71** (2026-10-23): **cut-off covers on the real library**: two albums found;

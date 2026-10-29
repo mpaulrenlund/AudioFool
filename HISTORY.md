@@ -4730,7 +4730,11 @@ remembered for the next launch.
 - ThemeLab `--window queueend` (new, `QueueEndCase.cs`): ALL OK in Light and Dark.
   No new unit test: the choice is one line, and the check runs through the real engine.
   988 tests; one unnamed test failed once and then passed five runs in a row.
-  Installed 13:54 at the user's OK (19 files hash-identical).
+  Installed 13:54 at the user's OK (19 files hash-identical). Committed `3d83668`,
+  pushed. Confirmed by the user (2026-10-28): "looks good".
+- **v0.9.0 released** (2026-10-28): tag on `4762fbd` "Version 0.9.0", 60.7 MB zip, the
+  same 19 files as v0.8.1, notes under Improved. The user picked 0.9.0 over 0.8.2.
+  Installed 18:16 (19 files hash-identical, exe 0.9.0).
 
 ---
 
