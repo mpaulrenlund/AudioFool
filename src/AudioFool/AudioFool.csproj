@@ -25,7 +25,7 @@
     <AssemblyName>AudioFool</AssemblyName>
     <RootNamespace>AudioFool</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.8.1</Version>
+    <Version>0.9.0</Version>
     <Product>AudioFool</Product>
 
     <!--
