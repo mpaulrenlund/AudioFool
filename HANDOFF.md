@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-28, session 72. Read this alongside `README.md`: the README covers
+Updated 2026-10-30, session 73. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -17,7 +17,7 @@ you need the story behind a piece of code, not at the start of every session.
 | Settings | `%APPDATA%\AudioFool\settings.json` |
 | Scan cache | `%LOCALAPPDATA%\AudioFool\library.json` (~13 MB) |
 | Saved cover thumbnails | `%LOCALAPPDATA%\AudioFool\art\` (~11 MB, disposable; session 47) |
-| Playback log | `%LOCALAPPDATA%\AudioFool\playback.log` (stall diagnostics, rolls at 4 MB; session 48; first stutter read: see session 48 below). Readable from Claude's shell as long as the shell never writes it |
+| Playback log | `%LOCALAPPDATA%\AudioFool\playback.log` (stall diagnostics, rolls at 4 MB; session 48; the first stutter reads are under sessions 48–49 in `HISTORY.md`). Readable from Claude's shell as long as the shell never writes it |
 | Native BASS DLLs | `C:\MusicPlayer\lib\bass\x64\` (13 of them) |
 | Music library | `D:\Music` — external 4 TB SSD "Marc SSD", ~26,000 tracks, 692 GB |
 | Session history | `C:\MusicPlayer\HISTORY.md` (what each session changed, oldest first) |
@@ -51,7 +51,7 @@ Get-ChildItem C:\MusicPlayer\publish -Filter *.pdb | Remove-Item -Force
 Copy-Item "C:\MusicPlayer\publish\*" (Join-Path $env:LOCALAPPDATA "Programs\AudioFool") -Recurse -Force
 ```
 
-Two shell notes:
+Three shell notes:
 
 - `dotnet` is not on PATH in a fresh shell. Prefix with
   `$env:PATH = "C:\Program Files\dotnet;$env:PATH"`.
@@ -96,9 +96,9 @@ the only thing that catches a file you forgot to track.
 
 ### Releases
 
-Eleven so far, all on GitHub (private, so downloads need a signed-in account):
-**v0.1.0** (2026-09-30, the user by hand), **v0.2.0** (2026-10-02), **v0.3.0**
-(2026-10-09, session 45), **v0.4.0** (2026-10-12, session 47), **v0.5.0** (2026-10-13, session 48), **v0.6.0** and **v0.6.1** (both 2026-10-15, session 54), **v0.7.0** (2026-10-21, session 65), **v0.8.0** (2026-10-22, session 69), **v0.8.1** (2026-10-24, session 71), **v0.9.0** (2026-10-28, session 72); every one after v0.1.0 by Claude.
+All on GitHub (private, so downloads need a signed-in account); `gh release list` has
+them all. **Latest: v0.9.0** (2026-10-28, session 72, tag on `4762fbd`, 60.7 MB zip,
+19 files). Every one after v0.1.0 was made by Claude.
 `AudioFool.csproj` starts with a byte-order mark: keep it when bumping the version
 (v0.6.0's bump dropped it and needed a follow-up commit). Handle a release end to end when asked, but
 **confirm the version number and the notes with the user before `gh release create`**:
@@ -108,12 +108,13 @@ it publishes a tag. Middle number for new features, last for fixes only.
 2. Bump `<Version>` in `src/AudioFool/AudioFool.csproj` (the only place it lives),
    commit ("Version x.y.z") and push, so the tag lands on that commit.
 3. Fresh `dotnet publish` (the command above), then delete `publish\*.pdb`. Check
-   `(Get-Item publish\AudioFool.exe).VersionInfo.ProductVersion` shows the new version.
+   `(Get-Item publish\AudioFool.exe).VersionInfo.ProductVersion` shows the new version
+   (About's version line reads it, so it follows by itself).
 4. Compare the file list with the last release (`gh release download v<old> --dir
    <temp>`, unzip, `Compare-Object` the names): **19 files** (the exe, 13 BASS DLLs,
    5 WPF native DLLs). A missing loose DLL breaks the app on another machine.
 5. `Compress-Archive publish\* $env:TEMP\AudioFool-<ver>-win-x64.zip` (never inside
-   the repo). 0.3.0 was 60 MB.
+   the repo). About 60 MB.
 6. Notes in a file (dodges quoting): `gh release create v<ver> <zip> --target main
    --title "AudioFool <ver>" --notes-file <file>`, then `git fetch --tags`.
 7. Check the tag with `git rev-list -n 1 v<ver>`. **Not `git rev-parse v<ver>^{commit}`**:
@@ -122,863 +123,51 @@ it publishes a tag. Middle number for new features, last for fixes only.
    playback, so say so).
 
 The notes are written for the user, grouped New / Improved / Fixed, from
-`git log v<old>..HEAD` with the Docs and ThemeLab commits left out. **One exception:**
-`275921e` "Docs: the Bit-Perfect rate-change tail" also holds the code fix (a rate
-change in Bit-Perfect no longer cuts the old track's last ~0.2 s); its own commit
-failed on the message's quotes. Include it under Fixed.
+`git log v<old>..HEAD` with the Docs and ThemeLab commits left out.
 
 Write commit messages to a file and use `git commit -F <file>`: in Windows
 PowerShell 5.1 a double quote inside a here-string message breaks the argument
-and the commit fails, as it did for `275921e`.
+and the commit fails.
 
 ---
 
 ## State at handoff
 
-### Start of the next session
-
-Session 68 (2026-10-22): the user confirmed nearly all of session 67 (see step 1),
-then four pieces, each built, checked with ThemeLab, installed, committed and pushed
-(details under *Where things are*):
-
-1. **Drives noticed while AudioFool runs**: F5 relocates a music folder back under
-   another letter, and a drive plugged in or pulled out refreshes the library by
-   itself, re-pointing the lists, the play queue and the song playing
-   (`--window drives`).
-2. **A crash sorting the Songs table** fixed: a press right on a header letter threw
-   (`--window headerpress`).
-3. **A single click on the status line opens Statistics**, underlined on hover
-   (`--window statusclick`).
-4. **"FLAC · 1,364 kbps · 24 bit · 44.1 kHz"** in the now-playing bar above the
-   quality tier (`--window nowplayinglines`). Confirmed by the user.
-
-Then **session 69** (2026-10-22): **the tag-save fixes**, session 66's fourth pick,
-the plan approved as proposed. Built, tested, checked with ThemeLab, installed 18:11
-(19 files hash-identical); see *Where things are*.
-
-Then **session 70** (2026-10-22): **cut-off covers** caught and kept out, the plan
-approved with both recommended answers. Built, tested, checked with ThemeLab,
-installed 19:31 (19 files hash-identical); see *Where things are*. Released in v0.8.1.
-
-Then **session 71** (2026-10-23): the user ran *Check covers* on the real library;
-cut-off covers checked off; then a × in the status bar that clears a Statistics
-filter, installed, not yet seen by the user; then the same × dismisses any
-one-off message, installed 08:06, not yet seen by the user; then session 60's
-seven remaining review findings, installed 11:43, not yet seen by the user (see
-*Where things are*, session 71). Ask the user to try: a dialog with the main window
-maximised on the second monitor, Ctrl+J under a search, Last.fm still connected
-after the update.
-**Released as v0.8.1** (2026-10-24): sessions 70 and 71.
-
-Then **session 72** (2026-10-27): **the end of a queue goes back to its first song**
-(the user's request, the plan approved as proposed): the now-playing bar shows the
-first song at 0:00, its cover, stopped; Play starts the album from there. See *Where
-things are*. **Confirmed by the user** ("looks good"). **Released as v0.9.0**
-(2026-10-28) and installed.
-
-**988 tests** pass. Since session 63 an install is checked by hashing the files, not
-by launching AudioFool from Claude's shell (see *A launch from Claude's shell writes
-playback.log* under Gotchas).
-
-Open with the user, in this order (each is under *Suggested next steps*):
-
-1. **What they've tried** (step 1): session 69's tag saves are confirmed; session 68's drives with the real SSD (pull it
-   with AudioFool open, plug it back in, under a new letter if Windows gives one);
-   of session 67 only a song that won't open being skipped is unreported. The rest
-   of sessions 67 and 68 is confirmed (2026-10-22). Ask; don't re-explain.
-2. **Releases** (*Releases*): **v0.9.0 released and installed** (2026-10-28, session
-   72) at the user's OK of the notes (they picked 0.9.0 over the 0.8.2 offered);
-   nothing unreleased.
-3. **The close X** (step 4): "It's working well so far" right after session 66's
-   install. Ask whether it has ignored a click since and whether the window buttons'
-   hover highlight still shows. Either way, read the `titlebar:` lines in
-   `playback.log`: "the safety net clicked it" marks a lost click it caught, and the
-   "hit test at" lines before it say what wiped WPF-UI's mark.
-4. **What to take next** (step 6): session 66's order is done (sessions 67–69); next
-   is **the queue view** (step 3), or one of step 6's remaining findings. The user
-   picks.
-
-About's version line reads the exe's version, so a bump shows there by itself; check
-it reads the new number in the release build.
-
-### Where things are
+### Where things stand
 
 - **Everything in `README.md` is implemented and verified.** **988 tests** pass.
-- **Session 72** (2026-10-27): **the end of a queue goes back to its first song** (the
-  user's request; README *The end of a queue goes back to its first song*,
-  `design/progress.md`). Until now `OnEnginePlaybackFinished` cleared the bar. It now
-  shows the queue's first song (`AudioEngine.Queue`, a copy kept after the end) through
-  `ShowRestoredTrack(track, queue)`, the launch's path: 0:00, its length and cover,
-  stopped, nothing to Last.fm. Play starts the queue from it (`PlayRestoredTrack`).
-  Shuffle on: still the first in queue order. The lists don't move. The song is
-  remembered for the next launch. Next and Previous while stopped are unchanged: the
-  engine's place is still the last song, so Previous plays the one before it.
-  ThemeLab `--window queueend` (new): ALL OK in Light and Dark. One unnamed unit test
-  failed once in the first run, then passed five runs in a row. Installed 13:54 at
-  the user's OK (AudioFool closed through UI Automation's window Close, so it shut
-  down normally; 19 files hash-identical). Committed `3d83668` and pushed. **Confirmed
-  by the user** (2026-10-28): "looks good". Released as v0.9.0.
-- **Session 71** (2026-10-23): **cut-off covers on the real library, done.** The user
-  ran *Check covers* (27,095 songs read). Two albums came up, each cut off in every
-  copy (all songs' embedded picture and `cover.jpg` the same bytes):
-  - **Night Verses, *Live Sessions Vol. 1*** (4 songs, 1400×1400, exactly 1,835,008
-    bytes: a stopped download; files from 2026-07-28, before AudioFool touched them).
-    **The user saved a new cover**: now 3000×3000, whole in all four songs and
-    `cover.jpg`.
-  - **311, *Full Bloom*** (10 songs, 1500×1500): only its last bytes are missing (no
-    end marker). WIC draws all of it, no grey band; the user: "311 seems fine". **Then
-    the user saved a new cover anyway**: 1400×1400, whole in all ten songs and
-    `cover.jpg`. The songs changed, so the next *Check covers* reads them again and
-    CUT-OFF COVERS should then be empty. The old `cover.jpg` was already cut off in March 2026, before
-    AudioFool; the songs were rewritten 2026-10-08 by session 44's Keep Best Cover
-    run, so whether a smaller whole copy was dropped then can't be known (no backup).
-  - **FLO**: all three albums are whole now. *FLO - Chill*'s songs, `cover.jpg` and
-    saved thumbnails were all rewritten 2026-10-20 12:04 (a new cover saved in the
-    app), which fixed the one the user saw.
-  - The check deleted both albums' saved thumbnails, as built. Six grey-bottomed
-    96 px thumbnails from 2026-10-14 remain in `art\`, keyed to none of these albums;
-    harmless leftovers.
-  - **Then a bare × after the status text clears a Statistics filter** (the user's
-    request: they hadn't noticed the title bar's chip and used Refresh to get the
-    totals back; they picked a bare × over a chip). `StatusClearFilter` in
-    `MainWindow.xaml`, beside `StatusLine` in a left-aligned grid; runs
-    `ClearLibraryFilterCommand`. No new tokens; spec §6.8 and `design/progress.md`.
-    ThemeLab `--window statusfilter` (new) ALL OK in Light and Dark at 100% and 125%;
-    with no filter 0 pixels different from HEAD (main, paused, scanning, stats).
-    968 tests. Installed 07:44 (AudioFool not running; 19 files hash-identical).
-    **Not yet seen by the user.**
-  - **Then the same × dismisses any one-off message** (the user asked for a scan's
-    new and removed tracks, then picked "any one-off message"): `CanDismissStatus`
-    (the line differs from `DescribeStatus(default)`, nothing under way, library not
-    empty, or a filter on), `DismissStatusCommand`, `StatusDismissName`; the button
-    renamed `StatusDismiss`. Resting warnings get no ×. `--window statusfilter`
-    extended: ALL OK in both themes at 100% and 125%; 0 pixels different at rest.
-    968 tests. Installed 08:06 at the user's OK (AudioFool closed through UI
-    Automation's window Close, so it shut down normally; 19 files hash-identical).
-    **Not yet seen by the user.**
-  - **Then session 60's remaining review findings** (the user asked for all seven;
-    the plan approved with both recommended answers). 988 tests (20 new). Installed
-    11:43 (AudioFool not running; 19 files hash-identical). **None yet seen by the
-    user.**
-    - **Windows open over the main window as it is, on its monitor**
-      (`Services/DialogPlacement`, Find and Replace's helpers moved there): tag
-      windows, Statistics (its height cap too), prompts, Last.fm, the art viewer (its
-      size cap too), Analyze (kept on its own monitor as it grows). ThemeLab
-      `--window dialogplacement` (new; hidden windows on each of the three monitors):
-      ALL OK. Not seen on a real second monitor by the user.
-    - **A failed play says why** (`Core/Playback/PlayFailure`, `AudioEngine.LastPlayFailure`,
-      `MainViewModel.DescribePlayFailure`): drive not connected, file gone, file held by
-      another program, the device's own reason, or a real format failure. ThemeLab
-      `--window playfailure` (new, the real engine and BASS, nothing reaches the
-      device): ALL OK for the four file cases; the device case is unit-tested only.
-    - **Ctrl+J and the now-playing title**: the album holding the song's file, the song
-      selected and scrolled to (`RevealTrackRequested`), a search or filter cleared only
-      when it hides the song (the user's call). ThemeLab `--window nowplayingjump`
-      (new, real library.json): ALL OK; the library has no artist with two albums of
-      one title, so that case wasn't met.
-    - **Clearances tell discs apart**: the name-artist-album fallback also needs the
-      same folder name (`QualityClearances.SameSong`); a moved drive or music folder
-      still matches. Three new tests failed on the old code.
-    - **Analyze on a file under ~46 ms**: the column clamped at 0; the new 20 ms test
-      failed on the old code.
-    - **library.json and scrobbles.json saved safely** (`SafeJsonFile`, now with a
-      streaming `Write(path, Action<Stream>)` and a streamed read): flushed, swapped
-      in, `.bak` kept and read when the file is missing or damaged (a damaged one is
-      moved aside as `library.unreadable-….json`). `LibraryCache.Load/Save` take an
-      optional path for the tests; `Delete` removes the backup too. The first save
-      after the install makes `library.json.bak` (~15 MB).
-    - **The Last.fm secret and session key encrypted** with DPAPI, current user
-      (`Settings/ProtectedStringConverter`, P/Invoke to crypt32, no new package):
-      `"dpapi:…"` in the file; a plain value from before is read and encrypted at the
-      next save (settings.json.bak keeps the plain one until the save after); one that
-      can't be decrypted (another PC, damaged) reads as missing, so Last.fm asks to
-      connect again.
-- **Session 70** (2026-10-22): **cut-off covers** (the user saw two albums showing only
-  the top of their cover, one Marcus Johnson's *FLO*; README *Cut-off covers*,
-  `design/progress.md`; details in `HISTORY.md`):
-  - **Why:** WIC decodes a JPEG whose data stops early without an error: the rows it
-    has, then flat #808080 (a PNG: black). Checked on a fixture cut to 40%. The header
-    still gives the full size, so `BestCover` could pick a cut-off copy over a smaller
-    whole one, and Keep Best Cover keep it and drop the whole one (a test shows the
-    old pick; whether that happened to FLO is unknown until its files are read).
-  - **`Core/Art/CutOffImage`:** a JPEG walked block by block to the end marker after
-    its last scan (an APP1 thumbnail's own end is skipped over), a PNG chunk by chunk
-    to IEND; trailing bytes fine; anything else "not ours to judge". `IsFile` reads a
-    file's last 4 KB first and the whole file only when that isn't a clean end.
-    `WholeFirst` orders an album's pictures, lazily.
-  - **Shown:** `TagReader.BestCover` restricts to whole JPEG/PNG pictures when there are
-    any, before the front-cover rule. `AlbumArtService` tries the first five tracks'
-    covers and the folder file whole ones first (`AlbumPictures`, `TrackPictures`,
-    `DecodeFirst`); a cut-off one only when nothing else decodes. After a cover check,
-    the albums of songs it read with a cut-off picture lose their saved thumbnails
-    (`RedrawCutOffCovers`).
-  - **Kept out:** `ArtPayload.FromImage` returns null for a cut-off picture ("That image
-    is cut off." on the message line); `OnlineArtSearch.DownloadAsync` throws for one;
-    `UseDownloadedArt` refuses one; `EmbeddedArtExtractor` never writes one as
-    cover.jpg and replaces a bigger cut-off cover.jpg; `PngCoverConverter` skips a
-    cut-off PNG and doesn't count a cut-off JPEG beside one as a duplicate.
-  - **Found:** `CoverFinding.CutOff` (`CoverCache` version 3: the next check reads every
-    song again), `CutOffCoverStatistics`, `CutOffSectionViewModel`, Statistics' new
-    **CUT-OFF COVERS** section below PNG COVERS (two rows, built as PNG COVERS is).
-  - 40 new tests (`CutOffImageTests`, `CutOffCoverTests`, and in `BestCoverTests`,
-    `CoverCleanerTests`, `ArtPayloadTests`, `EmbeddedArtExtractorTests`,
-    `PngCoverConverterTests`). Three test files' made-up pictures (a header and filler)
-    now end properly, since the check called them cut off.
-  - ThemeLab `--window stats --cutoffdemo 1` (new): ALL OK in Light and Dark;
-    `--window tags --scratch <folder> --album x --pickimage <cut-off JPEG>`: the message.
-  - Installed 19:31 (AudioFool not running; 19 files hash-identical). Committed
-    `5db5ac5`, pushed. Tried on the real library in session 71 (above).
-- **Session 69** (2026-10-22): **the tag-save fixes** (session 60's four file-write
-  findings, each checked against the code first; README *Editing tags*, *A new cover
-  is the only cover*; details in `HISTORY.md`):
-  - **The song window keeps a song's other artists:** `TagWriter.WriteTrackTags`
-    writes Artist or Album Artist only when the box no longer reads the file's first
-    value (the reader's: first performer, else first album artist), so a title fix
-    leaves "A; B" alone, and a song with only an album artist isn't given an artist
-    tag. The library's copy takes the artist the file now reads.
-  - **A FLAC with an ID3v2 tag in front keeps a new cover in its own blocks:**
-    `TagPadding.TryShrink` looks through the FLAC PICTURE blocks before the ID3 frames
-    (the test failed before: no FLAC picture left).
-  - **Choose Image… judges the bytes:** `ArtPayload.FromImage` (JPEG or PNG by
-    `ImageInfo`, else null); `TagEditViewModel.UseImageFile` reads the file at the
-    pick and holds it (`_pickedArt`, shared with Search Internet), so a moved file no
-    longer stops Save; anything else: "That image isn't a JPEG or PNG." on the
-    message line (`design/progress.md`).
-  - **A cut-off picture frame no longer throws:** `TagPadding.FrameImage` returned
-    past the end of a frame ending at its MIME type, and `Array.IndexOf` threw
-    ArgumentOutOfRangeException, which nothing caught (reproduced by a test first).
-    `TidyCover` now catches anything, as the writer's contract says, and
-    `FinishAlbumDialogAsync` and the selection save name any error in the status bar.
-  - 15 new tests (`TrackEditArtistsTests`, `FlacCoverPlacementTests`,
-    `ArtPayloadTests`, `TruncatedPictureTests`). ThemeLab `--window tags --pickimage`
-    (new) in Light and Dark, renders looked at; `--window albumkeep` ALL OK.
-  - Installed 18:11 (AudioFool not running; 19 files hash-identical). Committed
-    `5a33adc`, pushed. **Confirmed by the user** (2026-10-22): "Fixes are working well".
-- **Session 68** (2026-10-22): **drives noticed while AudioFool runs** (session 66's
-  third pick; the user approved the plan with both extras, refresh on unplugging and
-  the queue re-pointed; README *When the drive letter changes*; details in
-  `HISTORY.md`):
-  - **F5, Ctrl+R and Refresh** run `RefreshCommand` (`MainViewModel.Drives.cs`):
-    `RelocateMovedFoldersAsync`, then the scan. `ScanCommand` is the scan alone.
-  - **Mid-session relocation** rebuilds the lists from the re-pointed tracks first
-    (a scan that finds nothing changed leaves the lists alone), then re-points the
-    engine's queue (`AudioEngine.Repoint`) and `NowPlaying` (`LibraryRelocator.MovedCopy`).
-    "Music folder moved to …" now stays after the scan (at startup too), unless a
-    warning outranks it.
-  - **`Services/DriveWatcher`** hears WM_DEVICECHANGE volume arrivals and removals on
-    the main window and reports 1.5 s after the last; `DriveChange.WorthRefresh` refreshes
-    only when a music folder has come or gone (or, on an arrival, is still missing). A
-    change during a scan waits for it and is judged again.
-  - ThemeLab `--window drives`: ALL OK (an unrelated drive ignored; pulled: the
-    warning; back under another letter: folder, lists, queue, now playing, both files
-    re-pointed and Next plays from it; back under the same letter: warning cleared; F5
-    alone relocates). Windows sends the notice for `subst` drives too.
-  - Installed 15:06, 19 files hash-identical. **Not yet tried by the user with the
-    real SSD.**
-  - **Then a crash sorting the Songs table** (the user's report): a press right on a
-    header letter starts at one of `LetterSpacing`'s Runs, and `FindAncestor` threw
-    climbing from it ("…Run' is not a Visual or Visual3D"). It now climbs a text
-    element's logical parent, as `IsWithin` does. ThemeLab `--window headerpress`: all
-    ten headers threw before, none now, each sorts. Installed 15:19. **Confirmed by
-    the user**: "working well".
-  - **Then a single click on the status line or its dot opens Statistics** (was a
-    double-click), with the hand pointer and the text underlined on hover (the user's
-    request; spec §6.8, `design/progress.md`). ThemeLab `--window statusclick` ALL OK
-    in both themes. Installed 15:26. **Confirmed by the user**: "working well".
-  - **Then "FLAC · 1,516 kbps · 96 kHz" back in the now-playing bar**, a fourth line
-    above the tier (`NowPlayingDetails`; the user's pick over bit depth · sample
-    rate). Fits: 85 px beside the 88 px art, bar height unchanged. ThemeLab
-    `--window nowplayinglines` ALL OK. Installed 15:33. **Confirmed by the user**
-    (a screenshot, "new track information looks good"). Then the bit depth before
-    the sample rate at their request ("FLAC · 1,364 kbps · 24 bit · 44.1 kHz"; none
-    for lossy), ThemeLab ALL OK. Installed 15:39 at the user's OK (AudioFool closed
-    normally through its window, 19 files hash-identical).
-- **Session 67** (2026-10-22), four pieces, each installed (AudioFool not running each
-  time, 19 files hash-identical), committed and pushed (details in `HISTORY.md`):
-- **67a, Find and Replace on the selected songs** (`f4a994d`), the user's request, the
-  plan approved as proposed. With two or more songs selected in the Songs table,
-  Ctrl+H or the logo menu looks only through those (`MainViewModel.NewFindReplace`,
-  `FindReplaceSongs(picked)`, looked up by path in `_library` at each Find), titled
-  "Find and Replace · 12 tracks" (`FindReplaceViewModel.WindowTitle`). Several
-  artists or albums selected don't count (offered, not taken: don't re-offer).
-  ThemeLab `--window findreplace` steps 10–11: ALL OK in Light, Dark and 125%.
-  **Confirmed by the user** (2026-10-22): "These all look good".
-- **67b, the small review fixes** (`dbde12f`; session 60's UI and project leads, the
-  user's calls on four, recorded in `design/progress.md`):
-  - "…" everywhere (two tag-window buttons and the progress lines); "Add Folder…",
-    "Remove Folder", "Album Art".
-  - **Every window title separates with " · "** (the user's pick): the main window,
-    so the taskbar and Alt-Tab, reads "Artist · Song"; the tag windows "Edit Album
-    Tags · X"; the art viewer "Artist · Album".
-  - **The main button first**: the tag window Save, Cancel; the art search Use Image,
-    Cancel, as the prompts have it.
-  - **Escape is Cancel** in the art search, and in a tag window too, but **asking Save
-    / Don't Save / Cancel first when something was typed** (`TagEditWindow.Window_KeyDown`;
-    Save in a following window saves, then closes once the owner re-enables it).
-  - The filter chip's text `text.status` (measured #33312F / #B3B9C4); spec §6.5,
-    §6.7, §6.8 brought up to the user's calls; README About no longer names v0.6.1;
-    the flaky test made sturdy (step 6).
-  - ThemeLab `--window albumeditor` steps 12–15 (Escape) as expected; the tag window,
-    art search and chip rendered in both themes, 0 magenta. **Confirmed by the user**
-    (2026-10-22): the button order, Escape asking first, and the " · " titles.
-- **67c, likes, playlists and clearances saved safely** (`ad165b6`, step 6's first
-  pick): `Core/Library/SafeJsonFile` is settings.json's save made shared (flushed
-  working file, `File.Replace`, `.bak`) plus a load that reads the backup when the file
-  is missing or damaged (moved aside as before) and shows it, read-only, when the file
-  is locked. `PlaylistStore`, `QualityClearances` and `AppSettings.Save` use it; a
-  store read from its backup writes its file again at once. `PlaylistStore.LoadedHow`
-  puts a warning in the status bar for the session (`MainViewModel.PlaylistsWarning`,
-  after the settings one); not seen on screen. Clearances' saves now go one at a time.
-  The first save after the install makes `playlists.json.bak` beside the real file.
-- **67d, the playback fixes as one batch** (`5689b7f`, step 6's second pick), the
-  decisions pulled out of `AudioEngine` into tested pieces: `PlayOrder.Candidates` (the
-  songs a play tries in turn), `TrackEnd.Decide` (the END sync's choice: RepeatOne,
-  Splice, Reopen, WaitForSave, OpenNext, Finish), `ReopenPoint.Choose`, `DopRule`.
-  What changed:
-  - **A song that won't open is skipped** by Next (forward), Previous (back), the end
-    of a track and a rate-change reopen (`PlayCore`'s `Skip`; a next track the
-    prefetch couldn't open is tried again at the END, once the last one is heard). The
-    engine raises `TracksSkipped`; the status bar names it. `Play` (a double-click)
-    and the public `JumpTo` still try only the song asked for.
-  - **Stop and the end of a queue let go of the device** (`CloseOutputLocked`); the end
-    waits for the last of it to be heard. Pause still holds it. `SupportsVolume` with no
-    device open follows the requested mode, so the slider stays greyed while stopped in
-    Bit-Perfect.
-  - **Reopens carry on from what was heard** (`Release` → `ReopenPoint.Choose(…, Heard,
-    Position)`): measured 0–1 ms from the heard place, where it was ~200 ms past it.
-  - **DoP never on a shared output**: not opened at a rate exclusive mode refused
-    (`DopRule.MayOpen`), not joined onto a shared output (`TrackEnd`: Reopen), and a
-    DoP stream that lands on one (refused just now) is opened again as PCM
-    (`AttachOutputLocked`; that last path not staged on hardware: a DAC held elsewhere
-    refuses shared mode too).
-  - ThemeLab `--window playbackfixes` on the DX5, silence only (WAVs, a DSF of DSD's
-    idle pattern): ALL OK. `--window lend`, `ratechange` (with `--stopinwait`), `queue`,
-    `splice` and `device` rerun: all OK, after `lend`, `queue` and `device` were set to
-    compare a reopen with the heard place. 903 tests (19 new).
-  - **Confirmed by the user** (2026-10-22): "Turning bit-perfect off and on is working
-    well" (the reopen at the heard place); then Stop and the end of a queue letting go
-    of the DAC, and a DSD album in Bit-Perfect: "These both check out as well".
-    Skipping a song that won't open not yet reported.
-- **Session 66** (2026-10-22): **the close X caught in the act, and a safety net**
-  (details in `HISTORY.md`):
-  - The user's Statistics X ignored 19 clicks in a row, then closed on the 20th. Each
-    was a clean non-client press and release on the X: no capture, no
-    WM_NCMOUSELEAVE, the pointer still, yet WPF-UI's `_isClickedDown` was False at
-    every release (True in all 40-odd working clicks since 20 October). In WPF-UI
-    4.3.0's source only `RemoveHover` clears the mark between press and release, from a
-    WM_NCHITTEST that isn't over the X (or is over another button) or a mouse leave;
-    hit tests are sent, never queued, so the log couldn't see them. WPF-UI also ignores
-    WM_NCLBUTTONDBLCLK, so a double-click's second press never counts. Suspect: another
-    program asking the window "what's here?" (PowerToys, Logi Options+, ShareX and
-    Teams run on the laptop); not proven.
-  - **`Services/CloseButtonSafetyNet`**: after a press and a release both on the X, if
-    WPF-UI raised no CloseClicked, it calls the X's own `InvokeClick()` (see *The close
-    X: safety net and click log*).
-  - **The click log** adds every hit test between a press on the X and its release,
-    through a `WH_CALLWNDPROC` hook: the spot, the real pointer, the button there, the
-    X's mark before it, and whether another thread sent it.
-  - ThemeLab `--window closex`: 8 cases, ALL OK in Light and Dark.
-  - A live test on the user's open window (posting it a press and a mouse leave) was
-    blocked by Claude's safety check. Ask before posting messages to the user's
-    running AudioFool.
-  - Installed 08:08. **The user: "It's working well so far."** In the log since: five
-    Statistics closes, each clicked by WPF-UI itself (X pressed True at the release),
-    so the net wasn't needed yet; each release's own hit test was logged "from this
-    thread" at the pointer, over Close, as expected. Committed `5a4ba56` (code) and
-    the docs, pushed.
-- **Session 64** (2026-10-21): **About, a PlayStation easter egg**, the user's request
-  and their sound and pictures (`src/AudioFool/Resources/Intro/`); each question
-  answered with the recommended option (README *About*; the look in
-  `design/progress.md`):
-  - Logo menu → a line, then **About** (`MainViewModel.About.cs`). `IntroWindow`
-    covers the main window (`WindowPlacement.VisibleRectOf`, DWM's frame bounds):
-    black, the Sony screen, black, the PlayStation screen from 7.3 s (where the chime
-    starts), fading out at 14.9 s; a click or a key ends it. `Core/Theme/IntroTimeline`
-    holds the timing, from the new `intro.*` tokens.
-  - **Music:** playing pauses and resumes after. **Bit-Perfect:**
-    `AudioEngine.LendDevice()` closes the device connection through the existing
-    `Release`/`Reacquire` (as `SwitchDevice` does), and disposing it reopens the track
-    where it was, still paused. Shared mode isn't lent: a paused shared stream doesn't
-    block other sounds.
-  - **The sound** is an embedded resource (`AudioFool.intro.mp3`), written to
-    `%TEMP%\AudioFool-intro.mp3` and played by WPF's `MediaPlayer` at AudioFool's
-    volume; if it won't open within a second, the pictures run silent. The release
-    file list is unchanged (19 files).
-  - **Pack URIs:** the pictures use the assembly-qualified form
-    (`pack://application:,,,/AudioFool;component/...`); the short form drew nothing in
-    ThemeLab (see *Relative pack URIs* under ThemeLab).
-  - **Checked:** ThemeLab `--window intro` (both themes, byte-identical, 0 magenta,
-    125%; the sound opens, not played), `--window lend` on the DX5 with the user's OK
-    (ALL OK: while lent another exclusive open succeeds; returned paused within 50 ms
-    of where it was, Bit-Perfect; Resume plays on; from stopped nothing reopens).
-  - **Then, after the user saw it** ("We're on the right track"): "AudioFool v0.6.1"
-    bottom centre on both screens (`IntroWindow.VersionLine`, from the exe's version;
-    `color.intro.sonyText`, `.playstationText`, `intro.versionMarginBottom`), and a
-    1439×1080 PNG of the same SCEA screen from the Audiovisual Identity Database in
-    place of the user's 739×415 JPEG (`Resources/Intro/playstation.png`). ThemeLab
-    `--window intro`: both themes byte-identical, 0 magenta. Installed 18:44.
-  - **Confirmed by the user:** "About looks great".
-- **Session 63** (2026-10-21): **Find and Replace**, the user's request and design,
-  every question answered with the recommended option (details in `HISTORY.md` and
-  README *Find and Replace*; the look in `design/progress.md`):
-  - Logo menu → **Find and Replace…** or **Ctrl+H** opens a modal window: Find and
-    Replace boxes with their buttons, Match case and Whole words, a preview (the Songs
-    table's look: tick / FIELD / BEFORE / AFTER / FILE, one row per song and tag, all
-    ticked), the counts under it, **Undo** after a replace, **Close**.
-  - Looks in Title, Artist, Album Artist and Album of the ticked folders (the library's
-    copies, so Find is instant); AFTER follows the Replace box; an empty Replace
-    deletes, and the spaces a change leaves are tidied.
-  - **The safety rules:** a song is written whole or not at all, and one that no
-    longer reads as Find saw it is left untouched (`TagWriter.WriteReplacement` plans
-    inside the save's rehearsal); every artist value gets the replace, not just the
-    first the cache holds; Undo puts back exact values, skipping a song changed since.
-  - Core `Library/FindReplace.cs`, `Library/TagWriter.Replace.cs`; app
-    `FindReplaceWindow`, `ViewModels/FindReplaceViewModel.cs`,
-    `MainViewModel.FindReplace.cs`, `Theming/SongTableLayout.cs` (the Songs table's
-    paddings, now shared with the main window: 0 pixels different).
-  - ThemeLab `--window findreplace`: ALL OK in both themes at 100/125/150%, 0 magenta.
-    Installed 14:24.
-  - **Then, after the user tried it: it opens as wide as the main window less 48 px
-    either side** (`findReplace.ownerMarginX`; the fixed 900 px is gone), centred on
-    the main window as it really is (maximised included), on that monitor's work area.
-    Installed 15:12 at the user's OK (AudioFool closed through UI Automation's window
-    Close, Find and Replace first, so it shut down normally; 25 files hash-identical).
-    **Confirmed by the user:** "The new Find and Replace width looks right."
-  - Committed as `2526a88` and `6188810` (docs), pushed.
-- **Session 62** (2026-10-21), two fixes from session 60's review (details in
-  `HISTORY.md`, README *The folder's cover file*):
-  - **The folder cover file** (`TagWriter.WriteFolderArt`, `FolderArtTargets`): written
-    beside the old one and renamed over it; an old file of the other format goes to the
-    Recycle Bin after the new one is in (the user's call), kept with a warning where
-    there's no bin; a folder holding another album's songs gets no file, named in the
-    status bar. ThemeLab `--window folderart`: ALL OK, the PNG found in the real bin.
-  - **A date tag in other digits no longer fails every scan** (`ReleaseDate`: `[0-9]`,
-    not `\d`). The new tests failed on the old code with the reported FormatException.
-  - **Then the same for *Save Embedded Art* and Keep Best Cover's cover.jpg** (found on
-    the way; the user said fix it): `EmbeddedArtExtractor.ExtractToFolders` takes a
-    `sharedFolder` check (new outcome `Shared`, named in the window's message line and
-    counted in Keep Best Cover's status) and writes through `FileSwap.WriteWhole`, now
-    shared with `WriteFolderArt`. `FolderArtTargets.HoldsOtherAlbums` has a songs
-    overload for Keep Best Cover, whose folder can hold two albums' songs. ThemeLab
-    `--window folderart` steps 3 and 4: ALL OK. 873 tests.
-  - **The user tried cover saves in the app: "looks good"** (2026-10-21). Not said
-    which windows; a shared folder's message not reported.
-- **Session 61** (2026-10-21): **the tooltip clean-up**, the user's call on each. Left
-  in the app: the album title's (when cut off), the greyed-out volume's and the output
-  readout's device name; the rest are gone. The tag window's cover source, which only
-  its tooltip showed, is a third line under the size and format ("Embedded", the
-  folder file's name, or "Unsaved"). Then **the status-bar buttons' hover in Dark**,
-  the user's pick: new token `status.chipHover` (Light #ECE9E5 as before, Dark
-  #272A32), also on the filter chip. Then **two launches that could fail**, from the
-  review: a copy started while AudioFool was closing could hand its song to the copy
-  that was closing (lost; reproduced with ThemeLab before the fix) and spun on the
-  pipe; now the closing copy stops listening first and lets go last, and the new copy
-  takes over (`--singleinstance exit`). A fault during startup ends the app instead
-  of leaving it running with no window. Then **a Bit-Perfect rate change keeps the
-  old track's end**: the reopen waits (`WaitUntilHeardAsync`) until the speakers have
-  played it, unless another play or Stop comes first; measured with the new
-  `--window ratechange` on the DX5, two silent WAVs at 44.1 and 96 kHz: 174 ms dropped
-  before, 0 ms after (waited 168 ms); Stop during the wait stays stopped. Not yet
-  heard by the user on music. Details in `HISTORY.md` (and `design/progress.md` for
-  the two UI changes).
-- **Session 60** (2026-10-20 and 21): a review of the whole app by eight read-only
-  reviewers (open findings: *Suggested next steps*, step 6), then six fixes from it,
-  each installed, committed and pushed (details in `HISTORY.md`, session 60):
-  1. **settings.json can't be wiped** (`f18660f`): written beside itself and swapped
-     in, keeping `settings.json.bak`; a damaged one falls back to the backup; a locked
-     one makes the session `IsReadOnly` (no settings or library.json saves, a
-     status-bar warning); the two re-read-then-save paths (`TryLoadCurrent`) skip the
-     write when the read fails.
-  2. **A drive lost mid-scan is unplugged, not blank or deleted** (`f18660f`): a root
-     whose listing threw or that is gone after the tags joins `UnavailableFolders`; a
-     file that can't be opened keeps its cached tags (`TagReader.Read(..., out
-     couldNotOpen)`; a new one gets an unknown stamp, so it is read again).
-  3. **Edits during a scan are kept** (`f18660f`): `_editedDuringScan`,
-     `EditsDuringScan.Apply`.
-  4. **Shared mode is gapless at any rate, and a new output starts at the volume set**
-     (`f6262f9`): `canSplice` lets shared mode splice whatever the track's rate,
-     `SpliceDelay` scales a resampled join to the mixer's rate,
-     `OutputChain._appliedGain` starts unset. **Confirmed by the user** ("seems to be
-     working well").
-  5. **Safer tag saves** (`5e8799a`): a save is rehearsed against `DryRunStream`
-     (reads the file, keeps writes in memory). One that keeps the size writes only the
-     pages it changed; one that moves the audio is made on a `.audiofool-save-*.part`
-     copy beside the song, checked (`CoverCleaner.SameAudio`) and swapped in by
-     `FileSwap.Replace`, which keeps a backup until the copy is in place (Keep Best
-     Cover and PNG conversion use it too). Closing waits for a save
-     (`MainViewModel.Writes.cs`, "Finishing saving"). The scan deletes old `.part`
-     leftovers and names a `.bak` in the status bar.
-  6. **The album window keeps what isn't changed** (`a70c068`): Artist, Album Artist,
-     Album and Year fill only when every track agrees ("Varies by track - kept unless
-     changed" otherwise, as in the selection window) and are written only when changed
-     (`AlbumTagEdit` all optional, `TagEditViewModel.FillSharedFields`). An album with
-     no album tag opens with an empty Album box that saves.
-  - New ThemeLab checks: `--window safesave`, `--window albumkeep` (see *ThemeLab*).
-  - Not verified on real hardware: a real SSD pulled mid-scan, a real locked
-    settings.json; the tests stand in for both. Not seen by the user on screen yet:
-    5 and 6 (step 1).
-- **Session 59** (2026-10-20), all installed and pushed (details in `HISTORY.md`):
-  - **A click never scrolls a list** (`df67a6b`): a double-click on a row cut off at
-    the bottom plays that row, not the one below. **Confirmed by the user.**
-  - **Songs opened from Explorer play, in one AudioFool** (`91e0de9`; README, *Opening
-    songs from Explorer*): `Services/SingleInstance`, `MainViewModel.OpenFiles`,
-    `Core/Library/OpenedFiles`. **The user hasn't tried a real double-click yet.**
-  - **Clear All** in Statistics' Quality Check (`18d4ef3`; README, *Clearing a song you
-    know is genuine*). Not yet seen by the user on screen.
-  - **A log for the close X that ignores clicks** (`91e0de9`;
-    `Services/TitleBarClickLog`): waiting for the user to say when it happens (next
-    steps, 4).
-  - **A test audit** (`9bcc1e8`): the tests are fine and fast; one helper only the
-    tests used, and three unused methods, removed.
-  - **The beat screen finished** (14:19). The visualizer has since been removed
-    (session 65).
-  - The user has seen PS2 Dark's glows and search selection on screen: "looks good".
-- **Last release: v0.9.0** (2026-10-28, session 72, tag on `4762fbd` "Version 0.9.0",
-  60.7 MB zip, 19 files, the same names as v0.8.1): session 72, the end of a queue
-  going back to its first song. Notes under Improved, approved by the user, who picked
-  0.9.0 over the 0.8.2 offered. Installed 18:16 (AudioFool not running; 19 files
-  hash-identical, exe 0.9.0). Before it: v0.8.1 (2026-10-24, session 71, tag on `7b2766a` "Version 0.8.1",
-  60.7 MB zip, 19 files, the same names as v0.8.0): sessions 70 and 71, so cut-off
-  covers, the status bar's ×, and session 60's seven remaining findings. Notes grouped
-  New / Improved / Fixed, approved by the user, who named the version 0.8.1 (0.9.0
-  was offered). Installed 16:53 (AudioFool not running; 19 files hash-identical, exe
-  0.8.1). Before it: v0.8.0 (2026-10-22, session 69, tag on `4893ac4` "Version 0.8.0",
-  60.7 MB zip, 19 files, the same names as v0.7.0): sessions 66–69, so the close-X
-  safety net, Find and Replace on a selection, the review's small UI fixes, playlists
-  and clearances saved safely, the playback fixes, drives noticed while running, the
-  header crash, the status line's single click, the now-playing format line and the
-  tag-save fixes. Notes grouped New / Improved / Fixed, approved by the user.
-  Installed 18:36 (AudioFool not running; 19 files hash-identical, exe 0.8.0).
-  Before it: v0.7.0 (2026-10-21, session 65, tag on `7c2cac7`, 60.7 MB zip,
-  19 files, the same names as v0.6.1): sessions 55–65, so the seek bar's hearing
-  clock, the click fix, songs from Explorer, Clear All, the click log, session 60's
-  six fixes, session 61's and 62's fixes, Find and Replace, About and the
-  alphabetical logo menu (the visualizer came and went in between and isn't in it).
-  Notes grouped New / Improved / Fixed, approved by the user. Installed (19 files
-  hash-identical, exe 0.7.0). Before it: v0.6.1 (2026-10-15, tag on `695f971`), the
-  now-playing cover fix.
-- **Session 54** (2026-10-15): the Theme button is icon only; a click anywhere outside
-  an in-place edit box saves it and closes the box (`SaveEditOnClickOutside`, ThemeLab
-  `--window edit` step 5b2). Both in `design/progress.md`. Then, after v0.6.0: **a
-  cover saved in the app now shows in the now-playing bar straight away** (it was only
-  loaded when a track started). The three cover-save paths call
-  `MainViewModel.InvalidateAlbumArt`, which reloads the bar's picture when the playing
-  track is on the album. ThemeLab `--window nowplayingart`: BROKEN before the fix, OK
-  after. Released as v0.6.1.
-- **Two themes, PS1 Light and PS2 Dark, switched live** (session 52): the status bar's
-  Theme button or Ctrl+T; saved; **Dark when nothing is saved**, so the first launch
-  after session 52's install opens in Dark. **PS2 Dark is finished**: all three of the
-  user's build sessions are done (52; 53 did the glows and the polish pass), and
-  `design/ps2-dark/screenshots/` shows every window in both themes.
-  `design/progress.md` holds every design decision (PS1, and the PS2 Dark section);
-  read it before UI work.
-- **Sessions 55–57** (2026-10-16, 2026-10-19): investigations, no app change, **closed**.
-  The user's audio gaps came from the work laptop, not AudioFool: first the NVIDIA GPU
-  waking (fixed by driver 597.16), then **Dell TechHub** (its snapshots of C: and their
-  cleanup), which the user disabled in session 57. Don't raise it again; the full story
-  is in `HISTORY.md` (sessions 55 and 56). If pops are ever reported again:
-  - **Reading `playback.log`:** a full reserve with a 40–50 ms LATE FILL (or nothing at
-    all) while the user hears a pop = a laptop-wide hiccup downstream of the app. A
-    ~100–130 ms APP STARVED + LATE FILL with 0 ms GC = the old GPU wake. GC PAUSE = a
-    full GC froze the app. SLOW FILL with little "busy" = waiting on the file. Read the
-    Windows event logs for that minute too (VSS 8231 in Application, Volsnap 33 in
-    System): LatencyMon has no timestamps and misses firmware stalls.
-  - Check TechHub is still off: `Get-CimInstance Win32_Service -Filter
-    "Name='DellTechHub'"` (StartMode Disabled), `Get-Process Dell.TechHub*` (empty).
-- **Nothing else is half-done.** Open items are under *Suggested next steps* at the end.
+- **Last release: v0.9.0** (2026-10-28), installed; nothing unreleased.
+- Since session 63 an install is checked by hashing the files, not by launching
+  AudioFool from Claude's shell (see *A launch from Claude's shell writes
+  playback.log* under Gotchas).
+- **Nothing is half-done.** Open items are under *Suggested next steps* at the end.
 
-Recent sessions, newest first (full notes in `HISTORY.md`):
+Recent sessions, newest first (the full notes, file names and checks are in
+`HISTORY.md`):
 
-- **72** (2026-10-27): **the end of a queue goes back to its first song**, at 0:00 with
-  its cover, stopped. `--window queueend` ALL OK in both themes; confirmed by the
-  user. Then **v0.9.0 released** (tag on `4762fbd`) and installed. See *Where things
-  are*.
-
-- **71** (2026-10-23): **cut-off covers on the real library**: two albums found;
-  the user gave both new covers (now whole everywhere); FLO already whole. Then **a
-  bare × after the status text clears a Statistics filter**; installed. Then **the
-  same × dismisses any one-off message**. Then **session 60's seven remaining
-  findings**: windows on the main window's monitor, failed plays say why, Ctrl+J
-  selects the song, discs' clearances apart, Analyze on tiny files, library.json and
-  scrobbles.json saved safely, the Last.fm secret encrypted. 988 tests; installed.
-  See *Where things are*.
-
-- **70** (2026-10-22): the close X fine so far; **cut-off covers**: a whole cover is
-  shown and kept over a cut-off one, a cut-off one is never saved, and Statistics'
-  new CUT-OFF COVERS section finds them. 968 tests; ThemeLab ALL OK in both themes;
-  installed; tried on the real library in session 71. See *Where things are*.
-
-- **69** (2026-10-22): **the tag-save fixes**: the song window keeps a song's other
-  artists, a FLAC's new cover stays in its own tag, *Choose Image…* judges the bytes
-  (and holds them from the pick), a cut-off picture frame no longer stops an album
-  save, and save errors reach the status bar. 928 tests; installed, committed
-  `5a33adc` and pushed; confirmed by the user. See *Where things are*. Then
-  **v0.8.0 released** (tag on `4893ac4`) and installed.
-
-- **68** (2026-10-22): the user confirmed session 67 (all but skipping); then **drives
-  noticed while AudioFool runs** (F5 relocates; plugging in or pulling out refreshes;
-  lists, queue and now playing follow a new letter). 913 tests; `--window drives` ALL
-  OK; installed. Then **a crash on a press right on a Songs header letter** fixed
-  (`FindAncestor` and Runs), **a single click on the status line opens
-  Statistics** (underlined on hover), and **"FLAC · 1,364 kbps · 24 bit · 44.1 kHz"
-  in the now-playing bar** above the tier (confirmed). All installed, committed and
-  pushed. See *Where things are*.
-
-- **67** (2026-10-22): **Find and Replace on the selected songs** (`f4a994d`); **the
-  small review fixes** (`dbde12f`: "…", title case, " · " titles, main button first,
-  Escape, the chip, the spec); **playlists and clearances saved safely** (`ad165b6`);
-  **the playback fixes** (`5689b7f`: skipping, letting go of the DAC, reopens where
-  heard, no DoP to shared; ALL OK on the DX5 with silence). 903 tests. All installed;
-  Bit-Perfect off and on confirmed by the user. See *Where things are*.
-
-- **66** (2026-10-22): the to-do list and recommendations, with session 60's review
-  leads checked against the code (step 6); then **the close X caught in the act** and
-  **a safety net** for it, plus hit-test lines in the click log (see *Where things
-  are*). Builds with 0 warnings; 878 tests; ThemeLab `--window closex` ALL OK in both
-  themes. **Installed** 08:08 (AudioFool wasn't running): 19 files hash-identical to
-  `publish\`. **The user: "It's working well so far."** Committed `5a4ba56` and the
-  docs, pushed.
-
-- **65** (2026-10-21): Find and Replace confirmed in real use (Replace and Undo);
-  no more git walkthroughs; **the logo menu in alphabetical order** (Find and
-  Replace…, Last.fm…, Libraries, Statistics…, a line, About; the user's call,
-  `design/progress.md`). ThemeLab `--menushot` both themes; published 19:34,
-  installed at the user's OK (25 files hash-identical to `publish\`), committed
-  `b30812c`. **Confirmed by the user:** "Alphabetization looks good". Then **the
-  visualizer removed** (the user: "I honestly can't tell if the visualizer is in time
-  with the music. The visualizers aren't that great either."), keeping the Core
-  groundwork for one of our own later (next steps, 5). ThemeLab before and after,
-  both themes: only the status bar's chips and the shortcut guide changed. 878 tests.
-  **Installed** 20:38 (AudioFool wasn't running): 19 files hash-identical to
-  `publish\`; the six projectM DLLs and the 146 MB `visualizer` folder beside the exe,
-  and `lib/projectm/`, sent to the Recycle Bin. Committed `5b75e93` and pushed; not
-  yet seen by the user on screen. Then **v0.7.0 released** at the user's OK of the
-  version and notes (`7c2cac7` "Version 0.7.0", tag on it; same 19 files as v0.6.1;
-  About reads "AudioFool v0.7.0" from the assembly version) and installed.
-
-- **64** (2026-10-21): **About**, the PlayStation start-up as an easter egg (logo
-  menu), lending the DAC in Bit-Perfect, with the version under the logos.
-  Confirmed by the user. See *Where things are* above.
-
-- **63** (2026-10-21): **Find and Replace** across the library (logo menu, Ctrl+H),
-  with a ticked preview, a confirmation and Undo. See *Where things are* above.
-
-- **62** (2026-10-21): **the folder cover file** (album save, Save Embedded Art, Keep
-  Best Cover) written safely and never into a folder shared with another album; **a
-  date tag in other digits** no longer fails every scan.
-  See *Where things are* above.
-
-- **60** (2026-10-20 and 21): **a review of the whole app**, then **six fixes**:
-  settings.json can't be wiped, a drive lost mid-scan, edits during a scan, shared-mode
-  gapless and the loud first block (confirmed by the user), safer tag saves, and the
-  album window keeping what isn't changed. See *Where things are* above.
-
-- **59** (2026-10-20): **a click never scrolls a list** (confirmed by the user);
-  **songs opened from Explorer play, in one AudioFool**; **Clear All** in the Quality
-  Check; **a log for the close X**; a test audit; the beat screen finished. See *State
-  at handoff* above and `HISTORY.md`.
-
-- **58** (2026-10-19 and 20): **the visualizer: groundwork, then the projectM trial.**
-  Removed in session 65 at the user's call; the groundwork stays (next steps, 5) and
-  the full notes are in `HISTORY.md`.
-
-- **56** (2026-10-19): **remaining pops traced to Dell TechHub.** Driver 597.16 ended the
-  NVIDIA freezes. Four pops matched against `playback.log` (reserve full every time) and
-  the Windows event logs: TechHub's VSS snapshots and Windows deleting old ones. The
-  dock and the Topping driver were ruled out. With TechHub and its sub-agents stopped,
-  32 quiet minutes. Docs only.
-
-- **55** (2026-10-16): **audio gaps traced to the NVIDIA GPU waking.** Read
-  `playback.log` for each gap the user heard; LatencyMon (NVIDIA's 4.6 ms DPC fixed by
-  Auto-select, nothing near 100 ms); a listening test proving the 200 ms reserve covers
-  a frozen feed up to 170 ms on the DX5; then the trigger reproduced with Task Manager and
-  `nvidia-smi`. Docs only (`8aec113`, then this update).
-
-- **53** (2026-10-15): **PS2 Dark, build session 2 of 3.** Every §7 colour in Dark
-  measured from ThemeLab renders: all as the spec says, apart from Close's hover, which
-  **stays grey in Dark too** (the user's call; the dark spec's §1, §4 and §7.2 said red
-  "as in PS1" and are corrected). Built: the **menu glow** (`Theming/TitleGlow.cs`, a
-  radial gradient behind `AppTitleBar`, nothing drawn while its colour is transparent)
-  and Play/Pause's **ring and glow** (in `theme.transportButton`'s template, behind the
-  face, Play/Pause only). Found on the way: **`DropShadowEffect` draws its colour's
-  linear-light values as sRGB**, so the blue glow came out far too deep; `TokenResources`
-  now hands shadow colours over as scRGB (black, every other shadow, is unaffected).
-  Light 0 pixels different from HEAD in 17 renders and at 125% and 150%; Dark different
-  only in the title bar and round Play/Pause; live switches identical to a fresh start.
-  Then **build session 3 of 3**, the polish pass: every window, prompt, menu and tooltip
-  in both themes at 100%, 125% and 150% (144 renders): no colour from the other theme in
-  any pixel or brush dump, no gaps, live switches identical to fresh starts; §8's 29
-  contrast figures confirmed. The user's calls: Statistics' warning bars **stay standby
-  red** in Dark; the search box's text selection is `text.muted` like the dialogs' fields
-  (it was the Windows accent blue in both themes). ThemeLab's `--dpi` now lays dialogs,
-  prompts, menus and tooltips out at the scale too. `CLAUDE.md` describes both themes
-  (`claude-md-addition.md` merged); the PS1 spec's volume fill and Close hover corrected;
-  20 screenshots in `design/ps2-dark/screenshots/`. Committed as `21fe924` (build 2) and
-  `5f2942d` (build 3), both pushed. Installed; seen on screen by the user 2026-10-20:
-  "looks good".
-
-- **52** (2026-10-14): **PS2 Dark, build session 1 of 3** (the user's design in
-  `design/ps2-dark/`). Two token sets with the same keys (parity tests), the §9 rename
-  (`accent.playback`, `accent.playbackText`), `AppSettings.Theme` (Dark by default; an
-  unknown value reads as Dark without losing the file), `ThemeService.Switch`, every
-  colour made to follow a switch (see *The themes* below), the Theme chip left of
-  Bit-Perfect and Ctrl+T. ThemeLab: `--theme`, `--switch`, `--window themeswitch`.
-  Verified off-screen: Light renders identical to HEAD apart from the new chip and
-  the shortcut guide's new row; every window, dialog and menu after a live switch
-  pixel-identical to a fresh start in that theme, both ways, and every brush (hover
-  and pressed included) the same; a switch with music playing and two dialogs open
-  keeps playback, selections and scroll, ~80–100 ms. In the user's own installed
-  instance (no Theme saved): opened in Dark, switched to Light and back by UI
-  Automation while a song played, identical afterwards apart from the moving seek bar.
-
-- **51** (2026-10-14), four things:
-  - **DSD passthrough folded into Bit-Perfect** (the user's call). The logo-menu item
-    started audio when clicked (its setter jumped to the loaded track, paused
-    included); rather than fix it, it's gone. With Bit-Perfect on, DSD goes out as DoP
-    whenever the device can clock the rate, else as PCM; toggling Bit-Perfect mid-track
-    reopens it in place. `DsdMode` (enum, setting, engine property) removed; a leftover
-    `"DsdMode"` key in settings.json is ignored. **Confirmed by the user**: "Exclusive ·
-    352.8 kHz · DSD over PCM" on the DSD128 *Dark Side (R2R)*, and the toggle never
-    starts audio.
-  - **Gapless joins are sample-exact.** BASSmix mixes a source added from the END sync
-    from the *start* of the block it is mixing, so the next track overlapped the last
-    ≤ 20 ms of the one ending. Inaudible in PCM, but in DoP the sum wipes out the
-    markers and the DAC drops out of DSD: the gap the user heard between DSD tracks.
-    Now the next track is added with a start delay of the frames the ended one gave in
-    that block (`AudioEngine.SpliceDelay`, fed by `OutputChain.BeforePull`); only
-    without resampling (always so in Bit-Perfect). Probe on the real DSFs: sample-exact;
-    ThemeLab `--window splice` through the real engine: the right delay. `playback.log`
-    logs each join ("gapless: next track joined N frames into the block").
-    **Confirmed by the user.** Repeat One was already exact (it rewinds the same
-    channel, which BASSmix continues mid-block); unchanged.
-  - **The 9 DSFs are down to one cover each** (Keep Best Cover, run by the user;
-    checked on E:: front cover 37 KB, padding 5 KB, nothing after the tag, header size
-    right).
-  - **The close X sometimes does nothing (open).** WPF-UI clicks title-bar buttons from
-    WM_NC* messages, not WPF input, and drops a click if anything clears its pressed
-    state between press and release. Off-screen it never failed, so the cause isn't
-    pinned down. A fallback (`CloseButtonFallback`) was added, then **removed at the
-    user's request**: they saw no hover highlight on the three window buttons with it
-    (it only read messages, so not established that it caused that). See *Suggested
-    next steps*.
-
-- **50** (2026-10-14): **Keep Best Cover handles DSF.** `TagPadding` reads a DSF's
-  layout (header "DSD ", chunk size 28, file size, tag pointer; one ID3v2 tag after the
-  music) and rewrites it: everything before the tag copied as is, the tag less its
-  extra APIC frames with padding cut to 5 KB, nothing after it, the file size set
-  right. `TagLayout.AudioEnd` (the pointer) bounds the music for `Verify`'s audio hash.
-  Two things found on the real files: **TagLib writes a DSF's file size one byte too
-  big** (accepted: size = tag end or tag end + 1), and the 9 *Dark Side of the Moon (R2R
-  Stereo Master)* DSFs each carry **~1.38 MB after the tag, past the header's file
-  size**, leftovers of a shrunk tag (counted as padding and dropped). Each has three
-  covers: FrontCover 1417² 38 KB (kept, by the front-cover rule), BackCover 1525² 1.19
-  MB, Artist 800×444 485 KB. Probe on copies of tracks 7 and 9 (originals untouched):
-  Cleaned, ~3.05 MB freed each, tags and duration the same, header size = file length,
-  pointer unchanged, creation date kept, a second run NothingToDo. Fixture
-  `TestData/sample.dsf` is synthetic (8 KB of random "music", no tag). 669 tests.
-  Installed; since run by the user on the real files (see 51).
-  **Then Quality Check:** the user had cleared 161 tracks and asked for fewer flags.
-  Measured all 161 from `E:` with the real analyzer (BASS on the no-sound device).
-  Most flags are measured facts (16-bit in 24-bit files; silence above 24 kHz), so
-  only the weakest rule changed, the user's pick: **"possibly fake hi-res" now needs
-  the 25–32 kHz band 45 dB under the treble, not 35**
-  (`QualityOpinion.FaintUltrasonicDb`); the user's 38 such tracks measured 35–44.
-  Re-measured: those 38 now clean, every other flag unchanged. `QualityCache` version
-  2, so the next check reads every track again (~11 min). Clearances are kept
-  (`quality-cleared.json`, matched by path or artist/album/file name). 670 tests.
-  Installed. Offered and declined: turning off Fake 24-bit and the "possibly" lossy
-  rows. Same session: the table at the
-  top of this file repaired; three next steps dropped (see *Dropped*); the big-artist
-  tag window confirmed.
-
-- **49** (2026-10-14): **a cause of the stutters found and fixed.** The user heard one
-  at 7:40, playing from the SD card (`E:\Music`; the SSD wasn't connected). The log
-  showed the whole app frozen 300 ms at 7:31, a minute after launch, feed thread
-  included, the buffer down to 10 ms of 200. The log couldn't name it (it counted GC
-  only inside a fill, and a GC between two pulls holds the next one back at the
-  managed callback), so it now counts GC across the gap and labels a watcher freeze
-  **GC PAUSE** or **APP STARVED**. A probe confirmed: `ReclaimScanMemory`'s full
-  compacting collection on a 458 MB heap froze the feed 352 ms, 20 ms left. It runs
-  after the startup scan and the art prefill, both soon after launch. Fix:
-  `ReclaimScanMemory` waits while playing (`_reclaimPending`) and runs on pause or
-  stop; `GCSettings.LatencyMode` is `SustainedLowLatency` while playing. ThemeLab
-  `--window reclaim --file <audio>` (real library, silent): postponed with 0 ms paused;
-  a scan's worth of garbage while playing gave 3 background full collections and no
-  LATE FILL or BUFFER LOW; on pause it ran (109 ms, 42 MB committed). The log notes
-  "memory clean-up postponed" / "ran". 7:40 itself: a switch into Bit-Perfect at
-  7:39:52 (a gap by design) and a 73 ms whole-app freeze at 7:40:25 with the feed on
-  time. Installed; unreleased.
-  **Then a second cause, the one heard:** at 7:57:56 (Bit-Perfect, 44.1 kHz) the user
-  heard a gap exactly where the log had APP STARVED 64 ms with 0 ms of GC (the PC, not
-  us) and a pull 39 ms late; yesterday's 8:24 was the same, 33 ms late. Shared mode
-  rode out 55–60 ms freezes unheard. Exclusive mode was **event-driven**: one 200 ms
-  block per device request, and on the DX5 ~35 ms late was audible. Now exclusive
-  opens **timer-driven** like shared (`OutputChain`: buffer 0.2 s, period
-  `ExclusivePeriodSeconds` 0.01; BASSWASAPI wants buffer ≥ 4× period in exclusive),
-  falling back to event-driven if refused; the log's "device opened" line names which
-  ("Exclusive (timer)"). Silent probe on the DX5 (80 s of digital silence, exclusive
-  has no volume): opened timer-driven, refills every 20 ms (max gap 22 ms) all minute,
-  reserve never below 80 ms, and an in-process CPU flood that starved the rest of the
-  probe 248 ms didn't delay a single fill. Same samples, still bit-perfect. Also fixed
-  a flaky test from session 48 (`A_failed_conversion_leaves_the_file_as_it_was`
-  looked for working files across all of %TEMP%). Installed; **the user has to listen**.
-
-- **48** (2026-10-13), four things, released as **v0.5.0**:
-  - **Stutters (open).** The user hears occasional stutters while working in other
-    apps, Bit-Perfect on or off. `Core/Playback/PlaybackDiagnostics` logs to
-    `playback.log`: every device pull timed (wall, CPU cycles, GC pause, gap; LATE FILL
-    when a gap passes the learned rhythm + 20 ms), a normal-priority watcher sampling the
-    queued audio every 5 ms (BUFFER LOW, APP STARVED), and a summary each minute. Why
-    stutters are possible: decoding, file read from D: included, runs inside the WASAPI
-    callback with only the 200 ms buffer as slack. A silent headless probe found no
-    stall under busy normal-priority threads, 5.7 GB of competing reads on D: or GC
-    storms. The one real stutter (~8:24, Bit-Perfect 44.1 kHz) lined up with a single
-    WASAPI pull 33 ms late while our fill took < 1 ms: below our code, pointing at the
-    driver, but one event isn't proof. Then ~30 min clean, and none reported since.
-    Output is a **Topping DX5 on Topping's own driver** (5.74.0.18449, Thesycon-based);
-    its control panel was checked with the user: the buffer size there is **ASIO
-    only** (512 samples, Safe Mode on) and Streaming is Always On, so nothing there
-    applies to WASAPI. Windows shared format: 24-bit 96 kHz.
-  - **Open in Windows Explorer** on the song menu (`Core/Library/ExplorerTarget`,
-    `OpenInExplorerCommand`); confirmed by the user.
-  - **Statistics → PNG COVERS**: embedded PNGs from the cover check
-    (`CoverFinding.PngBytes`, covers.json v2) and `.png` files in song folders, counted
-    when the window opens (`PngCoverStatistics`, `PngSectionViewModel`); confirmed.
-  - **Convert PNG Covers to JPEG** from the artist and album menus under a PNG COVERS
-    filter (`PngCoverConverter`, `CoverCleaner.ReplaceCover`, `Services/RecycleBin`,
-    `MainViewModel.PngConversion`). The user's calls: quality 95 at 4:4:4 (measured on
-    60 real covers: q100 kept 81% of the size and made 1 in 4 bigger, q95 36%), convert
-    even when bigger, replaced files to the Recycle Bin. **Run on the whole library by
-    the user** after a backup of the 140 affected folders to `C:\AudioFool PNG backup\`
-    (42 GB, `folders.txt` lists them; delete once the user is happy). Audited against
-    that backup: 1,137 of 1,144 songs byte-identical audio, same tags, one same-size JPEG
-    that decodes, creation dates kept; the other 7 are *Bucketheadland* MP3s the user
-    retagged afterwards (cover from Cover.jpg, "04/7" to "4/7"), audio identical. All
-    131 cover files converted; the 7 scans in song-less subfolders converted too; no PNG
-    left in D:\Music. Saved 1.66 GB (1.37 GB in songs, 287 MB of image files, the latter
-    still on D: in the Recycle Bin until it's emptied).
-
-- **47** (2026-10-12): artist rows read "12 albums · 14.2 GB" (one decimal, "<0.1 GB"
-  for tiny artists); a third click on the ARTISTS header sorts largest first
-  (`ArtistOrder`: Name → Recent → Size; confirmed by the user); the header's tooltip
-  removed. Docs tidied: this file split into `HANDOFF.md` and `HISTORY.md`. Then,
-  after the user found art slow on another machine: **saved cover thumbnails**
-  (`Core/Art/ArtDiskCache`, `%LOCALAPPDATA%\AudioFool\art`, list and header sizes,
-  prefilled in the background by `MainViewModel.ArtPrefill.cs`; thumbnail 19 → 3 ms,
-  worst 185 → 6 ms) and **tag windows that read their files in the background**
-  (`TagEditViewModel.ReadDetailsAsync`, fields greyed until read; was a 1–2 s freeze
-  on big artists). Released as **v0.4.0**. **Art confirmed by the user** (2026-10-12):
-  faster here, and on the other machine "I didn't see any slow loading this time". The
-  big-artist tag window not yet reported.
-- **46** (2026-10-12): Bit-Perfect never starts playback; Space and fifteen Ctrl
-  shortcuts (`MainWindow.Shortcuts.cs`, listed in `ViewModels/ShortcutGuide.cs` and the
-  README); Escape or a click leaves the search box; Statistics lost Top Artists and its
-  tooltips and gained a shortcut guide; `Services/OwnerActivation` stops another app
-  jumping in front after a tag window closes. All confirmed by the user.
-- **45** (2026-10-09): v0.3.0 released. The seek bar's ~200 ms lead discussed and
-  left alone.
-- **44** (2026-10-08): the best of several embedded covers is shown; Keep Best Cover
-  run over the whole library (~9 GB freed); a new cover is saved as the only one.
+- **73** (2026-10-30): docs clean-up only. This file slimmed (past sessions' details
+  live in `HISTORY.md`, which gained sessions 50, 54 and 71); the finished PS2 Dark
+  build prompts and CLAUDE.md addition deleted. No app change.
+- **72** (2026-10-27): **the end of a queue goes back to its first song**: the bar
+  shows it at 0:00 with its cover, stopped; Play starts the queue from it. Confirmed
+  by the user. **v0.9.0** released.
+- **71** (2026-10-23): cut-off covers fixed on the real library (Night Verses and 311
+  re-covered by the user); **a bare × after the status text** clears a Statistics
+  filter or dismisses a one-off message; **session 60's seven remaining findings**
+  (dialogs on the main window's monitor, failed plays say why, Ctrl+J selects the song,
+  discs' clearances apart, Analyze on tiny files, library.json and scrobbles.json saved
+  safely, the Last.fm secret encrypted). **v0.8.1** released (with session 70).
+- **70** (2026-10-22): **cut-off covers**: a whole cover is shown and kept over a
+  cut-off one, a cut-off one is never saved, Statistics' CUT-OFF COVERS finds them.
+- **69** (2026-10-22): **the tag-save fixes** (confirmed). **v0.8.0** released.
+- **68** (2026-10-22): **drives noticed while AudioFool runs**; a crash on a press on
+  a Songs header letter; a single click on the status line opens Statistics; the
+  now-playing format line ("FLAC · 1,364 kbps · 24 bit · 44.1 kHz").
+- **67** (2026-10-22): Find and Replace on a selection; the review's small UI fixes;
+  playlists and clearances saved safely; the playback fixes (skip unopenable songs,
+  let go of the DAC on Stop, reopen where heard, no DoP to shared).
+- **66** (2026-10-22): the close X caught in the act; `CloseButtonSafetyNet` and
+  hit-test lines in the click log.
 
 Standing preferences from the user that the code doesn't show:
 
@@ -990,6 +179,8 @@ Standing preferences from the user that the code doesn't show:
   Report the result in a line. Commit and push only when asked.
 - **Ask before closing AudioFool to install:** it stops whatever is playing. When the
   app isn't running, install without asking.
+- **Ask before posting messages to the user's running AudioFool** (a live test in
+  session 66 was blocked by Claude's safety check).
 - The features under *Dropped* in the next steps are dropped for good: don't build or
   suggest them.
 
@@ -1001,8 +192,23 @@ Standing preferences from the user that the code doesn't show:
   missing is a visible, editable queue.
 - Memory was profiled in session 43 (`HISTORY.md`). Still left: FLAC tag reads load the cover
   (TagLib ignores PictureLazy for FLAC), so a big scan still peaks high before the reclaim.
-- ~~The seek bar reads ~200 ms ahead of what you hear~~ Fixed in session 58
-  (`HearingTimeline`, `AudioEngine.Heard`), as the visualizer's first step.
+
+### If audio pops are reported again
+
+Sessions 55–57 traced the user's gaps to the work laptop, not AudioFool: first the
+NVIDIA GPU waking (fixed by driver 597.16), then **Dell TechHub** (its snapshots of C:
+and their cleanup), which the user disabled. Closed; don't raise it. If pops come back:
+
+- **Reading `playback.log`:** a full reserve with a 40–50 ms LATE FILL (or nothing at
+  all) while the user hears a pop = a laptop-wide hiccup downstream of the app. A
+  ~100–130 ms APP STARVED + LATE FILL with 0 ms GC = the old GPU wake. GC PAUSE = a
+  full GC froze the app. SLOW FILL with little "busy" = waiting on the file. Read the
+  Windows event logs for that minute too (VSS 8231 in Application, Volsnap 33 in
+  System): LatencyMon has no timestamps and misses firmware stalls.
+- Check TechHub is still off: `Get-CimInstance Win32_Service -Filter
+  "Name='DellTechHub'"` (StartMode Disabled), `Get-Process Dell.TechHub*` (empty).
+- Output is a **Topping DX5 on Topping's own driver** (Thesycon-based); its control
+  panel's buffer size is ASIO only, so nothing there applies to WASAPI.
 
 ---
 
@@ -1862,147 +1068,76 @@ happily rewrite it.
 
 ## Suggested next steps
 
-Open items only; finished ones are in `HISTORY.md`.
+Open items only; finished ones are in `HISTORY.md`. Open a session by asking the user
+about step 1 (ask; don't re-explain), then step 3, then which of steps 2 and 4 to take.
 
 1. **Ask the user to try what was checked off-screen only:**
-   - **Session 69, tag saves:** **confirmed by the user** (2026-10-22): "Fixes are
-     working well".
+   - **Session 71:** the × after the status text (clears a Statistics filter,
+     dismisses a one-off message); a dialog with the main window maximised on the
+     second monitor; Ctrl+J under a search; Last.fm still connected after the update
+     (its secret is now encrypted).
    - **Session 68, drives:** with AudioFool open, pull the SSD: the status bar says
      D:\Music is not available within a couple of seconds. Plug it back in: the
      warning clears; under another letter the status bar says "Music folder moved
      to …" and songs play (Next carries on in the queue). F5 does the same if the
      drive came back while AudioFool wasn't looking.
-   - **Session 68, the header crash and the status line's single click:**
-     **confirmed by the user** (2026-10-22): "These are both working well."
-   - **Session 67, Find and Replace on a selection and the small fixes** (Escape in a
-     tag window, Save left of Cancel, " · " titles): **confirmed by the user**
-     (2026-10-22): "These all look good".
    - **Session 67, playback:** a song that won't open skipped by Next or the queue
-     (the status bar names it). Confirmed (2026-10-22): Bit-Perfect off and on
-     mid-song; in Bit-Perfect, another app sounding through the DAC right after Stop
-     or an album's end; a DSD album in Bit-Perfect.
-   - **Session 64, About:** **confirmed by the user**: "About looks great". Not said
-     whether it was tried with music playing or with Bit-Perfect on; only worth
-     asking if a problem is reported.
-   - **Session 63, Find and Replace:** **confirmed by the user in real use**
-     (2026-10-21, session 65): "find and replace is working well"; they replaced on
-     several songs and put them back with Undo, with D:\Music unplugged (Find leaves
-     out a missing drive's folders, which the user knows and expects). The all-unticked
-     rows in an earlier screenshot were never explained; don't ask again, chase it only
-     if the user reports it. Offered, not taken up: tidying the
-     space a deletion leaves before a closing bracket ("(Film Version)" minus
-     "version" gives "(Film )"; typing " version" avoids it). Off-screen over the
-     real 26,861-song library (`--window findreplaceperf`), Find "e" listed 80,211
-     rows in ~0.2 s and each letter typed into Replace took ~0.05 s.
-   - **Session 59, double-click a song in Explorer:** one from `Downloads` (plays on
+     (the status bar names it).
+   - **Session 61:** a Bit-Perfect rate change keeping the old track's last ~0.2 s,
+     heard on music.
+   - **Session 60:** closing AudioFool during an album save with a new cover keeps the
+     window open with "Finishing saving" until it's done; the album window on a
+     compilation (boxes start empty with "Varies by track - kept unless changed", and
+     saving another field leaves each track's own).
+   - **Session 59:** double-click a song in Explorer, one from `Downloads` (plays on
      its own, the view stays) and one from `D:\Music` (goes to its album and plays with
-     the album after it), with AudioFool open and with it closed. Also several songs at
-     once.
-   - **Session 59, Clear All** in Statistics' Quality Check: the prompt, then every row
-     None.
-   - **Session 60, closing AudioFool during an album save with a new cover:** keeps
-     the window open with "Finishing saving" until it's done. (Cover saves themselves
-     tried by the user in session 62: "looks good".)
-   - **Session 60, the album window on a compilation** (or any album whose tracks
-     differ in artist or year): those boxes start empty with "Varies by track - kept
-     unless changed", and saving another field leaves each track's own.
-2. **`C:\AudioFool PNG backup\`** (42 GB): remind the user it can go once they're
-   happy with the converted covers.
-3. **A visible, editable queue view**: the most conspicuous missing player feature.
-4. **The close X that sometimes ignores clicks** (sessions 51, 59 and 66). In tag
-   windows and Statistics the X sometimes ignores **several clicks in a row**; the
-   window buttons do highlight on hover (the user likes that). Caught in session 66:
-   19 lost clicks on Statistics' X, each a clean non-client press and release on the
-   X with no capture and no mouse leave, WPF-UI's mark gone by the release (see *Where
-   things are*). The capture theory is ruled out.
-   - **Done in session 66, the user's go-ahead:** `Services/CloseButtonSafetyNet`
-     clicks the X when WPF-UI loses a click, and the click log adds every hit test
-     between a press on the X and its release (*The close X: safety net and click
-     log*). Committed `5a4ba56`. The user, right after the install: "It's working well
-     so far" (five closes, all WPF-UI's own; the net not needed yet). Still to ask
-     whether the window buttons highlight on hover: session 51's fallback was removed
-     over that, though it was never shown to be the cause.
-   - **Next:** after the user's next spell, read the `titlebar:` lines. "WPF-UI lost
-     the click on the X; the safety net clicked it" marks each catch. The "hit test at
-     x,y from another thread, pointer at ..., over nothing; X pressed True" line
-     before it is the question that wiped the mark: a spot far from the pointer, sent
-     by another thread, means another program (PowerToys, Logi Options+, ShareX and
-     Teams run here; quitting them one at a time during a spell would name it). If no
-     hit test shows and the mark is already False at the first one, the press never
-     registered: look at WPF-UI's handling of the press instead.
-   - Also open: **edge scrolling while dragging in a playlist** (session 39). Real drags
-     are confirmed; edge scrolling hasn't been tried (asked 2026-10-20: not yet).
+     the album after it), with AudioFool open and closed, and several at once; **Clear
+     All** in Statistics' Quality Check (the prompt, then every row None).
+   - **Session 39:** edge scrolling while dragging in a playlist (real drags are
+     confirmed; asked 2026-10-20: not tried yet).
+2. **A visible, editable queue view**: the most conspicuous missing player feature.
+3. **The close X that sometimes ignores clicks** (sessions 51, 59 and 66). In tag
+   windows and Statistics the X sometimes ignored **several clicks in a row**. Caught
+   in session 66: 19 lost clicks on Statistics' X, each a clean non-client press and
+   release with no capture and no mouse leave, WPF-UI's mark gone by the release. Since
+   then `Services/CloseButtonSafetyNet` clicks the X when WPF-UI loses a click, and the
+   click log records every hit test between a press on the X and its release (*The
+   close X: safety net and click log*). The user: "It's working well so far."
+   - Ask whether it has ignored a click since, and whether the window buttons still
+     highlight on hover (session 51's fallback was removed over that, though it was
+     never shown to be the cause).
+   - Read the `titlebar:` lines in `playback.log`. "WPF-UI lost the click on the X; the
+     safety net clicked it" marks each catch. The "hit test at x,y from another thread,
+     pointer at ..., over nothing; X pressed True" line before it is the question that
+     wiped the mark: a spot far from the pointer, sent by another thread, means another
+     program (PowerToys, Logi Options+, ShareX and Teams run here; quitting them one at
+     a time during a spell would name it). If no hit test shows and the mark is already
+     False at the first one, the press never registered: look at WPF-UI's handling of
+     the press instead.
+4. **Smaller open items** (session 60's review is otherwise all fixed):
+   - Harmless: a new scrobble skips the Last.fm backoff (one request each, the backoff
+     isn't reset); an exception other than `LastFmException` escaping a send skips it
+     altogether (unlikely).
+   - `AudioEngine` itself has no tests (1,500 lines; `OutputChain` and `BassRuntime`
+     neither). Session 67 pulled the playback decisions out into tested pieces
+     (`TrackEnd`, `ReopenPoint`, `DopRule`, `PlayOrder.Candidates`); the rest is still in it.
+   - `LiveSpectrumTests.An_update_allocates_nothing` used to fail now and then; made
+     sturdier in session 67. Watch that it stays quiet.
+   - A folder added during a scan is skipped by that scan (F5 or the next start reads
+     it); small, left out on purpose.
+   - **Ideas offered in session 66, not picked yet:** Windows' own media controls (SMTC:
+     the media keys from any app, the song and cover in Windows 11's media pop-up,
+     headphone buttons; F9–F11 could then go) and a Duplicates row in Statistics (albums
+     held twice, and the space they take).
 5. **The visualizer: removed in session 65** (the user's call; they may build one of
-   their own later). The window, its chip and shortcut, projectM and the preset tools
-   are gone; the notes are in `HISTORY.md` (*The visualizer and the projectM trial*,
-   under *Reference notes retired from the handoff*), and the code can be read in git
-   at `b30812c`. **Kept as groundwork:** the hearing clock (`AudioEngine.Heard`, also
+   their own later). The notes are in `HISTORY.md` (*The visualizer and the projectM
+   trial*), and the code can be read in git at `b30812c`. **Kept as groundwork** (the
+   user confirmed keeping it, session 73): the hearing clock (`AudioEngine.Heard`, also
    the seek bar's timing), the tap (`SampleTap`; `AudioEngine.TapEnabled`, off by
-   default, `TapFormat`, `TryReadHeard(..., framesAhead)`), `Core/Analysis/TapConverter`
-   (PCM and DoP to 44.1/48 kHz PCM, flat to 20 kHz), `Core/Analysis/LiveSpectrum`
-   (32 bands, bass/mid/treble, intensity 1–10) and `Core/Analysis/VisualizerFeed`, each
-   with its tests. A visualizer of our own would start from `VisualizerFeed`: give it
-   a window and a renderer, and new tokens in both files. Don't suggest projectM again.
-   **On the user's laptop:** the six projectM DLLs and the `visualizer` presets folder
-   (146 MB) beside the installed exe, and `lib/projectm/` in the repo, went to the
-   Recycle Bin at the session 65 install (the user approved it in the plan); Claude's
-   private AppData copy of the preset clone is invisible to everything and can be
-   ignored.
-
-6. **Session 60's review: open findings.** The leads that were only "reported" were
-   checked against the code in session 66 by four read-only reviewers (the file and
-   line evidence was in that session, not kept; the main ones were re-read by hand).
-   Ask the user which to take next. Fixed in session 60 and gone from this list:
-   settings.json, a drive lost mid-scan, edits during a scan, shared-mode gapless, the
-   loud first block, tag saves in place, `CoverCleaner`'s swap without a backup,
-   closing during a save, the album window writing four fields to every track.
-   - **Session 66's recommended order** (the user picks): (1) ~~likes and playlists
-     saved safely~~ done in session 67; (2) ~~the playback fixes~~ done in session 67, its decisions pulled out
-     into tested pieces as `PlayOrder` was; (3) ~~the drive handling~~ done in session
-     68; (4) ~~the tag-save fixes~~ done in session 69; then the queue view (step 3).
-   - **Playback** (`AudioEngine`): **all five fixed in session 67** (a song that won't
-     open is skipped; Stop and the end of a queue let go of the device, so no old
-     buffer plays after Stop; reopens carry on from what was heard; DoP never on a
-     shared output). See *Where things are*, session 67.
-   - **File writes:** **all four fixed in session 69** (the song window keeps a
-     song's other artists; a FLAC's new cover stays in its own blocks; *Choose Image…*
-     judges the bytes and holds them from the pick; a cut-off picture frame no longer
-     throws, and an album or selection save names any error in the status bar). See
-     *Where things are*, session 69.
-   - **Startup, windows and drives:** **all fixed in session 71** but one (window
-     placement, failed-play messages, Ctrl+J, the other disc's clearance, Analyze on a
-     very short file; see *Where things are*, session 71). Earlier: drives noticed
-     while running (session 68). Still open:
-     - Partly, harmless: a new scrobble skips the backoff (one request each, the
-       backoff isn't reset). An exception other than `LastFmException` escaping a send
-       skips the backoff altogether (unlikely).
-   - **Data safety:** **all fixed**: playlists.json and quality-cleared.json in
-     session 67, library.json and scrobbles.json in session 71, all through
-     `Library/SafeJsonFile` (flushed, `File.Replace`, `.bak`, a damaged or missing
-     file reads the backup).
-   - **UI (against the specs):** all fixed in session 67 (ellipses, capitalisation,
-     title separators, button order, Escape, the filter chip's colour, the art search
-     comment, spec §6.5, §6.7 and §6.8).
-   - **Project:**
-     - `AudioEngine` itself has no tests (1,500 lines; `OutputChain` and `BassRuntime`
-       neither). Session 67 pulled the playback findings' decisions out (`TrackEnd`,
-       `ReopenPoint`, `DopRule`, `PlayOrder.Candidates`, all tested); the rest is still in it.
-     - ~~The Last.fm secret is in plain text~~ Encrypted with DPAPI in session 71
-       (the secret and the session key; the API key stays plain).
-     - ~~`LiveSpectrumTests.An_update_allocates_nothing` fails now and then~~ Made
-       sturdier in session 67: five rounds of 100 updates, the fewest bytes must be 0
-       (the runtime's own allocation lands in one round; one of `Update`'s would show
-       in all). Watch that it stays quiet.
-   - **Left out of session 60 on purpose (the user may want them):** a folder added
-     during a scan (session 66: that scan skips it, F5 or the next start reads it;
-     small); flush-to-disk before the swap (session 66: see *Data safety*).
-   - **Ideas offered in session 66, not picked yet:** Windows' own media controls
-     (SMTC: the media keys from any app, the song and cover in Windows 11's media
-     pop-up, headphone buttons; F9–F11 could then go) and a Duplicates row in
-     Statistics (albums held twice, and the space they take).
-
-Confirmed by the user (2026-10-14, session 50): Edit Artist Tags on a big artist opens
-at once (session 47's background read).
+   default, `TapFormat`, `TryReadHeard(..., framesAhead)`), `Core/Analysis/TapConverter`,
+   `Core/Analysis/LiveSpectrum` and `Core/Analysis/VisualizerFeed`, each with its tests.
+   A visualizer of our own would start from `VisualizerFeed`: give it a window and a
+   renderer, and new tokens in both files. Don't suggest projectM again.
 
 **Design notes for the next round of critique.** The user works in a screenshot loop:
 they look, then give precise notes, and lately each note removes decoration.

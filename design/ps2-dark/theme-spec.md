@@ -8,8 +8,6 @@ Companion files in this folder:
 
 - `theme-tokens.dark.json`: the full dark token set. It has the same keys as `../theme-tokens.json` plus the six new keys in §6 (for three new effects), every value outside `color` and `shadow` is identical, and a plain diff of the two files shows only the colors and shadows that change.
 - `brief.md`: the starting brief. The decisions below supersede its open questions.
-- `session-prompts.md`: prompts for the three build sessions.
-- `claude-md-addition.md`: proposed text for `CLAUDE.md` once the dark theme ships.
 - Design canvas with the mockup, the option boards and the token sheet: https://claude.ai/artifact/T4EsUQNSd2v7Xak9V5CxZy (private to the user; a Claude Code session can't open it, and nothing here depends on it).
 
 ---

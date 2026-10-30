@@ -42,7 +42,7 @@ Update this at the end of every session: tick off what's finished, note anything
 
 ## PS2 Dark
 
-The second theme, switchable while the app runs. Its spec is `ps2-dark/theme-spec.md` (only what differs from PS1), its tokens `ps2-dark/theme-tokens.dark.json`; the three build sessions are in `ps2-dark/session-prompts.md`.
+The second theme, switchable while the app runs. Its spec is `ps2-dark/theme-spec.md` (only what differs from PS1), its tokens `ps2-dark/theme-tokens.dark.json`; it was built in sessions 52 and 53.
 
 - [x] **1. Two token sets and live switching** (spec §1, §3, §6, §9; 2026-10-14)
 - [x] **2. Dark-only details** (§7: the title bar's menu glow, Play/Pause's ring and glow, then the rest of §7 against renders; 2026-10-15)
@@ -50,7 +50,7 @@ The second theme, switchable while the app runs. Its spec is `ps2-dark/theme-spe
 
 ### Decisions (PS2 Dark)
 
-- **The rename (§9) is done** (2026-10-14, the user's go-ahead): `accent.teal` → `accent.playback`, `accent.tealText` → `accent.playbackText`, in both token files, `Chrome.xaml`, the tests, both specs, this file and CLAUDE.md's colour rule (in the wording of `ps2-dark/claude-md-addition.md`).
+- **The rename (§9) is done** (2026-10-14, the user's go-ahead): `accent.teal` → `accent.playback`, `accent.tealText` → `accent.playbackText`, in both token files, `Chrome.xaml`, the tests, both specs, this file and CLAUDE.md's colour rule (in the wording of the CLAUDE.md addition).
 - **The Theme button's padding is 12 px on both sides** (the user's call), as on Last.fm and Bit-Perfect (`theme.chip`, `statusBar.chipPaddingX`), not §3.1's "10 px left and 12 px right". No new token.
 - **No "Dark Theme" item in the logo menu** (the user's call; §3.1 left it optional).
 - **The button's icon is drawn like the refresh icon**: 14 px (`statusBar.refreshIcon`), stroke 2.2 (`statusBar.refreshIconStrokeOn24Grid`), in the chip's `text.status` through `theme.iconStroke`. The spec gives the size and stroke but not the colour; this is the refresh icon's.
@@ -73,7 +73,7 @@ The second theme, switchable while the app runs. Its spec is `ps2-dark/theme-spe
 - **Statistics' warning bars stay standby red in Dark** (2026-10-15, the user's call). They borrow `status.lastFmOff`, the "off" colour, in both themes: PlayStation yellow in Light, standby red in Dark, as Bit-Perfect off is. No new token.
 - **Status-bar buttons hover in `status.chipHover`** (2026-10-21, session 61, the user's pick of three previewed: #22252C, #272A32, #2C2E34). They used `control.faceHover`, which in Dark is #1B1D23 on a #1A1C22 chip: no visible change. New token in both files: Light `#ECE9E5` (the old value, so Light is unchanged), Dark `#272A32`. It covers `theme.chip` (Refresh, Last.fm, Visualizer, Theme, Bit-Perfect) and the title bar's filter chip, which borrows their look; the transport buttons keep `control.faceHover`. Checked: the main and track windows at rest 0 pixels different in both themes; `color.status.chipHover` resolves to #ECE9E5 / #272A32, and the filter chip's hover and press brushes to the same; `--window tokens` passes. Not seen with a real pointer.
 - **The search box's text selection is `text.muted`** (2026-10-15, the user's call), as in the dialogs' text fields (`theme.dialogTextBox`). Without a setter in `theme.searchBox` it was WPF-UI's Windows accent blue, `#0078D4`, in both themes: the last stock colour left on screen. No render changes, as none has text selected; the brush dump shows `#4E4B48` in Light and `#8C93A0` in Dark.
-- **`CLAUDE.md` describes both themes**: `ps2-dark/claude-md-addition.md` merged as written (the section is now "The themes", with the five design files, and three rules: the same keys in both token files, every colour following a switch, both themes checked). Also its opening line, its test count, and two phrases that named `theme-tokens.json` alone. The PS1 spec's `slider.volumeFill` is `#75726E` (dark spec §10) and its Close hover is grey.
+- **`CLAUDE.md` describes both themes**: `ps2-dark/claude-md-addition.md` merged as written and since deleted (the section is now "The themes", with the five design files, and three rules: the same keys in both token files, every colour following a switch, both themes checked). Also its opening line, its test count, and two phrases that named `theme-tokens.json` alone. The PS1 spec's `slider.volumeFill` is `#75726E` (dark spec §10) and its Close hover is grey.
 - **ThemeLab's `--dpi` reaches every window now** (session 3). It used to lay out only the main window at the scale and draw the dialogs, prompts, menus and tooltips enlarged from their 100% layout; `Save` now lays each out again at the scale first (`LayOutAt`), and sizes the bitmap from the new layout when the case asked for the element's own size (Statistics came out 41 pixels shorter at 125%, the rest an unpainted strip). Windows, and anything in one, are also placed by their layout box rather than by what they draw: Dark's cover shadow reaches past the art viewer's left edge, which had moved that render 2 px right. A menu's drop-down, drawn without being opened, keeps the old placement, which undoes its opening animation's offset. All 48 renders at 100% are unchanged apart from the art viewer's 2 px.
 
 ### Session notes (PS2 Dark)

@@ -1,6 +1,6 @@
-Save exported images of the AudioFool mockup here, for example:
+audiofool-library.png   the PS1 Light mockup exported from the design canvas:
+                        the full window, a song playing.
 
-  audiofool-library.png   (full window, a song playing)
-
-Export them from the design canvas using its download/export option.
-Claude uses these for side-by-side visual checks; theme-spec.md remains the source of truth for exact values.
+Used for side-by-side visual checks; theme-spec.md remains the source of truth for
+exact values. Renders of the real windows in both themes are in
+../ps2-dark/screenshots/.

@@ -3156,6 +3156,31 @@ No code changed apart from the version number. Four commits, all pushed.
   a flaky test from session 48 (`A_failed_conversion_leaves_the_file_as_it_was`
   looked for working files across all of %TEMP%). Installed; **the user has to listen**.
 
+### Session 50 (2026-10-14): Keep Best Cover handles DSF; fewer Quality Check flags
+
+`TagPadding` reads a DSF's layout (header "DSD ", chunk size 28, file size, tag
+pointer; one ID3v2 tag after the music) and rewrites it: everything before the tag
+copied as is, the tag less its extra APIC frames with padding cut to 5 KB, nothing
+after it, the file size set right. `TagLayout.AudioEnd` (the pointer) bounds the music
+for `Verify`'s audio hash. Found on the real files: **TagLib writes a DSF's file size
+one byte too big** (accepted: size = tag end or tag end + 1), and the 9 *Dark Side of
+the Moon (R2R Stereo Master)* DSFs each carried ~1.38 MB after the tag, past the
+header's file size, leftovers of a shrunk tag (counted as padding and dropped). Each
+had three covers: FrontCover 1417² 38 KB (kept, by the front-cover rule), BackCover
+1525² 1.19 MB, Artist 800×444 485 KB. Probe on copies: Cleaned, ~3.05 MB freed each,
+tags and duration the same, a second run NothingToDo. Fixture `TestData/sample.dsf` is
+synthetic (8 KB of random "music", no tag). 669 tests. Run by the user on the real files
+in session 51.
+
+**Then Quality Check:** the user had cleared 161 tracks and asked for fewer flags.
+Measured all 161 with the real analyzer. Most flags are measured facts (16-bit in
+24-bit files; silence above 24 kHz), so only the weakest rule changed, the user's pick:
+**"possibly fake hi-res" now needs the 25–32 kHz band 45 dB under the treble, not 35**
+(`QualityOpinion.FaintUltrasonicDb`); the user's 38 such tracks measured 35–44.
+Re-measured: those 38 now clean, every other flag unchanged. `QualityCache` version 2,
+so the next check reads every track again (~11 min). Clearances kept. 670 tests.
+Offered and declined: turning off Fake 24-bit and the "possibly" lossy rows.
+
 ### Session 51 (2026-10-14): DSD passthrough folded into Bit-Perfect
 
 - The user found that clicking **DSD passthrough** (logo menu) started audio. Cause:
@@ -3374,6 +3399,16 @@ box's selection matches the dialogs' fields.
   true and is replaced.
 - 692 tests. Installed; a minimised launch found the main window and no error.
   Committed as `5f2942d`, after build session 2's `21fe924`; both pushed to origin.
+
+### Session 54 (2026-10-15): the Theme button icon only; a click outside saves an edit; v0.6.0 and v0.6.1
+
+The Theme button is icon only; a click anywhere outside an in-place edit box saves it
+and closes the box (`SaveEditOnClickOutside`, ThemeLab `--window edit` step 5b2). Both
+in `design/progress.md`. Released as **v0.6.0**. Then **a cover saved in the app shows
+in the now-playing bar straight away** (it was only loaded when a track started): the
+three cover-save paths call `MainViewModel.InvalidateAlbumArt`, which reloads the bar's
+picture when the playing track is on the album. ThemeLab `--window nowplayingart`:
+BROKEN before the fix, OK after. Released as **v0.6.1** (tag on `695f971`).
 
 ### Session 55 (2026-10-16): audio gaps traced to the NVIDIA GPU waking
 
@@ -4713,6 +4748,76 @@ when it's all there is; its own section):
   as drawn) ALL OK in Light and Dark; `--window tags --pickimage` with a cut-off JPEG
   shows the message. Installed 19:31 (19 files hash-identical). Not tried on the real
   library.
+
+### Session 71 (2026-10-23): cut-off covers on the real library; the status bar's ×; session 60's last findings
+
+**Cut-off covers, done.** The user ran *Check covers* (27,095 songs read). Two albums
+came up, each cut off in every copy (all songs' embedded picture and `cover.jpg` the
+same bytes):
+- **Night Verses, *Live Sessions Vol. 1*** (4 songs, 1400×1400, exactly 1,835,008
+  bytes: a stopped download; files from 2026-07-28, before AudioFool touched them).
+  The user saved a new cover: 3000×3000, whole in all four songs and `cover.jpg`.
+- **311, *Full Bloom*** (10 songs, 1500×1500): only its last bytes missing (no end
+  marker). WIC draws all of it; the user saved a new cover anyway (1400×1400, whole
+  everywhere). The old `cover.jpg` was already cut off in March 2026; the songs were
+  rewritten 2026-10-08 by session 44's Keep Best Cover run, so whether a smaller whole
+  copy was dropped then can't be known (no backup).
+- **FLO**: all three albums whole. *FLO - Chill* had a new cover saved in the app on
+  2026-10-20, which fixed the one the user saw.
+- The check deleted both albums' saved thumbnails, as built. Six grey-bottomed 96 px
+  thumbnails from 2026-10-14 remain in `art\`, keyed to none of these albums; harmless.
+
+**A bare × after the status text clears a Statistics filter** (the user hadn't noticed
+the title bar's chip and used Refresh to get the totals back; they picked a bare × over
+a chip). `StatusClearFilter` in `MainWindow.xaml`, beside `StatusLine` in a
+left-aligned grid; runs `ClearLibraryFilterCommand`. No new tokens; spec §6.8 and
+`design/progress.md`. ThemeLab `--window statusfilter` (new) ALL OK in Light and Dark
+at 100% and 125%; with no filter 0 pixels different from HEAD. Installed 07:44.
+
+**Then the same × dismisses any one-off message** (the user asked for a scan's new and
+removed tracks, then picked "any one-off message"): `CanDismissStatus` (the line
+differs from `DescribeStatus(default)`, nothing under way, library not empty, or a
+filter on), `DismissStatusCommand`, `StatusDismissName`; the button renamed
+`StatusDismiss`. Resting warnings get no ×. `--window statusfilter` extended: ALL OK in
+both themes at 100% and 125%. 968 tests. Installed 08:06 (`175844c`).
+
+**Then session 60's seven remaining review findings** (the user asked for all seven;
+the plan approved with both recommended answers). 988 tests (20 new). Installed 11:43
+(`63c4d4a`, `68a9b4b`).
+- **Windows open over the main window as it is, on its monitor**
+  (`Services/DialogPlacement`, Find and Replace's helpers moved there): tag windows,
+  Statistics (its height cap too), prompts, Last.fm, the art viewer (its size cap too),
+  Analyze (kept on its own monitor as it grows). ThemeLab `--window dialogplacement`
+  (new; hidden windows on each of the three monitors): ALL OK.
+- **A failed play says why** (`Core/Playback/PlayFailure`, `AudioEngine.LastPlayFailure`,
+  `MainViewModel.DescribePlayFailure`): drive not connected, file gone, file held by
+  another program, the device's own reason, or a real format failure. ThemeLab
+  `--window playfailure` (new, the real engine and BASS, nothing reaches the device):
+  ALL OK for the four file cases; the device case is unit-tested only.
+- **Ctrl+J and the now-playing title**: the album holding the song's file, the song
+  selected and scrolled to (`RevealTrackRequested`), a search or filter cleared only
+  when it hides the song (the user's call). ThemeLab `--window nowplayingjump` (new,
+  real library.json): ALL OK.
+- **Clearances tell discs apart**: the name-artist-album fallback also needs the same
+  folder name (`QualityClearances.SameSong`); a moved drive or music folder still
+  matches. Three new tests failed on the old code.
+- **Analyze on a file under ~46 ms**: the column clamped at 0; the new 20 ms test
+  failed on the old code.
+- **library.json and scrobbles.json saved safely** (`SafeJsonFile`, now with a
+  streaming `Write(path, Action<Stream>)` and a streamed read): flushed, swapped in,
+  `.bak` kept and read when the file is missing or damaged (a damaged one is moved
+  aside as `library.unreadable-….json`). `LibraryCache.Load/Save` take an optional path
+  for the tests; `Delete` removes the backup too.
+- **The Last.fm secret and session key encrypted** with DPAPI, current user
+  (`Settings/ProtectedStringConverter`, P/Invoke to crypt32, no new package):
+  `"dpapi:…"` in the file; a plain value from before is read and encrypted at the next
+  save; one that can't be decrypted (another PC, damaged) reads as missing, so Last.fm
+  asks to connect again.
+
+**v0.8.1 released** (2026-10-24): tag on `7b2766a` "Version 0.8.1", 60.7 MB zip, the
+same 19 files as v0.8.0; sessions 70 and 71. Notes New / Improved / Fixed, approved by
+the user, who named the version 0.8.1 (0.9.0 was offered). Installed 16:53 (19 files
+hash-identical, exe 0.8.1).
 
 ### Session 72 (2026-10-27): the end of a queue goes back to its first song
 
