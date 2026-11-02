@@ -390,6 +390,10 @@
                                 </MenuItem.ItemsSource>
                             </MenuItem>
 
+                            <MenuItem Header="Listening History…"
+                                      Icon="{ui:SymbolIcon History24}"
+                                      Command="{Binding ShowListeningHistoryCommand}" />
+
                             <MenuItem Header="Statistics…"
                                       Icon="{ui:SymbolIcon DataBarVertical24}"
                                       Command="{Binding ShowStatisticsCommand}" />

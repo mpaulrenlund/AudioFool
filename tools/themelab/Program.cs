@@ -429,6 +429,9 @@ internal static partial class Program
         if (which == "nowplayingjump")
             return RunNowPlayingJump(main, vm);
 
+        if (which == "listening")
+            return RunListeningHistory(main, vm, outPath, w, scale, Arg(args, "--state") ?? "loaded");
+
         if (which == "queueend")
             return RunQueueEnd(main, vm, engine, runtime, outPath, w, h, scale);
 

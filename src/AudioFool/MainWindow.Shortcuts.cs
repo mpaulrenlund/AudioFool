@@ -18,7 +18,7 @@ public partial class MainWindow
     {
         None, PlayPause, Statistics, Analyze, Art, Shuffle, Scan, Repeat, BitPerfect,
         Search, Like, Mute, GoToPlaying, Previous, Next, VolumeUp, VolumeDown, Theme,
-        FindReplace,
+        FindReplace, ListeningHistory,
     }
 
     private const double VolumeStep = 0.05;
@@ -45,10 +45,10 @@ public partial class MainWindow
             return true;
 
         // The ones that open a window wait for the key event to finish:
-        // Statistics and Find and Replace are modal, and nothing should open
-        // mid-keystroke.
+        // Statistics, Find and Replace and Listening History are modal, and
+        // nothing should open mid-keystroke.
         if (shortcut is Shortcut.Statistics or Shortcut.Analyze or Shortcut.Art or Shortcut.Search
-            or Shortcut.FindReplace)
+            or Shortcut.FindReplace or Shortcut.ListeningHistory)
             Dispatcher.BeginInvoke(() => RunShortcut(shortcut), DispatcherPriority.Input);
         else
             RunShortcut(shortcut);
@@ -88,6 +88,7 @@ public partial class MainWindow
         return key switch
         {
             Key.W => Shortcut.Statistics,
+            Key.Y => Shortcut.ListeningHistory,
             Key.H => Shortcut.FindReplace,
             Key.Q => Shortcut.Analyze,
             Key.D => Shortcut.Art,
@@ -120,6 +121,9 @@ public partial class MainWindow
                 break;
             case Shortcut.FindReplace:
                 _viewModel.ShowFindReplaceCommand.Execute(null);
+                break;
+            case Shortcut.ListeningHistory:
+                _viewModel.ShowListeningHistoryCommand.Execute(null);
                 break;
             case Shortcut.Analyze:
                 _viewModel.AnalyzeTrackCommand.Execute(AnalyzeTarget());

@@ -1293,15 +1293,23 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// </summary>
     public void NavigateToNowPlaying()
     {
-        if (NowPlaying is not { } playing)
-            return;
+        if (NowPlaying is { } playing)
+            NavigateTo(playing, ListeningKind.Song);
+    }
 
+    /// <summary>
+    /// Shows a song's artist, and as far as <paramref name="depth"/> asks its
+    /// album and the song itself, as Ctrl+J does. Listening History's rows come
+    /// here with a song of the artist or album they name.
+    /// </summary>
+    private void NavigateTo(Track target, ListeningKind depth)
+    {
         IsPlaylistMode = false;
 
-        var path = playing.FilePath;
+        var path = target.FilePath;
         bool IsIt(Track t) => string.Equals(t.FilePath, path, StringComparison.OrdinalIgnoreCase);
 
-        var track = LibraryCopyOf(playing);
+        var track = LibraryCopyOf(target);
         var searchHides = IsSearching && LibrarySearch.Filter([track], SearchQuery).Count == 0;
         var filterHides = LibraryFilter is { } filter && !filter.Apply(_folderFilteredLibrary.AllTracks).Any(IsIt);
 
@@ -1327,12 +1335,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         SelectedArtist = artist;
 
-        if (Albums.FirstOrDefault(a => a.Album.Tracks.Any(IsIt)) is not { } album)
+        if (depth == ListeningKind.Artist
+            || Albums.FirstOrDefault(a => a.Album.Tracks.Any(IsIt)) is not { } album)
             return;
 
         SelectedAlbum = album;
 
-        if (Tracks.FirstOrDefault(IsIt) is { } shown)
+        if (depth == ListeningKind.Song && Tracks.FirstOrDefault(IsIt) is { } shown)
             RevealTrackRequested?.Invoke(this, shown);
     }
 
@@ -1539,6 +1548,29 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
 
         new LastFmWindow(new LastFmViewModel(_scrobbler, _settings), owner).ShowDialog();
+    }
+
+    /// <summary>
+    /// Ctrl+Y: what the user has played, from Last.fm. Its rows are matched
+    /// against what Statistics counts (the ticked folders); a click on one the
+    /// library holds goes to it once the window has closed.
+    /// </summary>
+    [RelayCommand]
+    private void ShowListeningHistory()
+    {
+        if (Application.Current.MainWindow is not { } owner)
+            return;
+
+        // Reads need only the API key and the user name, never the secret or a session.
+        var api = _settings.LastFmApiKey is { Length: > 0 } key ? new LastFmApi(key, secret: "") : null;
+        using var history = new ListeningHistoryViewModel(api, _scrobbler.UserName, _folderFilteredLibrary.AllTracks);
+        if (new ListeningHistoryWindow(history, owner).ShowDialog() != true)
+            return;
+
+        if (history.WantsLastFm)
+            ShowLastFm();
+        else if (history.Chosen is { Target: { } target } row)
+            NavigateTo(target, row.Kind);
     }
 
     private void OnScrobblerAuthFailed(object? sender, string message) => StatusText = message;

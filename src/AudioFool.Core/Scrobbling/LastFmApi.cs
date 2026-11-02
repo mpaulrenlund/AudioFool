@@ -214,6 +214,39 @@ public sealed class LastFmApi
         return outcomes;
     }
 
+    // ------------------------------------------------- listening history (reads)
+
+    /// <summary>The user's totals: scrobbles, when they joined, how many artists, albums and tracks.</summary>
+    public async Task<ListenerProfile> GetProfileAsync(string user, CancellationToken ct)
+    {
+        using var doc = await ReadAsync("user.getInfo", [new("user", user)], ct);
+        return ListeningJson.Profile(doc.RootElement);
+    }
+
+    public Task<IReadOnlyList<TopEntry>> GetTopArtistsAsync(string user, ListeningPeriod period, int limit, CancellationToken ct) =>
+        GetTopAsync("user.getTopArtists", "topartists", "artist", user, period, limit, ct);
+
+    public Task<IReadOnlyList<TopEntry>> GetTopAlbumsAsync(string user, ListeningPeriod period, int limit, CancellationToken ct) =>
+        GetTopAsync("user.getTopAlbums", "topalbums", "album", user, period, limit, ct);
+
+    public Task<IReadOnlyList<TopEntry>> GetTopTracksAsync(string user, ListeningPeriod period, int limit, CancellationToken ct) =>
+        GetTopAsync("user.getTopTracks", "toptracks", "track", user, period, limit, ct);
+
+    /// <summary>The latest plays, newest first; one still playing comes first, with no time.</summary>
+    public async Task<IReadOnlyList<RecentPlay>> GetRecentTracksAsync(string user, int limit, CancellationToken ct)
+    {
+        using var doc = await ReadAsync("user.getRecentTracks", [new("user", user), new("limit", limit.ToString())], ct);
+        return ListeningJson.Recent(doc.RootElement, limit);
+    }
+
+    private async Task<IReadOnlyList<TopEntry>> GetTopAsync(
+        string method, string listName, string itemName, string user, ListeningPeriod period, int limit, CancellationToken ct)
+    {
+        using var doc = await ReadAsync(method,
+            [new("user", user), new("period", ListeningPeriods.ApiName(period)), new("limit", limit.ToString())], ct);
+        return ListeningJson.Top(doc.RootElement, listName, itemName, limit);
+    }
+
     private static void AddOptional(List<KeyValuePair<string, string>> p, string name, string? value)
     {
         if (!string.IsNullOrWhiteSpace(value))
@@ -222,11 +255,9 @@ public sealed class LastFmApi
 
     /// <summary>
     /// One signed POST. Every call is signed, including auth.getToken, which
-    /// does not need it but accepts it. Last.fm reports errors as JSON with an
-    /// <c>error</c> number, usually under a 4xx or 5xx status; anything that is
-    /// not JSON at all is treated as a transient fault.
+    /// does not need it but accepts it.
     /// </summary>
-    private async Task<JsonDocument> CallAsync(
+    private Task<JsonDocument> CallAsync(
         string method, List<KeyValuePair<string, string>> parameters, string? sessionKey, CancellationToken ct)
     {
         var p = new List<KeyValuePair<string, string>>(parameters)
@@ -239,10 +270,37 @@ public sealed class LastFmApi
         p.Add(new("api_sig", Sign(p, _secret)));
         p.Add(new("format", "json"));
 
+        return SendAsync(() => _http.PostAsync(Endpoint, new FormUrlEncodedContent(p), ct), ct);
+    }
+
+    /// <summary>
+    /// One unsigned GET, as Last.fm's read methods are made: they need only the
+    /// API key, never the secret or a session.
+    /// </summary>
+    private Task<JsonDocument> ReadAsync(string method, List<KeyValuePair<string, string>> parameters, CancellationToken ct)
+    {
+        var p = new List<KeyValuePair<string, string>>(parameters)
+        {
+            new("method", method),
+            new("api_key", _apiKey),
+            new("format", "json"),
+        };
+        var query = string.Join("&", p.Select(kv => $"{Uri.EscapeDataString(kv.Key)}={Uri.EscapeDataString(kv.Value)}"));
+
+        return SendAsync(() => _http.GetAsync($"{Endpoint}?{query}", ct), ct);
+    }
+
+    /// <summary>
+    /// Last.fm reports errors as JSON with an <c>error</c> number, usually under
+    /// a 4xx or 5xx status; anything that is not JSON at all is treated as a
+    /// transient fault.
+    /// </summary>
+    private static async Task<JsonDocument> SendAsync(Func<Task<HttpResponseMessage>> send, CancellationToken ct)
+    {
         HttpResponseMessage response;
         try
         {
-            response = await _http.PostAsync(Endpoint, new FormUrlEncodedContent(p), ct).ConfigureAwait(false);
+            response = await send().ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {
