@@ -4879,6 +4879,9 @@ click on a row closing the window and going to it.
 - **Not checked**: the real Last.fm. Claude's shell has no API key (stale settings),
   so the five reads haven't run against Last.fm itself. The parser was written from
   Last.fm's documented shapes and made tolerant.
+- **v0.10.0 released** (2026-11-02): tag on `0f0ea4d` "Version 0.10.0", 60.8 MB zip, the
+  same 19 files as v0.9.0, notes under New. Installed 16:00 (19 files hash-identical,
+  exe 0.10.0).
 
 ---
 

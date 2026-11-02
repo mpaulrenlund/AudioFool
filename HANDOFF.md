@@ -97,7 +97,7 @@ the only thing that catches a file you forgot to track.
 ### Releases
 
 All on GitHub (private, so downloads need a signed-in account); `gh release list` has
-them all. **Latest: v0.9.0** (2026-10-28, session 72, tag on `4762fbd`, 60.7 MB zip,
+them all. **Latest: v0.10.0** (2026-11-02, session 74, tag on `0f0ea4d`, 60.8 MB zip,
 19 files). Every one after v0.1.0 was made by Claude.
 `AudioFool.csproj` starts with a byte-order mark: keep it when bumping the version
 (v0.6.0's bump dropped it and needed a follow-up commit). Handle a release end to end when asked, but
@@ -136,7 +136,7 @@ and the commit fails.
 ### Where things stand
 
 - **Everything in `README.md` is implemented and verified**, except Listening History against the real Last.fm (session 74). **1,005 tests** pass.
-- **Last release: v0.9.0** (2026-10-28), installed. Unreleased: Listening History (session 74).
+- **Last release: v0.10.0** (2026-11-02, Listening History), installed; nothing unreleased.
 - Since session 63 an install is checked by hashing the files, not by launching
   AudioFool from Claude's shell (see *A launch from Claude's shell writes
   playback.log* under Gotchas).
