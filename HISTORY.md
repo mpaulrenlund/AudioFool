@@ -4841,6 +4841,45 @@ remembered for the next launch.
   same 19 files as v0.8.1, notes under Improved. The user picked 0.9.0 over 0.8.2.
   Installed 18:16 (19 files hash-identical, exe 0.9.0).
 
+### Session 74 (2026-11-02): Listening History
+
+The user asked whether Last.fm listening metrics could show in AudioFool, then picked a
+window of its own over a section in Statistics, the name **Listening History** and
+**Ctrl+Y** (Ctrl+L, their first pick, is Like). The plan was approved with the three
+recommended answers: a row of words for the period switch, a logo-menu item, and a
+click on a row closing the window and going to it.
+
+- **Core** (`Scrobbling/`): `LastFmApi` gains five reads (`GetProfileAsync`, the three
+  top lists, `GetRecentTracksAsync`), sent as unsigned GETs with only the API key: no
+  secret, no session. The POST path and the new GET path share one response reader
+  (`SendAsync`). `ListeningHistory.cs` holds the records, the periods and their
+  Last.fm names, `ListeningJson` (numbers as strings, `#text` text nodes, a list of
+  one as an object, one extra row while a song plays) and `ListeningTime` ("12 min
+  ago", "Yesterday", "Oct 30"). `ListeningMatch` finds the library's copy of a named
+  artist, album or song, loosely: no case, accents or punctuation, "&" as "and", and a
+  trailing bracketed part tried without; an artist's own entry before a compilation
+  they're on. 17 new tests (`ListeningHistoryTests`); 1,005 in all.
+- **Window**: `ListeningHistoryWindow` + `ListeningHistoryViewModel`, modal, Statistics'
+  width and tokens, as tall as the work area from the start (the answer comes after it
+  opens). Five tiles, the period switch (`PeriodButton`, radio buttons drawn as words;
+  a hidden emphasised copy keeps each word's width), TOP ARTISTS / TOP ALBUMS left,
+  TOP TRACKS / RECENTLY PLAYED right. Each period is fetched once per opening. Messages
+  for loading, offline and not connected (with a link to the Last.fm window). One new
+  token, `listeningHistory.periodGap` (20), in both files.
+- **Main window**: `ShowListeningHistoryCommand`; `NavigateTo(track, depth)` is Ctrl+J's
+  navigation, generalised (artist only, artist and album, or the song).
+  `NavigateToNowPlaying` calls it. Ctrl+Y, the logo-menu item between Libraries and
+  Statistics, and a WINDOWS row in Statistics' shortcut guide.
+- ThemeLab `--window listening [--state loaded|loading|offline|disconnected]` (new,
+  `ListeningHistoryCase.cs`), over the real library.json read-only, with Last.fm's
+  answers made up from it: ALL OK in Light and Dark at 100, 125 and 150%. Installed 15:46
+  at the user's OK (19 files hash-identical). 0 magenta
+  in every render except the 125/150% renders of a failed period, where the bitmap
+  keeps the earlier, taller height below the window (a harness quirk; 0 at 100%).
+- **Not checked**: the real Last.fm. Claude's shell has no API key (stale settings),
+  so the five reads haven't run against Last.fm itself. The parser was written from
+  Last.fm's documented shapes and made tolerant.
+
 ---
 
 ## Reference notes retired from the handoff

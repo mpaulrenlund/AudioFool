@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-10-30, session 73. Read this alongside `README.md`: the README covers
+Updated 2026-11-02, session 74. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -135,8 +135,8 @@ and the commit fails.
 
 ### Where things stand
 
-- **Everything in `README.md` is implemented and verified.** **988 tests** pass.
-- **Last release: v0.9.0** (2026-10-28), installed; nothing unreleased.
+- **Everything in `README.md` is implemented and verified**, except Listening History against the real Last.fm (session 74). **1,005 tests** pass.
+- **Last release: v0.9.0** (2026-10-28), installed. Unreleased: Listening History (session 74).
 - Since session 63 an install is checked by hashing the files, not by launching
   AudioFool from Claude's shell (see *A launch from Claude's shell writes
   playback.log* under Gotchas).
@@ -145,6 +145,9 @@ and the commit fails.
 Recent sessions, newest first (the full notes, file names and checks are in
 `HISTORY.md`):
 
+- **74** (2026-11-02): **Listening History** (Ctrl+Y, logo menu): Last.fm totals, top
+  artists, albums and tracks for a chosen period, recent plays; a click goes to the row in
+  the library. Checked in ThemeLab on made-up answers; not yet against the real Last.fm.
 - **73** (2026-10-30): docs clean-up only. This file slimmed (past sessions' details
   live in `HISTORY.md`, which gained sessions 50, 54 and 71); the finished PS2 Dark
   build prompts and CLAUDE.md addition deleted. No app change.
@@ -717,6 +720,7 @@ ThemeLab.exe --window playfailure   # the real engine and BASS on a missing file
 ThemeLab.exe --window nowplayingjump   # Ctrl+J over the real library.json (read only): its album, the song selected, a search/filter cleared only when it hides the song (session 71)
 ThemeLab.exe --window statusfilter [--theme dark] [--dpi 1.25]   # the status bar's ×, over the real library.json (read only): a filter (hidden/shown, right after the text, trimmed long line, hover, a click clears and restores the totals), then one-off messages (scan counts, a save; none while scanning or saving, none on a search's line); renders <out>-off/-on/-saved/-long/-hover/-scan.png; "ALL OK" (session 71)
 ThemeLab.exe --window queueend [--theme dark]   # the end of a queue through the real engine (shared, 5%, silent WAVs, a blue cover.jpg) and the view model: the bar back on the first song at 0:00, its cover, stopped, device let go; Play starts from it; shuffle; a one-song queue; renders <out>-end.png; "ALL OK" (session 72). Run with Start-Process -Wait -RedirectStandardOutput to see its lines
+ThemeLab.exe --window listening --w 900 [--state loaded|loading|offline|disconnected] [--theme dark] [--dpi 1.25]   # Listening History over the real library.json (read only), Last.fm answers made up from it (nothing sent): tiles, rows, which can be clicked, a period switch and back (no refetch), a failed period, clicks applied to the main window; renders <out>-week/-periodfail/-again.png; "ALL OK" (session 74)
 ThemeLab.exe --window headerpress           # a press on a letter of each Songs header (a LetterSpacing Run), then the header's click: no exception, each sorts; "ALL OK" (session 68)
 ThemeLab.exe --window drives                # drives plugged in and pulled out while running, on subst letters (Q:-Y:): an unrelated drive, the music drive pulled, back under another letter (lists, queue, now playing, Next), back under the same letter, F5 alone; silent; "ALL OK" (session 68)
 ThemeLab.exe --window tokens --out tokens.png   # the central theme: lookups from MainWindow, XAML usage, fonts, specimen
@@ -1072,6 +1076,10 @@ Open items only; finished ones are in `HISTORY.md`. Open a session by asking the
 about step 1 (ask; don't re-explain), then step 3, then which of steps 2 and 4 to take.
 
 1. **Ask the user to try what was checked off-screen only:**
+   - **Session 74:** Listening History (Ctrl+Y) against the real Last.fm: the tiles and
+     top lists look like their last.fm profile, the period switch, a click on an artist,
+     an album and a song. If a list comes back empty or wrong, read `ListeningJson`
+     against the real answer (it was written from Last.fm's documented shapes).
    - **Session 71:** the × after the status text (clears a Statistics filter,
      dismisses a one-off message); a dialog with the main window maximised on the
      second monitor; Ctrl+J under a search; Last.fm still connected after the update

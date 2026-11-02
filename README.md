@@ -326,6 +326,7 @@ These only apply when AudioFool has focus:
 | **Ctrl+T** | Switch between the Light and Dark themes (as the status bar's Theme button does) |
 | **Ctrl+R** | Rescan the library (as F5) |
 | **Ctrl+W** | Statistics |
+| **Ctrl+Y** | [Listening History](#listening-history) |
 | **Ctrl+H** | [Find and Replace](#find-and-replace) |
 | **Ctrl+Q** | Analyze the selected song, or the playing one if no song is selected |
 | **Ctrl+D** | Album-art viewer for the playing album, or the selected album if nothing is playing; Ctrl+D again closes it |
@@ -486,6 +487,31 @@ encrypted with Windows' own per-account encryption (DPAPI): a copy of the file i
 use on another PC or to another Windows account. On another PC, or if those values
 are damaged, Last.fm asks you to connect again. The session key allows scrobbling but
 does not reveal your password.
+
+### Listening History
+
+Logo menu → **Listening History…** (or **Ctrl+Y**) shows what you've played, as Last.fm
+has it. It is laid out like Statistics:
+
+- **Tiles**: your total scrobbles, the month you started, and how many artists, albums
+  and tracks you've played.
+- **A period switch**: 7 Days, 1 Month, 3 Months, 6 Months, 12 Months or All Time. It
+  opens on 12 Months. Each period is fetched once while the window is open, so going
+  back to one is instant.
+- **TOP ARTISTS, TOP ALBUMS, TOP TRACKS**: ten each for the period, with play counts
+  and bars measured against the first.
+- **RECENTLY PLAYED**: the last 20 plays, newest first, with what's playing now at the
+  top.
+
+**A click on a row goes to it** in the library and closes the window: an artist, an
+album, or a song selected in its album. Only rows the library holds can be clicked
+(ticked folders only). Names are matched loosely (case, accents, punctuation and "&"
+don't matter, nor a trailing "(Remastered)"), because Last.fm sometimes corrects
+names; a row that still doesn't match can't be clicked.
+
+It reads with your API key and user name only, so it works whether or not scrobbling
+is switched on. Nothing is saved. Not connected, it says so and links to the Last.fm
+window; offline, it says Last.fm couldn't be reached.
 
 ---
 
