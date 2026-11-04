@@ -4882,6 +4882,8 @@ click on a row closing the window and going to it.
 - **v0.10.0 released** (2026-11-02): tag on `0f0ea4d` "Version 0.10.0", 60.8 MB zip, the
   same 19 files as v0.9.0, notes under New. Installed 16:00 (19 files hash-identical,
   exe 0.10.0).
+- **Confirmed by the user** (2026-11-04), on their real Last.fm account: "Last.fm
+  listening screen is awesome."
 
 ---
 

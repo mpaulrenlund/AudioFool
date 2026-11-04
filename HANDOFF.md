@@ -135,7 +135,7 @@ and the commit fails.
 
 ### Where things stand
 
-- **Everything in `README.md` is implemented and verified**, except Listening History against the real Last.fm (session 74). **1,005 tests** pass.
+- **Everything in `README.md` is implemented and verified**, **1,005 tests** pass.
 - **Last release: v0.10.0** (2026-11-02, Listening History), installed; nothing unreleased.
 - Since session 63 an install is checked by hashing the files, not by launching
   AudioFool from Claude's shell (see *A launch from Claude's shell writes
@@ -147,7 +147,7 @@ Recent sessions, newest first (the full notes, file names and checks are in
 
 - **74** (2026-11-02): **Listening History** (Ctrl+Y, logo menu): Last.fm totals, top
   artists, albums and tracks for a chosen period, recent plays; a click goes to the row in
-  the library. Checked in ThemeLab on made-up answers; not yet against the real Last.fm.
+  the library. Confirmed by the user on their real Last.fm account (2026-11-04).
 - **73** (2026-10-30): docs clean-up only. This file slimmed (past sessions' details
   live in `HISTORY.md`, which gained sessions 50, 54 and 71); the finished PS2 Dark
   build prompts and CLAUDE.md addition deleted. No app change.
@@ -1076,10 +1076,6 @@ Open items only; finished ones are in `HISTORY.md`. Open a session by asking the
 about step 1 (ask; don't re-explain), then step 3, then which of steps 2 and 4 to take.
 
 1. **Ask the user to try what was checked off-screen only:**
-   - **Session 74:** Listening History (Ctrl+Y) against the real Last.fm: the tiles and
-     top lists look like their last.fm profile, the period switch, a click on an artist,
-     an album and a song. If a list comes back empty or wrong, read `ListeningJson`
-     against the real answer (it was written from Last.fm's documented shapes).
    - **Session 71:** the × after the status text (clears a Statistics filter,
      dismisses a one-off message); a dialog with the main window maximised on the
      second monitor; Ctrl+J under a search; Last.fm still connected after the update
