@@ -18,7 +18,7 @@ public partial class MainWindow
     {
         None, PlayPause, Statistics, Analyze, Art, Shuffle, Scan, Repeat, BitPerfect,
         Search, Like, Mute, GoToPlaying, Previous, Next, VolumeUp, VolumeDown, Theme,
-        FindReplace, ListeningHistory,
+        FindReplace, ListeningHistory, Genius,
     }
 
     private const double VolumeStep = 0.05;
@@ -48,7 +48,7 @@ public partial class MainWindow
         // Statistics, Find and Replace and Listening History are modal, and
         // nothing should open mid-keystroke.
         if (shortcut is Shortcut.Statistics or Shortcut.Analyze or Shortcut.Art or Shortcut.Search
-            or Shortcut.FindReplace or Shortcut.ListeningHistory)
+            or Shortcut.FindReplace or Shortcut.ListeningHistory or Shortcut.Genius)
             Dispatcher.BeginInvoke(() => RunShortcut(shortcut), DispatcherPriority.Input);
         else
             RunShortcut(shortcut);
@@ -91,6 +91,7 @@ public partial class MainWindow
             Key.Y => Shortcut.ListeningHistory,
             Key.H => Shortcut.FindReplace,
             Key.Q => Shortcut.Analyze,
+            Key.G => Shortcut.Genius,
             Key.D => Shortcut.Art,
             Key.S => Shortcut.Shuffle,
             Key.R => Shortcut.Scan,
@@ -127,6 +128,10 @@ public partial class MainWindow
                 break;
             case Shortcut.Analyze:
                 _viewModel.AnalyzeTrackCommand.Execute(AnalyzeTarget());
+                break;
+            // The same song Ctrl+Q would analyse: the selected one, or the playing one.
+            case Shortcut.Genius:
+                _viewModel.ShowGeniusCommand.Execute(AnalyzeTarget());
                 break;
             // Ctrl+D again closes it, from here or from the viewer (ArtWindow.ClosesOn).
             case Shortcut.Art when _artWindow is { } open:
@@ -182,8 +187,8 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Ctrl+Q: the selected song (the focused one of several), or the playing
-    /// one when no song is selected.
+    /// Ctrl+Q and Ctrl+G: the selected song (the focused one of several), or the
+    /// playing one when no song is selected.
     /// </summary>
     internal Track? AnalyzeTarget()
     {

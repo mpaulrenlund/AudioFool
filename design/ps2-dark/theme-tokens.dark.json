@@ -207,6 +207,7 @@
   "intro": { "logoAtMs": 7300, "fadeMs": 400, "endFadeMs": 900, "lengthMs": 14900, "versionMarginBottom": 24 },
   "prompt": { "width": 400 },
   "listeningHistory": { "periodGap": 20 },
+  "genius": { "width": 760, "creditLabelWidth": 150, "entryGap": 14 },
   "findReplace": {
     "ownerMarginX": 48, "height": 620, "minWidth": 640, "minHeight": 420,
     "optionGap": 20, "gridGap": 12,

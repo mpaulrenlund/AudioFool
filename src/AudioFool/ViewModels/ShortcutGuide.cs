@@ -42,6 +42,7 @@ public static class ShortcutGuide
                 new("Ctrl+Y", "Listening History"),
                 new("Ctrl+H", "Find and Replace"),
                 new("Ctrl+Q", "Analyze the selected song, or the playing one"),
+                new("Ctrl+G", "Genius for the selected song, or the playing one"),
                 new("Ctrl+D", "Album art for the playing album, or the selected one; again to close"),
                 new("Ctrl+T", "Light / dark theme"),
                 new("Escape", "Close the album art, or this window"),

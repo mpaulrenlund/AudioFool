@@ -1,0 +1,312 @@
+<ui:FluentWindow x:Class="AudioFool.GeniusWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:theme="clr-namespace:AudioFool.Theming"
+                 xmlns:fmt="clr-namespace:AudioFool.Formatting"
+                 Title="{Binding Title}"
+                 Icon="/Resources/AudioFool.ico"
+                 Width="{theme:Token genius.width}"
+                 MinWidth="{theme:Token statistics.minWidth}" MinHeight="{theme:Token statistics.minHeight}"
+                 WindowStartupLocation="Manual"
+                 WindowBackdropType="None"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowCornerPreference="Round">
+
+    <!--
+        What Genius has on one song (the user's request, 2026-11-04). Statistics'
+        panels, rows and text styles, restated as Listening History restates
+        them, in one column: the song's own header, then ABOUT, QUESTIONS &
+        ANSWERS, ANNOTATIONS, CREDITS, CONNECTIONS and COMMENTS, each shown only
+        when Genius has something for it. No new colours.
+    -->
+    <ui:FluentWindow.Resources>
+        <Style TargetType="Hyperlink" BasedOn="{StaticResource theme.link}" />
+
+        <Style x:Key="SectionHeader" TargetType="TextBlock" BasedOn="{StaticResource type.panelHeader}">
+            <Setter Property="fmt:LetterSpacing.Em" Value="{DynamicResource type.panelHeader.letterSpacingEm}" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="Body" TargetType="TextBlock" BasedOn="{StaticResource type.tableCell}">
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextTrimming" Value="None" />
+        </Style>
+
+        <Style x:Key="Section" TargetType="HeaderedContentControl" BasedOn="{StaticResource theme.panel}">
+            <Setter Property="Margin" Value="{theme:Thickness Bottom=statistics.sectionGap}" />
+        </Style>
+
+        <!-- Inside a section: the panel's header padding across, Statistics' section padding down. -->
+        <Style x:Key="SectionBody" TargetType="StackPanel">
+            <Setter Property="Margin" Value="{theme:Thickness X=layout.panelHeaderPaddingX, Y=statistics.sectionPaddingY}" />
+        </Style>
+
+        <!-- Statistics' clickable row: hover wash, then the selection grey. -->
+        <Style x:Key="StatRowButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="{theme:Thickness X=statistics.rowPaddingX, Y=statistics.rowPaddingY}" />
+            <Setter Property="Margin" Value="{theme:Thickness Left=-statistics.rowPaddingX, Right=-statistics.rowPaddingX, Bottom=statistics.rowGap}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid Background="Transparent" SnapsToDevicePixels="True">
+                            <Border x:Name="Wash" Opacity="0"
+                                    Background="{DynamicResource color.state.hoverOverlay}"
+                                    CornerRadius="{DynamicResource radius.row}" />
+                            <ContentPresenter Margin="{TemplateBinding Padding}" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Wash" Property="Opacity" Value="1" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Wash" Property="Background"
+                                        Value="{DynamicResource color.state.selectionBg}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!--
+            A question and its answer, an explanation under its lyric line, or a
+            comment under its author: the first line in the row label's style at
+            the dialogs' emphasis weight (a lyric line in the muted grey), the
+            right-hand note as Statistics' figures, then the text.
+        -->
+        <DataTemplate x:Key="EntryTemplate">
+            <StackPanel Margin="{theme:Thickness Bottom=genius.entryGap}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="Heading" Grid.Column="0" Text="{Binding Heading}"
+                               Style="{DynamicResource type.songTitle}"
+                               FontWeight="{DynamicResource dialog.emphasisWeight.fontWeight}"
+                               TextWrapping="Wrap" TextTrimming="None" />
+                    <TextBlock Grid.Column="1" Text="{Binding Figure}"
+                               Style="{DynamicResource type.timeLabel}"
+                               VerticalAlignment="Top"
+                               Margin="{theme:Thickness Left=statistics.columnGap}"
+                               Visibility="{Binding Figure, Converter={StaticResource NullToCollapsed}}" />
+                </Grid>
+                <TextBlock fmt:LinkedText.Text="{Binding Body}" Style="{StaticResource Body}"
+                           Margin="{theme:Thickness Top=statistics.detailGap}" />
+            </StackPanel>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsQuote}" Value="True">
+                    <Setter TargetName="Heading" Property="Foreground" Value="{DynamicResource color.text.muted}" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- A credit or connection: the label in grey in a fixed column, then the names. -->
+        <DataTemplate x:Key="CreditTemplate">
+            <Grid Margin="{theme:Thickness Bottom=statistics.rowGap}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="{theme:Token genius.creditLabelWidth}" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding Label}" Style="{StaticResource Body}"
+                           Foreground="{DynamicResource color.text.muted}"
+                           Margin="{theme:Thickness Right=statistics.columnGap}" />
+                <TextBlock Grid.Column="1" Text="{Binding Value}" Style="{StaticResource Body}" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- One of the nearest results: Statistics' row, the title over the artist. -->
+        <DataTemplate x:Key="ChoiceTemplate">
+            <Button Style="{StaticResource StatRowButton}" Click="Choice_Click"
+                    AutomationProperties.Name="{Binding Label}">
+                <StackPanel>
+                    <TextBlock Text="{Binding Label}" Style="{DynamicResource type.songTitle}"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Detail}" Style="{DynamicResource type.albumMeta}"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="{theme:Thickness Top=statistics.detailGap}" />
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+    </ui:FluentWindow.Resources>
+
+    <Grid Background="{DynamicResource color.window.bg}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0"
+                     Style="{DynamicResource theme.dialogTitleBar}"
+                     Header="{DynamicResource theme.dialogTitle}" />
+
+        <!-- No visible scrollbar (the theme's rule); the wheel and keys still scroll. -->
+        <ScrollViewer x:Name="Scroller" Grid.Row="1" VerticalScrollBarVisibility="Hidden"
+                      HorizontalScrollBarVisibility="Disabled"
+                      Focusable="False">
+            <StackPanel Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop}">
+
+                <!-- The library's song, as the album header draws an album: its cover, title, artist, album and year. -->
+                <Grid Margin="{theme:Thickness Bottom=statistics.sectionGap}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0"
+                            Width="{theme:Token albumHeader.artSize}"
+                            Height="{theme:Token albumHeader.artSize}"
+                            VerticalAlignment="Top"
+                            BorderBrush="{DynamicResource color.art.border}"
+                            BorderThickness="{theme:Thickness All=layout.panelBorder}"
+                            CornerRadius="{DynamicResource radius.art}"
+                            Effect="{DynamicResource shadow.headerArt}"
+                            SnapsToDevicePixels="True">
+                        <Grid Background="{DynamicResource color.panel.bg}">
+                            <ui:SymbolIcon Symbol="MusicNote224"
+                                           FontSize="{theme:Token albumHeader.placeholderIconSize}"
+                                           Foreground="{DynamicResource color.text.muted}"
+                                           Visibility="{Binding Art, Converter={StaticResource NullToVisible}}" />
+                            <Image Source="{Binding Art}" Stretch="UniformToFill"
+                                   Visibility="{Binding Art, Converter={StaticResource NullToCollapsed}}" />
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Grid.Column="1"
+                                Margin="{theme:Thickness Left=albumHeader.artGap}"
+                                VerticalAlignment="Top">
+                        <TextBlock x:Name="SongTitleText" Text="{Binding SongTitle}"
+                                   Style="{DynamicResource type.headerTitle}"
+                                   MinHeight="{theme:Token albumHeader.titleMinHeight}" />
+                        <StackPanel Margin="{theme:Thickness Top=albumHeader.titleToDetailsGap}">
+                            <TextBlock Text="{Binding Artist}"
+                                       Style="{DynamicResource type.headerArtist}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding DetailLine}"
+                                       Style="{DynamicResource type.headerDetails}"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="{theme:Thickness Top=albumHeader.detailsLineGap}"
+                                       Visibility="{Binding DetailLine, Converter={StaticResource NullToCollapsed}}" />
+                            <TextBlock Style="{DynamicResource type.headerDetails}"
+                                       Margin="{theme:Thickness Top=albumHeader.detailsLineGap}"
+                                       Visibility="{Binding HasPage, Converter={StaticResource BoolToVisibility}}">
+                                <Hyperlink x:Name="OpenPageLink" Click="OpenPage_Click">Open on Genius</Hyperlink>
+                            </TextBlock>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Looking it up, no match, or why it couldn't. No colour, like a dialog's error line. -->
+                <TextBlock x:Name="MessageText" Text="{Binding Message}" Style="{StaticResource Body}"
+                           Foreground="{DynamicResource color.text.heading}"
+                           FontWeight="{DynamicResource dialog.emphasisWeight.fontWeight}"
+                           Margin="{theme:Thickness Bottom=statistics.summaryGap}"
+                           Visibility="{Binding ShowsMessage, Converter={StaticResource BoolToVisibility}}" />
+
+                <HeaderedContentControl Style="{StaticResource Section}"
+                                        Visibility="{Binding HasSuggestions, Converter={StaticResource BoolToVisibility}}">
+                    <HeaderedContentControl.Header>
+                        <TextBlock Text="CLOSEST ON GENIUS" Style="{StaticResource SectionHeader}" />
+                    </HeaderedContentControl.Header>
+                    <StackPanel Style="{StaticResource SectionBody}">
+                        <ItemsControl x:Name="SuggestionList" ItemsSource="{Binding Suggestions}"
+                                      ItemTemplate="{StaticResource ChoiceTemplate}" Focusable="False" />
+                    </StackPanel>
+                </HeaderedContentControl>
+
+                <TextBlock Text="{Binding MissingText}" Style="{StaticResource Body}"
+                           Margin="{theme:Thickness Bottom=statistics.summaryGap}"
+                           Visibility="{Binding MissingText, Converter={StaticResource NullToCollapsed}}" />
+
+                <HeaderedContentControl x:Name="AboutSection" Style="{StaticResource Section}"
+                                        Visibility="{Binding HasAbout, Converter={StaticResource BoolToVisibility}}">
+                    <HeaderedContentControl.Header>
+                        <TextBlock Text="ABOUT" Style="{StaticResource SectionHeader}" />
+                    </HeaderedContentControl.Header>
+                    <StackPanel Style="{StaticResource SectionBody}">
+                        <TextBlock fmt:LinkedText.Text="{Binding About}" Style="{StaticResource Body}" />
+                    </StackPanel>
+                </HeaderedContentControl>
+
+                <HeaderedContentControl x:Name="AnswersSection" Style="{StaticResource Section}"
+                                        Visibility="{Binding HasAnswers, Converter={StaticResource BoolToVisibility}}">
+                    <HeaderedContentControl.Header>
+                        <TextBlock Text="QUESTIONS &amp; ANSWERS" Style="{StaticResource SectionHeader}" />
+                    </HeaderedContentControl.Header>
+                    <StackPanel Style="{StaticResource SectionBody}">
+                        <ItemsControl ItemsSource="{Binding Answers}" ItemTemplate="{StaticResource EntryTemplate}" Focusable="False"
+                                      Margin="{theme:Thickness Bottom=-genius.entryGap}" />
+                    </StackPanel>
+                </HeaderedContentControl>
+
+                <HeaderedContentControl x:Name="AnnotationsSection" Style="{StaticResource Section}"
+                                        Visibility="{Binding HasAnnotations, Converter={StaticResource BoolToVisibility}}">
+                    <HeaderedContentControl.Header>
+                        <TextBlock Text="ANNOTATIONS" Style="{StaticResource SectionHeader}" />
+                    </HeaderedContentControl.Header>
+                    <StackPanel Style="{StaticResource SectionBody}">
+                        <ItemsControl ItemsSource="{Binding Annotations}" ItemTemplate="{StaticResource EntryTemplate}" Focusable="False"
+                                      Margin="{theme:Thickness Bottom=-genius.entryGap}" />
+                    </StackPanel>
+                </HeaderedContentControl>
+
+                <HeaderedContentControl x:Name="CreditsSection" Style="{StaticResource Section}"
+                                        Visibility="{Binding HasCredits, Converter={StaticResource BoolToVisibility}}">
+                    <HeaderedContentControl.Header>
+                        <TextBlock Text="CREDITS" Style="{StaticResource SectionHeader}" />
+                    </HeaderedContentControl.Header>
+                    <StackPanel Style="{StaticResource SectionBody}">
+                        <ItemsControl ItemsSource="{Binding Credits}" ItemTemplate="{StaticResource CreditTemplate}" Focusable="False" />
+                    </StackPanel>
+                </HeaderedContentControl>
+
+                <HeaderedContentControl x:Name="ConnectionsSection" Style="{StaticResource Section}"
+                                        Visibility="{Binding HasConnections, Converter={StaticResource BoolToVisibility}}">
+                    <HeaderedContentControl.Header>
+                        <TextBlock Text="CONNECTIONS" Style="{StaticResource SectionHeader}" />
+                    </HeaderedContentControl.Header>
+                    <StackPanel Style="{StaticResource SectionBody}">
+                        <ItemsControl ItemsSource="{Binding Connections}" ItemTemplate="{StaticResource CreditTemplate}" Focusable="False" />
+                    </StackPanel>
+                </HeaderedContentControl>
+
+                <HeaderedContentControl x:Name="CommentsSection" Style="{StaticResource Section}"
+                                        Visibility="{Binding HasComments, Converter={StaticResource BoolToVisibility}}">
+                    <HeaderedContentControl.Header>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="COMMENTS" Style="{StaticResource SectionHeader}" />
+                            <TextBlock Grid.Column="1" Text="{Binding CommentCount}" Style="{DynamicResource type.timeLabel}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </HeaderedContentControl.Header>
+                    <StackPanel Style="{StaticResource SectionBody}">
+                        <ItemsControl x:Name="CommentList" ItemsSource="{Binding Comments}" ItemTemplate="{StaticResource EntryTemplate}" Focusable="False"
+                                      Margin="{theme:Thickness Bottom=-genius.entryGap}" />
+                        <TextBlock Style="{StaticResource Body}"
+                                   Margin="{theme:Thickness Top=genius.entryGap}"
+                                   Visibility="{Binding HasMoreComments, Converter={StaticResource BoolToVisibility}}">
+                            <Hyperlink x:Name="MoreCommentsLink" Click="MoreComments_Click"><Run Text="{Binding MoreCommentsText, Mode=OneWay}" /></Hyperlink>
+                        </TextBlock>
+                    </StackPanel>
+                </HeaderedContentControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2" Margin="{theme:Thickness X=dialog.paddingX, Bottom=dialog.paddingBottom}">
+            <Button x:Name="CloseButton" HorizontalAlignment="Right" Content="Close" IsCancel="True"
+                    Style="{StaticResource theme.dialogButton}"
+                    Click="Close_Click" />
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

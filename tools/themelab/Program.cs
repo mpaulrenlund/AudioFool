@@ -432,6 +432,9 @@ internal static partial class Program
         if (which == "listening")
             return RunListeningHistory(main, vm, outPath, w, scale, Arg(args, "--state") ?? "loaded");
 
+        if (which == "genius")
+            return RunGenius(main, outPath, w, scale);
+
         if (which == "queueend")
             return RunQueueEnd(main, vm, engine, runtime, outPath, w, h, scale);
 

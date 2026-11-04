@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AudioFool.Core.Analysis;
 using AudioFool.Core.Art;
+using AudioFool.Core.Genius;
 using AudioFool.Core.Library;
 using AudioFool.Core.Models;
 using AudioFool.Core.Playback;
@@ -1810,6 +1811,42 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _runtime.Initialise();
 
         new AnalysisWindow(new AnalysisViewModel(track, this), owner).Show();
+    }
+
+    /// <summary>
+    /// Asks Genius; kept for the whole run, so a song opened again is instant.
+    /// ThemeLab swaps in one over a made-up Genius.
+    /// </summary>
+    public GeniusLookup Genius { get; set; } = new(new GeniusClient());
+
+    private GeniusWindow? _geniusWindow;
+
+    /// <summary>
+    /// What Genius has on one song (right-click → Genius…, Ctrl+G). Not modal,
+    /// and only one at a time: with the window open, another song switches it
+    /// (the user's call, 2026-11-04).
+    /// </summary>
+    [RelayCommand]
+    private void ShowGenius(Track? track)
+    {
+        if (track is null || Application.Current.MainWindow is not { } owner)
+            return;
+
+        if (_geniusWindow is not { } window)
+        {
+            var model = new GeniusViewModel(Genius, t => _artService.GetTrackArtAsync(t, AlbumHeaderArtWidth));
+            window = _geniusWindow = new GeniusWindow(model, owner);
+            window.Closed += (_, _) => _geniusWindow = null;
+            window.Show();
+        }
+        else
+        {
+            if (window.WindowState == WindowState.Minimized)
+                window.WindowState = WindowState.Normal;
+            window.Activate();
+        }
+
+        _ = window.ShowSong(track);
     }
 
     /// <summary>

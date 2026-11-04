@@ -982,6 +982,10 @@
                                             <MenuItem Header="Analyze…"
                                                       Command="{Binding Source={StaticResource Proxy}, Path=Data.AnalyzeTrackCommand}"
                                                       CommandParameter="{Binding}" />
+                                            <!-- The row right-clicked, as for Analyze. -->
+                                            <MenuItem Header="Genius…"
+                                                      Command="{Binding Source={StaticResource Proxy}, Path=Data.ShowGeniusCommand}"
+                                                      CommandParameter="{Binding}" />
                                             <!-- While a Quality Check row's filter is on: the
                                                  selected songs, out of that row. -->
                                             <MenuItem Header="{Binding Source={StaticResource Proxy}, Path=Data.QualityClearHeader}"
