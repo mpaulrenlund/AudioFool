@@ -40,6 +40,8 @@ with nothing else in the way.
   title and cover change when the new song reaches the speakers; a seek still shows its
   target straight away.
 - [Last.fm scrobbling](#lastfm-scrobbling), with plays kept offline until they can be sent.
+- [What Genius says about a song](#genius): its write-up, questions and answers,
+  explanations of the lyrics, credits and listeners' comments.
 - Optional [bit-perfect output](#output-modes) — exclusive WASAPI at the source's own
   sample rate, with DSD-over-PCM passthrough for DACs that support it.
 
@@ -329,6 +331,7 @@ These only apply when AudioFool has focus:
 | **Ctrl+Y** | [Listening History](#listening-history) |
 | **Ctrl+H** | [Find and Replace](#find-and-replace) |
 | **Ctrl+Q** | Analyze the selected song, or the playing one if no song is selected |
+| **Ctrl+G** | [Genius](#genius) for the selected song, or the playing one if no song is selected |
 | **Ctrl+D** | Album-art viewer for the playing album, or the selected album if nothing is playing; Ctrl+D again closes it |
 
 Space is left to the text while you type in the search box or edit a cell, and to
@@ -576,6 +579,50 @@ Right-click a song → **Open in Windows Explorer** opens its folder with the fi
 selected. With several rows selected, it opens the one you right-clicked. If the file
 has moved, the nearest folder that still exists opens instead; if the drive isn't
 connected, the status bar says so.
+
+---
+
+## Genius
+
+Right-click a song → **Genius…** (or **Ctrl+G** for the selected song, or the playing
+one) opens a window with what [Genius](https://genius.com) has on it. The top is your
+own song: its cover, title, artist, album and year, and an **Open on Genius** link to
+the page in your browser. Under it, each part Genius has, in one column:
+
+- **ABOUT**: Genius's write-up of the song.
+- **QUESTIONS & ANSWERS**: the answered ones, Genius's pinned ones first.
+- **ANNOTATIONS**: the line-by-line explanations, each under the lyric line it explains
+  (in grey). The artist's own are marked **Verified**. Genius's unreviewed ones are left
+  out.
+- **CREDITS**: written by, produced by, released, recorded at, then everything else
+  the page lists (mastering, players, artwork, label…).
+- **CONNECTIONS**: what it samples and what samples it, covers, remixes and live
+  versions; five of each, then "and 80 more". Genius's translation pages are left out.
+- **COMMENTS**: listeners' comments, most-voted first, with name, date and votes. 50 at
+  a time; **Show 50 more** at the end fetches the next ones.
+
+A part Genius has nothing for isn't shown. Web addresses in the text are links.
+Genius doesn't give out lyrics, so the window has none beyond the short lines the
+explanations quote.
+
+**Finding the page.** The song is searched as artist and title, then by the title
+alone. Extras are left off the title first, because Genius's search finds nothing with
+them: "(Remastered)", "- 2011 Remaster", "(Live)", "(feat. …)", "(from …)", a year in
+brackets. A result counts only when both its artist and its title are your song's,
+compared loosely (case, accents, punctuation, "&"/"and" and a leading "The" don't
+matter; one artist of a joint credit is enough). With no such result the window says
+"Genius has no page that matches this song." and offers up to five of Genius's closest
+results; a click on one loads its page under your song's header. Game and film
+soundtracks and many instrumental tracks have no page.
+
+**One window.** It stays open while you use the player. Opening it for another song
+switches it to that song; it doesn't follow the next song that plays. Each song is
+looked up once per run, so opening it again is instant. Nothing is saved to disk.
+
+It reads the API genius.com builds its own pages from, which needs no account or key
+but isn't documented: if Genius changes it, the window says it couldn't load the page,
+and nothing else in AudioFool is affected. If only the comments, the annotations or
+the questions fail, the rest shows with a line saying which were missing.
 
 ---
 

@@ -4885,6 +4885,42 @@ click on a row closing the window and going to it.
 - **Confirmed by the user** (2026-11-04), on their real Last.fm account: "Last.fm
   listening screen is awesome."
 
+### Session 75 (2026-11-04): the Genius window
+
+The user asked whether genius.com could show what it has on a track, comments included,
+from a right-click. Checked live first: genius.com's own web API (`genius.com/api/`, the
+one its pages use) needs no key and has everything; the documented developer API
+(`api.genius.com`, a free key) has no comments and no Q&A; neither gives lyrics. The user
+picked every section, one column, the window staying on its song, and the nearest
+results offered when nothing matches.
+
+- **Core** (`Genius/`): `GeniusClient` (the web API in `text_format=plain`, the shared
+  `HttpClient` pattern of `LastFmApi`, every failure a `GeniusException`), `GeniusJson`
+  (search hits, song, annotations, answers, comments; a question's text comes as a bare
+  string while everything else is `{"plain": …}`, found on the live site),
+  `GeniusMatch` (title extras left off: brackets or a " - " tail holding remaster, live,
+  mono, version, edit, mix, feat, from, a year and the like, but not "Part 2"; artist
+  and title both compared loosely with `ListeningMatch.Key`, any artist of a joint
+  credit, a leading "The" optional; Genius's own "Genius … Translations" pages never
+  match), and `GeniusLookup` (search "artist title", then the title alone; the page's
+  four requests together, only the song required; finds and whole pages kept for the
+  run, failures never). 64 new tests (`GeniusTests`); 1,069 in all.
+- **Window**: `GeniusWindow` + `GeniusViewModel`, not modal, one at a time
+  (`MainViewModel.ShowGenius` reuses an open one), as tall as the work area, centred
+  over the main window. `Formatting/LinkedText` makes web addresses in text into links.
+  Three new tokens, `genius.width`, `genius.creditLabelWidth`, `genius.entryGap`, in both
+  files. Right-click → Genius… under Analyze…, Ctrl+G, a row in Statistics' shortcut
+  guide.
+- ThemeLab `--window genius` (new, `GeniusCase.cs`): a made-up Genius, every state,
+  ALL OK in Light and Dark at 100, 125 and 150%, 0 magenta in all 54 renders.
+- **Live**: a probe on `AudioFool.Core` over 50 songs sampled from library.json: 32
+  matched, all correctly (remixes and live versions go to the original's page); the 18
+  misses are soundtracks, instrumentals and fan arrangements Genius doesn't have (it
+  offers its nearest results for them). Ten real pages parsed whole, comments
+  most-voted first; the probe found the bare-string questions, fixed the same session.
+- Installed 15:55 at the user's OK (19 files hash-identical). Not yet seen in the running
+  app.
+
 ---
 
 ## Reference notes retired from the handoff

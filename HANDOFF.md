@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-11-02, session 74. Read this alongside `README.md`: the README covers
+Updated 2026-11-04, session 75. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -135,8 +135,9 @@ and the commit fails.
 
 ### Where things stand
 
-- **Everything in `README.md` is implemented and verified**, **1,005 tests** pass.
-- **Last release: v0.10.0** (2026-11-02, Listening History), installed; nothing unreleased.
+- **Everything in `README.md` is implemented and verified**, **1,069 tests** pass.
+- **Last release: v0.10.0** (2026-11-02, Listening History). Unreleased: the Genius
+  window (session 75).
 - Since session 63 an install is checked by hashing the files, not by launching
   AudioFool from Claude's shell (see *A launch from Claude's shell writes
   playback.log* under Gotchas).
@@ -145,6 +146,11 @@ and the commit fails.
 Recent sessions, newest first (the full notes, file names and checks are in
 `HISTORY.md`):
 
+- **75** (2026-11-04): **the Genius window** (right-click a song → Genius…, Ctrl+G): what
+  genius.com has on a song (write-up, Q&A, annotations, credits, connections, comments),
+  from its undocumented web API (`genius.com/api/`, no key; the documented one has no
+  comments). Matching checked live on 50 library songs; see `HISTORY.md`. Installed
+  15:55; not yet seen by the user.
 - **74** (2026-11-02): **Listening History** (Ctrl+Y, logo menu): Last.fm totals, top
   artists, albums and tracks for a chosen period, recent plays; a click goes to the row in
   the library. Confirmed by the user on their real Last.fm account (2026-11-04).
@@ -721,6 +727,7 @@ ThemeLab.exe --window nowplayingjump   # Ctrl+J over the real library.json (read
 ThemeLab.exe --window statusfilter [--theme dark] [--dpi 1.25]   # the status bar's ×, over the real library.json (read only): a filter (hidden/shown, right after the text, trimmed long line, hover, a click clears and restores the totals), then one-off messages (scan counts, a save; none while scanning or saving, none on a search's line); renders <out>-off/-on/-saved/-long/-hover/-scan.png; "ALL OK" (session 71)
 ThemeLab.exe --window queueend [--theme dark]   # the end of a queue through the real engine (shared, 5%, silent WAVs, a blue cover.jpg) and the view model: the bar back on the first song at 0:00, its cover, stopped, device let go; Play starts from it; shuffle; a one-song queue; renders <out>-end.png; "ALL OK" (session 72). Run with Start-Process -Wait -RedirectStandardOutput to see its lines
 ThemeLab.exe --window listening --w 900 [--state loaded|loading|offline|disconnected] [--theme dark] [--dpi 1.25]   # Listening History over the real library.json (read only), Last.fm answers made up from it (nothing sent): tiles, rows, which can be clicked, a period switch and back (no refetch), a failed period, clicks applied to the main window; renders <out>-week/-periodfail/-again.png; "ALL OK" (session 74)
+ThemeLab.exe --window genius --w 760 [--theme dark] [--dpi 1.25]   # the Genius window over a made-up Genius (nothing sent): every state, Show N more, a cached reopen, the nearest results and a choice, a part missing, offline, waiting, a new song dropping the old answer; Ctrl+G and the song menu; renders <out>-full/-nomatch/-chosen/-sparse/-empty/-missing/-notitle/-offline/-loading.png; "ALL OK" (session 75)
 ThemeLab.exe --window headerpress           # a press on a letter of each Songs header (a LetterSpacing Run), then the header's click: no exception, each sorts; "ALL OK" (session 68)
 ThemeLab.exe --window drives                # drives plugged in and pulled out while running, on subst letters (Q:-Y:): an unrelated drive, the music drive pulled, back under another letter (lists, queue, now playing, Next), back under the same letter, F5 alone; silent; "ALL OK" (session 68)
 ThemeLab.exe --window tokens --out tokens.png   # the central theme: lookups from MainWindow, XAML usage, fonts, specimen
