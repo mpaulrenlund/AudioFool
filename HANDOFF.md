@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-11-06, after session 75. Read this alongside `README.md`: the README covers
+Updated 2026-11-06, after session 76. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -135,10 +135,10 @@ and the commit fails.
 
 ### Where things stand
 
-- **Everything in `README.md` is implemented and verified**, **1,069 tests** pass.
+- **Everything in `README.md` is implemented and verified**, **1,086 tests** pass.
 - **Last release: v0.10.0** (2026-11-02, Listening History). **Unreleased: the Genius
-  window** (session 75), installed and pushed; release it once the user has tried it
-  (next step 2).
+  window** (session 75, installed and pushed) and **ARTIST VS ALBUM ARTIST** in
+  Statistics (session 76); release them once the user has tried them (next step 2).
 - Since session 63 an install is checked by hashing the files, not by launching
   AudioFool from Claude's shell (see *A launch from Claude's shell writes
   playback.log* under Gotchas).
@@ -147,6 +147,11 @@ and the commit fails.
 Recent sessions, newest first (the full notes, file names and checks are in
 `HISTORY.md`):
 
+- **76** (2026-11-06): **ARTIST VS ALBUM ARTIST** in Statistics, under ALBUMS THAT
+  DISAGREE: tracks whose Album Artist differs from their Artist in capitals only, in
+  spelling only (a leading "The", punctuation, accents, "&"), or by name; a click shows
+  just those tracks. 113 of 26,861 on the 2026-10-15 cache (92 / 10 / 11). Installed
+  12:45; not yet seen by the user.
 - **75** (2026-11-04): **the Genius window** (right-click a song → Genius…, Ctrl+G): what
   genius.com has on a song (write-up, Q&A, annotations, credits, connections, comments),
   from its undocumented web API (`genius.com/api/`, no key; the documented one has no
@@ -1112,9 +1117,12 @@ ask about step 3, then step 5, then which of steps 4 and 6 to take.
    *The Genius window* above); how the sections read; "Show 50 more" on a song with
    many comments; the closest results offered for a soundtrack or instrumental. A
    design note from the user means the usual plan-then-approve loop.
-2. **Release v0.11.0 once the Genius window is confirmed** (new feature: middle
-   number). Confirm the version and the notes with the user first (*Releases*).
+2. **Release v0.11.0 once the Genius window is confirmed** (new features: middle
+   number; ARTIST VS ALBUM ARTIST from session 76 goes in too). Confirm the version
+   and the notes with the user first (*Releases*).
 3. **Ask the user to try what was checked off-screen only:**
+   - **Session 76:** Statistics → ARTIST VS ALBUM ARTIST, a click on a row, and a
+     fixed track leaving the filter.
    - **Session 71:** the × after the status text (clears a Statistics filter,
      dismisses a one-off message); a dialog with the main window maximised on the
      second monitor; Ctrl+J under a search; Last.fm still connected after the update

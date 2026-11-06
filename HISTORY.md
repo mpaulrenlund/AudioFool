@@ -4921,6 +4921,34 @@ results offered when nothing matches.
 - Installed 15:55 at the user's OK (19 files hash-identical). Not yet seen in the running
   app.
 
+### Session 76 (2026-11-06): ARTIST VS ALBUM ARTIST in Statistics
+
+The user asked for a Statistics card checking where Artist and Album Artist differ.
+First counted on library.json (Claude's private copy, saved 2026-10-15): every track has
+an Album Artist, and 113 of 26,861 name a different one, in three kinds: capitals only
+(92 tracks, 16 albums: Void of Vision / Void Of Vision, meganeko / Meganeko, and six
+more), spelling only (10, 1: Dirty Dozen Brass Band / The Dirty Dozen Brass Band) and a
+different name (11, 2: Kx5 / deadmau5, Valerie Broussard / Battle Tapes). No "feat."
+credits. The plan (three rows, a click showing only the tracks that differ) was
+approved as offered.
+
+- **Core**: `LibraryStatistics.ArtistGaps` (an `ArtistGap` per row, fixed order),
+  `CompareArtists(Track)` → `ArtistMismatch` (None, Capitals, Spelling, DifferentName).
+  Both names trimmed; a blank on either side is None (MISSING TAGS has it). Spelling
+  compares `SortRules.ArtistSortKey` (no leading "The"), "&" as "and", accents, capitals,
+  spaces and punctuation taken out. Albums are the sidebar's holding at least one of the
+  tracks; the filter is per track. 17 new tests in `LibraryStatisticsTests` (the
+  every-row-filter test covers the new rows); 1,086 in all.
+- **Window**: `StatisticsViewModel.ArtistGaps`, the section in `StatisticsWindow.xaml`
+  under ALBUMS THAT DISAGREE. No new tokens. ThemeLab `--window stats` prints the rows.
+- **Checked**: ThemeLab `--window stats` in Light and Dark (0 magenta; the counts match
+  the separate count), `--window click --click` on each row (filter, chip, status line).
+- The first full test run failed `VisualizerFeedTests.A_frame_allocates_nothing` (7,000
+  bytes), on the cold run after a build, as `LiveSpectrumTests.An_update_allocates_nothing`
+  has before; it passed alone and in two full runs after, and the change is elsewhere.
+- Installed 12:45 at the user's OK (19 files hash-identical). Not yet seen in the running
+  app.
+
 ---
 
 ## Reference notes retired from the handoff

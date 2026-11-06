@@ -1182,6 +1182,14 @@ everything again. Search still works inside the filter. It is made for fixing ta
 edit an album while *Missing Year* is on and it drops out of the list, and the status
 bar says how many are left.
 
+**ARTIST VS ALBUM ARTIST** counts tracks whose Album Artist isn't written the way their
+Artist is: **Capitals differ** (*Void of Vision* / *Void Of Vision*), **Spelling
+differs** (a leading "The", punctuation, accents, or "&" for "and": *Dirty Dozen Brass
+Band* / *The Dirty Dozen Brass Band*), and **Different names** (*Kx5* / *deadmau5*).
+A click shows just those tracks, not their whole albums, so each one leaves the list as
+it is fixed. A blank Album Artist is counted under the missing tags instead, and spaces
+at either end of a name don't count.
+
 **Bit Depth is blank for lossy formats.** MP3, AAC, Vorbis, Opus and WMA decode to float
 and have no meaningful source bit depth, so the column shows an em dash rather than
 inventing a "16". DSD correctly reports 1 bit.
