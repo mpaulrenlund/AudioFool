@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-11-04, session 75. Read this alongside `README.md`: the README covers
+Updated 2026-11-06, after session 75. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -136,8 +136,9 @@ and the commit fails.
 ### Where things stand
 
 - **Everything in `README.md` is implemented and verified**, **1,069 tests** pass.
-- **Last release: v0.10.0** (2026-11-02, Listening History). Unreleased: the Genius
-  window (session 75).
+- **Last release: v0.10.0** (2026-11-02, Listening History). **Unreleased: the Genius
+  window** (session 75), installed and pushed; release it once the user has tried it
+  (next step 2).
 - Since session 63 an install is checked by hashing the files, not by launching
   AudioFool from Claude's shell (see *A launch from Claude's shell writes
   playback.log* under Gotchas).
@@ -150,7 +151,7 @@ Recent sessions, newest first (the full notes, file names and checks are in
   genius.com has on a song (write-up, Q&A, annotations, credits, connections, comments),
   from its undocumented web API (`genius.com/api/`, no key; the documented one has no
   comments). Matching checked live on 50 library songs; see `HISTORY.md`. Installed
-  15:55; not yet seen by the user.
+  15:55, committed `89926f0` + `dc0b6a2` and pushed; not yet seen by the user.
 - **74** (2026-11-02): **Listening History** (Ctrl+Y, logo menu): Last.fm totals, top
   artists, albums and tracks for a chosen period, recent plays; a click goes to the row in
   the library. Confirmed by the user on their real Last.fm account (2026-11-04).
@@ -535,6 +536,28 @@ entries for Add Folder bind their commands via
   `_isClickedDown` by reflection (a newer WPF-UI may rename it, and the log then says
   False). It never handles a message. Once the hit-test lines have named what wipes
   the mark, it can go; the net stays.
+
+### The Genius window (session 75)
+- **Where:** `Core/Genius/` (`GeniusClient`, `GeniusJson`, `GeniusMatch`,
+  `GeniusLookup`, records in `GeniusModels`), `GeniusWindow` + `GeniusViewModel`,
+  `Formatting/LinkedText` (web addresses as links), `MainViewModel.ShowGenius` (one
+  window, reused). Tests in `GeniusTests`; ThemeLab `--window genius`.
+- **It reads genius.com's own web API** (`https://genius.com/api/`, the one its pages
+  are built from): no key, and it has comments and Q&A. It is **undocumented**, so if
+  the window starts saying "Couldn't load the Genius page", look there first: compare a
+  live answer with what `GeniusJson` expects. One quirk already found live: a
+  question's text comes as a bare string while everything else is `{"plain": …}`.
+- **The fallback** if Genius closes it: the documented API (`api.genius.com`), which
+  needs a client access token and has **no comments and no Q&A**. The user has made
+  Genius API credentials and kept them (2026-11-04); ask for the client access token
+  only then, and store it like the Last.fm secret (DPAPI in settings), never in the repo.
+- **Matching** is the part to tune if the user reports a wrong or missed page:
+  `GeniusMatch.ExtraWords` (what counts as an extra in a trailing bracket or " - "
+  tail), artist keys (any artist of a joint credit, "The" optional). A live check is a
+  small console app on `AudioFool.Core` that samples library.json and runs
+  `GeniusLookup.FindAsync` gently (400 ms apart); session 75's run: 32 of 50 matched,
+  all right, the rest soundtracks and instrumentals Genius doesn't have. The probe
+  wasn't kept.
 
 ---
 
@@ -1080,9 +1103,18 @@ happily rewrite it.
 ## Suggested next steps
 
 Open items only; finished ones are in `HISTORY.md`. Open a session by asking the user
-about step 1 (ask; don't re-explain), then step 3, then which of steps 2 and 4 to take.
+about step 1 (ask; don't re-explain), and offer step 2 once they're happy with it; then
+ask about step 3, then step 5, then which of steps 4 and 6 to take.
 
-1. **Ask the user to try what was checked off-screen only:**
+1. **Ask how the Genius window went** (session 75; installed, never seen by the user).
+   Right-click a song → Genius…, or Ctrl+G. Worth hearing about: a song it matched to
+   the wrong page, or missed though Genius has it (the fix is in `GeniusMatch`, see
+   *The Genius window* above); how the sections read; "Show 50 more" on a song with
+   many comments; the closest results offered for a soundtrack or instrumental. A
+   design note from the user means the usual plan-then-approve loop.
+2. **Release v0.11.0 once the Genius window is confirmed** (new feature: middle
+   number). Confirm the version and the notes with the user first (*Releases*).
+3. **Ask the user to try what was checked off-screen only:**
    - **Session 71:** the × after the status text (clears a Statistics filter,
      dismisses a one-off message); a dialog with the main window maximised on the
      second monitor; Ctrl+J under a search; Last.fm still connected after the update
@@ -1106,8 +1138,8 @@ about step 1 (ask; don't re-explain), then step 3, then which of steps 2 and 4 t
      All** in Statistics' Quality Check (the prompt, then every row None).
    - **Session 39:** edge scrolling while dragging in a playlist (real drags are
      confirmed; asked 2026-10-20: not tried yet).
-2. **A visible, editable queue view**: the most conspicuous missing player feature.
-3. **The close X that sometimes ignores clicks** (sessions 51, 59 and 66). In tag
+4. **A visible, editable queue view**: the most conspicuous missing player feature.
+5. **The close X that sometimes ignores clicks** (sessions 51, 59 and 66). In tag
    windows and Statistics the X sometimes ignored **several clicks in a row**. Caught
    in session 66: 19 lost clicks on Statistics' X, each a clean non-client press and
    release with no capture and no mouse leave, WPF-UI's mark gone by the release. Since
@@ -1125,7 +1157,7 @@ about step 1 (ask; don't re-explain), then step 3, then which of steps 2 and 4 t
      a time during a spell would name it). If no hit test shows and the mark is already
      False at the first one, the press never registered: look at WPF-UI's handling of
      the press instead.
-4. **Smaller open items** (session 60's review is otherwise all fixed):
+6. **Smaller open items** (session 60's review is otherwise all fixed):
    - Harmless: a new scrobble skips the Last.fm backoff (one request each, the backoff
      isn't reset); an exception other than `LastFmException` escaping a send skips it
      altogether (unlikely).
@@ -1140,7 +1172,7 @@ about step 1 (ask; don't re-explain), then step 3, then which of steps 2 and 4 t
      the media keys from any app, the song and cover in Windows 11's media pop-up,
      headphone buttons; F9–F11 could then go) and a Duplicates row in Statistics (albums
      held twice, and the space they take).
-5. **The visualizer: removed in session 65** (the user's call; they may build one of
+7. **The visualizer: removed in session 65** (the user's call; they may build one of
    their own later). The notes are in `HISTORY.md` (*The visualizer and the projectM
    trial*), and the code can be read in git at `b30812c`. **Kept as groundwork** (the
    user confirmed keeping it, session 73): the hearing clock (`AudioEngine.Heard`, also
