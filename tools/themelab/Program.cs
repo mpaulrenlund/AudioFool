@@ -2662,6 +2662,7 @@ internal static partial class Program
             Rows("missing tags", statsVm.TagGaps);
             Console.WriteLine($"    {statsVm.TagSummary}");
             Rows("albums that disagree", statsVm.AlbumGaps);
+            Rows("artist vs album artist", statsVm.ArtistGaps);
             Rows("decades", statsVm.Decades);
 
             // Never shown, for the same reason as the tag dialog above.

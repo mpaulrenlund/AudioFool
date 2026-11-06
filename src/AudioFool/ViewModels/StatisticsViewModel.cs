@@ -55,6 +55,14 @@ public sealed class StatisticsViewModel
                 Filter = g.Filter,
             })];
 
+        // Built as the albums above, but a click shows only the tracks that differ.
+        ArtistGaps = [.. stats.ArtistGaps.Select(g => g.Tracks == 0
+            ? new BarRow(g.Check, "None", 0, g.Note, isComplete: true)
+            : new BarRow(g.Check, $"{Plural(g.Albums, "album")} · {Plural(g.Tracks, "track")}", g.Share, g.Note)
+            {
+                Filter = g.Filter,
+            })];
+
         TagSummary = stats.TrackCount == 0
             ? "No tracks scanned yet."
             : $"{stats.FullyTaggedCount:N0} of {stats.TrackCount:N0} tracks " +
@@ -74,6 +82,7 @@ public sealed class StatisticsViewModel
     public IReadOnlyList<BarRow> Decades { get; }
     public IReadOnlyList<BarRow> TagGaps { get; }
     public IReadOnlyList<BarRow> AlbumGaps { get; }
+    public IReadOnlyList<BarRow> ArtistGaps { get; }
     public string TagSummary { get; }
 
     /// <summary>The library check's section, which updates while a check runs.</summary>

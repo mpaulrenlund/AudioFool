@@ -194,6 +194,10 @@ public class LibraryStatisticsTests
             T("E", "V", track: 1, trackCount: 13, disc: 1, discCount: 1),
             T("E", "V", track: 2, trackCount: 9, disc: 2, discCount: null),
             T("E", "V", track: 3, trackCount: 13, disc: null, discCount: 1),
+            // One track for each way the two artists can differ.
+            T("Void of Vision", "U", albumArtist: "Void Of Vision"),
+            T("Dirty Dozen Brass Band", "S", albumArtist: "The Dirty Dozen Brass Band"),
+            T("Kx5", "R", albumArtist: "deadmau5"),
         ];
         var stats = Stats(tracks);
 
@@ -201,10 +205,12 @@ public class LibraryStatisticsTests
             .Select(s => (s.Label, s.Count, s.Filter))
             .Concat(stats.TagGaps.Select(g => (Label: g.Field, Count: g.Missing, g.Filter)))
             .Concat(stats.AlbumGaps.Select(g => (Label: g.Check, Count: g.Tracks, g.Filter)))
+            .Concat(stats.ArtistGaps.Select(g => (Label: g.Check, Count: g.Tracks, g.Filter)))
             .ToList();
 
         Assert.NotEmpty(rows);
         Assert.All(stats.AlbumGaps, g => Assert.True(g.Albums > 0, $"{g.Check} found no album"));
+        Assert.All(stats.ArtistGaps, g => Assert.True(g.Tracks > 0, $"{g.Check} found no track"));
         foreach (var (label, count, filter) in rows)
         {
             Assert.NotNull(filter);
@@ -284,6 +290,70 @@ public class LibraryStatisticsTests
         Assert.Empty(filter.Apply([fixedTrack, good]));
     }
 
+    // ------------------------------------------------ artist vs album artist
+
+    [Theory]
+    [InlineData("Void of Vision", "Void of Vision", ArtistMismatch.None)]
+    [InlineData("Void of Vision", " Void of Vision ", ArtistMismatch.None)]   // ends trimmed
+    [InlineData("Void of Vision", "", ArtistMismatch.None)]                   // MISSING TAGS' row
+    [InlineData("", "Void of Vision", ArtistMismatch.None)]
+    [InlineData("Void of Vision", "Void Of Vision", ArtistMismatch.Capitals)]
+    [InlineData("meganeko", "Meganeko", ArtistMismatch.Capitals)]
+    [InlineData("Björk", "BJÖRK", ArtistMismatch.Capitals)]
+    [InlineData("Dirty Dozen Brass Band", "The Dirty Dozen Brass Band", ArtistMismatch.Spelling)]
+    [InlineData("AC/DC", "ACDC", ArtistMismatch.Spelling)]
+    [InlineData("Beyoncé", "Beyonce", ArtistMismatch.Spelling)]
+    [InlineData("Simon & Garfunkel", "Simon and Garfunkel", ArtistMismatch.Spelling)]
+    [InlineData("Void  of Vision", "Void of Vision", ArtistMismatch.Spelling)] // a double space
+    [InlineData("Thelonious Monk", "lonious Monk", ArtistMismatch.DifferentName)] // "The" needs a space after it
+    [InlineData("Kx5", "deadmau5", ArtistMismatch.DifferentName)]
+    [InlineData("Ghost feat. Someone", "Ghost", ArtistMismatch.DifferentName)]
+    public void Compares_artist_with_album_artist(string artist, string albumArtist, ArtistMismatch expected) =>
+        Assert.Equal(expected, LibraryStatistics.CompareArtists(T(artist, "X", albumArtist: albumArtist)));
+
+    [Fact]
+    public void Artist_gaps_count_tracks_and_their_albums_in_a_fixed_order()
+    {
+        var stats = Stats(
+            // One album with two tracks in other capitals and one that matches.
+            T("Void of Vision", "Hyperdaze", track: 1, albumArtist: "Void Of Vision"),
+            T("Void of Vision", "Hyperdaze", track: 2, albumArtist: "Void Of Vision"),
+            T("Void Of Vision", "Hyperdaze", track: 3),
+            // Another album in other capitals, and one with a different name.
+            T("meganeko", "Deep Sea", albumArtist: "Meganeko"),
+            T("Kx5", "Kx5", albumArtist: "deadmau5"),
+            T("A", "X"));
+
+        Assert.Equal(["Capitals differ", "Spelling differs", "Different names"], stats.ArtistGaps.Select(g => g.Check));
+
+        var capitals = stats.ArtistGaps[0];
+        Assert.Equal(2, capitals.Albums);
+        Assert.Equal(3, capitals.Tracks);
+        Assert.Equal(0.5, capitals.Share, 6);
+
+        Assert.Equal(0, stats.ArtistGaps[1].Tracks);
+        Assert.Equal(0, stats.ArtistGaps[1].Albums);
+        Assert.Equal((1, 1), (stats.ArtistGaps[2].Albums, stats.ArtistGaps[2].Tracks));
+    }
+
+    [Fact]
+    public void A_track_fixed_while_filtered_leaves_the_filter()
+    {
+        var bad = T("Void of Vision", "Hyperdaze", track: 1, albumArtist: "Void Of Vision");
+        var good = T("Void Of Vision", "Hyperdaze", track: 2);
+        var filter = Stats(bad, good).ArtistGaps.Single(g => g.Check == "Capitals differ").Filter!;
+
+        // Only the track that differs, not its whole album.
+        Assert.Equal([bad], filter.Apply([bad, good]));
+
+        var fixedTrack = new Track
+        {
+            FilePath = bad.FilePath, Artist = "Void Of Vision", AlbumArtist = bad.AlbumArtist,
+            Album = bad.Album, TrackNumber = 1,
+        };
+        Assert.Empty(filter.Apply([fixedTrack, good]));
+    }
+
     [Fact]
     public void Filters_are_named_for_the_chip()
     {
@@ -292,6 +362,9 @@ public class LibraryStatisticsTests
         Assert.Equal("Missing Year", stats.TagGaps.Single(g => g.Field == "Year").Filter!.Description);
         Assert.Equal("From the 1990s", stats.Decades[0].Filter!.Description);
         Assert.Equal("FLAC", stats.FileTypes[0].Filter!.Description);
+        Assert.Equal(
+            ["Album Artist in different capitals", "Album Artist spelled differently", "Different Album Artist"],
+            stats.ArtistGaps.Select(g => g.Filter!.Description));
     }
 
     [Fact]

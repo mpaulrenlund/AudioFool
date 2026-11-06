@@ -42,6 +42,13 @@ public sealed class LibraryStatistics
     /// </summary>
     public IReadOnlyList<AlbumGap> AlbumGaps { get; init; } = [];
 
+    /// <summary>
+    /// Tracks whose Album Artist isn't written as their Artist is, by how far
+    /// apart the two are, in a fixed order: capitals only, spelling only, then a
+    /// different name. A blank on either side is MISSING TAGS' business.
+    /// </summary>
+    public IReadOnlyList<ArtistGap> ArtistGaps { get; init; } = [];
+
     public static LibraryStatistics Empty { get; } = new();
 
     public const string UnknownDecade = "Unknown";
@@ -119,6 +126,20 @@ public sealed class LibraryStatistics
                     return new AlbumGap(c.Label, failing.Count, failingTracks, Share(failingTracks, total), c.Note)
                     {
                         Filter = TrackFilter.ForAlbums(c.Label, c.Fails),
+                    };
+                })],
+
+            // Tracks, not whole albums: the row shows just the tracks where the
+            // two differ. Albums are the sidebar's, counted for the figure only.
+            ArtistGaps = [.. ArtistChecks
+                .Select(c =>
+                {
+                    bool Matches(Track t) => CompareArtists(t) == c.Mismatch;
+                    var count = tracks.Count(Matches);
+                    var albums = library.Artists.SelectMany(a => a.Albums).Count(a => a.Tracks.Any(Matches));
+                    return new ArtistGap(c.Label, albums, count, Share(count, total), c.Note)
+                    {
+                        Filter = new TrackFilter(c.FilterName, Matches),
                     };
                 })],
         };
@@ -256,6 +277,62 @@ public sealed class LibraryStatistics
 
     private sealed record AlbumCheck(string Label, Func<Album, bool> Fails, string? Note = null);
 
+    // ------------------------------------------------ artist vs album artist
+
+    /// <summary>The rows, in display order. The filter name is what the chip and status line show.</summary>
+    private static readonly ArtistCheck[] ArtistChecks =
+    [
+        new("Capitals differ", ArtistMismatch.Capitals, "Album Artist in different capitals"),
+        new("Spelling differs", ArtistMismatch.Spelling, "Album Artist spelled differently",
+            Note: "A leading \"The\", punctuation, accents, or \"&\" vs \"and\""),
+        new("Different names", ArtistMismatch.DifferentName, "Different Album Artist"),
+    ];
+
+    private sealed record ArtistCheck(string Label, ArtistMismatch Mismatch, string FilterName, string? Note = null);
+
+    /// <summary>
+    /// How far a track's Album Artist is from its Artist. Spaces at either end
+    /// don't count, and neither does a blank on either side (MISSING TAGS has
+    /// those), so both of those read as <see cref="ArtistMismatch.None"/>.
+    /// </summary>
+    public static ArtistMismatch CompareArtists(Track track)
+    {
+        var artist = track.Artist?.Trim();
+        var albumArtist = track.AlbumArtist?.Trim();
+
+        if (string.IsNullOrEmpty(artist) || string.IsNullOrEmpty(albumArtist)
+            || string.Equals(artist, albumArtist, StringComparison.Ordinal))
+            return ArtistMismatch.None;
+
+        if (string.Equals(artist, albumArtist, StringComparison.OrdinalIgnoreCase))
+            return ArtistMismatch.Capitals;
+
+        return SpellingKey(artist) == SpellingKey(albumArtist)
+            ? ArtistMismatch.Spelling
+            : ArtistMismatch.DifferentName;
+    }
+
+    /// <summary>
+    /// A name with everything but its letters and digits taken out: no leading
+    /// "The" (as the artist list sorts), "&amp;" read as "and", no accents, no
+    /// capitals, no spaces or punctuation. "The Dirty Dozen Brass Band" and
+    /// "Dirty Dozen Brass Band" give the same key; "Kx5" and "deadmau5" don't.
+    /// </summary>
+    private static string SpellingKey(string name)
+    {
+        var plain = SortRules.ArtistSortKey(name)
+            .Replace("&", " and ")
+            .Normalize(System.Text.NormalizationForm.FormD);
+
+        var key = new System.Text.StringBuilder(plain.Length);
+        foreach (var c in plain)
+        {
+            if (char.IsLetterOrDigit(c))
+                key.Append(char.ToLowerInvariant(c));
+        }
+        return key.ToString();
+    }
+
     private static double Share(int count, int total) => total == 0 ? 0 : (double)count / total;
 }
 
@@ -290,6 +367,24 @@ public sealed record TagGap(string Field, int Missing, double Share, string? Not
 public sealed record AlbumGap(string Check, int Albums, int Tracks, double Share, string? Note)
 {
     /// <summary>Selects exactly the <see cref="Tracks"/> of the failing albums.</summary>
+    public TrackFilter? Filter { get; init; }
+}
+
+/// <summary>How a track's Album Artist differs from its Artist; see <see cref="LibraryStatistics.CompareArtists"/>.</summary>
+public enum ArtistMismatch
+{
+    None,
+    Capitals,
+    Spelling,
+    DifferentName,
+}
+
+/// <param name="Albums">The sidebar's albums holding at least one of the tracks.</param>
+/// <param name="Tracks">The tracks whose two artists differ this way: what clicking the row shows.</param>
+/// <param name="Share">Fraction of all tracks, 0 to 1.</param>
+public sealed record ArtistGap(string Check, int Albums, int Tracks, double Share, string? Note)
+{
+    /// <summary>Selects exactly the <see cref="Tracks"/> this row counted.</summary>
     public TrackFilter? Filter { get; init; }
 }
 

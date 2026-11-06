@@ -362,6 +362,16 @@
                                           Tag="{DynamicResource color.status.lastFmOff}" />
                         </HeaderedContentControl>
 
+                        <!-- Built as the albums above; a row shows only the tracks that differ. -->
+                        <HeaderedContentControl Style="{StaticResource Section}">
+                            <HeaderedContentControl.Header>
+                                <TextBlock Text="ARTIST VS ALBUM ARTIST" Style="{StaticResource SectionHeader}" />
+                            </HeaderedContentControl.Header>
+                            <ItemsControl x:Name="ArtistGapList" ItemsSource="{Binding ArtistGaps}"
+                                          Style="{StaticResource SectionList}"
+                                          Tag="{DynamicResource color.status.lastFmOff}" />
+                        </HeaderedContentControl>
+
                         <HeaderedContentControl Style="{StaticResource Section}">
                             <HeaderedContentControl.Header>
                                 <TextBlock Text="TRACKS BY DECADE" Style="{StaticResource SectionHeader}" />
