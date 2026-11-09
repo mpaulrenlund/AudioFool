@@ -49,6 +49,9 @@ public sealed class LibraryStatistics
     /// </summary>
     public IReadOnlyList<ArtistGap> ArtistGaps { get; init; } = [];
 
+    /// <summary>Tracks with a track or disc number, or either total, written with a leading zero.</summary>
+    public LeadingZeroGap LeadingZeros { get; init; } = LeadingZeroGap.None;
+
     public static LibraryStatistics Empty { get; } = new();
 
     public const string UnknownDecade = "Unknown";
@@ -142,6 +145,26 @@ public sealed class LibraryStatistics
                         Filter = new TrackFilter(c.FilterName, Matches),
                     };
                 })],
+
+            LeadingZeros = CountLeadingZeros(library, total),
+        };
+    }
+
+    /// <summary>
+    /// The LEADING ZEROS row: tracks, not whole albums, so a fixed track leaves
+    /// the filter; a track whose spelling isn't known yet is counted apart.
+    /// </summary>
+    private static LeadingZeroGap CountLeadingZeros(MusicLibrary library, int total)
+    {
+        static bool Padded(Track t) => t.LeadingZeros == true;
+        var count = library.AllTracks.Count(Padded);
+        return new LeadingZeroGap(
+            library.Artists.SelectMany(a => a.Albums).Count(a => a.Tracks.Any(Padded)),
+            count,
+            Share(count, total),
+            library.AllTracks.Count(t => t.LeadingZeros is null))
+        {
+            Filter = new TrackFilter("Leading zeros", Padded),
         };
     }
 
@@ -384,6 +407,18 @@ public enum ArtistMismatch
 /// <param name="Share">Fraction of all tracks, 0 to 1.</param>
 public sealed record ArtistGap(string Check, int Albums, int Tracks, double Share, string? Note)
 {
+    /// <summary>Selects exactly the <see cref="Tracks"/> this row counted.</summary>
+    public TrackFilter? Filter { get; init; }
+}
+
+/// <param name="Albums">The sidebar's albums holding at least one of the tracks.</param>
+/// <param name="Tracks">Tracks with a number written like "01": what clicking the row shows.</param>
+/// <param name="Share">Fraction of all tracks, 0 to 1.</param>
+/// <param name="Unknown">Tracks whose numbers' spelling isn't known yet (<see cref="Track.LeadingZeros"/> null), left out of the count.</param>
+public sealed record LeadingZeroGap(int Albums, int Tracks, double Share, int Unknown)
+{
+    public static LeadingZeroGap None { get; } = new(0, 0, 0, 0);
+
     /// <summary>Selects exactly the <see cref="Tracks"/> this row counted.</summary>
     public TrackFilter? Filter { get; init; }
 }

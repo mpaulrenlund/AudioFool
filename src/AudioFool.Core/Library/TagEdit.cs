@@ -170,6 +170,13 @@ public sealed record TagDetails(
 public sealed record NumberTexts(string TrackNumber, string TrackCount, string DiscNumber, string DiscCount)
 {
     public static NumberTexts Empty { get; } = new("", "", "", "");
+
+    /// <summary>"01" is; "1", "10" and "" aren't. TagReader only keeps spellings of plain digits.</summary>
+    public static bool IsPadded(string number) => number.Length > 1 && number[0] == '0';
+
+    /// <summary>Any of the four is written with a leading zero.</summary>
+    public bool HasLeadingZeros =>
+        IsPadded(TrackNumber) || IsPadded(TrackCount) || IsPadded(DiscNumber) || IsPadded(DiscCount);
 }
 
 /// <summary>An image to embed in a track's tags and/or write as a folder cover file.</summary>

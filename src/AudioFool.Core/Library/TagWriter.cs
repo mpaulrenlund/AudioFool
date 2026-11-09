@@ -78,7 +78,8 @@ public static partial class TagWriter
         // took from the album artist follows a change to the album artist.
         var written = edit with { Artist = artistAfter ?? edit.Artist };
         var warning = TidyCover(track.FilePath, art, holder);
-        return TagWriteResult.Ok(track.WithTags(written, FileStamp.For(track.FilePath), folderArtPath)) with { CoverWarning = warning };
+        return TagWriteResult.Ok(track.WithTags(written, FileStamp.For(track.FilePath), folderArtPath)
+            .WithLeadingZeros(save.LeadingZeros)) with { CoverWarning = warning };
     }
 
     private static bool SameText(string box, string? file) =>
@@ -119,7 +120,8 @@ public static partial class TagWriter
             return TagWriteResult.Fail(save.ErrorMessage!);
 
         var warning = TidyCover(track.FilePath, art, holder);
-        return TagWriteResult.Ok(track.WithAlbumTags(edit, FileStamp.For(track.FilePath), folderArtPath)) with { CoverWarning = warning };
+        return TagWriteResult.Ok(track.WithAlbumTags(edit, FileStamp.For(track.FilePath), folderArtPath)
+            .WithLeadingZeros(save.LeadingZeros)) with { CoverWarning = warning };
     }
 
     /// <summary>
@@ -175,7 +177,8 @@ public static partial class TagWriter
         if (!save.Success)
             return TagWriteResult.Fail(save.ErrorMessage!);
 
-        return TagWriteResult.Ok(track.WithSelectedTags(edit, FileStamp.For(track.FilePath)));
+        return TagWriteResult.Ok(track.WithSelectedTags(edit, FileStamp.For(track.FilePath))
+            .WithLeadingZeros(save.LeadingZeros));
     }
 
     /// <summary>
@@ -347,13 +350,31 @@ public static partial class TagWriter
     /// playback held, the whole save was first tried on a copy in %TEMP% to see
     /// which kind it was.
     /// </para>
+    /// <para>
+    /// <c>LeadingZeros</c> is how the numbers read with the edit applied, which is
+    /// how the saved file reads them, so a fixed "01" leaves Statistics' LEADING
+    /// ZEROS without the file being opened again. Null when the save failed.
+    /// </para>
     /// </summary>
-    private static (bool Success, string? ErrorMessage) SaveTags(string path, Action<TagLib.File> applyFields,
-                                                                 ArtPayload? art, IFileHolder? holder)
+    private static (bool Success, string? ErrorMessage, bool? LeadingZeros) SaveTags(
+        string path, Action<TagLib.File> applyFields, ArtPayload? art, IFileHolder? holder)
     {
-        if (holder is null)
-            return Commit(path, applyFields, art, Rehearse(path, applyFields, art));
+        bool? zeros = null;
+        void ApplyAndLook(TagLib.File file)
+        {
+            applyFields(file);
+            zeros = TagReader.LeadingZerosIn(file);
+        }
 
+        var (success, error) = holder is null
+            ? Commit(path, ApplyAndLook, art, Rehearse(path, ApplyAndLook, art))
+            : SaveHeld(path, ApplyAndLook, art, holder);
+        return (success, error, success ? zeros : null);
+    }
+
+    private static (bool Success, string? ErrorMessage) SaveHeld(string path, Action<TagLib.File> applyFields,
+                                                                 ArtPayload? art, IFileHolder holder)
+    {
         SavePlan? plan = null;
         return holder.Saving(path,
             needsRelease: () => (plan = Rehearse(path, applyFields, art)).MovesAudio,

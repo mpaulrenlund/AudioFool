@@ -99,6 +99,9 @@ public static class TagReader
                 DiscCount = Positive(tag?.DiscCount),
                 Year = ValidYear(tag?.Year),
                 ReleaseDate = file is null ? null : NullIfEmpty(ReadDate(file)),
+                // A file that opens but won't parse has no numbers to pad; one
+                // that won't open is read again next scan, so it stays unknown.
+                LeadingZeros = file is not null ? LeadingZerosIn(file) : couldNotOpen ? null : false,
                 Duration = duration,
                 Kind = kind,
                 Bitrate = bitrate,
@@ -198,6 +201,13 @@ public static class TagReader
     /// falls back to that number. MP4 and ASF store integers, so they have no
     /// spelling to find.
     /// </summary>
+    /// <summary>
+    /// Whether the file's tags, as they stand in <paramref name="file"/>, spell a
+    /// track or disc number or total with a leading zero. Read by the scan, and by
+    /// a save after its changes, so the library knows without opening it again.
+    /// </summary>
+    internal static bool LeadingZerosIn(TagLib.File file) => ReadNumbers(file).HasLeadingZeros;
+
     private static NumberTexts ReadNumbers(TagLib.File file)
     {
         var tag = file.Tag;

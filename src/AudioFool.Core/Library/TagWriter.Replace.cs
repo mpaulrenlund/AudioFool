@@ -109,7 +109,7 @@ public static partial class TagWriter
         return new ReplaceWriteResult
         {
             Outcome = ReplaceOutcome.Saved,
-            UpdatedTrack = track.WithSelectedTags(edit, FileStamp.For(track.FilePath)),
+            UpdatedTrack = track.WithSelectedTags(edit, FileStamp.For(track.FilePath)).WithLeadingZeros(save.LeadingZeros),
             Written = written,
         };
     }

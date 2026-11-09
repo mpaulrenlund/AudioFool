@@ -11,7 +11,7 @@ public class LibraryStatisticsTests
         int? year = 1997, string kind = "", long size = 1_000, int seconds = 60,
         string title = "Song", int? track = 1, int? trackCount = 10,
         int? disc = 1, int? discCount = 1, string? albumArtist = null,
-        string? cover = @"C:\music\cover.jpg") =>
+        string? cover = @"C:\music\cover.jpg", bool? zeros = false) =>
         new()
         {
             FilePath = $@"C:\music\{artist}\{album}\{title}{Guid.NewGuid():N}.{ext}",
@@ -31,6 +31,7 @@ public class LibraryStatisticsTests
             DiscNumber = disc,
             DiscCount = discCount,
             FolderArtPath = cover,
+            LeadingZeros = zeros,
         };
 
     private static LibraryStatistics Stats(params Track[] tracks) =>
@@ -198,6 +199,8 @@ public class LibraryStatisticsTests
             T("Void of Vision", "U", albumArtist: "Void Of Vision"),
             T("Dirty Dozen Brass Band", "S", albumArtist: "The Dirty Dozen Brass Band"),
             T("Kx5", "R", albumArtist: "deadmau5"),
+            T("F", "Q", zeros: true),
+            T("F", "Q", zeros: null),
         ];
         var stats = Stats(tracks);
 
@@ -206,11 +209,13 @@ public class LibraryStatisticsTests
             .Concat(stats.TagGaps.Select(g => (Label: g.Field, Count: g.Missing, g.Filter)))
             .Concat(stats.AlbumGaps.Select(g => (Label: g.Check, Count: g.Tracks, g.Filter)))
             .Concat(stats.ArtistGaps.Select(g => (Label: g.Check, Count: g.Tracks, g.Filter)))
+            .Append((Label: "Leading zeros", Count: stats.LeadingZeros.Tracks, stats.LeadingZeros.Filter))
             .ToList();
 
         Assert.NotEmpty(rows);
         Assert.All(stats.AlbumGaps, g => Assert.True(g.Albums > 0, $"{g.Check} found no album"));
         Assert.All(stats.ArtistGaps, g => Assert.True(g.Tracks > 0, $"{g.Check} found no track"));
+        Assert.Equal(1, stats.LeadingZeros.Tracks);
         foreach (var (label, count, filter) in rows)
         {
             Assert.NotNull(filter);
@@ -365,6 +370,45 @@ public class LibraryStatisticsTests
         Assert.Equal(
             ["Album Artist in different capitals", "Album Artist spelled differently", "Different Album Artist"],
             stats.ArtistGaps.Select(g => g.Filter!.Description));
+        Assert.Equal("Leading zeros", stats.LeadingZeros.Filter!.Description);
+    }
+
+    // -------------------------------------------------------- leading zeros
+
+    [Fact]
+    public void Leading_zeros_count_tracks_their_albums_and_the_tracks_not_read_yet()
+    {
+        var stats = Stats(
+            // An album padded on tracks 1-9 only, as many are.
+            T("Diverse System", "AD:TRANCE 10", track: 1, zeros: true),
+            T("Diverse System", "AD:TRANCE 10", track: 9, zeros: true),
+            T("Diverse System", "AD:TRANCE 10", track: 10),
+            T("Röyksopp", "The Understanding", zeros: true),
+            T("Röyksopp", "Melody A.M.", zeros: null),
+            T("A", "X"));
+
+        var gap = stats.LeadingZeros;
+        Assert.Equal((2, 3, 1), (gap.Albums, gap.Tracks, gap.Unknown));
+        Assert.Equal(0.5, gap.Share, 6);
+    }
+
+    [Fact]
+    public void A_track_cleared_of_zeros_leaves_the_filter()
+    {
+        var padded = T("Röyksopp", "The Understanding", track: 1, zeros: true);
+        var plain = T("Röyksopp", "The Understanding", track: 10);
+        var filter = Stats(padded, plain).LeadingZeros.Filter!;
+
+        Assert.Equal([padded], filter.Apply([padded, plain]));
+        Assert.Empty(filter.Apply([padded.WithLeadingZeros(false), plain]));
+    }
+
+    [Fact]
+    public void An_empty_library_has_no_leading_zeros()
+    {
+        var gap = LibraryStatistics.Compute(MusicLibrary.Empty).LeadingZeros;
+
+        Assert.Equal((0, 0, 0), (gap.Albums, gap.Tracks, gap.Unknown));
     }
 
     [Fact]

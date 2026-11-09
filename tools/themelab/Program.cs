@@ -45,6 +45,7 @@ internal static partial class Program
         }
 
         _brushDump = Arg(args, "--brushdump") is not null;
+        _rereadTags = Arg(args, "--rereadtags") is not null;
 
         // --theme light|dark: the theme to start in; light unless asked, so every
         // recipe renders as it always has. --switch light|dark: switch to that one
@@ -2540,7 +2541,7 @@ internal static partial class Program
             var cached = AudioFool.Core.Library.LibraryCache.Load();
             // --cutoffdemo 1: scratch albums with cut-off covers instead (session 70).
             var cutOffDemo = Arg(args, "--cutoffdemo") is not null;
-            var tracks = cutOffDemo ? LoadCutOffLibrary(vm) : cached?.Tracks ?? SampleTracks();
+            var tracks = cutOffDemo ? LoadCutOffLibrary(vm) : RereadIfAsked(cached?.Tracks ?? SampleTracks());
             var library = AudioFool.Core.Library.LibraryScanner.Build(tracks);
             if (cutOffDemo)
                 RunCutOffChecks(vm, library);
@@ -2663,6 +2664,8 @@ internal static partial class Program
             Console.WriteLine($"    {statsVm.TagSummary}");
             Rows("albums that disagree", statsVm.AlbumGaps);
             Rows("artist vs album artist", statsVm.ArtistGaps);
+            Rows("leading zeros", statsVm.LeadingZeros);
+            Console.WriteLine($"    note: {statsVm.LeadingZeroNote ?? "<none>"}  clickable={statsVm.LeadingZeros[0].IsClickable}");
             Rows("decades", statsVm.Decades);
 
             // Never shown, for the same reason as the tag dialog above.
@@ -4658,10 +4661,32 @@ internal static partial class Program
         Console.WriteLine(all ? "all OK" : "SOME WRONG");
     }
 
+    /// <summary>
+    /// --rereadtags 1: the cached library's files read again with the scan's own
+    /// reader (read only, four at a time), so what an older cache can't know -
+    /// LeadingZeros, since version 4 (session 76) - is filled in as the app's
+    /// one-time re-read would. A file no longer there keeps its cached copy.
+    /// </summary>
+    private static bool _rereadTags;
+
+    private static IReadOnlyList<Track> RereadIfAsked(IReadOnlyList<Track> tracks)
+    {
+        if (!_rereadTags)
+            return tracks;
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var read = new Track[tracks.Count];
+        Parallel.For(0, tracks.Count, new ParallelOptions { MaxDegreeOfParallelism = 4 },
+            i => read[i] = File.Exists(tracks[i].FilePath) ? AudioFool.Core.Library.TagReader.Read(tracks[i].FilePath) : tracks[i]);
+        Console.WriteLine($"reread: {tracks.Count:N0} tracks in {clock.Elapsed.TotalSeconds:0} s, "
+            + $"{read.Count(t => t.LeadingZeros == true):N0} with leading zeros, {read.Count(t => t.LeadingZeros is null):N0} unknown");
+        return read;
+    }
+
     private static void LoadRealLibrary(MainViewModel vm)
     {
         var cached = AudioFool.Core.Library.LibraryCache.Load();
-        var library = AudioFool.Core.Library.LibraryScanner.Build(cached?.Tracks ?? SampleTracks());
+        var library = AudioFool.Core.Library.LibraryScanner.Build(RereadIfAsked(cached?.Tracks ?? SampleTracks()));
         typeof(MainViewModel)
             .GetMethod("ApplyLibrary", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
             .Invoke(vm, [library, false]);

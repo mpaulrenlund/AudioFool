@@ -351,8 +351,7 @@ public sealed partial class TagEditViewModel : ObservableObject
     private void ShowNumbers(IReadOnlyList<Track> tracks, IReadOnlyList<TagDetails?> read)
     {
         var numbers = tracks.Zip(read, (t, d) => d?.Numbers ?? CachedNumbers(t)).ToList();
-        var padded = numbers.Count(n => IsPadded(n.TrackNumber) || IsPadded(n.TrackCount)
-                                        || IsPadded(n.DiscNumber) || IsPadded(n.DiscCount));
+        var padded = numbers.Count(n => n.HasLeadingZeros);
         LeadingZerosText = padded == 0 ? "None found" : $"{padded} of {tracks.Count} tracks";
         _hasLeadingZeros = padded > 0;
 
@@ -364,7 +363,7 @@ public sealed partial class TagEditViewModel : ObservableObject
         DiscCountPlaceholder = discCountHint;
     }
 
-    private static bool IsPadded(string number) => number.Length > 1 && number[0] == '0';
+    private static bool IsPadded(string number) => NumberTexts.IsPadded(number);
 
     /// <summary>The album dialog's "Remove Leading Zeros" - one button for the whole album.</summary>
     public bool ShowsRemoveLeadingZeros => IsAlbumMode && !IsSelectionMode;

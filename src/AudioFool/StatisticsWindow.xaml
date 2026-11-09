@@ -372,6 +372,27 @@
                                           Tag="{DynamicResource color.status.lastFmOff}" />
                         </HeaderedContentControl>
 
+                        <!--
+                            Numbers written like "01": one row, since Remove Leading Zeros
+                            fixes all four together; a row shows only those tracks. The
+                            line above it shows only while some tracks aren't checked yet.
+                        -->
+                        <HeaderedContentControl Style="{StaticResource Section}">
+                            <HeaderedContentControl.Header>
+                                <TextBlock Text="LEADING ZEROS" Style="{StaticResource SectionHeader}" />
+                            </HeaderedContentControl.Header>
+                            <StackPanel Margin="{theme:Thickness X=layout.panelHeaderPaddingX, Y=statistics.sectionPaddingY}">
+                                <TextBlock x:Name="LeadingZeroNote" Text="{Binding LeadingZeroNote}"
+                                           Style="{StaticResource Body}"
+                                           Margin="{theme:Thickness Bottom=statistics.summaryGap}"
+                                           Visibility="{Binding LeadingZeroNote, Converter={StaticResource NullToCollapsed}}" />
+                                <ItemsControl x:Name="LeadingZeroList" ItemsSource="{Binding LeadingZeros}"
+                                              Style="{StaticResource SectionList}"
+                                              Tag="{DynamicResource color.status.lastFmOff}"
+                                              Margin="0" />
+                            </StackPanel>
+                        </HeaderedContentControl>
+
                         <HeaderedContentControl Style="{StaticResource Section}">
                             <HeaderedContentControl.Header>
                                 <TextBlock Text="TRACKS BY DECADE" Style="{StaticResource SectionHeader}" />

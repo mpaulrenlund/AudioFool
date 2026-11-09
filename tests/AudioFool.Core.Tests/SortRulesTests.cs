@@ -170,9 +170,10 @@ public class DateAddedTests : IDisposable
     public async Task A_cache_without_dates_gets_them_from_the_stat_and_counts_as_a_change()
     {
         // As a cache written before AddedUtc existed: it matches the file, so its
-        // tags are reused, not read again.
+        // tags are reused, not read again. (Its LeadingZeros is known: one that
+        // isn't is read again for that, which is a different test.)
         var stamp = FileStamp.For(_file);
-        var old = new Track { FilePath = _file, FileSize = stamp.Length, ModifiedUtc = stamp.ModifiedUtc, Title = "Cached" };
+        var old = new Track { FilePath = _file, FileSize = stamp.Length, ModifiedUtc = stamp.ModifiedUtc, Title = "Cached", LeadingZeros = false };
         var known = new Dictionary<string, Track>(StringComparer.OrdinalIgnoreCase) { [_file] = old };
 
         var result = await LibraryScanner.ScanAsync([_folder], known);

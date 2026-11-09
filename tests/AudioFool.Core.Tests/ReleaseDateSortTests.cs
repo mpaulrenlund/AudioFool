@@ -106,6 +106,62 @@ public class ReleaseDateSortTests
     }
 
     [Fact]
+    public async Task A_track_whose_zeros_are_unknown_is_read_again_though_it_matches()
+    {
+        // A version 3 cache's track, or one the version 4 re-read couldn't reach.
+        var temp = Path.Combine(Path.GetTempPath(), "audiofool-zeros-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(temp);
+        try
+        {
+            File.Copy(Path.Combine(AppContext.BaseDirectory, "TestData", "sample.flac"), Path.Combine(temp, "a.flac"));
+            File.Copy(Path.Combine(AppContext.BaseDirectory, "TestData", "sample.mp3"), Path.Combine(temp, "b.mp3"));
+
+            var first = await LibraryScanner.ScanAsync([temp]);
+            Assert.All(first.Library.AllTracks, t => Assert.NotNull(t.LeadingZeros));
+
+            var known = first.Library.AllTracks.ToDictionary(
+                t => t.FilePath,
+                t => t.FilePath.EndsWith(".flac") ? t.WithLeadingZeros(null) : t,
+                StringComparer.OrdinalIgnoreCase);
+            var next = await LibraryScanner.ScanAsync([temp], known);
+
+            Assert.Equal((1, 1, 0), (next.Summary.Read, next.Summary.Reused, next.Summary.Removed));
+            Assert.All(next.Library.AllTracks, t => Assert.NotNull(t.LeadingZeros));
+        }
+        finally
+        {
+            Directory.Delete(temp, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void A_version_3_cache_is_read_again_for_the_zeros()
+    {
+        Assert.Equal(4, LibraryCache.CurrentVersion);
+        Assert.True(LibraryCache.From([@"C:\music"], [], version: 3).NeedsReread);
+    }
+
+    [Fact]
+    public void The_note_survives_every_copy_and_round_trips_through_the_cache()
+    {
+        var track = Track("Ephemeral Dance", 2026).WithLeadingZeros(true);
+        var stamp = new FileStamp(1, DateTime.UtcNow);
+
+        Assert.True(track.Relocated(@"E:\x.flac", null).LeadingZeros);
+        Assert.True(track.WithAddedUtc(DateTime.UtcNow).LeadingZeros);
+        Assert.True(track.WithFolderArt(null).LeadingZeros);
+        Assert.True(track.WithSelectedTags(new TracksTagEdit { Title = "T" }, stamp).LeadingZeros);
+        Assert.True(track.WithAlbumTags(new AlbumTagEdit { Artist = "A", AlbumArtist = "AA", Album = "X", Date = new DateEdit(2026, null) }, stamp, null).LeadingZeros);
+        Assert.True(track.WithTags(new TrackTagEdit("T", "A", "AA", "X", 2026, 1, 12, 1, 1), stamp, null).LeadingZeros);
+
+        var unknown = JsonSerializer.Serialize(track.WithLeadingZeros(null));
+        Assert.DoesNotContain("LeadingZeros", unknown);
+        Assert.Null(JsonSerializer.Deserialize<AudioFool.Core.Models.Track>(unknown)!.LeadingZeros);
+        Assert.False(JsonSerializer.Deserialize<AudioFool.Core.Models.Track>(JsonSerializer.Serialize(track.WithLeadingZeros(false)))!.LeadingZeros);
+        Assert.True(JsonSerializer.Deserialize<AudioFool.Core.Models.Track>(JsonSerializer.Serialize(track))!.LeadingZeros);
+    }
+
+    [Fact]
     public async Task A_reread_reads_every_file_even_when_it_matches_the_cache()
     {
         var temp = Path.Combine(Path.GetTempPath(), "audiofool-reread-" + Guid.NewGuid().ToString("N"));

@@ -90,7 +90,11 @@ public static class LibraryScanner
             var cached = default(Track);
             var wasKnown = known is not null && known.TryGetValue(file, out cached);
 
-            if (wasKnown && !rereadTags && cached!.MatchesFile(stamp.Length, stamp.ModifiedUtc))
+            // A track whose numbers' spelling isn't known yet is read again: one
+            // from before version 4 that the re-read couldn't reach (its drive
+            // unplugged), or one that couldn't be opened before it was known.
+            if (wasKnown && !rereadTags && cached!.MatchesFile(stamp.Length, stamp.ModifiedUtc)
+                && cached.LeadingZeros is not null)
             {
                 // The date added comes with the stat, so an older cache gets it
                 // here rather than needing every tag read again.

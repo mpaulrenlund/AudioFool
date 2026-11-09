@@ -60,6 +60,16 @@ public sealed class Track
     public int? Year { get; init; }
 
     /// <summary>
+    /// A track or disc number, or either total, written with a leading zero
+    /// ("01", "1/06") - the numbers above are parsed, so "01" and "1" read alike
+    /// there, and this keeps the one fact about the spelling Statistics needs.
+    /// Null while unknown: a track from a cache older than version 4, or a file
+    /// that couldn't be opened, which the next scan reads again.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? LeadingZeros { get; init; }
+
+    /// <summary>
     /// The full release date, when the file names more than the year
     /// ("2026-10-02" or "2026-10"); null otherwise, which is most MP3s and about
     /// two FLACs in three. Only the album sort uses it - see <see cref="SortDate"/>.
@@ -127,6 +137,7 @@ public sealed class Track
         DiscCount = DiscCount,
         Year = Year,
         ReleaseDate = ReleaseDate,
+        LeadingZeros = LeadingZeros,
         Kind = Kind,
         Bitrate = Bitrate,
         BitDepth = BitDepth,
@@ -164,6 +175,7 @@ public sealed class Track
         DiscCount = edit.DiscCount,
         Year = edit.Year,
         ReleaseDate = edit.Date,
+        LeadingZeros = LeadingZeros,
         Kind = Kind,
         Bitrate = Bitrate,
         BitDepth = BitDepth,
@@ -194,6 +206,7 @@ public sealed class Track
         DiscCount = edit.DiscCount is { } discCount ? discCount.Value : DiscCount,
         Year = edit.Date is { } date ? date.Year : Year,
         ReleaseDate = edit.Date is { } newDate ? newDate.Date : ReleaseDate,
+        LeadingZeros = LeadingZeros,
         Kind = Kind,
         Bitrate = Bitrate,
         BitDepth = BitDepth,
@@ -223,6 +236,7 @@ public sealed class Track
         DiscCount = edit.DiscCount is { } discCount ? discCount.Value : DiscCount,
         Year = edit.Date is { } date ? date.Year : Year,
         ReleaseDate = edit.Date is { } newDate ? newDate.Date : ReleaseDate,
+        LeadingZeros = LeadingZeros,
         Kind = Kind,
         Bitrate = Bitrate,
         BitDepth = BitDepth,
@@ -249,6 +263,7 @@ public sealed class Track
         DiscCount = DiscCount,
         Year = Year,
         ReleaseDate = ReleaseDate,
+        LeadingZeros = LeadingZeros,
         Kind = Kind,
         Bitrate = Bitrate,
         BitDepth = BitDepth,
@@ -275,6 +290,37 @@ public sealed class Track
         DiscCount = DiscCount,
         Year = Year,
         ReleaseDate = ReleaseDate,
+        LeadingZeros = LeadingZeros,
+        Kind = Kind,
+        Bitrate = Bitrate,
+        BitDepth = BitDepth,
+        SampleRate = SampleRate,
+    };
+
+    /// <summary>
+    /// A copy that knows how a save left the numbers spelled. The tag edits above
+    /// can't tell: whether a "01" stays depends on which fields the save rewrote.
+    /// </summary>
+    public Track WithLeadingZeros(bool? leadingZeros) => new()
+    {
+        FilePath = FilePath,
+        FolderArtPath = FolderArtPath,
+
+        FileSize = FileSize,
+        ModifiedUtc = ModifiedUtc,
+        AddedUtc = AddedUtc,
+        TrackNumber = TrackNumber,
+        TrackCount = TrackCount,
+        Title = Title,
+        Artist = Artist,
+        AlbumArtist = AlbumArtist,
+        Album = Album,
+        Duration = Duration,
+        DiscNumber = DiscNumber,
+        DiscCount = DiscCount,
+        Year = Year,
+        ReleaseDate = ReleaseDate,
+        LeadingZeros = leadingZeros,
         Kind = Kind,
         Bitrate = Bitrate,
         BitDepth = BitDepth,

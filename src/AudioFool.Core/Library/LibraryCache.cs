@@ -38,8 +38,13 @@ public sealed class LibraryCache
     /// file's tags in the background (about a minute off the USB drive), so the
     /// window never sits empty the way a discarded cache would leave it.
     /// </para>
+    /// <para>
+    /// Version 4 added <see cref="Track.LeadingZeros"/> (session 76), read again
+    /// the same way. A track the re-read can't reach (its drive unplugged) keeps
+    /// null, and the scan reads it once it can (<see cref="LibraryScanner"/>).
+    /// </para>
     /// </summary>
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     /// <summary>The oldest version still worth showing while <see cref="NeedsReread"/> refreshes it.</summary>
     public const int OldestShownVersion = 2;

@@ -63,6 +63,24 @@ public sealed class StatisticsViewModel
                 Filter = g.Filter,
             })];
 
+        // One row for all four numbers: Remove Leading Zeros fixes them together.
+        // Until every track has been read since version 4, "None" would be a guess.
+        var zeros = stats.LeadingZeros;
+        LeadingZeros =
+        [
+            zeros.Tracks > 0
+                ? new BarRow(LeadingZeroLabel, $"{Plural(zeros.Albums, "album")} · {Plural(zeros.Tracks, "track")}", zeros.Share)
+                {
+                    Filter = zeros.Filter,
+                }
+                : zeros.Unknown > 0
+                ? new BarRow(LeadingZeroLabel, "None found yet", 0)
+                : new BarRow(LeadingZeroLabel, "None", 0, isComplete: true),
+        ];
+        LeadingZeroNote = zeros.Unknown == 0
+            ? null
+            : $"{Plural(zeros.Unknown, "track")} not checked yet. AudioFool reads them in the background when their drive is connected.";
+
         TagSummary = stats.TrackCount == 0
             ? "No tracks scanned yet."
             : $"{stats.FullyTaggedCount:N0} of {stats.TrackCount:N0} tracks " +
@@ -83,6 +101,15 @@ public sealed class StatisticsViewModel
     public IReadOnlyList<BarRow> TagGaps { get; }
     public IReadOnlyList<BarRow> AlbumGaps { get; }
     public IReadOnlyList<BarRow> ArtistGaps { get; }
+
+    /// <summary>The LEADING ZEROS section's one row, in a list so it is drawn as every other row.</summary>
+    public IReadOnlyList<BarRow> LeadingZeros { get; }
+
+    /// <summary>How many tracks haven't been checked yet; null once all have.</summary>
+    public string? LeadingZeroNote { get; }
+
+    public const string LeadingZeroLabel = "Track and disc numbers";
+
     public string TagSummary { get; }
 
     /// <summary>The library check's section, which updates while a check runs.</summary>

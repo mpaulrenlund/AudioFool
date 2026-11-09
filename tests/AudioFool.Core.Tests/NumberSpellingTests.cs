@@ -185,6 +185,98 @@ public class NumberSpellingTests
         Assert.Equal("3/10", RawTrack(file.Path));
     }
 
+    // ------------------------------------------------- the library's note of it
+
+    [Theory]
+    [InlineData("sample.flac", "01", "12", "1", "", true)]
+    [InlineData("sample.mp3", "01", "12", "1", "", true)]
+    [InlineData("sample.flac", "1", "06", "1", "", true)]   // a total
+    [InlineData("sample.mp3", "1", "06", "1", "", true)]
+    [InlineData("sample.flac", "3", "12", "01", "02", true)] // disc number and total
+    [InlineData("sample.flac", "10", "12", "1", "1", false)]
+    [InlineData("sample.mp3", "7", "12", "2", "", false)]
+    public void The_scan_notes_a_leading_zero(string fixture, string track, string total, string disc, string discTotal, bool zeros)
+    {
+        using var file = new TempAudioFile(fixture);
+        SetRaw(file.Path, track, total, disc, discTotal);
+
+        Assert.Equal(zeros, TagReader.Read(file.Path).LeadingZeros);
+    }
+
+    [Fact]
+    public void A_file_that_cannot_be_opened_is_not_known()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}_missing.flac");
+
+        Assert.Null(TagReader.Read(path).LeadingZeros);
+    }
+
+    [Theory]
+    [InlineData("sample.flac")]
+    [InlineData("sample.mp3")]
+    public void Removing_zeros_clears_the_note_without_a_rescan(string fixture)
+    {
+        using var file = new TempAudioFile(fixture);
+        SetRaw(file.Path, "03", "012", "01", "02");
+        var track = TagReader.Read(file.Path);
+        Assert.True(track.LeadingZeros);
+
+        var edit = new AlbumTagEdit { Artist = "Artist", AlbumArtist = "Album Artist", Album = "Album", Date = new DateEdit(2020, null), RemoveLeadingZeros = true };
+        var saved = TagWriter.WriteAlbumTrackTags(track, edit, art: null, folderArtPath: null);
+
+        Assert.False(saved.UpdatedTrack!.LeadingZeros);
+        Assert.False(TagReader.Read(file.Path).LeadingZeros);
+    }
+
+    [Fact]
+    public void A_save_that_leaves_a_zero_keeps_the_note()
+    {
+        using var file = new TempAudioFile("sample.flac");
+        SetRaw(file.Path, "03", "12", "01");
+        var track = TagReader.Read(file.Path);
+
+        // Only the disc number is rewritten; "03" stays.
+        var edit = new AlbumTagEdit { Artist = "Artist", AlbumArtist = "Album Artist", Album = "Album", Date = new DateEdit(2020, null), DiscNumber = new NumberEdit(1) };
+        var saved = TagWriter.WriteAlbumTrackTags(track, edit, art: null, folderArtPath: null);
+
+        Assert.True(saved.UpdatedTrack!.LeadingZeros);
+        Assert.True(TagReader.Read(file.Path).LeadingZeros);
+    }
+
+    [Theory]
+    [InlineData("sample.flac")]
+    [InlineData("sample.mp3")]
+    public void The_song_window_and_a_grid_edit_note_the_plain_number(string fixture)
+    {
+        using var file = new TempAudioFile(fixture);
+        SetRaw(file.Path, "01", "12", "1");
+        var track = TagReader.Read(file.Path);
+
+        var grid = TagWriter.WriteSelectedTrackTags(track, new TracksTagEdit { TrackNumber = new NumberEdit(1) });
+        Assert.False(grid.UpdatedTrack!.LeadingZeros);
+
+        SetRaw(file.Path, "01", "12", "1");
+        var song = TagWriter.WriteTrackTags(TagReader.Read(file.Path),
+            new TrackTagEdit("Title", "Artist", "Album Artist", "Album", 2020, 1, 12, 1, null), art: null, folderArtPath: null);
+        Assert.False(song.UpdatedTrack!.LeadingZeros);
+    }
+
+    [Fact]
+    public void Find_and_replace_keeps_what_the_file_spells()
+    {
+        using var file = new TempAudioFile("sample.flac");
+        SetRaw(file.Path, "01", "12", "1");
+        using (var tagged = TagLib.File.Create(file.Path)) { tagged.Tag.Title = "Song"; tagged.Save(); }
+        var track = TagReader.Read(file.Path);
+
+        var replaced = TagWriter.WriteReplacement(track,
+            [new ReplaceMatch(track, ReplaceField.Title, FindReplace.ValueOf(track, ReplaceField.Title))],
+            new TextReplace("Song", "Other"));
+
+        Assert.Equal(ReplaceOutcome.Saved, replaced.Outcome);
+        Assert.True(replaced.UpdatedTrack!.LeadingZeros);
+    }
+
     [Fact]
     public void Clearing_the_track_number_removes_it()
     {
