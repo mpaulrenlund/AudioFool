@@ -4947,7 +4947,42 @@ approved as offered.
   bytes), on the cold run after a build, as `LiveSpectrumTests.An_update_allocates_nothing`
   has before; it passed alone and in two full runs after, and the change is elsewhere.
 - Installed 12:45 at the user's OK (19 files hash-identical). Not yet seen in the running
-  app.
+  app. Committed `80f8a6b` + `6d882e0` and pushed.
+
+### Session 76, continued (2026-11-09): LEADING ZEROS in Statistics
+
+The user asked for a card finding every track with leading zeros. The catch: the scan
+keeps numbers as numbers, so "01" and "1" were the same 1 in library.json; only the tag
+window read the spelling from the file (`TagReader.ReadNumbers`). A read-only probe on
+`AudioFool.Core` over the drive (24,893 of the private cache's tracks still there, 51 s):
+309 tracks in 35 albums, 25 padded throughout (Röyksopp, Silent Planet, Karnivool…), 10
+partly (tracks 01–09 of *AD:TRANCE 10*, *The White Album*…); by field, track # 113,
+track total 105 ("1/06"), disc # and disc total 96 (FLAC, 7 albums). The user picked one
+row over a row per field. The same re-read showed ARTIST VS ALBUM ARTIST at None in all
+three rows: the user has fixed those 113 since the cache copy was saved.
+
+- **Core**: `Track.LeadingZeros` (bool?, null = not known; omitted from the cache while
+  null), set by `TagReader.Read` from the same TagLib file (`LeadingZerosIn`; a file that
+  opens but won't parse is false, one that won't open null). Every `Track` copy carries
+  it; `WithLeadingZeros` is new. `TagWriter.SaveTags` reads it off the file with the edit
+  applied and returns it, so every save (song, album, selection, grid, Find and Replace)
+  hands back the track as the file now spells it. `NumberTexts.IsPadded` /
+  `HasLeadingZeros` (the tag window's rule, moved to Core). `LibraryCache` version 4: a
+  version 3 cache is shown and every file re-read in the background, as for release dates;
+  the scanner also re-reads a matching track whose `LeadingZeros` is null (a drive the
+  re-read couldn't reach). `LibraryStatistics.LeadingZeros` (`LeadingZeroGap`: albums,
+  tracks, share, unknown; filter "Leading zeros", per track).
+- **Window**: `StatisticsViewModel.LeadingZeros` (one row) and `LeadingZeroNote`; the
+  section in `StatisticsWindow.xaml` under ARTIST VS ALBUM ARTIST. No new tokens.
+- **Tests**: 20 new (the scan's note in FLAC and MP3 for each field, a missing file,
+  each kind of save, Find and Replace, the re-read of an unknown track, version 4, every
+  copy and the JSON round trip, the counts and the filter); `DateAddedTests`' old-cache
+  track given `LeadingZeros = false`, since an unknown one is now read again. 1,106 in all.
+- **ThemeLab**: `--rereadtags 1` reads the cached library's files again with the scan's
+  reader before `--window stats` or any case using the real library (about 50 s).
+  Checked as in `design/progress.md`.
+- Installed 09:05 (the app wasn't running; 19 files hash-identical). Not yet seen in the
+  running app, and the one-time re-read on the user's machine not yet seen either.
 
 ---
 

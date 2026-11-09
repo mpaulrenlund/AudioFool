@@ -971,7 +971,8 @@ shows). Startup now goes:
 
 1. Load the cache and show the library — about **0.3 seconds**.
 2. In the background, enumerate and stat everything (~1s) and re-read tags only for
-   files whose size or write time no longer matches the cache.
+   files whose size or write time no longer matches the cache, or whose leading zeros
+   aren't known yet (a song the one-time re-read after an update couldn't reach).
 3. If nothing changed, leave the view alone entirely. If something did, rebuild and
    re-save.
 
@@ -1189,6 +1190,15 @@ Band* / *The Dirty Dozen Brass Band*), and **Different names** (*Kx5* / *deadmau
 A click shows just those tracks, not their whole albums, so each one leaves the list as
 it is fixed. A blank Album Artist is counted under the missing tags instead, and spaces
 at either end of a name don't count.
+
+**LEADING ZEROS** counts tracks with a track or disc number, or either total, written
+with a leading zero ("01", "1/06"), in one row: Edit Album Tags → Remove Leading Zeros
+fixes all four at once. A click shows just those tracks; Edit Album Tags still opens on
+the whole album. The scan notes the spelling as it reads each song (the numbers
+themselves are kept as numbers, so "01" and "1" would look alike), and a save notes how
+it left them, so a fixed track leaves the list straight away. After the update that
+added it, AudioFool reads every song's tags once more in the background (about a
+minute); until a song has been read, the section says how many are still to check.
 
 **Bit Depth is blank for lossy formats.** MP3, AAC, Vorbis, Opus and WMA decode to float
 and have no meaningful source bit depth, so the column shows an em dash rather than
