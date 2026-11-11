@@ -5036,6 +5036,11 @@ extras (Repeat and Shuffle when on, a ring in Light, the top glow), which were o
   window 0 pixels from the last commit except Dark paused's glow; on 60 real albums the
   header and the bar agree to a shade (details in `design/progress.md`). Installed
   12:21; not yet seen by the user.
+- Committed `0b9c505` + `d3b73a8` and pushed. **Released v0.11.0** at the user's request
+  (version and notes OK'd as drafted): everything since v0.10.0, the Genius window and
+  session 76's two Statistics sections included. Version commit `2c1fcdf` (the tag's),
+  60.8 MB zip, 19 files, the same list as v0.10.0. Installed (19 files hash-identical,
+  the exe reads 0.11.0).
 
 ---
 

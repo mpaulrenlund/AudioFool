@@ -97,7 +97,7 @@ the only thing that catches a file you forgot to track.
 ### Releases
 
 All on GitHub (private, so downloads need a signed-in account); `gh release list` has
-them all. **Latest: v0.10.0** (2026-11-02, session 74, tag on `0f0ea4d`, 60.8 MB zip,
+them all. **Latest: v0.11.0** (2026-11-10, session 77, tag on `2c1fcdf`, 60.8 MB zip,
 19 files). Every one after v0.1.0 was made by Claude.
 `AudioFool.csproj` starts with a byte-order mark: keep it when bumping the version
 (v0.6.0's bump dropped it and needed a follow-up commit). Handle a release end to end when asked, but
@@ -136,10 +136,10 @@ and the commit fails.
 ### Where things stand
 
 - **Everything in `README.md` is implemented and verified**, **1,126 tests** pass.
-- **Last release: v0.10.0** (2026-11-02, Listening History). **Unreleased: the Genius
-  window** (session 75, installed and pushed), **ARTIST VS ALBUM ARTIST** and **LEADING
-  ZEROS** in Statistics (session 76), **the playback bar in the cover's colour** (session
-  77); release them once the user has tried them (next step 2).
+- **Last release: v0.11.0** (2026-11-10, session 77, at the user's request): the Genius
+  window (session 75), ARTIST VS ALBUM ARTIST and LEADING ZEROS in Statistics (session
+  76), the cover's colour in the playback bar and on the album header's artist name, and
+  Dark's Play/Pause glow only while playing (session 77). Nothing unreleased. Installed.
 - **The library cache is version 4** (session 76: `Track.LeadingZeros`). The first start
   after installing re-reads every song's tags in the background, once.
 - Since session 63 an install is checked by hashing the files, not by launching
@@ -1127,8 +1127,8 @@ happily rewrite it.
 ## Suggested next steps
 
 Open items only; finished ones are in `HISTORY.md`. Open a session by asking the user
-about step 1 (ask; don't re-explain), and offer step 2 once they're happy with it; then
-ask about step 3, then step 5, then which of steps 4 and 6 to take.
+about step 1 (ask; don't re-explain); then ask about step 3, then step 5, then which of
+steps 4 and 6 to take.
 
 1. **Ask how the Genius window went** (session 75; installed, never seen by the user).
    Right-click a song → Genius…, or Ctrl+G. Worth hearing about: a song it matched to
@@ -1136,10 +1136,14 @@ ask about step 3, then step 5, then which of steps 4 and 6 to take.
    *The Genius window* above); how the sections read; "Show 50 more" on a song with
    many comments; the closest results offered for a soundtrack or instrumental. A
    design note from the user means the usual plan-then-approve loop.
-2. **Release v0.11.0 once the Genius window is confirmed** (new features: middle
-   number; ARTIST VS ALBUM ARTIST and LEADING ZEROS from session 76 go in too). Confirm the version
-   and the notes with the user first (*Releases*).
+2. **Done: v0.11.0 released** (2026-11-10, session 77; the user asked for it before
+   reporting on the Genius window, so step 1 still stands). A fix from step 1 or 3 goes
+   out as 0.11.1 (last number: fixes only), with the version and notes confirmed first
+   (*Releases*).
 3. **Ask the user to try what was checked off-screen only:**
+   - **Session 77:** the album header's artist name in its cover's colour (browse a few
+     albums, and a theme switch), and Dark's Play/Pause glow going on pause. The bar's
+     cover colour itself the user has seen (their screenshot that asked for the header).
    - **Session 76:** Statistics → ARTIST VS ALBUM ARTIST, a click on a row, and a
      fixed track leaving the filter. LEADING ZEROS: the one-time re-read on the first
      start ("Updating the library for this version…", about a minute), then the row,
