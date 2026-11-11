@@ -235,14 +235,16 @@ Icons in their DualShock colors at rest: Minimize `window.minimize` (triangle gr
 
 ### 7.3 Transport buttons
 
-Matte black faces (`control.face`, 1 px `control.faceBorder`) with the molded look of `shadow.controlButton` / `shadow.playButton`. Icons: Previous and Next `control.iconNeutral`; Play/Pause `control.playPause`; Shuffle and Repeat `control.iconOff`, or `control.shuffleOn` / `control.repeatOn` when on (the repeat-one badge disc is `control.repeatOn` with a "1" in `control.face`, as in PS1). Hover `control.faceHover`; pressed nudges down 1 px, as in PS1.
+Matte black faces (`control.face`, 1 px `control.faceBorder`) with the molded look of `shadow.controlButton` / `shadow.playButton`. Icons: Previous and Next `control.iconNeutral`; Play/Pause `control.playPause` (in the playback bar, these three take a coloured cover's colour instead: PS1 spec §6.7, *Cover colour*); Shuffle and Repeat `control.iconOff`, or `control.shuffleOn` / `control.repeatOn` when on (the repeat-one badge disc is `control.repeatOn` with a "1" in `control.face`, as in PS1). Hover `control.faceHover`; pressed nudges down 1 px, as in PS1.
 
 **Play/Pause only** also gets:
 
 - a 1 px ring in `control.playRing`, just outside its border (a 62 px circle around the 60 px button);
-- the `shadow.playGlow` glow: no offset, 18 px blur, `rgba(76,141,255,0.45)`.
+- the `shadow.playGlow` glow: no offset, 18 px blur, `rgba(76,141,255,0.45)`, **only while a song is playing** (2026-11-10, the user's call): it comes and goes with the pause bars, at once, with no fade. Paused, stopped or with nothing loaded, the ring shows alone.
 
 The button's own `Effect` is already its molded drop shadow, so draw the ring and glow on an element behind the button rather than replacing that effect.
+
+With a coloured cover playing (2026-11-10, session 77), the ring and the glow take the cover's colour too, each at its own opacity here (0.35 and 0.45), with the glow's blur and no offset as above (PS1 spec §6.7, *Cover colour*).
 
 ### 7.4 Status bar
 

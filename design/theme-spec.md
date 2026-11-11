@@ -82,9 +82,9 @@ All colors live in the central theme (`theme-tokens.json`). Names below are the 
 
 | Token | Value | Used for |
 |---|---|---|
-| `accent.playback` | `#15786C` | Play/pause icon, seekbar fill, now-playing triangle, Last.fm dot, Bit-Perfect "on" dot, search focus ring |
+| `accent.playback` | `#15786C` | Play/pause icon, seekbar fill, now-playing triangle, Last.fm dot, Bit-Perfect "on" dot, search focus ring. In the playback bar a coloured cover's colour stands in for it (§6.7, *Cover colour*) |
 | `accent.playbackText` | `#0C5A51` | Now-playing row text; keyboard focus ring |
-| `accent.blue` | `#00519A` | Artist names (album header and playback bar). Deeper version of PlayStation blue chosen for readability (≈4.7:1). |
+| `accent.blue` | `#00519A` | Artist names (album header and playback bar). Deeper version of PlayStation blue chosen for readability (≈4.7:1). On those two a coloured cover's colour stands in for it: the playing cover's in the playback bar, the header's own in the album header (§6.7, *Cover colour*; §6.5). |
 | `accent.like` | `#A8327F` | A liked song's heart in the Like column, filled. The PlayStation Square pink, deepened to stay visible (3.6:1 on a row, 3.1:1 selected, 3.4:1 now playing); the controller's own pink, about `#E5A1C7`, is 1.0–1.2:1 there. Added 2026-10-07 at the user's request. |
 
 ### States
@@ -158,12 +158,12 @@ Font: **Segoe UI Variable Text**, falling back to **Segoe UI**.
 | Album title (list) | 13.5 px | 400 | `text.primary` | Line height 1.3, max 2 lines |
 | Album meta (list) | 12 px | 400 | `text.muted` | "1998 · 21 tracks" |
 | Album title (header) | 30 px | 600 | `text.heading` | Line height 1.15 |
-| Album details (header) | 14 px | 400 | `text.secondary` | Line height 1.4; artist line is 600 in `accent.blue` |
+| Album details (header) | 14 px | 400 | `text.secondary` | Line height 1.4; artist line is 600 in `accent.blue`, or its cover's colour (§6.5) |
 | Song title (table) | 13.5 px | 400 | `text.primary` | |
 | Other table columns | 13 px | 400 | `text.secondary` | |
 | Track number | 12.5 px | 400 | `text.muted` | Tabular figures |
 | Now-playing song title | 17 px | 600 | `text.primary` | |
-| Now-playing artist | 14 px | 600 | `accent.blue` | |
+| Now-playing artist | 14 px | 600 | `accent.blue` | Or the cover's colour (§6.7, *Cover colour*) |
 | Now-playing details and format lines | 13 px | 400 | `text.muted` | "MP3 · 320 kbps · 44.1 kHz" / "Lossy" |
 | Time labels (seekbar) | 12 px | 400 | `text.muted` | Tabular figures |
 | Output readout | 11.5 px | 400 | `text.muted` | |
@@ -230,8 +230,9 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 - 144 px square art with `art.border` and shadow `0 4px 10px rgba(0,0,0,0.25)`, then 24 px gap.
 - Right column, top-aligned, 8 px between title and details:
   - Album title (30 px).
-  - Four stacked lines, 3 px apart, each 14 px: **Artist** (600, `accent.blue`) / **Year** / **"N tracks"** ("1 track" for one) / **Duration** in the Time column's clock format, "1:06:27", or "41:40" under an hour (the user's call; this said "1 hr 6 min" until 2026-10-22).
+  - Four stacked lines, 3 px apart, each 14 px: **Artist** (600, `accent.blue`, or the header's cover's colour: below) / **Year** / **"N tracks"** ("1 track" for one) / **Duration** in the Time column's clock format, "1:06:27", or "41:40" under an hour (the user's call; this said "1 hr 6 min" until 2026-10-22).
 - No Play/Shuffle buttons and no format tags in the header.
+- **The artist's name takes the header's own cover's colour** (2026-11-10, session 77, the user's request: as the playback bar's artist does, §6.7, *Cover colour*), by the same rule and fitted the same way, to `accent.blue`. It's the cover shown beside it, not the playing one, so browsing another album shows that album's colour, and the album that's playing matches the bar. A black-and-white cover, or none, keeps `accent.blue`. Only the name: the title, year, track count and duration keep the theme's colours, and a playlist's header has no artist line.
 
 ### 6.6 Song table
 
@@ -280,13 +281,13 @@ A panel-styled bar: `panel.bg`, 1 px `panel.border`, 4 px radius, inset top high
 
 **Zone 1 — Now playing** (width set by alignment rule 3; currently 451 px):
 - 88 px square art, `art.border`, shadow `0 0 6px rgba(0,0,0,0.25)` (even on all sides — no offset).
-- 16 px gap, then four lines, 3 px apart: song title (17 px) / artist (14 px, blue) / details line (13 px, `text.muted`): "FLAC · 1,516 kbps · 24 bit · 96 kHz", format · bitrate · bit depth · sample rate as the song table words them, leaving out what the file doesn't report (a lossy file has no bit depth) / format line (13 px, `text.muted`): the quality tier, "Hi-Res Lossless", "CD Quality Lossless", "Lossy" or "DSD", by the rule of Statistics' Audio Quality rows (the user's call; it was "MP3 · 320 kbps · 44.1 kHz", which came back above it as the details line on 2026-10-22). The four lines take 85 px beside the 88 px art.
+- 16 px gap, then four lines, 3 px apart: song title (17 px) / artist (14 px, blue, or the cover's colour) / details line (13 px, `text.muted`): "FLAC · 1,516 kbps · 24 bit · 96 kHz", format · bitrate · bit depth · sample rate as the song table words them, leaving out what the file doesn't report (a lossy file has no bit depth) / format line (13 px, `text.muted`): the quality tier, "Hi-Res Lossless", "CD Quality Lossless", "Lossy" or "DSD", by the rule of Statistics' Audio Quality rows (the user's call; it was "MP3 · 320 kbps · 44.1 kHz", which came back above it as the details line on 2026-10-22). The four lines take 85 px beside the 88 px art.
 
 **Zone 2 — Transport buttons**: Previous, Play/Pause and Next in a row, 16 px apart, then **Repeat over Shuffle** as a vertical stack (10 px apart) 16 px after Next, centred on the row's height. This is also the Tab order. (Until 2026-10-02 the row was Shuffle, Previous, Play/Pause, Next, Repeat at 44 px; the user stacked the two mode buttons and made them smaller.)
 - All round, face `control.face`, 1 px `control.faceBorder`. Molded look: `inset 0 -3px 0 rgba(0,0,0,0.12)`, `inset 0 1px 0 rgba(255,255,255,0.8)`, `0 1px 3px rgba(0,0,0,0.25)`.
 - Sizes: Previous and Next 44 px; Play/Pause 60 px (shadow `inset 0 -4px 0 …` and `0 2px 5px rgba(0,0,0,0.28)`); **Shuffle and Repeat 32 px** (`playbackBar.modeButtonSize`), same molded look.
-- Icons: Previous/Next 20 px (`control.iconNeutral`), Play/Pause 26 px, Shuffle 15 px, Repeat 16 px.
-- **Play/Pause is always `accent.playback`** — triangle when paused, two bars when playing.
+- Icons: Previous/Next 20 px (`control.iconNeutral`, or the cover's colour), Play/Pause 26 px, Shuffle 15 px, Repeat 16 px.
+- **Play/Pause is `accent.playback`, or the cover's colour** (*Cover colour*, below; always `accent.playback` until 2026-11-10) — triangle when paused, two bars when playing.
 - **Shuffle:** `control.iconOff` when off, `control.shuffleOn` when on.
 - **Repeat** cycles **off → all → one** on each click: `control.iconOff` when off, `control.repeatOn` for all and one. Repeat-one adds a badge on the button's top-right corner: a 13 px `control.repeatOn` disc overhanging the button by 2 px, holding a "1" (9 px, 700, `control.face`). (A "1" inside the 16 px icon was unreadable at this size.)
 - No status lights under the buttons.
@@ -294,10 +295,10 @@ A panel-styled bar: `panel.bg`, 1 px `panel.border`, 4 px radius, inset top high
 
 **Zone 3 — Seekbar** (fills remaining width):
 - Elapsed time (12 px, right-aligned in a 36 px space), 14 px gap, track, 14 px gap, total time.
-- Track 6 px tall, `slider.track`, subtle inset shadow, fully rounded. Played portion `slider.seekFill`.
+- Track 6 px tall, `slider.track`, subtle inset shadow, fully rounded. Played portion `slider.seekFill`, or the cover's colour (*Cover colour*, below).
 - Handle 14 px circle, `slider.thumb` with 1 px `slider.thumbBorder`, small drop shadow.
 - Click or drag anywhere on the track to seek.
-- **Waveform** (added 2026-10-06, the user's choice): once the playing track's loudness has been read, the 6 px groove gives way to a waveform 28 px tall (`playbackBar.waveformHeight`; the user asked for 30% more than the first 22 px, 2026-10-06), and the seekbar's click strip grows to match. It's a filled shape mirrored about the middle, one RMS level per column, scaled so the loudest moment is full height, and never thinner than `playbackBar.waveformFloor` (2 px), so silence still shows a line. The played part is `slider.seekFill` and the rest is `slider.track`, split where the handle's centre would be. **No handle and no line on the waveform** (the user's call, 2026-10-06): the point where teal meets grey is the only position marker. (A 2 px teal playhead line was tried and removed the same day.) Clicking and dragging anywhere on the strip still seek. Until the levels are ready, or if the file can't be read, the plain groove shows. The volume slider keeps the plain groove.
+- **Waveform** (added 2026-10-06, the user's choice): once the playing track's loudness has been read, the 6 px groove gives way to a waveform 28 px tall (`playbackBar.waveformHeight`; the user asked for 30% more than the first 22 px, 2026-10-06), and the seekbar's click strip grows to match. It's a filled shape mirrored about the middle, one RMS level per column, scaled so the loudest moment is full height, and never thinner than `playbackBar.waveformFloor` (2 px), so silence still shows a line. The played part is `slider.seekFill` (or the cover's colour) and the rest is `slider.track`, split where the handle's centre would be. **No handle and no line on the waveform** (the user's call, 2026-10-06): the point where teal meets grey is the only position marker. (A 2 px teal playhead line was tried and removed the same day.) Clicking and dragging anywhere on the strip still seek. Until the levels are ready, or if the file can't be read, the plain groove shows. The volume slider keeps the plain groove.
 
 **Zone 4 — Volume** (240 px):
 - Speaker button (44 px clickable area, 17 px icon, `control.iconOff`, the grey of Shuffle and Repeat when off; no face), 8 px gap, volume track.
@@ -306,6 +307,19 @@ A panel-styled bar: `panel.bg`, 1 px `panel.border`, 4 px radius, inset top high
   - Shared mode: "Shared · 96 kHz / 32-bit (resampled)" — include "(resampled)" when the output rate differs from the file's rate.
   - Bit-Perfect: "Exclusive · 44.1 kHz", and "Exclusive · 176.4 kHz · DSD over PCM" for DSD sent as DoP. No "bit-perfect": the Bit-Perfect chip's dot already says so.
 - **Mute:** clicking the speaker mutes (icon gets an "×", slider shows zero). Clicking again restores the **previous volume**. Dragging the slider while muted unmutes and sets the new level.
+
+**Cover colour** (2026-11-10, session 77, the user's request: as AudioFool-Android's Now Playing does). The playing cover's own colour stands in for the theme's on:
+
+- the **artist's name** (for `accent.blue`);
+- **Previous's and Next's icons** (for `control.iconNeutral`): only the icons, so their faces and borders are the theme's and Play/Pause still stands out;
+- **Play/Pause's icon** (for `control.playPause`), and in PS2 Dark its **ring and glow** (for `control.playRing` and `shadow.playGlow`, each at its own opacity; clear in PS1, as without a cover; the glow shows only while playing, PS2 Dark spec §7.3);
+- the **seekbar's played part**, the waveform's and the plain groove's (for `slider.seekFill`).
+
+Nothing else changes: Repeat and Shuffle, the title and the two grey lines, the volume slider, the song table's now-playing row and triangle, and every other window keep the theme's colours. The one other place a cover's colour shows is the album header's artist name, from the header's own cover (§6.5). (The phone also colours Repeat and Shuffle when on, a ring round Play/Pause in Light and the glow at the top; offered, not chosen.)
+
+- **The cover's colour** is the phone's rule, with its numbers (`AudioFool.Core/Art/CoverColor.cs`, ported from AudioFool-Android): the square of the cover the bar shows, scaled to 64 × 64 (the header's the same way, from its own 320 px picture; the bar reads a 128 px one, so for the album that's playing the two can differ by a shade, 1 or 2 in 255 on most real covers). A wide cover shows its left square and a tall one its top square (the art's `Image` fills its square and WPF keeps an overflow's top-left), and the colour is taken from that. Pixels with too little colour say nothing (grey, black, white, off-white; a dark pixel needs less chroma to count than a light one, so a dark brown is brown and a cream is off-white). The rest are counted by hue in OKLab, 10° slices with their neighbours, each pixel by how colourful it is, and the hue with the most wins; the colour is the average of that hue's pixels. So a red logo on a black cover gives red, a blue sky with a small sun blue, and a large dull blue beats a small vivid red. **A cover less than 2% coloured** (black and white), **or no cover**, has no colour: everything above keeps the theme's own.
+- **Fitted to the theme**: the same hue, at a lightness within `playbackBar.coverAccent.lightnessRange` (0.15 of OKLab's 0 to 1) of the theme colour it stands in for, on the side away from the background: that or darker in PS1 Light, that or lighter in PS2 Dark. So it is never harder to see than the colour the theme was designed with: a navy cover doesn't vanish on Dark, nor a yellow one on Light (it gives a dark gold there). Every element is fitted to `accent.playback` except the artist's name, which is text and is fitted to `accent.blue`: darker than the seekbar in Light, lighter in Dark. Made lighter, the colour keeps its saturation (a burgundy cover gives a bright red on Dark, not a greyish pink); made darker, its chroma.
+- **When it changes**: with the cover, once the new one is read; until then the last cover's picture and colour both stay, so songs of one album don't flash the theme's colour between them. A theme switch fits it to the new theme at once. No animation and no setting.
 
 ### 6.8 Status bar (36 px)
 

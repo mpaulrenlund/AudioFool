@@ -4984,6 +4984,59 @@ three rows: the user has fixed those 113 since the cache copy was saved.
 - Installed 09:05 (the app wasn't running; 19 files hash-identical). Not yet seen in the
   running app, and the one-time re-read on the user's machine not yet seen either.
 
+### Session 77 (2026-11-10): the playback bar in the cover's colour
+
+The user asked for the phone's Now Playing colours on the desktop, in both themes: the
+artist's name, Previous, Play and Next, and the seekbar following the playing cover's
+colour (AudioFool-Android 0.12.0–0.14.0). Planned and approved as offered: those four,
+plus Play/Pause's ring and glow in Dark (part of the Play button), without the phone's
+extras (Repeat and Shuffle when on, a ring in Light, the top glow), which were offered as
+"Match Android fully" and not chosen.
+
+- **Core**: `Art/CoverColor.cs`, the phone's `CoverColor.kt` ported with its numbers:
+  `Main` (the hue with the most colour in OKLab, greys left out, null under 2% coloured)
+  and `Accent` (the same hue at a lightness within `lightnessRange` of the theme colour it
+  stands in for, on the side away from the background). Colours are 0xAARRGGBB `uint`s.
+  20 tests in `CoverColorTests`, from the phone's.
+- **Token**: `playbackBar.coverAccent.lightnessRange` (0.15), both files.
+- **App**: `Theming/CoverAccent.cs`, attached `Color`, `Keys` and `FitTo`: puts the
+  fitted colour (a frozen brush at the theme brush's alpha, or the theme glow's copy with
+  the colour as scRGB) under each named theme key in the element's own `Resources`, where
+  its style's and template's `DynamicResource`s find it first; removes them with no
+  colour; refits on `ThemeService.Switched`. `MainColorOf` samples the square the bar
+  shows. `MainViewModel.NowPlayingCoverColor`, worked out off the UI thread and set with
+  `NowPlayingArt`. `MainWindow.xaml`: `NowPlayingArtist` (fitted to `accent.blue`),
+  `PreviousButton` and `NextButton` (`control.iconNeutral`), `PlayPauseButton`
+  (`control.playPause`, `control.playRing`, `shadow.playGlow`), `SeekBar`
+  (`slider.seekFill`).
+- **Found by the render**: the bar's art shows a wide cover's left square and a tall
+  one's top square (`UniformToFill` keeps WPF's top-left), not the middle the phone uses.
+  The colour is taken from the shown square; the display was left alone (not asked).
+- **Docs**: spec §6.7 *Cover colour* and the table rows; PS2 Dark spec §7.3; CLAUDE.md's
+  colour rule (the exception); README's colour list; `design/progress.md`.
+- **Checked**: ThemeLab `--window coveraccent` (new), ALL OK in Light and Dark; a
+  switched render 0 pixels from a fresh start both ways; with no cover colour the main
+  window and `--window nowplayinglines` 0 pixels from the previous commit, both themes.
+  Details and contrast figures in `design/progress.md`. 1,126 tests.
+- Installed 09:00 (the app had been closed; 19 files hash-identical). Not yet seen by the
+  user on real covers.
+- **Then: Play/Pause's glow only while playing** (the user's request; instant, no fade,
+  the user's pick; the ring stays). `Theming/PlayGlow.cs`, attached `Lit`, bound to
+  `IsPlaying` on `PlayPauseButton`; `theme.transportButton`'s template sets the glow's
+  effect by a `MultiTrigger` on `Tag` and `Lit`. PS2 Dark spec §7.3; spec §6.7's line.
+  ThemeLab `--window coveraccent` extended (paused, nothing loaded, playing again; the
+  drawn arcs round the button change in Dark, not in Light): ALL OK in both. Installed
+  11:53, 19 files hash-identical; not yet seen by the user.
+- **Then: the album header's artist name in its own cover's colour** (the user's
+  request, with a screenshot of *PSY2K*; the header's own cover, the user's pick over
+  the playing one). `MainViewModel.AlbumHeaderCoverColor`, set with `SelectedAlbumArt`
+  in `LoadAlbumHeaderArtAsync`; `HeaderArtist` in `MainWindow.xaml` with
+  `theme:CoverAccent` fitted to `accent.blue`. Spec §6.5 and §6.7, CLAUDE.md's colour
+  rule, README. ThemeLab `--window headeraccent` (new), ALL OK in both themes; the main
+  window 0 pixels from the last commit except Dark paused's glow; on 60 real albums the
+  header and the bar agree to a shade (details in `design/progress.md`). Installed
+  12:21; not yet seen by the user.
+
 ---
 
 ## Reference notes retired from the handoff

@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-11-06, after session 76. Read this alongside `README.md`: the README covers
+Updated 2026-11-10, after session 77. Read this alongside `README.md`: the README covers
 *how the app works*, this covers *where things stand and how to work on it*. What each
 past session changed, and why, is in **`HISTORY.md`** (oldest first); look there when
 you need the story behind a piece of code, not at the start of every session.
@@ -135,11 +135,11 @@ and the commit fails.
 
 ### Where things stand
 
-- **Everything in `README.md` is implemented and verified**, **1,106 tests** pass.
+- **Everything in `README.md` is implemented and verified**, **1,126 tests** pass.
 - **Last release: v0.10.0** (2026-11-02, Listening History). **Unreleased: the Genius
   window** (session 75, installed and pushed), **ARTIST VS ALBUM ARTIST** and **LEADING
-  ZEROS** in Statistics (session 76); release them once the user has tried them (next
-  step 2).
+  ZEROS** in Statistics (session 76), **the playback bar in the cover's colour** (session
+  77); release them once the user has tried them (next step 2).
 - **The library cache is version 4** (session 76: `Track.LeadingZeros`). The first start
   after installing re-reads every song's tags in the background, once.
 - Since session 63 an install is checked by hashing the files, not by launching
@@ -150,6 +150,16 @@ and the commit fails.
 Recent sessions, newest first (the full notes, file names and checks are in
 `HISTORY.md`):
 
+- **77** (2026-11-10): **the playback bar takes the cover's colour**, as the phone's Now
+  Playing does: the artist's name, Previous, Play/Pause (and its ring and glow in Dark),
+  Next and the seekbar, fitted to the theme; a black-and-white cover or none keeps the
+  theme's. The phone's `CoverColor` rule ported to Core with its tests;
+  `Theming/CoverAccent.cs` puts the colour under the theme keys in each element's own
+  resources. Installed 09:00; not yet seen by the user. Then **Play/Pause's glow only
+  while playing** (Dark; `theme:PlayGlow.Lit` bound to `IsPlaying`, the ring stays),
+  installed 11:53, not yet seen by the user. Then **the album header's artist name in its
+  own cover's colour** (the user's pick over the playing cover's; spec 6.5;
+  `AlbumHeaderCoverColor`), installed 12:21, not yet seen by the user.
 - **76** (2026-11-06): **ARTIST VS ALBUM ARTIST** in Statistics, under ALBUMS THAT
   DISAGREE: tracks whose Album Artist differs from their Artist in capitals only, in
   spelling only (a leading "The", punctuation, accents, "&"), or by name; a click shows
@@ -755,6 +765,8 @@ ThemeLab.exe --output "Exclusive · 176.4 kHz · DSD over PCM"   # the output re
 ThemeLab.exe --libshot libs.png --scale 3   # the Libraries submenu, one folder ticked, one not
 ThemeLab.exe --window folders               # folder list: merging, relocation, unticked status, Remove
 ThemeLab.exe --window nowplayinglines --w 1400 --h 700 [--theme dark] [--dpi 1.25]   # the now-playing bar's four lines for a hi-res FLAC, a CD FLAC, an MP3 and a DSF: prints both lower lines, text height against the art, bar height against nothing playing; renders <out>-1..4.png; "ALL OK" (session 68)
+ThemeLab.exe --window coveraccent --w 1720 --h 1080 [--theme dark]   # the playback bar in the cover's colour: made-up covers (deep red, yellow, a landscape, a wide and a tall one, black and white) and none; every element's colour read back against the fitted one, the untouched ones against the theme's, a switch to the other theme and back; paused and nothing loaded, no glow (only while playing; the arcs round the button change in Dark, not in Light); renders <out>-<cover>.png, -switched.png and -paused.png; "ALL OK" (session 77)
+ThemeLab.exe --window headeraccent --w 1720 --h 1080 [--theme dark] [--realalbums 60] [--realalbum "Shirobon/PSY2K"]   # the album header's artist name in its own cover's colour: the same made-up covers on the sample header, the other lines and the bar untouched, same cover = same colour as the bar, a switch and back; --realalbums: real albums (read only) selected as a click would, header colour vs the bar's for the first song; --realalbum renders one, <out>-real.png; "ALL OK" (session 77)
 ThemeLab.exe --window statusclick --w 1300 --h 700 [--theme dark]   # the status line and dot: a single click's gesture opens Statistics (not run: it is modal), hand pointer, underline on hover; renders <out>-plain/-hover.png; "ALL OK" (session 68)
 ThemeLab.exe --window dialogplacement   # a hidden main window on each monitor, maximised and normal, and a hidden dialog placed by DialogPlacement: centred on its monitor, kept on it; never shown (session 71)
 ThemeLab.exe --window playfailure   # the real engine and BASS on a missing file, an unused drive letter, text named .flac and a file this process holds: each PlayFailure and its line; nothing reaches the device (session 71)

@@ -24,6 +24,11 @@ with nothing else in the way.
   - **The playback colour** (teal in Light, blue in Dark): Play/Pause, the seek bar's
     waveform and the playing song's row.
   - **Artist names** have a colour of their own (blue in Light, a pale blue in Dark).
+  - **The cover's colour:** in the playback bar, the artist's name, Previous,
+    Play/Pause, Next and the seek bar take the playing cover's main colour instead,
+    made dark enough for Light or light enough for Dark, as on the phone. The album
+    header's artist name does the same with the header's own cover. A black and
+    white cover, or none, keeps the colours above.
   - **Shuffle and Repeat when on:** Shuffle turns blue and Repeat red.
   - **Status chips:** in Light a yellow dot means off and a teal one on; in Dark,
     standby red and power-light green.
@@ -31,8 +36,8 @@ with nothing else in the way.
   Selection is a row a shade off the panel with no outline, and lists scroll without
   visible scrollbars. The design is specified in `design/` (spec, tokens and mockup;
   `design/ps2-dark/` for what Dark changes).
-- A waveform in the seek bar: the playing track's loud and quiet parts, teal up to where
-  you are and grey after, moving smoothly while it plays. It's read in the background
+- A waveform in the seek bar: the playing track's loud and quiet parts, in the playback
+  colour (or the cover's) up to where you are and grey after, moving smoothly while it plays. It's read in the background
   when the track starts (well under a second for most files); until then the bar is plain.
 - Gapless playback.
 - The seek bar, the time and the now-playing song follow what you hear, not the decoder,

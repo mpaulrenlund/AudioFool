@@ -83,6 +83,7 @@ If the spec and the mockup disagree, the spec wins. If the spec is silent on som
 - **Song rows: single-click selects, double-click plays.**
 - **Keep the existing PlayStation logo asset** (`PlayStation-Logo-1994.png`). Don't replace or redraw it.
 - **The playback color means playback** (`accent.playback`: teal in Light, blue in Dark): play/pause, the seekbar, the now-playing row. **Artist names have their own color** (`accent.blue`). Don't add colors outside the roles in the two specs.
+  - **The one exception is a cover's own colour:** fitted to the theme, the playing cover's colour replaces the theme's on the playback bar's artist name, Previous, Play/Pause (with its ring and glow in Dark), Next and the seekbar (spec §6.7, *Cover colour*), and the album header's cover's colour replaces `accent.blue` on the header's artist name (spec §6.5). Both through `theme:CoverAccent`; the user's requests, 2026-11-10. Everything else keeps the theme's colours.
 - **Album titles** wrap to two lines max, then "…"; tooltip only when truncated.
 
 ### How we work on the UI
