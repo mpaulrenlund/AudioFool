@@ -5566,3 +5566,225 @@ retag of the playing track reaches the scrobbler.
      or a bolder mark is the fix.
 4c. ~~**The flaky test**~~ Found and fixed in session 37 (a `QualityScanner` race and a
    test that looked at all of %TEMP%).
+
+### Retired from HANDOFF.md, 2026-11-11
+
+The handoff's *State at handoff* and *Suggested next steps* as they stood after session 77,
+kept word for word when HANDOFF.md was cut down to the open items (headings moved down
+two levels). Anything still open carries on in HANDOFF.md; this copy keeps the story,
+the finished items and the reference notes (such as *If audio pops are reported again*).
+
+#### State at handoff
+
+##### Where things stand
+
+- **Everything in `README.md` is implemented and verified**, **1,126 tests** pass.
+- **Last release: v0.11.0** (2026-11-10, session 77, at the user's request): the Genius
+  window (session 75), ARTIST VS ALBUM ARTIST and LEADING ZEROS in Statistics (session
+  76), the cover's colour in the playback bar and on the album header's artist name, and
+  Dark's Play/Pause glow only while playing (session 77). Nothing unreleased. Installed.
+- **The library cache is version 4** (session 76: `Track.LeadingZeros`). The first start
+  after installing re-reads every song's tags in the background, once.
+- Since session 63 an install is checked by hashing the files, not by launching
+  AudioFool from Claude's shell (see *A launch from Claude's shell writes
+  playback.log* under Gotchas in `docs/traps.md`).
+- **Nothing is half-done.** Open items are under *Suggested next steps* at the end.
+
+Recent sessions, newest first (the full notes, file names and checks are in
+`HISTORY.md`):
+
+- **77** (2026-11-10): **the playback bar takes the cover's colour**, as the phone's Now
+  Playing does: the artist's name, Previous, Play/Pause (and its ring and glow in Dark),
+  Next and the seekbar, fitted to the theme; a black-and-white cover or none keeps the
+  theme's. The phone's `CoverColor` rule ported to Core with its tests;
+  `Theming/CoverAccent.cs` puts the colour under the theme keys in each element's own
+  resources. Installed 09:00; not yet seen by the user. Then **Play/Pause's glow only
+  while playing** (Dark; `theme:PlayGlow.Lit` bound to `IsPlaying`, the ring stays),
+  installed 11:53, not yet seen by the user. Then **the album header's artist name in its
+  own cover's colour** (the user's pick over the playing cover's; spec 6.5;
+  `AlbumHeaderCoverColor`), installed 12:21, not yet seen by the user.
+- **76** (2026-11-06): **ARTIST VS ALBUM ARTIST** in Statistics, under ALBUMS THAT
+  DISAGREE: tracks whose Album Artist differs from their Artist in capitals only, in
+  spelling only (a leading "The", punctuation, accents, "&"), or by name; a click shows
+  just those tracks. 113 of 26,861 on the 2026-10-15 cache (92 / 10 / 11), all fixed by
+  the user since. Installed 12:45; not yet seen by the user. Then (2026-11-09) **LEADING
+  ZEROS**: one row, tracks with a track or disc number or total like "01"; the scan
+  notes the spelling (`Track.LeadingZeros`, cache version 4, a one-time background
+  re-read), saves note how they left it. 309 tracks in 35 albums on the drive. Installed
+  09:05; not yet seen by the user.
+- **75** (2026-11-04): **the Genius window** (right-click a song → Genius…, Ctrl+G): what
+  genius.com has on a song (write-up, Q&A, annotations, credits, connections, comments),
+  from its undocumented web API (`genius.com/api/`, no key; the documented one has no
+  comments). Matching checked live on 50 library songs; see `HISTORY.md`. Installed
+  15:55, committed `89926f0` + `dc0b6a2` and pushed; not yet seen by the user.
+- **74** (2026-11-02): **Listening History** (Ctrl+Y, logo menu): Last.fm totals, top
+  artists, albums and tracks for a chosen period, recent plays; a click goes to the row in
+  the library. Confirmed by the user on their real Last.fm account (2026-11-04).
+- **73** (2026-10-30): docs clean-up only. This file slimmed (past sessions' details
+  live in `HISTORY.md`, which gained sessions 50, 54 and 71); the finished PS2 Dark
+  build prompts and CLAUDE.md addition deleted. No app change.
+- **72** (2026-10-27): **the end of a queue goes back to its first song**: the bar
+  shows it at 0:00 with its cover, stopped; Play starts the queue from it. Confirmed
+  by the user. **v0.9.0** released.
+- **71** (2026-10-23): cut-off covers fixed on the real library (Night Verses and 311
+  re-covered by the user); **a bare × after the status text** clears a Statistics
+  filter or dismisses a one-off message; **session 60's seven remaining findings**
+  (dialogs on the main window's monitor, failed plays say why, Ctrl+J selects the song,
+  discs' clearances apart, Analyze on tiny files, library.json and scrobbles.json saved
+  safely, the Last.fm secret encrypted). **v0.8.1** released (with session 70).
+- **70** (2026-10-22): **cut-off covers**: a whole cover is shown and kept over a
+  cut-off one, a cut-off one is never saved, Statistics' CUT-OFF COVERS finds them.
+- **69** (2026-10-22): **the tag-save fixes** (confirmed). **v0.8.0** released.
+- **68** (2026-10-22): **drives noticed while AudioFool runs**; a crash on a press on
+  a Songs header letter; a single click on the status line opens Statistics; the
+  now-playing format line ("FLAC · 1,364 kbps · 24 bit · 44.1 kHz").
+- **67** (2026-10-22): Find and Replace on a selection; the review's small UI fixes;
+  playlists and clearances saved safely; the playback fixes (skip unopenable songs,
+  let go of the DAC on Stop, reopen where heard, no DoP to shared).
+- **66** (2026-10-22): the close X caught in the act; `CloseButtonSafetyNet` and
+  hit-test lines in the click log.
+
+Standing preferences from the user that the code doesn't show:
+
+- **No tooltips or hint text** (2026-10-12). Keep accessible names.
+- **Grey is primary; colour only in its spec role** (`design/theme-spec.md`).
+- **Explain plainly.** Findings first in everyday words, with an analogy where it
+  helps; the technical names second.
+- **Don't explain commit and push** (the user's call, 2026-10-21): they know it now.
+  Report the result in a line. Commit and push only when asked.
+- **Ask before closing AudioFool to install:** it stops whatever is playing. When the
+  app isn't running, install without asking.
+- **Ask before posting messages to the user's running AudioFool** (a live test in
+  session 66 was blocked by Claude's safety check).
+- The features under *Dropped* in the next steps are dropped for good: don't build or
+  suggest them.
+
+##### Deliberately not done
+
+- **No TAK or DTS decoder.** un4seen publishes neither. Needs a third-party build or a
+  libVLC fallback; `AudioEngine.CreateDecodeStream` is the single seam for that.
+- No queue view (playlists came in session 38). Shuffle and repeat are done (session 5); what is still
+  missing is a visible, editable queue.
+- Memory was profiled in session 43 (`HISTORY.md`). Still left: FLAC tag reads load the cover
+  (TagLib ignores PictureLazy for FLAC), so a big scan still peaks high before the reclaim.
+
+##### If audio pops are reported again
+
+Sessions 55–57 traced the user's gaps to the work laptop, not AudioFool: first the
+NVIDIA GPU waking (fixed by driver 597.16), then **Dell TechHub** (its snapshots of C:
+and their cleanup), which the user disabled. Closed; don't raise it. If pops come back:
+
+- **Reading `playback.log`:** a full reserve with a 40–50 ms LATE FILL (or nothing at
+  all) while the user hears a pop = a laptop-wide hiccup downstream of the app. A
+  ~100–130 ms APP STARVED + LATE FILL with 0 ms GC = the old GPU wake. GC PAUSE = a
+  full GC froze the app. SLOW FILL with little "busy" = waiting on the file. Read the
+  Windows event logs for that minute too (VSS 8231 in Application, Volsnap 33 in
+  System): LatencyMon has no timestamps and misses firmware stalls.
+- Check TechHub is still off: `Get-CimInstance Win32_Service -Filter
+  "Name='DellTechHub'"` (StartMode Disabled), `Get-Process Dell.TechHub*` (empty).
+- Output is a **Topping DX5 on Topping's own driver** (Thesycon-based); its control
+  panel's buffer size is ASIO only, so nothing there applies to WASAPI.
+
+#### Suggested next steps
+
+Open items only; finished ones are in `HISTORY.md`. Open a session by asking the user
+about step 1 (ask; don't re-explain); then ask about step 3, then step 5, then which of
+steps 4 and 6 to take.
+
+1. **Ask how the Genius window went** (session 75; installed, never seen by the user).
+   Right-click a song → Genius…, or Ctrl+G. Worth hearing about: a song it matched to
+   the wrong page, or missed though Genius has it (the fix is in `GeniusMatch`, see
+   *The Genius window* in `docs/architecture.md`); how the sections read; "Show 50 more" on a song with
+   many comments; the closest results offered for a soundtrack or instrumental. A
+   design note from the user means the usual plan-then-approve loop.
+2. **Done: v0.11.0 released** (2026-11-10, session 77; the user asked for it before
+   reporting on the Genius window, so step 1 still stands). A fix from step 1 or 3 goes
+   out as 0.11.1 (last number: fixes only), with the version and notes confirmed first
+   (*Releases* in `docs/build-and-release.md`).
+3. **Ask the user to try what was checked off-screen only:**
+   - **Session 77:** the album header's artist name in its cover's colour (browse a few
+     albums, and a theme switch), and Dark's Play/Pause glow going on pause. The bar's
+     cover colour itself the user has seen (their screenshot that asked for the header).
+   - **Session 76:** Statistics → ARTIST VS ALBUM ARTIST, a click on a row, and a
+     fixed track leaving the filter. LEADING ZEROS: the one-time re-read on the first
+     start ("Updating the library for this version…", about a minute), then the row,
+     and an album leaving it after Edit Album Tags → Remove Leading Zeros.
+   - **Session 71:** the × after the status text (clears a Statistics filter,
+     dismisses a one-off message); a dialog with the main window maximised on the
+     second monitor; Ctrl+J under a search; Last.fm still connected after the update
+     (its secret is now encrypted).
+   - **Session 68, drives:** with AudioFool open, pull the SSD: the status bar says
+     D:\Music is not available within a couple of seconds. Plug it back in: the
+     warning clears; under another letter the status bar says "Music folder moved
+     to …" and songs play (Next carries on in the queue). F5 does the same if the
+     drive came back while AudioFool wasn't looking.
+   - **Session 67, playback:** a song that won't open skipped by Next or the queue
+     (the status bar names it).
+   - **Session 61:** a Bit-Perfect rate change keeping the old track's last ~0.2 s,
+     heard on music.
+   - **Session 60:** closing AudioFool during an album save with a new cover keeps the
+     window open with "Finishing saving" until it's done; the album window on a
+     compilation (boxes start empty with "Varies by track - kept unless changed", and
+     saving another field leaves each track's own).
+   - **Session 59:** double-click a song in Explorer, one from `Downloads` (plays on
+     its own, the view stays) and one from `D:\Music` (goes to its album and plays with
+     the album after it), with AudioFool open and closed, and several at once; **Clear
+     All** in Statistics' Quality Check (the prompt, then every row None).
+   - **Session 39:** edge scrolling while dragging in a playlist (real drags are
+     confirmed; asked 2026-10-20: not tried yet).
+4. **A visible, editable queue view**: the most conspicuous missing player feature.
+5. **The close X that sometimes ignores clicks** (sessions 51, 59 and 66). In tag
+   windows and Statistics the X sometimes ignored **several clicks in a row**. Caught
+   in session 66: 19 lost clicks on Statistics' X, each a clean non-client press and
+   release with no capture and no mouse leave, WPF-UI's mark gone by the release. Since
+   then `Services/CloseButtonSafetyNet` clicks the X when WPF-UI loses a click, and the
+   click log records every hit test between a press on the X and its release (*The
+   close X: safety net and click log* in `docs/architecture.md`). The user: "It's working well so far."
+   - Ask whether it has ignored a click since, and whether the window buttons still
+     highlight on hover (session 51's fallback was removed over that, though it was
+     never shown to be the cause).
+   - Read the `titlebar:` lines in `playback.log`. "WPF-UI lost the click on the X; the
+     safety net clicked it" marks each catch. The "hit test at x,y from another thread,
+     pointer at ..., over nothing; X pressed True" line before it is the question that
+     wiped the mark: a spot far from the pointer, sent by another thread, means another
+     program (PowerToys, Logi Options+, ShareX and Teams run here; quitting them one at
+     a time during a spell would name it). If no hit test shows and the mark is already
+     False at the first one, the press never registered: look at WPF-UI's handling of
+     the press instead.
+6. **Smaller open items** (session 60's review is otherwise all fixed):
+   - Harmless: a new scrobble skips the Last.fm backoff (one request each, the backoff
+     isn't reset); an exception other than `LastFmException` escaping a send skips it
+     altogether (unlikely).
+   - `AudioEngine` itself has no tests (1,500 lines; `OutputChain` and `BassRuntime`
+     neither). Session 67 pulled the playback decisions out into tested pieces
+     (`TrackEnd`, `ReopenPoint`, `DopRule`, `PlayOrder.Candidates`); the rest is still in it.
+   - `LiveSpectrumTests.An_update_allocates_nothing` used to fail now and then; made
+     sturdier in session 67. Watch that it stays quiet.
+   - A folder added during a scan is skipped by that scan (F5 or the next start reads
+     it); small, left out on purpose.
+   - **Ideas offered in session 66, not picked yet:** Windows' own media controls (SMTC:
+     the media keys from any app, the song and cover in Windows 11's media pop-up,
+     headphone buttons; F9–F11 could then go) and a Duplicates row in Statistics (albums
+     held twice, and the space they take).
+7. **The visualizer: removed in session 65** (the user's call; they may build one of
+   their own later). The notes are in `HISTORY.md` (*The visualizer and the projectM
+   trial*), and the code can be read in git at `b30812c`. **Kept as groundwork** (the
+   user confirmed keeping it, session 73): the hearing clock (`AudioEngine.Heard`, also
+   the seek bar's timing), the tap (`SampleTap`; `AudioEngine.TapEnabled`, off by
+   default, `TapFormat`, `TryReadHeard(..., framesAhead)`), `Core/Analysis/TapConverter`,
+   `Core/Analysis/LiveSpectrum` and `Core/Analysis/VisualizerFeed`, each with its tests.
+   A visualizer of our own would start from `VisualizerFeed`: give it a window and a
+   renderer, and new tokens in both files. Don't suggest projectM again.
+
+**Design notes for the next round of critique.** The user works in a screenshot loop:
+they look, then give precise notes, and lately each note removes decoration.
+Suggested and not picked: filled transport glyphs, and coloured shuffle/repeat when
+on. Don't add them unasked.
+
+**Dropped by the user (2026-10-06): don't build or suggest them.** Library-wide tag
+stripping, recovering dates lost to pre-session-12 saves from MusicBrainz, resuming
+playback on launch, a Last.fm Love button, TAK/DTS playback. Also declined
+(2026-10-07): converting hi-res files to 16-bit to save space. Dropped 2026-10-14:
+noticing a change of the Windows shared format without a restart, lowering memory
+during a scan (FLAC reader skipping PICTURE blocks, `GCConserveMemory`), and code
+signing.

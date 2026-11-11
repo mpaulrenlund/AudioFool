@@ -1,7 +1,8 @@
 # AudioFool
 
-> New session? Read [HANDOFF.md](HANDOFF.md) first — it covers current state, the
-> build-and-install loop, and the traps worth not rediscovering.
+> New session? Read [HANDOFF.md](HANDOFF.md) first — it covers current state and the
+> open items, and points to `docs/` for the build-and-install loop, verifying and the
+> traps worth not rediscovering.
 
 A lightweight Windows 11 music player built around one idea: **Artist → Album → Song**,
 with nothing else in the way.

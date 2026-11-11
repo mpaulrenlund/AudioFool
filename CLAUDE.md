@@ -7,25 +7,39 @@ TagLibSharp for metadata.
 
 ## Read these first
 
-- **[HANDOFF.md](HANDOFF.md)** — current state, the build-and-install loop, verification
-  techniques, and the traps worth not rediscovering. Start here.
+- **[HANDOFF.md](HANDOFF.md)** — where things live, what is open, what is waiting on the
+  user, and the next steps. Start here.
+- The `docs/` files, each only when it applies:
+  - [docs/verifying.md](docs/verifying.md) — before any visual check or UI test.
+  - [docs/traps.md](docs/traps.md) — before running shell commands that build, test or
+    touch AppData.
+  - [docs/architecture.md](docs/architecture.md) — before changing playback, the library
+    cache, tagging, the themes or the title bar.
+  - [docs/build-and-release.md](docs/build-and-release.md) — if `tools\ship.ps1` fails,
+    or for a release.
 - **[README.md](README.md)** — how the app works: output modes, DSD, the library cache,
   portable-drive handling, keyboard shortcuts.
 - [HISTORY.md](HISTORY.md) — what each past session changed, oldest first. Not needed
   at the start of a session; look things up there when you need the background.
+
+**Keep HANDOFF.md small.** It stays under 15 KB and holds only where things live, what is
+open, what is waiting on the user, and the next steps. When something is finished and
+confirmed by the user, move its text to HISTORY.md or the matching `docs/` file in the
+same session.
 
 ## Three things to know before touching anything
 
 **1. Publishing does not update the app the user runs.**
 `dotnet publish` writes to `C:\MusicPlayer\publish\`. The shortcuts launch
 `%LOCALAPPDATA%\Programs\AudioFool\`. Always finish by copying publish output over the
-installed copy, or your change appears to do nothing. Full commands in HANDOFF.md.
+installed copy, or your change appears to do nothing. `tools\ship.ps1` does all of it;
+the manual commands are in docs/build-and-release.md.
 
 **2. Do not drive the mouse or keyboard to test the UI.**
 The user works on this machine. Moving the pointer, sending keystrokes to the focused
 window, or pulling windows to the foreground interrupts them — this stopped a previous
 session. Use UI Automation (sets values without stealing focus) and `PrintWindow` for
-screenshots, calling `SetProcessDPIAware()` first. Details in HANDOFF.md.
+screenshots, calling `SetProcessDPIAware()` first. Details in docs/verifying.md.
 
 **3. The music library lives on a removable drive.**
 `D:\Music`, an external SSD, ~26,000 tracks. Drive letters can change and the folder may
@@ -46,7 +60,13 @@ Playback, DSD correctness and drive behaviour have all been verified by driving 
 app or a headless probe against `AudioFool.Core` — not by reasoning about the code. Keep
 that standard. `dotnet test` runs the unit tests over `AudioFool.Core`.
 They cover the logic, not the windows: anything visual is checked with
-ThemeLab or the installed app, as HANDOFF.md describes.
+ThemeLab or the installed app, as docs/verifying.md describes.
+
+**Run verification passes in a subagent** (the user's call, 2026-11-11): ThemeLab
+renders in both themes, screenshot comparisons, pixel counts, headless probes and
+playback.log digs. Give it the docs/ section (usually docs/verifying.md) that describes the check, and have it
+bring back only pass or fail, the measurements that matter and the file paths. Open a
+picture in the main conversation only when a check failed or the user needs to see it.
 
 
 ## The themes
@@ -90,6 +110,6 @@ If the spec and the mockup disagree, the spec wins. If the spec is silent on som
 
 - Before editing, describe the plan and wait for approval.
 - Stay within the change asked for; don't restyle other parts of the UI.
-- For visual checks, render with ThemeLab or publish and install as described in HANDOFF.md, then capture the app with `PrintWindow`. Never drive the mouse or keyboard.
+- For visual checks, render with ThemeLab or publish and install with `tools\ship.ps1` (docs/build-and-release.md), then capture the app with `PrintWindow`. Never drive the mouse or keyboard.
 - When done, list what changed and anything that differs from the spec, update the spec if the user's request changed what it says, and add the decision to `design/progress.md`.
 - Work on `main`, no branch (the user's call, 2026-10-01). WPF-UI's own colour keys aren't overridden: a stock control that shows gets its colours from tokens, on the control or in its style.
