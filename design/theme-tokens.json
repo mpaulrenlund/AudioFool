@@ -272,7 +272,8 @@
     "waveformFloor": 2,
     "pressedOffset": 1,
     "iconStrokeOn24Grid": 2.2,
-    "volumeIconStrokeOn24Grid": 2
+    "volumeIconStrokeOn24Grid": 2,
+    "coverAccent": { "lightnessRange": 0.15 }
   },
   "statusBar": {
     "refreshButton": 26,

@@ -309,6 +309,9 @@ internal static partial class Program
         if (which == "nowplayinglines")
             return RunNowPlayingLines(main, vm, outPath, w, h, scale);
 
+        if (which == "coveraccent")
+            return RunCoverAccent(main, vm, outPath, w, h, scale);
+
         if (which == "rowclick")
         {
             RunRowClick(main, vm, engine, Arg(args, "--artist") ?? "Nhato");
@@ -435,6 +438,9 @@ internal static partial class Program
 
         if (which == "genius")
             return RunGenius(main, outPath, w, scale);
+
+        if (which == "headeraccent")
+            return RunHeaderAccent(main, vm, outPath, w, h, scale);
 
         if (which == "queueend")
             return RunQueueEnd(main, vm, engine, runtime, outPath, w, h, scale);

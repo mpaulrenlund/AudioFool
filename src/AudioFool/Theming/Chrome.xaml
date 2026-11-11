@@ -1073,6 +1073,10 @@
         Play/Pause. The icon is the content and draws in the button's
         Foreground. Hover brightens the face; pressed nudges the whole button
         down by playbackBar.pressedOffset.
+        In the playback bar, theme:CoverAccent puts the cover's colour under
+        color.control.iconNeutral, color.control.playPause, color.control.playRing
+        and shadow.playGlow in the button's own resources, which these references
+        find first (session 77; Theming/CoverAccent.cs).
     -->
     <Style x:Key="theme.transportButton" TargetType="ButtonBase">
         <Setter Property="Width" Value="{theme:Token playbackBar.buttonSize}" />
@@ -1090,10 +1094,11 @@
                              a glow and a 1 px ring, behind the face so it keeps its
                              own molded shadow. The glow comes from a disc one border
                              width inside the face, which hides the disc whole; only
-                             the glow shows. Both are transparent in Light. The disc is
+                             the glow shows, and only while a song plays (PlayGlow.Lit;
+                             the ring stays). Both are transparent in Light. The disc is
                              left out while its glow can't be seen (the other buttons,
-                             and Light): even a transparent effect moved the button's
-                             own shadow by one colour level at 125%. -->
+                             not playing, and Light): even a transparent effect moved
+                             the button's own shadow by one colour level at 125%. -->
                         <Ellipse x:Name="Glow"
                                  Margin="{theme:Thickness All=layout.panelBorder}"
                                  Fill="{DynamicResource color.control.face}">
@@ -1126,9 +1131,16 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="Tag" Value="shadow.playButton">
                             <Setter TargetName="Face" Property="Effect" Value="{DynamicResource shadow.playButton}" />
-                            <Setter TargetName="Glow" Property="Effect" Value="{DynamicResource shadow.playGlow}" />
                             <Setter TargetName="Ring" Property="Visibility" Value="Visible" />
                         </Trigger>
+                        <!-- The glow only while a song plays (theme:PlayGlow.Lit, session 77). -->
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="Tag" Value="shadow.playButton" />
+                                <Condition Property="theme:PlayGlow.Lit" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="Glow" Property="Effect" Value="{DynamicResource shadow.playGlow}" />
+                        </MultiTrigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Face" Property="Face" Value="{DynamicResource color.control.faceHover}" />
                         </Trigger>
@@ -1313,6 +1325,8 @@
         is read), the groove gives way to the track's waveform: the played part
         in Foreground, the rest in slider.track, split where the handle would
         be; the handle is hidden.
+        The seekbar's color.slider.seekFill can be the cover's colour, from its
+        own resources (theme:CoverAccent, session 77).
     -->
     <Style x:Key="theme.slider" TargetType="Slider">
         <Setter Property="Height" Value="{theme:Token playbackBar.sliderHitHeight}" />

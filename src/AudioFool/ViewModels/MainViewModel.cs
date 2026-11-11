@@ -151,6 +151,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private BitmapSource? _selectedAlbumArt;
 
+    /// <summary>
+    /// The album header's cover's main colour, which its artist name takes in place
+    /// of the theme's blue (session 77, the user's request: as the playback bar's;
+    /// <see cref="Theming.CoverAccent"/>); null for a cover with no colour, or none.
+    /// Set with <see cref="SelectedAlbumArt"/>, so the two change together.
+    /// </summary>
+    [ObservableProperty]
+    private System.Windows.Media.Color? _albumHeaderCoverColor;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(WindowTitle))]
     [NotifyPropertyChangedFor(nameof(NowPlayingFormat))]
@@ -192,6 +201,16 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private BitmapSource? _nowPlayingArt;
+
+    /// <summary>
+    /// The playing cover's main colour (session 77, the user's request), which the
+    /// playback bar's artist name, Previous, Play/Pause, Next and seekbar take in
+    /// place of the theme's (<see cref="Theming.CoverAccent"/>); null for a cover
+    /// with no colour, or none. Set with <see cref="NowPlayingArt"/>, so the two
+    /// change together.
+    /// </summary>
+    [ObservableProperty]
+    private System.Windows.Media.Color? _nowPlayingCoverColor;
 
     /// <summary>
     /// The now-playing track's loudness for the seekbar (the user's request,
@@ -936,15 +955,22 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (item is null)
         {
             if (HeaderAlbum is null)
+            {
                 SelectedAlbumArt = null;
+                AlbumHeaderCoverColor = null;
+            }
             return;
         }
 
         var art = await _artService.GetAlbumArtAsync(item.Album, AlbumHeaderArtWidth);
+        var colour = art is null ? null : await Task.Run(() => Theming.CoverAccent.MainColorOf(art));
 
         // The user may have clicked elsewhere while this was decoding.
         if (ReferenceEquals(HeaderAlbum, item))
+        {
             SelectedAlbumArt = art;
+            AlbumHeaderCoverColor = colour;
+        }
     }
 
     // -------------------------------------------------------------- scanning
@@ -2632,9 +2658,13 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private async Task LoadNowPlayingArtAsync(Track track)
     {
         var art = await _artService.GetTrackArtAsync(track, NowPlayingArtWidth);
+        var colour = art is null ? null : await Task.Run(() => Theming.CoverAccent.MainColorOf(art));
 
         if (ReferenceEquals(NowPlaying, track))
+        {
             NowPlayingArt = art;
+            NowPlayingCoverColor = colour;
+        }
     }
 
     private void OnEngineStateChanged(object? sender, PlaybackState state)
@@ -2675,6 +2705,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         {
             NowPlaying = null;
             NowPlayingArt = null;
+            NowPlayingCoverColor = null;
             return;
         }
 

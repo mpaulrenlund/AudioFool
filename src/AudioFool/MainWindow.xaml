@@ -805,8 +805,14 @@
                                        Style="{DynamicResource type.headerTitle}"
                                        MinHeight="{theme:Token albumHeader.titleMinHeight}" />
                             <StackPanel Margin="{theme:Thickness Top=albumHeader.titleToDetailsGap}">
-                                <TextBlock Text="{Binding AlbumHeaderArtist}"
+                                <!-- The cover's colour, fitted as text to the artist blue,
+                                     as in the playback bar (6.7, Cover colour). -->
+                                <TextBlock x:Name="HeaderArtist"
+                                           Text="{Binding AlbumHeaderArtist}"
                                            Style="{DynamicResource type.headerArtist}"
+                                           theme:CoverAccent.Color="{Binding AlbumHeaderCoverColor}"
+                                           theme:CoverAccent.Keys="color.accent.blue"
+                                           theme:CoverAccent.FitTo="color.accent.blue"
                                            TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{Binding AlbumHeaderYear}"
                                            Style="{DynamicResource type.headerDetails}"
@@ -1167,9 +1173,13 @@
                                    Text="{Binding NowPlaying.DisplayTitle, FallbackValue='', TargetNullValue=''}"
                                    Style="{DynamicResource type.nowPlayingTitle}"
                                    TextTrimming="CharacterEllipsis" />
+                        <!-- The cover's colour, fitted as text to the artist blue (6.7, Cover colour). -->
                         <TextBlock x:Name="NowPlayingArtist"
                                    Text="{Binding NowPlaying.Artist, FallbackValue='', TargetNullValue=''}"
                                    Style="{DynamicResource type.nowPlayingArtist}"
+                                   theme:CoverAccent.Color="{Binding NowPlayingCoverColor}"
+                                   theme:CoverAccent.Keys="color.accent.blue"
+                                   theme:CoverAccent.FitTo="color.accent.blue"
                                    Margin="{theme:Thickness Top=playbackBar.textLineGap}"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock x:Name="NowPlayingDetails"
@@ -1191,10 +1201,14 @@
                     Zone 2: Previous, Play/Pause, Next, 16 px apart, then Repeat over
                     Shuffle as a stack of smaller buttons. Previous's left edge is on
                     the Songs panel's outer edge (MainWindow.AlignPlaybackBar).
+                    The cover's colour (6.7, Cover colour) reaches the three icons and
+                    Play/Pause's ring and glow; Repeat and Shuffle keep the theme's.
                 -->
                 <StackPanel x:Name="TransportButtons" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="PreviousButton"
                             Style="{StaticResource theme.transportButton}"
+                            theme:CoverAccent.Color="{Binding NowPlayingCoverColor}"
+                            theme:CoverAccent.Keys="color.control.iconNeutral"
                             Command="{Binding PreviousCommand}"
                             AutomationProperties.Name="Previous track">
                         <Viewbox Width="{theme:Token playbackBar.icons.previous}" Height="{theme:Token playbackBar.icons.previous}">
@@ -1205,9 +1219,13 @@
                         </Viewbox>
                     </Button>
 
-                    <!-- Always teal (6.7): a triangle while paused, two bars while playing. -->
+                    <!-- The playback colour, or the cover's (6.7): a triangle while paused, two bars while playing.
+                         In Dark its glow is lit only while playing (PlayGlow.Lit, PS2 Dark spec 7.3). -->
                     <Button x:Name="PlayPauseButton"
                             Style="{StaticResource theme.playButton}"
+                            theme:CoverAccent.Color="{Binding NowPlayingCoverColor}"
+                            theme:CoverAccent.Keys="color.control.playPause color.control.playRing shadow.playGlow"
+                            theme:PlayGlow.Lit="{Binding IsPlaying}"
                             Margin="{theme:Thickness Left=playbackBar.buttonGap}"
                             Command="{Binding TogglePlayCommand}"
                             AutomationProperties.Name="Play/Pause">
@@ -1231,6 +1249,8 @@
 
                     <Button x:Name="NextButton"
                             Style="{StaticResource theme.transportButton}"
+                            theme:CoverAccent.Color="{Binding NowPlayingCoverColor}"
+                            theme:CoverAccent.Keys="color.control.iconNeutral"
                             Margin="{theme:Thickness Left=playbackBar.buttonGap}"
                             Command="{Binding NextCommand}"
                             AutomationProperties.Name="Next track">
@@ -1341,6 +1361,8 @@
 
                     <Slider x:Name="SeekBar" Grid.Column="1"
                             Style="{StaticResource theme.slider}"
+                            theme:CoverAccent.Color="{Binding NowPlayingCoverColor}"
+                            theme:CoverAccent.Keys="color.slider.seekFill"
                             theme:SeekWaveform.Levels="{Binding NowPlayingWaveform}"
                             theme:SeekWaveform.IsPlaying="{Binding IsPlaying}"
                             Height="{theme:Token playbackBar.waveformHeight}"
