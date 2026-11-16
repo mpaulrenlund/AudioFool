@@ -5042,6 +5042,75 @@ extras (Repeat and Shuffle when on, a ring in Light, the top glow), which were o
   60.8 MB zip, 19 files, the same list as v0.10.0. Installed (19 files hash-identical,
   the exe reads 0.11.0).
 
+### Session 78 (2026-11-12 to 11-16): the phone's cover-colour changes, and the EQ plan
+
+Written up in session 79 from `design/progress.md`, which session 78 kept; it ended
+without a wrap-up, so its work was committed in session 79 (`b5238c3`).
+
+- **The phone's changes of 2026-11-11, copied** (the user: "Could we mimic/copy these
+  features over to this desktop version?"; the plan approved as offered). The playback
+  bar's artist name takes the seekbar's colour (`accent.playback`, or the cover's colour
+  fitted to it; the `type.nowPlayingArtist` token). A black-and-white cover gives a
+  neutral grey (`CoverColor.Main` returns a grey at the cover's lightness; Dark uses
+  `playbackBar.coverAccent.greyOnDark`, 0.9 OKLab, new in both token files); only no
+  cover keeps the theme's colours (making that grey too was offered, not chosen). The
+  finder skips black pixels whatever their tint, weighs each pixel by its chroma squared,
+  and needs 0.5% coloured pixels instead of 2%. `CoverColorTests` 20 → 26.
+- **Then the album header's artist name matches the bar's** (the user, with a TesseracT
+  *Crucible* screenshot; "match fully" chosen over keeping `accent.blue` without a cover):
+  `HeaderArtist` fitted to `accent.playback`. `accent.blue` is now only the Genius
+  window's.
+- **Not copied** (declined in session 77, unchanged): Repeat and Shuffle in the cover's
+  colour, a ring round Play/Pause in Light, the glow at the top.
+- Checked with ThemeLab `--window coveraccent` and `--window headeraccent`, ALL OK in
+  both themes. 1,132 tests. Installed. Spec §6.5 and §6.7, PS2 Dark spec, CLAUDE.md's
+  colour rule, README. For the user to judge: in Light the bar's teal artist name is a
+  little harder to read than the old blue (3.2:1 against 4.7:1 on `panel.bg`).
+- **The equalizer plan** (the user: "I wonder if there's a way to build in an equalizer
+  like Equalizer APO?"): `docs/equalizer-plan.md`, written for the next session.
+
+### Session 79 (2026-11-16): a built-in equalizer
+
+Built from `docs/equalizer-plan.md` in its three pieces; that file keeps the design, the
+measurements and what each piece verified. Committed `87f7574`.
+
+- **The user's calls**, asked in one go before any code, all as recommended: the EQ runs
+  in Bit-Perfect too (over the exclusive connection; the readout says "· EQ"; the
+  Bit-Perfect chip keeps its meaning); DSD over PCM skips it, Shared DSD gets it;
+  remembered across launches; Peace's presets read in place plus AudioFool's own folder;
+  an EQ chip and menu (the other options offered: EQ in Shared only, DSD converted to PCM
+  with EQ on, starting off each launch, a settings-window entry).
+- **Core** (`Equalizer/`): `Biquad` (peak and shelves, ported from Equalizer APO's own
+  `BiQuad.cpp` / `BiQuadFilter.cpp`, read from its GitHub mirror, including the default
+  shelf slope and the LS/HS corner-frequency shift), `EqDesign` (a preset at one rate,
+  0 dB and above-Nyquist bands left out), `EqProcessor` (double state, no allocation),
+  `PeacePresetReader` (peak sliders, preamp, `[Disabled]`; Peace's `[Filters]` codes are
+  undocumented, so a moved slider with one is unsupported), `EqualizerApoTextReader`
+  (AutoEq's format, Equalizer APO's own parsing rules), `EqPresetLibrary`.
+- **Engine**: `OutputChain.ApplyEqualizer` between the seek fades and the volume, a
+  10 ms crossfade on any change, nothing touched with no design, a block that starts on
+  DoP untouched; `AudioEngine.Equalizer`; `TrackEnd`: DoP and PCM don't splice while the
+  EQ is on; the readout's "· EQ"; `eq:` log lines and the minute line's time and clip
+  count.
+- **UI** (the user approved the proposal as offered): the EQ chip between Theme and
+  Bit-Perfect, tokens `status.eqOff` / `status.eqOn` with Bit-Perfect's values; the menu
+  (Off, Peace's presets, the own folder's, Open EQ Folder…), only supported and non-flat
+  presets; `AppSettings.EqualizerPreset` / `EqualizerFolder`. The first render showed no
+  tick: WPF-UI draws it only on a checkable item, which also gives every row a box, as the
+  Libraries menu has. Then, at the user's request, **Open Peace…** (Peace, not Equalizer
+  APO's Editor, which edits the live system config; offered and approved) and an edit to
+  the preset in use taken up as the menu opens. Taking it up when AudioFool is switched
+  back to was offered, not asked.
+- **Checked**: 56 new tests (1,188). A headless probe (shared, muted): EQ off
+  bit-identical; EQ on bit-identical to the processor offline after the fade; switches no
+  sharper than the same audio unswitched; a gapless join bit-identical with the state
+  carried over; 0 clipped samples with IER-M9; worst block 1.8 ms. Real DoP not probed (it
+  needs exclusive mode). ThemeLab `--window equalizer` (new) ALL OK in both themes.
+  Installed (19 files hash-identical); not yet seen by the user.
+- **Found on the way**: the "allocates nothing" tests (`VisualizerFeedTests`,
+  `SampleTapTests`, as `LiveSpectrumTests` before) fail now and then; not chased (asked,
+  no answer yet).
+
 ---
 
 ## Reference notes retired from the handoff

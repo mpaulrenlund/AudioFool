@@ -24,12 +24,15 @@ with nothing else in the way.
   Colour is rare and always means something:
   - **The playback colour** (teal in Light, blue in Dark): Play/Pause, the seek bar's
     waveform and the playing song's row.
-  - **Artist names** have a colour of their own (blue in Light, a pale blue in Dark).
+  - **Artist names** in the playback bar and the album header have the seek bar's
+    colour; the Genius window's has a colour of its own (blue in Light, a pale blue
+    in Dark).
   - **The cover's colour:** in the playback bar, the artist's name, Previous,
     Play/Pause, Next and the seek bar take the playing cover's main colour instead,
     made dark enough for Light or light enough for Dark, as on the phone. The album
     header's artist name does the same with the header's own cover. A black and
-    white cover, or none, keeps the colours above.
+    white cover gives a neutral grey (a bright one in Dark); only a song with no
+    cover keeps the colours above.
   - **Shuffle and Repeat when on:** Shuffle turns blue and Repeat red.
   - **Status chips:** in Light a yellow dot means off and a teal one on; in Dark,
     standby red and power-light green.
@@ -953,6 +956,51 @@ represents 24-bit integers exactly), unity gain, and matched rates.
 If you want to check the marker stream yourself, the approach is to decode a chunk,
 recover each 24-bit word with `(int)Math.Round(sample * 8388608.0) & 0xFFFFFF`, and
 confirm the top byte alternates between `0x05` and `0xFA` with both channels agreeing.
+
+### Equalizer
+
+The **EQ** chip in the status bar (between Theme and Bit-Perfect) plays the music
+through an equalizer preset; its dot is lit while one is in use. A click opens the
+list: **Off**, your Peace presets, and any you have put in AudioFool's own folder
+(**Open EQ Folder…** at the bottom opens it: `%APPDATA%\AudioFool\eq`). The choice is
+remembered across launches. The readout under the volume slider ends in "· EQ" while it
+plays, e.g. `Exclusive · 44.1 kHz · EQ`.
+
+- **Where the presets come from.** Peace's (`*.peace` in Equalizer APO's `config`
+  folder, found through the registry) are read where they are and never changed. The
+  list is read afresh each time it opens, and an edit to the preset in use is taken up
+  then: after saving in Peace, open the EQ menu and the edit plays (crossfaded). In AudioFool's own folder
+  you can drop Peace presets and Equalizer APO text files (`.txt`), the format AutoEq
+  publishes headphone corrections in (`Preamp: -6.2 dB`, `Filter 1: ON PK Fc 105 Hz
+  Gain 2.4 dB Q 0.70`).
+- **What it runs:** the preamp, peak filters, and Equalizer APO's shelf filters (LS, HS,
+  LSC, HSC), worked out exactly as Equalizer APO works them out (its own source was the
+  reference), so a preset sounds the same in both. A preset that uses anything else
+  (Peace's other filter types, Graphic EQ, per-speaker settings, routing, surround,
+  Equalizer APO's other commands) isn't listed: half a preset isn't the preset. Neither
+  is one that changes nothing (Peace's empty *Equalizer Default* and the like).
+- **In Bit-Perfect** the equalizer still runs over the exclusive connection, at the
+  file's own rate with nothing resampled or mixed; it just isn't bit-perfect while it
+  plays, and the readout says "· EQ". **Off is untouched:** with the EQ off not a
+  sample is changed (measured: byte-identical).
+- **DSD over PCM is never equalized** (it would turn the markers into hiss): such a
+  track plays as it always has, and the readout has no "· EQ". In shared mode DSD is
+  already PCM, so it gets the equalizer. While the EQ is on, a DSD track and a PCM one
+  at the same rate don't join gaplessly in Bit-Perfect; the device is reopened between
+  them.
+- **Changing preset mid-song**, or turning it on or off, crossfades over 10 ms, so it
+  doesn't click.
+- **Open Peace…** (at the bottom of the menu, when Peace is installed) starts Peace to
+  edit or add presets; no administrator prompt.
+- **Equalizer APO too:** in Shared mode Windows' own audio engine also runs Equalizer
+  APO. With a preset active in both, the music gets both. Bit-Perfect bypasses
+  Equalizer APO, so only AudioFool's applies there. **Peace applies what you edit to
+  all of Windows' sound straight away** (that's how it previews), so while you edit in
+  Shared mode you hear Peace's EQ on top of AudioFool's; set Peace back to an empty
+  preset when you're done.
+- `playback.log` names each change ("eq: IER-M9 ChatGPT at 44.1 kHz, 11 filters,
+  preamp -5.1 dB"), and the once-a-minute line adds how long the equalizer took and how
+  many samples it pushed past full scale (which the DAC clips: lower the preamp).
 
 ---
 

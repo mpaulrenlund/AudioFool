@@ -118,7 +118,7 @@ Names are token paths under `color` (`panel.bg` is `color.panel.bg`), as in the 
 |---|---|---|---|
 | `accent.playback` | `#15786C` | `#4C8DFF` | the playback blue (see §9) |
 | `accent.playbackText` | `#0C5A51` | `#9CC0FF` | now-playing row text |
-| `accent.blue` | `#00519A` | `#A9C8FF` | artist names: the system menu’s blue-white |
+| `accent.blue` | `#00519A` | `#A9C8FF` | artist names: the system menu’s blue-white (since 2026-11-12 only the Genius window's: the playback bar's and the album header's take the seekbar's `accent.playback`, PS1 spec §6.5 and §6.7) |
 | `accent.like` | `#A8327F` | `#F28FCB` | the controller’s own square pink |
 
 ### `state`
@@ -235,7 +235,7 @@ Icons in their DualShock colors at rest: Minimize `window.minimize` (triangle gr
 
 ### 7.3 Transport buttons
 
-Matte black faces (`control.face`, 1 px `control.faceBorder`) with the molded look of `shadow.controlButton` / `shadow.playButton`. Icons: Previous and Next `control.iconNeutral`; Play/Pause `control.playPause` (in the playback bar, these three take a coloured cover's colour instead: PS1 spec §6.7, *Cover colour*); Shuffle and Repeat `control.iconOff`, or `control.shuffleOn` / `control.repeatOn` when on (the repeat-one badge disc is `control.repeatOn` with a "1" in `control.face`, as in PS1). Hover `control.faceHover`; pressed nudges down 1 px, as in PS1.
+Matte black faces (`control.face`, 1 px `control.faceBorder`) with the molded look of `shadow.controlButton` / `shadow.playButton`. Icons: Previous and Next `control.iconNeutral`; Play/Pause `control.playPause` (in the playback bar, these three take the cover's colour instead, a bright grey for a black-and-white cover since 2026-11-12: PS1 spec §6.7, *Cover colour*); Shuffle and Repeat `control.iconOff`, or `control.shuffleOn` / `control.repeatOn` when on (the repeat-one badge disc is `control.repeatOn` with a "1" in `control.face`, as in PS1). Hover `control.faceHover`; pressed nudges down 1 px, as in PS1.
 
 **Play/Pause only** also gets:
 
@@ -244,7 +244,7 @@ Matte black faces (`control.face`, 1 px `control.faceBorder`) with the molded lo
 
 The button's own `Effect` is already its molded drop shadow, so draw the ring and glow on an element behind the button rather than replacing that effect.
 
-With a coloured cover playing (2026-11-10, session 77), the ring and the glow take the cover's colour too, each at its own opacity here (0.35 and 0.45), with the glow's blur and no offset as above (PS1 spec §6.7, *Cover colour*).
+With a cover playing (2026-11-10, session 77; a black-and-white one too since 2026-11-12, as a bright grey), the ring and the glow take the cover's colour too, each at its own opacity here (0.35 and 0.45), with the glow's blur and no offset as above (PS1 spec §6.7, *Cover colour*).
 
 ### 7.4 Status bar
 

@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-11-11 (docs restructure; the last app session was 77). Read this alongside
+Updated 2026-11-16 (session 79, the built-in equalizer). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 what is open*. How-to and reference notes are in `docs/` (index at the end); read a file
 only when its line says so. What each past session changed, and why, is in
@@ -52,10 +52,14 @@ commit. More (vendored DLLs, `eol=lf`, ignores): `docs/build-and-release.md`.
 
 ## State at handoff
 
-- **1,126 tests** pass. **Last release: v0.11.0** (2026-11-10, session 77, tag on
-  `2c1fcdf`): everything through session 77 is built, installed, committed and pushed.
-  Nothing unreleased. A fix from the items below goes out as 0.11.1 (last number: fixes
-  only), version and notes confirmed with the user first.
+- **1,188 tests** pass. **Last release: v0.11.0** (2026-11-10, session 77, tag on
+  `2c1fcdf`). **Unreleased:** session 78's cover colours (`b5238c3`) and session 79's
+  equalizer (`87f7574`), built, installed and committed, not pushed. A new feature, so
+  the next release is 0.12.0; version and notes confirmed with the user first.
+- **Flaky tests:** the "allocates nothing" tests (`VisualizerFeedTests.A_frame_allocates_nothing`,
+  `SampleTapTests.Copying_a_block_allocates_nothing`, before them `LiveSpectrumTests`)
+  fail now and then and pass on a rerun. Whether to chase it was asked in session 79,
+  not answered.
 - **The library cache is version 4** (session 76: `Track.LeadingZeros`). The first start
   after installing re-reads every song's tags in the background, once.
 - An install is checked by hashing the files, not by launching AudioFool from Claude's
@@ -65,6 +69,11 @@ commit. More (vendored DLLs, `eol=lf`, ignores): `docs/build-and-release.md`.
 
 **Built and installed, not yet seen by the user** (what to try: next step 2):
 
+- **Session 79** (committed `87f7574`): the built-in equalizer, its EQ chip and menu.
+  Design and measurements: `docs/equalizer-plan.md`; README *Equalizer*. Real DSD over
+  PCM with the EQ on was never played (it needs exclusive mode).
+- **Session 78** (committed `b5238c3`): the bar's and the header's artist names in the
+  seekbar's colour; a black-and-white cover gives a grey.
 - **Session 77** (committed `0b9c505`): the album header's artist name in its own cover's
   colour; Dark's Play/Pause glow only while playing. The playback bar's cover colour
   itself the user has seen.
@@ -73,8 +82,9 @@ commit. More (vendored DLLs, `eol=lf`, ignores): `docs/build-and-release.md`.
 - **Session 75**: the Genius window (committed `89926f0` + `dc0b6a2`).
 - Older items checked off-screen only, from sessions 71, 68, 67, 61, 60, 59 and 39.
 
-**Waiting on the user:** how the Genius window went (step 1); whether the close X has
-ignored a click since the safety net (step 3).
+**Waiting on the user:** how the equalizer went (step 2); how the Genius window went
+(step 1); whether the close X has ignored a click since the safety net (step 3); whether
+to chase the flaky "allocates nothing" tests; pushing `b5238c3` and `87f7574`.
 
 **Known open bugs:** the close X that sometimes ignores clicks (step 3; a safety net
 covers it); the small items under step 5.
@@ -113,6 +123,13 @@ steps 4 and 5 to take.
    on a song with many comments; the closest results offered for a soundtrack or
    instrumental. A design note from the user means the usual plan-then-approve loop.
 2. **Ask the user to try what was checked off-screen only:**
+   - **Session 79, the equalizer:** a preset (dot lit, "· EQ"); switching mid-song
+     without a click; Bit-Perfect with it on; a DSD album in Bit-Perfect with it on (no
+     "· EQ"); still chosen after a restart; Open Peace… and an edit heard once the menu
+     opens; an AutoEq `.txt` in the EQ folder. Offered, not asked: taking up an edit when
+     AudioFool is switched back to.
+   - **Session 78:** the bar's artist name now the seekbar's colour (in Light a little
+     harder to read than the old blue), a black-and-white cover's grey.
    - **Session 77:** the album header's artist name in its cover's colour (browse a few
      albums, and a theme switch), and Dark's Play/Pause glow going on pause. The bar's
      cover colour itself the user has seen (their screenshot that asked for the header).
@@ -161,6 +178,9 @@ steps 4 and 5 to take.
      False at the first one, the press never registered: look at WPF-UI's handling of
      the press instead.
 4. **A visible, editable queue view**: the most conspicuous missing player feature.
+   The equalizer's later steps, each its own design round, none asked for yet: a slider
+   editor like Peace's, the GraphicEQ format, presets per headphone switching on their
+   own (`docs/equalizer-plan.md`, *Not in this change*).
 5. **Smaller open items** (session 60's review is otherwise all fixed):
    - Harmless: a new scrobble skips the Last.fm backoff (one request each, the backoff
      isn't reset); an exception other than `LastFmException` escaping a send skips it
@@ -205,5 +225,7 @@ from HANDOFF.md, 2026-11-11*).
   themes, the title bar, single-instance start-up or the Genius window.
 - **`docs/build-and-release.md`**: if `tools\ship.ps1` fails, for the manual build
   commands, or for a release (with the `/release` skill).
+- **`docs/equalizer-plan.md`**: before changing the equalizer (its design, the user's
+  answers, what each piece measured).
 - **`HISTORY.md`**: the story behind a piece of code, finished items, and reference notes
   retired from this file.
