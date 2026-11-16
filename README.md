@@ -964,12 +964,15 @@ through an equalizer preset; its dot is lit while one is in use. A click opens t
 list: **Off**, your Peace presets, and any you have put in AudioFool's own folder
 (**Open EQ Folder…** at the bottom opens it: `%APPDATA%\AudioFool\eq`). The choice is
 remembered across launches. The readout under the volume slider ends in "· EQ" while it
-plays, e.g. `Exclusive · 44.1 kHz · EQ`.
+plays, e.g. `Exclusive · 44.1 kHz · EQ`. **Double-click the chip** to turn the EQ off,
+or, when it's off, back on with the last preset you used (remembered across launches;
+the menu flickers open on the first click, as a single click opens it).
 
 - **Where the presets come from.** Peace's (`*.peace` in Equalizer APO's `config`
   folder, found through the registry) are read where they are and never changed. The
   list is read afresh each time it opens, and an edit to the preset in use is taken up
-  then: after saving in Peace, open the EQ menu and the edit plays (crossfaded). In AudioFool's own folder
+  then, and whenever you switch back to AudioFool: save in Peace, click back into
+  AudioFool, and the edit plays (crossfaded) and shows on the EQ panel. In AudioFool's own folder
   you can drop Peace presets and Equalizer APO text files (`.txt`), the format AutoEq
   publishes headphone corrections in (`Preamp: -6.2 dB`, `Filter 1: ON PK Fc 105 Hz
   Gain 2.4 dB Q 0.70`).
@@ -992,6 +995,13 @@ plays, e.g. `Exclusive · 44.1 kHz · EQ`.
   doesn't click.
 - **Open Peace…** (at the bottom of the menu, when Peace is installed) starts Peace to
   edit or add presets; no administrator prompt.
+- **The EQ panel.** While a preset is in use, the right of the album header (and a
+  playlist's) shows its name, its preamp, its curve from 10 Hz to 20 kHz with a dot at
+  each band, and each band's frequency and gain underneath, as Peace lists them. The
+  curve is the bands' combined effect, the preamp left out, in the seekbar's colour (the
+  playing cover's). In a narrower window it drops the band numbers for a simpler shaded
+  curve, and in a very narrow one it hides. A click on it opens Peace for a Peace
+  preset.
 - **Equalizer APO too:** in Shared mode Windows' own audio engine also runs Equalizer
   APO. With a preset active in both, the music gets both. Bit-Perfect bypasses
   Equalizer APO, so only AudioFool's applies there. **Peace applies what you edit to

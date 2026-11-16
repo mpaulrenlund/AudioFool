@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-11-16 (session 79, the built-in equalizer). Read this alongside
+Updated 2026-11-16 (session 80, the album header's EQ panel). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 what is open*. How-to and reference notes are in `docs/` (index at the end); read a file
 only when its line says so. What each past session changed, and why, is in
@@ -52,10 +52,10 @@ commit. More (vendored DLLs, `eol=lf`, ignores): `docs/build-and-release.md`.
 
 ## State at handoff
 
-- **1,188 tests** pass. **Last release: v0.11.0** (2026-11-10, session 77, tag on
+- **1,215 tests** pass. **Last release: v0.11.0** (2026-11-10, session 77, tag on
   `2c1fcdf`). **Unreleased:** session 78's cover colours (`b5238c3`) and session 79's
-  equalizer (`87f7574`), built, installed, committed and pushed. A new feature, so
-  the next release is 0.12.0; version and notes confirmed with the user first.
+  equalizer (`87f7574`), committed and pushed; session 80's EQ panel, committed, not pushed.
+  Next release 0.12.0; version and notes confirmed with the user first.
 - **Flaky tests:** the "allocates nothing" tests (`VisualizerFeedTests.A_frame_allocates_nothing`,
   `SampleTapTests.Copying_a_block_allocates_nothing`, before them `LiveSpectrumTests`)
   fail now and then and pass on a rerun. Whether to chase it was asked in session 79,
@@ -69,6 +69,8 @@ commit. More (vendored DLLs, `eol=lf`, ignores): `docs/build-and-release.md`.
 
 **Built and installed, not yet seen by the user** (what to try: next step 2):
 
+- **Session 80** (committed): the header's EQ panel (spec §6.5) and the EQ chip's
+  double-click (§6.8); design/progress.md.
 - **Session 79** (committed `87f7574`): the built-in equalizer, its EQ chip and menu.
   Design and measurements: `docs/equalizer-plan.md`; README *Equalizer*. Real DSD over
   PCM with the EQ on was never played (it needs exclusive mode).
@@ -123,11 +125,13 @@ steps 4 and 5 to take.
    on a song with many comments; the closest results offered for a soundtrack or
    instrumental. A design note from the user means the usual plan-then-approve loop.
 2. **Ask the user to try what was checked off-screen only:**
+   - **Session 80:** the EQ panel by an album and a playlist, the seekbar's
+     colour, compact below a ~1396 px window; a click opens Peace, an edit saved
+     there shows on switching back. Double-click the chip: off, and on again.
    - **Session 79, the equalizer:** a preset (dot lit, "· EQ"); switching mid-song
      without a click; Bit-Perfect with it on; a DSD album in Bit-Perfect with it on (no
      "· EQ"); still chosen after a restart; Open Peace… and an edit heard once the menu
-     opens; an AutoEq `.txt` in the EQ folder. Offered, not asked: taking up an edit when
-     AudioFool is switched back to.
+     opens; an AutoEq `.txt` in the EQ folder.
    - **Session 78:** the bar's artist name now the seekbar's colour (in Light a little
      harder to read than the old blue), a black-and-white cover's grey.
    - **Session 77:** the album header's artist name in its cover's colour (browse a few

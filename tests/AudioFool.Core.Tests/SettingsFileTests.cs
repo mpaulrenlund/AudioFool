@@ -68,6 +68,35 @@ public sealed class SettingsFileTests : IDisposable
         Assert.Equal(AppSettings.EqualizerInPeace, loaded.EqualizerFolder);
     }
 
+    [Fact]
+    public void Turning_the_equalizer_off_keeps_the_last_preset_across_launches()
+    {
+        var settings = AppSettings.Load(_path, Now);
+        Assert.Null(settings.LastEqualizer);
+
+        settings.SetEqualizer("IER-M9 ChatGPT", AppSettings.EqualizerInPeace);
+        settings.SetEqualizer("oratory1990 HD650", AppSettings.EqualizerInOwnFolder);
+        settings.SetEqualizer(null, null);
+        settings.Save();
+
+        var loaded = AppSettings.Load(_path, Now);
+        Assert.Null(loaded.EqualizerPreset);
+        Assert.Null(loaded.EqualizerFolder);
+        Assert.Equal(("oratory1990 HD650", AppSettings.EqualizerInOwnFolder), loaded.LastEqualizer);
+        Assert.DoesNotContain("LastEqualizer\"", File.ReadAllText(_path)); // worked out, not saved
+    }
+
+    [Fact]
+    public void A_settings_file_from_before_the_last_preset_falls_back_on_the_one_in_use()
+    {
+        File.WriteAllText(_path, """{ "EqualizerPreset": "Tin P1's", "EqualizerFolder": "Peace" }""");
+
+        var loaded = AppSettings.Load(_path, Now);
+
+        Assert.Null(loaded.EqualizerLastPreset);
+        Assert.Equal(("Tin P1's", AppSettings.EqualizerInPeace), loaded.LastEqualizer);
+    }
+
     [Theory]
     [InlineData("{ \"MusicFolders\": [\"D:\\\\Mu")]   // cut off mid-write
     [InlineData("")]

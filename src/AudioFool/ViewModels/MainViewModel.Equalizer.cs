@@ -44,6 +44,34 @@ public sealed partial class MainViewModel
     /// <summary>The chip's dot: lit while a preset is in use.</summary>
     public bool IsEqualizerOn => _equalizerPreset is not null;
 
+    private EqGraph? _equalizerGraph;
+
+    /// <summary>
+    /// What the album header's EQ panel draws (session 80): the preset in use,
+    /// worked out once each time it changes; null while the EQ is off.
+    /// </summary>
+    public EqGraph? EqualizerGraph =>
+        _equalizerPreset is not { } preset ? null
+        : _equalizerGraph is { } graph && ReferenceEquals(graph.Preset, preset) ? graph
+        : _equalizerGraph = EqGraph.For(preset);
+
+    /// <summary>
+    /// Whether a click on the EQ panel opens Peace: a Peace preset in use and Peace
+    /// installed. AudioFool's own folder's presets are files Peace can't open.
+    /// </summary>
+    public bool CanOpenEqualizerInPeace =>
+        _equalizerPreset is not null
+        && _equalizerFolder == AppSettings.EqualizerInPeace
+        && PeaceExecutable is not null;
+
+    private void OnEqualizerChanged()
+    {
+        OnPropertyChanged(nameof(IsEqualizerOn));
+        OnPropertyChanged(nameof(EqualizerAutomationName));
+        OnPropertyChanged(nameof(EqualizerGraph));
+        OnPropertyChanged(nameof(CanOpenEqualizerInPeace));
+    }
+
     public string EqualizerAutomationName =>
         _equalizerPreset is { } preset ? $"Equalizer: {preset.Name}" : "Equalizer: off";
 
@@ -76,11 +104,47 @@ public sealed partial class MainViewModel
 
         var presets = _equalizerFolder == AppSettings.EqualizerInOwnFolder ? menu.Own : menu.Peace;
         var fresh = presets.FirstOrDefault(p => string.Equals(p.Name, current.Name, StringComparison.OrdinalIgnoreCase));
+        TakeUp(current, fresh);
+    }
+
+    /// <summary>
+    /// Reads the preset in use from its file again and takes up an edit, as the menu
+    /// does as it opens. Called when AudioFool's window is switched back to (session
+    /// 80), so a change saved in Peace shows on the EQ panel, and is heard, without
+    /// opening the menu. One small file; a file gone, unreadable, made flat or using
+    /// something AudioFool doesn't run leaves the preset playing as it was.
+    /// </summary>
+    public void TakeUpEqualizerEditFromFile()
+    {
+        if (_equalizerPreset is not { SourcePath: { Length: > 0 } path } current)
+            return;
+
+        EqPreset fresh;
+        try
+        {
+            if (!File.Exists(path))
+                return;
+            fresh = current.Format == EqPresetFormat.Peace
+                ? PeacePresetReader.Read(path)
+                : EqualizerApoTextReader.Read(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return; // being saved this moment, most likely: the next switch back reads it
+        }
+
+        if (fresh.IsSupported && !fresh.IsFlat)
+            TakeUp(current, fresh);
+    }
+
+    private void TakeUp(EqPreset current, EqPreset? fresh)
+    {
         if (fresh is null || fresh.SameAs(current))
             return;
 
         _engine.Equalizer = fresh;
         _equalizerPreset = fresh;
+        OnEqualizerChanged();
     }
 
     /// <summary>
@@ -129,13 +193,38 @@ public sealed partial class MainViewModel
         _equalizerPreset = preset;
         _equalizerFolder = preset is null ? null : folder;
 
-        _settings.EqualizerPreset = preset?.Name;
-        _settings.EqualizerFolder = _equalizerFolder;
+        _settings.SetEqualizer(preset?.Name, _equalizerFolder);
         _settings.Save();
 
-        OnPropertyChanged(nameof(IsEqualizerOn));
-        OnPropertyChanged(nameof(EqualizerAutomationName));
+        OnEqualizerChanged();
         OutputDescription = _engine.OutputDescription;
+    }
+
+    /// <summary>
+    /// A double-click on the EQ chip (session 80, the user's request): on turns it
+    /// off; off turns the last preset used back on, read afresh from its folder. With
+    /// none used yet nothing happens; with its file gone, or no longer one AudioFool
+    /// plays, the status line says so and the equalizer stays off.
+    /// </summary>
+    public bool CanToggleEqualizer => _equalizerPreset is not null || _settings.LastEqualizer is not null;
+
+    public void ToggleEqualizer()
+    {
+        if (_equalizerPreset is not null)
+        {
+            ChooseEqualizer(null, null);
+            return;
+        }
+
+        if (_settings.LastEqualizer is not { } last)
+            return;
+
+        var menu = LoadEqualizerMenu();
+        var presets = last.Folder == AppSettings.EqualizerInOwnFolder ? menu.Own : menu.Peace;
+        if (presets.FirstOrDefault(p => string.Equals(p.Name, last.Preset, StringComparison.OrdinalIgnoreCase)) is { } preset)
+            ChooseEqualizer(preset, last.Folder);
+        else
+            StatusText = $"Couldn't find the EQ preset {last.Preset}";
     }
 
     /// <summary>
@@ -159,8 +248,7 @@ public sealed partial class MainViewModel
         _engine.Equalizer = preset;
         _equalizerPreset = preset;
         _equalizerFolder = folder;
-        OnPropertyChanged(nameof(IsEqualizerOn));
-        OnPropertyChanged(nameof(EqualizerAutomationName));
+        OnEqualizerChanged();
     }
 
     /// <summary>Opens AudioFool's own preset folder in Explorer, making it first if need be.</summary>

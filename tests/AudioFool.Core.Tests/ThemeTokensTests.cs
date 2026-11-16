@@ -150,8 +150,9 @@ public class ThemeTokensTests
         // three (session 58) went with it in session 65. The EQ chip's dot, off
         // and on (session 79).
         Assert.Equal(69, t.Colors.Count);
-        // 19, plus statValue (dialogs, Statistics).
-        Assert.Equal(20, t.TextStyles.Count);
+        // 19, plus statValue (dialogs, Statistics), plus the album header's EQ
+        // panel's four: eqName, eqLabel, eqAxis, eqGain (session 80).
+        Assert.Equal(24, t.TextStyles.Count);
         // 8, plus playGlow (PS2 Dark).
         Assert.Equal(9, t.Shadows.Count);
         Assert.Equal(["Segoe UI Variable Text", "Segoe UI"], t.FontFamily);

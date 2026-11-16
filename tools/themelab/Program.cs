@@ -445,6 +445,12 @@ internal static partial class Program
         if (which == "headeraccent")
             return RunHeaderAccent(main, vm, outPath, w, h, scale);
 
+        if (which == "eqpanel")
+            return RunEqPanel(main, vm, outPath, w, h, scale);
+
+        if (which == "eqdouble")
+            return RunEqDouble(main, vm, outPath, w, h, scale, Arg(args, "--eqpreset") ?? "IER-M9 ChatGPT");
+
         if (which == "queueend")
             return RunQueueEnd(main, vm, engine, runtime, outPath, w, h, scale);
 

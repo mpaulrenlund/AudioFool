@@ -763,7 +763,12 @@
             <HeaderedContentControl Grid.Column="4" Style="{DynamicResource theme.panel.songs}">
                 <!-- 6.5: big album art, then the title and four stacked facts -->
                 <HeaderedContentControl.Header>
-                  <Grid>
+                  <!-- Column 1: the EQ panel (session 80), beside either header. -->
+                  <Grid x:Name="HeaderGrid">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
                     <Grid Margin="{theme:Thickness X=albumHeader.paddingX, Y=albumHeader.paddingY}"
                           Visibility="{Binding ShowsAlbumHeader, Converter={StaticResource BoolToVisibility}}">
                         <Grid.ColumnDefinitions>
@@ -896,6 +901,127 @@
                             </StackPanel>
                         </StackPanel>
                     </Grid>
+
+                    <!--
+                        6.5, the EQ panel (session 80, the user's design, mock-up A):
+                        while an EQ is on, the preset's name and preamp, its curve, and
+                        each band's frequency and gain. Compact when the band numbers
+                        don't fit (mock-up D); width, mode and visibility are set by
+                        UpdateEqualizerPanel (MainWindow.Equalizer.cs). The curve is the
+                        seekbar's colour: the playing cover's, fitted to accent.playback.
+                        A click opens Peace for a Peace preset. A bare button, for its
+                        click and its accessible name; not a tab stop, as the art isn't.
+                    -->
+                    <Button x:Name="EqualizerPanel"
+                            Grid.Column="1"
+                            Style="{x:Null}"
+                            Focusable="False"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Top"
+                            Margin="{theme:Thickness Right=albumHeader.paddingX, Top=albumHeader.paddingY}"
+                            AutomationProperties.Name="{Binding EqualizerGraph.AutomationText}"
+                            Click="EqualizerPanel_Click">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <ContentPresenter />
+                            </ControlTemplate>
+                        </Button.Template>
+                        <Grid Background="Transparent">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel Grid.Row="0" Grid.Column="1"
+                                       Margin="{theme:Thickness Bottom=eqPanel.nameToGraphGap}">
+                                <TextBlock DockPanel.Dock="Right"
+                                           Text="{Binding EqualizerGraph.Preamp}"
+                                           Style="{DynamicResource type.eqLabel}"
+                                           Margin="{theme:Thickness Left=eqPanel.nameToPreampGap}"
+                                           VerticalAlignment="Bottom" />
+                                <TextBlock DockPanel.Dock="Left"
+                                           Text="EQ · "
+                                           Style="{DynamicResource type.eqLabel}"
+                                           VerticalAlignment="Bottom" />
+                                <TextBlock x:Name="EqualizerName"
+                                           Text="{Binding EqualizerGraph.Name}"
+                                           Style="{DynamicResource type.eqName}"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Bottom" />
+                            </DockPanel>
+
+                            <!-- The scale's labels, centred on the graph's three lines. -->
+                            <Grid x:Name="EqualizerScale"
+                                  Grid.Row="1" Grid.Column="0"
+                                  Width="{theme:Token eqPanel.axisWidth}"
+                                  Margin="{theme:Thickness Right=eqPanel.axisGap}">
+                                <TextBlock Text="{Binding EqualizerGraph.TopLabel}"
+                                           Style="{DynamicResource type.eqAxis}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Top" />
+                                <TextBlock Text="0"
+                                           Style="{DynamicResource type.eqAxis}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding EqualizerGraph.BottomLabel}"
+                                           Style="{DynamicResource type.eqAxis}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+                            </Grid>
+
+                            <theme:EqGraphView x:Name="EqualizerGraphView"
+                                               Grid.Row="1" Grid.Column="1"
+                                               Graph="{Binding EqualizerGraph}"
+                                               CurveBrush="{DynamicResource color.accent.playback}"
+                                               theme:CoverAccent.Color="{Binding NowPlayingCoverColor}"
+                                               theme:CoverAccent.Keys="color.accent.playback"
+                                               GridBrush="{DynamicResource color.panel.divider}"
+                                               ZeroBrush="{DynamicResource color.panel.border}"
+                                               InsetY="{theme:Token eqPanel.graphInsetY}"
+                                               CurveThickness="{theme:Token eqPanel.curveThickness}"
+                                               DotRadius="{theme:Token eqPanel.dotRadius}"
+                                               GridDash="{theme:Token eqPanel.gridDash}"
+                                               GridGap="{theme:Token eqPanel.gridGap}"
+                                               FillOpacity="{theme:Token eqPanel.compactFillOpacity}" />
+
+                            <!-- Each band's frequency over its gain, in even columns, as Peace lists them. -->
+                            <ItemsControl x:Name="EqualizerBands"
+                                          Grid.Row="2" Grid.Column="1"
+                                          Margin="{theme:Thickness Top=eqPanel.graphToLabelsGap}"
+                                          ItemsSource="{Binding EqualizerGraph.Bands}"
+                                          Focusable="False">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Rows="1" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Frequency}"
+                                                       Style="{DynamicResource type.eqAxis}"
+                                                       HorizontalAlignment="Center" />
+                                            <TextBlock Text="{Binding Gain}"
+                                                       Style="{DynamicResource type.eqGain}"
+                                                       HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- Compact: three frequencies under the curve instead. -->
+                            <theme:EqFrequencyAxis x:Name="EqualizerFrequencies"
+                                                   Grid.Row="2" Grid.Column="1"
+                                                   Margin="{theme:Thickness Top=eqPanel.graphToLabelsGap}"
+                                                   Visibility="Collapsed">
+                                <TextBlock theme:EqFrequencyAxis.Hz="100" Text="100 Hz" Style="{DynamicResource type.eqAxis}" />
+                                <TextBlock theme:EqFrequencyAxis.Hz="1000" Text="1 kHz" Style="{DynamicResource type.eqAxis}" />
+                                <TextBlock theme:EqFrequencyAxis.Hz="10000" Text="10 kHz" Style="{DynamicResource type.eqAxis}" />
+                            </theme:EqFrequencyAxis>
+                        </Grid>
+                    </Button>
                   </Grid>
                 </HeaderedContentControl.Header>
 

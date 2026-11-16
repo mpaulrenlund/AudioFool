@@ -71,6 +71,7 @@ public partial class MainWindow : FluentWindow
         HookReorder();
         HookShortcuts();
         HookEqualizerChip();
+        HookEqualizerPanel();
         HookSearchFocus();
         HookClickWithoutScroll();
         HookStatusLineHover();

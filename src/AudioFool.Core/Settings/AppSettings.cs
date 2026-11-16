@@ -64,6 +64,43 @@ public sealed class AppSettings
     /// <summary>Where <see cref="EqualizerPreset"/> is: <see cref="EqualizerInPeace"/> or <see cref="EqualizerInOwnFolder"/>.</summary>
     public string? EqualizerFolder { get; set; }
 
+    /// <summary>
+    /// The last preset that was in use, kept when the equalizer is turned off, so a
+    /// double-click on the EQ chip turns it back on (session 80, the user's request).
+    /// Null until a preset has been chosen since; <see cref="LastEqualizer"/> then
+    /// falls back on <see cref="EqualizerPreset"/>.
+    /// </summary>
+    public string? EqualizerLastPreset { get; set; }
+
+    /// <summary>Where <see cref="EqualizerLastPreset"/> is.</summary>
+    public string? EqualizerLastFolder { get; set; }
+
+    /// <summary>
+    /// Sets the preset in use, or none; a preset is also remembered as the last one,
+    /// and turning the equalizer off leaves the last one as it was.
+    /// </summary>
+    public void SetEqualizer(string? preset, string? folder)
+    {
+        EqualizerPreset = preset;
+        EqualizerFolder = preset is null ? null : folder;
+        if (preset is not null)
+        {
+            EqualizerLastPreset = preset;
+            EqualizerLastFolder = folder;
+        }
+    }
+
+    /// <summary>
+    /// The preset a double-click on the EQ chip turns on: the last one used, or the
+    /// one in use for a settings file from before there was a last one; null when
+    /// there has never been one.
+    /// </summary>
+    [JsonIgnore]
+    public (string Preset, string Folder)? LastEqualizer =>
+        EqualizerLastPreset is { Length: > 0 } last ? (last, EqualizerLastFolder ?? EqualizerInPeace)
+        : EqualizerPreset is { Length: > 0 } current ? (current, EqualizerFolder ?? EqualizerInPeace)
+        : null;
+
     public const string EqualizerInPeace = "Peace";
     public const string EqualizerInOwnFolder = "AudioFool";
 
