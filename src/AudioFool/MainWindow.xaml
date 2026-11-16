@@ -805,14 +805,16 @@
                                        Style="{DynamicResource type.headerTitle}"
                                        MinHeight="{theme:Token albumHeader.titleMinHeight}" />
                             <StackPanel Margin="{theme:Thickness Top=albumHeader.titleToDetailsGap}">
-                                <!-- The cover's colour, fitted as text to the artist blue,
-                                     as in the playback bar (6.7, Cover colour). -->
+                                <!-- The bar's artist rule, with the header's own cover (6.5): its colour
+                                     fitted to accent.playback, or accent.playback with no cover, so the
+                                     playing album's two names match (2026-11-12). The colour is set here,
+                                     not in type.headerArtist, which the Genius window shares. -->
                                 <TextBlock x:Name="HeaderArtist"
                                            Text="{Binding AlbumHeaderArtist}"
                                            Style="{DynamicResource type.headerArtist}"
+                                           Foreground="{DynamicResource color.accent.playback}"
                                            theme:CoverAccent.Color="{Binding AlbumHeaderCoverColor}"
-                                           theme:CoverAccent.Keys="color.accent.blue"
-                                           theme:CoverAccent.FitTo="color.accent.blue"
+                                           theme:CoverAccent.Keys="color.accent.playback"
                                            TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{Binding AlbumHeaderYear}"
                                            Style="{DynamicResource type.headerDetails}"
@@ -1173,13 +1175,12 @@
                                    Text="{Binding NowPlaying.DisplayTitle, FallbackValue='', TargetNullValue=''}"
                                    Style="{DynamicResource type.nowPlayingTitle}"
                                    TextTrimming="CharacterEllipsis" />
-                        <!-- The cover's colour, fitted as text to the artist blue (6.7, Cover colour). -->
+                        <!-- The seekbar's colour: accent.playback, or the cover's fitted the same way (6.7, Cover colour). -->
                         <TextBlock x:Name="NowPlayingArtist"
                                    Text="{Binding NowPlaying.Artist, FallbackValue='', TargetNullValue=''}"
                                    Style="{DynamicResource type.nowPlayingArtist}"
                                    theme:CoverAccent.Color="{Binding NowPlayingCoverColor}"
-                                   theme:CoverAccent.Keys="color.accent.blue"
-                                   theme:CoverAccent.FitTo="color.accent.blue"
+                                   theme:CoverAccent.Keys="color.accent.playback"
                                    Margin="{theme:Thickness Top=playbackBar.textLineGap}"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock x:Name="NowPlayingDetails"

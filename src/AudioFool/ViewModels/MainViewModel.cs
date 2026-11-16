@@ -153,9 +153,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>
     /// The album header's cover's main colour, which its artist name takes in place
-    /// of the theme's blue (session 77, the user's request: as the playback bar's;
-    /// <see cref="Theming.CoverAccent"/>); null for a cover with no colour, or none.
-    /// Set with <see cref="SelectedAlbumArt"/>, so the two change together.
+    /// of the theme's playback colour (session 77, the user's request: as the playback
+    /// bar's; fitted as the bar's name is since 2026-11-12;
+    /// <see cref="Theming.CoverAccent"/>); a grey for a black and white cover
+    /// (2026-11-12), null for no cover. Set with <see cref="SelectedAlbumArt"/>, so
+    /// the two change together.
     /// </summary>
     [ObservableProperty]
     private System.Windows.Media.Color? _albumHeaderCoverColor;
@@ -205,9 +207,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     /// <summary>
     /// The playing cover's main colour (session 77, the user's request), which the
     /// playback bar's artist name, Previous, Play/Pause, Next and seekbar take in
-    /// place of the theme's (<see cref="Theming.CoverAccent"/>); null for a cover
-    /// with no colour, or none. Set with <see cref="NowPlayingArt"/>, so the two
-    /// change together.
+    /// place of the theme's (<see cref="Theming.CoverAccent"/>); a grey for a black
+    /// and white cover (2026-11-12), null for no cover. Set with
+    /// <see cref="NowPlayingArt"/>, so the two change together.
     /// </summary>
     [ObservableProperty]
     private System.Windows.Media.Color? _nowPlayingCoverColor;

@@ -19,8 +19,10 @@ namespace ThemeLab;
 /// landscape, black and white; plus a wide and a tall one whose shown square
 /// alone is green or orange) go into the view model as a played cover would, and each element's
 /// colour is read back: the artist's name, Previous, Play/Pause (icon, ring, glow),
-/// Next and the seekbar against the fitted colour; Repeat, Shuffle, the title and
-/// the volume slider against the theme's own. No colour: everything the theme's.
+/// Next and the seekbar against the fitted colour (the artist's name the seekbar's
+/// since 2026-11-12; the black and white cover a grey, Dark's greyOnDark light);
+/// Repeat, Shuffle, the title and the volume slider against the theme's own. No
+/// cover: everything the theme's.
 /// A switch to the other theme and back fits again. Paused and with nothing loaded,
 /// Play/Pause has no glow (only while playing; drawn, Dark's arcs around it change
 /// and Light's don't), and playing again it's back. Renders &lt;out&gt;-&lt;cover&gt;.png
@@ -73,9 +75,14 @@ internal static partial class Program
                 var apart = Math.Abs(found - CoverColor.Hue(0xFF000000 | expected));
                 Check(Math.Min(apart, 360 - apart) <= 6, $"hue {found:0.0}, the cover's {CoverColor.Hue(0xFF000000 | expected):0.0}");
             }
+            else if (cover is null)
+            {
+                Check(colour is null, "no cover, no colour");
+            }
             else
             {
-                Check(colour is null, "no colour");
+                // Black and white: a grey since 2026-11-12, not the theme's colour.
+                Check(colour is { } g && CoverColor.Chroma(Argb(g)) < CoverColor.NeutralBelow, $"a grey, {Hex(colour)}");
             }
 
             vm.NowPlayingArt = cover;
@@ -169,8 +176,9 @@ internal static partial class Program
         var app = Application.Current;
         var dark = ThemeService.Current == AppTheme.Dark;
         var range = (double)app.FindResource("playbackBar.coverAccent.lightnessRange");
+        var greyOnDark = (double)app.FindResource("playbackBar.coverAccent.greyOnDark");
         Color Fitted(string fitTo) =>
-            FromArgb(CoverColor.Accent(Argb(cover!.Value), Argb((Color)app.FindResource(fitTo + ".value")), dark, range));
+            FromArgb(CoverColor.Accent(Argb(cover!.Value), Argb((Color)app.FindResource(fitTo + ".value")), dark, range, greyOnDark));
 
         var previous = (Button)main.FindName("PreviousButton");
         var play = (Button)main.FindName("PlayPauseButton");
@@ -199,7 +207,12 @@ internal static partial class Program
         Brush("Previous", previous.Foreground, "color.control.iconNeutral");
         Brush("Play/Pause", play.Foreground, "color.control.playPause");
         Brush("Next", next.Foreground, "color.control.iconNeutral");
-        Brush("artist", artist.Foreground, "color.accent.blue", "color.accent.blue");
+        // The seekbar's colour since 2026-11-12 (the user's call, as the phone): fitted to accent.blue until then.
+        Brush("artist", artist.Foreground, "color.accent.playback");
+        static bool SameRgb(Brush? a, Brush? b) =>
+            a is SolidColorBrush x && b is SolidColorBrush y && x.Color.R == y.Color.R && x.Color.G == y.Color.G && x.Color.B == y.Color.B;
+        Check(cover is null || SameRgb(artist.Foreground, seek.Foreground),
+            $"artist and seekbar the same colour, {Hex((artist.Foreground as SolidColorBrush)?.Color)} and {Hex((seek.Foreground as SolidColorBrush)?.Color)}");
         Brush("seekbar", seek.Foreground, "color.slider.seekFill");
         Brush("ring", ring.Stroke, "color.control.playRing");
 
@@ -380,7 +393,7 @@ internal static partial class Program
     private static BitmapSource CoverTall() => Cover(CoverPixels, 0x6A1B9A, (dc, s) =>
         dc.DrawRectangle(Fill(0xF39C12), null, new Rect(0, 0, s, s)), height: CoverPixels * 2);
 
-    /// <summary>Black and white: no colour to take.</summary>
+    /// <summary>Black and white: no colour to take, so a grey (2026-11-12).</summary>
     private static BitmapSource CoverBlackAndWhite() => Cover(CoverPixels, 0x161616, (dc, s) =>
     {
         Disc(dc, 0x8A8A8A, s * 0.5, s * 0.5, s * 0.34);

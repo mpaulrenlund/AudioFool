@@ -16,6 +16,9 @@ public sealed class CoverColorTests
     /// <summary>Both token files: playbackBar.coverAccent.lightnessRange.</summary>
     private const double Range = 0.15;
 
+    /// <summary>Both token files: playbackBar.coverAccent.greyOnDark.</summary>
+    private const double GreyOnDark = 0.9;
+
     private const uint Red = 0xC0392B;
     private const uint Sky = 0x4A90D9;
     private const uint Grass = 0x5B8C3A;
@@ -33,6 +36,9 @@ public sealed class CoverColorTests
     private const uint PalePink = 0xFFD0E0;
     private const uint Terracotta = 0xE07A5F;
     private const uint LightBlue = 0x00519A;
+    private const uint Gold = 0xC8A040;
+    private const uint BluishBlack = 0x000814;
+    private const uint BlueGrey = 0x5A6E8C;
 
     private static uint Opaque(uint rgb) => 0xFF000000u | rgb;
 
@@ -58,24 +64,59 @@ public sealed class CoverColorTests
     public void A_red_logo_on_a_black_cover_is_red() =>
         Assert.Equal(Opaque(Red), CoverColor.Main(Picture((0x000000, 95), (Red, 5))));
 
-    [Fact]
-    public void Black_and_white_has_no_colour() =>
-        Assert.Null(CoverColor.Main(Picture((0x000000, 40), (0xFFFFFF, 20), (0x808080, 30), (0x8A8580, 10))));
+    /// <summary>Since 2026-11-12 (the user's call, as the phone) a cover without a colour is a grey, at its average lightness; it was null.</summary>
+    private static void AssertGrey(double lightness, uint? actual)
+    {
+        Assert.NotNull(actual);
+        Assert.True(CoverColor.Chroma(actual.Value) < 0.002, $"chroma {CoverColor.Chroma(actual.Value)}");
+        Assert.Equal(lightness, CoverColor.Lightness(actual.Value), 0.01);
+    }
+
+    private static double AverageLightness(params (uint Rgb, int Count)[] parts) =>
+        parts.Sum(p => CoverColor.Lightness(Opaque(p.Rgb)) * p.Count) / parts.Sum(p => p.Count);
 
     [Fact]
-    public void An_off_white_cover_has_no_colour() =>
-        Assert.Null(CoverColor.Main(Picture((Cream, 90), (0x000000, 10))));
+    public void Black_and_white_is_a_grey_of_its_lightness()
+    {
+        (uint, int)[] parts = [(0x000000, 40), (0xFFFFFF, 20), (0x808080, 30), (0x8A8580, 10)];
+        AssertGrey(AverageLightness(parts), CoverColor.Main(Picture(parts)));
+    }
+
+    [Fact]
+    public void A_black_cover_is_a_dark_grey_and_a_white_one_a_light_grey()
+    {
+        AssertGrey(0.0, CoverColor.Main(Picture((0x000000, 100))));
+        AssertGrey(1.0, CoverColor.Main(Picture((0xFFFFFF, 100))));
+    }
+
+    [Fact]
+    public void An_off_white_cover_is_a_grey() =>
+        AssertGrey(AverageLightness((Cream, 90), (0x000000, 10)), CoverColor.Main(Picture((Cream, 90), (0x000000, 10))));
 
     [Fact]
     public void A_dark_brown_cover_is_brown_not_grey() =>
         AssertHue(DarkBrown, CoverColor.Main(Picture((DarkBrown, 70), (0x0C0A08, 30))));
 
+    /// <summary>Under half a percent (2% until 2026-11-12, the user's call on the phone: "take any predominant color").</summary>
     [Fact]
     public void A_speck_of_colour_is_not_the_covers_colour()
     {
-        Assert.Null(CoverColor.Main(Picture((0x808080, 99), (Red, 1))));
-        Assert.Equal(Opaque(Red), CoverColor.Main(Picture((0x808080, 97), (Red, 3))));
+        AssertGrey(CoverColor.Lightness(Opaque(0x808080)), CoverColor.Main(Picture((0x808080, 299), (Red, 1))));
+        Assert.Equal(Opaque(Red), CoverColor.Main(Picture((0x808080, 99), (Red, 1))));
     }
+
+    /// <summary>A JPEG's black has a cast; made as light as the playback colour it was a strong blue (the phone, 2026-11-11).</summary>
+    [Fact]
+    public void A_black_covers_faint_tint_is_not_its_colour()
+    {
+        AssertHue(Gold, CoverColor.Main(Picture((BluishBlack, 95), (Gold, 5))));
+        AssertGrey(AverageLightness((BluishBlack, 60), (0xFFFFFF, 40)), CoverColor.Main(Picture((BluishBlack, 60), (0xFFFFFF, 40))));
+    }
+
+    /// <summary>Each pixel counts by its chroma squared (2026-11-12): a grey's faint cast doesn't outweigh the colour in it.</summary>
+    [Fact]
+    public void A_faint_cast_over_most_of_a_cover_loses_to_a_vivid_part() =>
+        AssertHue(Orange, CoverColor.Main(Picture((BlueGrey, 85), (Orange, 15))));
 
     [Fact]
     public void The_hue_with_the_most_colour_wins() =>
@@ -104,6 +145,7 @@ public sealed class CoverColorTests
     {
         const uint clearRed = 0x00C0392B;
         AssertHue(Sky, CoverColor.Main([.. Enumerable.Repeat(clearRed, 90), .. Picture((Sky, 10))]));
+        // Nothing to see is no colour, not a grey.
         Assert.Null(CoverColor.Main(Enumerable.Repeat(clearRed, 100).ToArray()));
     }
 
@@ -173,6 +215,31 @@ public sealed class CoverColorTests
         Assert.Equal(CoverColor.Chroma(Opaque(PalePink)), CoverColor.Chroma(accent), 0.01);
         AssertHue(PalePink, accent);
     }
+
+    /// <summary>A black and white cover's grey on Dark (the phone's 2026-11-11 change, the user's call: "Brighter on Dark").</summary>
+    [Fact]
+    public void On_dark_a_grey_is_the_grey_lightness_whatever_the_cover()
+    {
+        foreach (var cover in new uint[] { 0x000000, 0x404040, 0xFFFFFF })
+        {
+            var grey = CoverColor.Main(Picture((cover, 100)))!.Value;
+            var accent = CoverColor.Accent(grey, DarkPlayback, dark: true, Range, greyOnDark: GreyOnDark);
+            Assert.True(Math.Abs(GreyOnDark - CoverColor.Lightness(accent)) <= 0.005, $"#{cover:X6}: lightness {CoverColor.Lightness(accent)}");
+            Assert.True(CoverColor.Chroma(accent) < 0.002);
+        }
+    }
+
+    [Fact]
+    public void On_light_a_grey_is_fitted_as_a_colour_is()
+    {
+        var grey = CoverColor.Main(Picture((0xFFFFFF, 100)))!.Value;
+        var accent = CoverColor.Accent(grey, LightPlayback, dark: false, Range, greyOnDark: GreyOnDark);
+        Assert.Equal(LightAnchor, CoverColor.Lightness(accent), 0.01);
+    }
+
+    [Fact]
+    public void The_grey_lightness_leaves_colours_alone() =>
+        Assert.Equal(OnDark(Red), CoverColor.Accent(Opaque(Red), DarkPlayback, dark: true, Range, greyOnDark: GreyOnDark));
 
     /// <summary>Every sixth step of each channel: 216 colours, the greys left out.</summary>
     [Fact]

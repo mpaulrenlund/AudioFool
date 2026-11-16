@@ -11,8 +11,8 @@ namespace AudioFool.Theming;
 /// The cover's colour in the playback bar (session 77, the user's request: as the
 /// phone's Now Playing does; spec 6.7, <i>Cover colour</i>), and on the album
 /// header's artist name, from the header's own cover (spec 6.5). On an element,
-/// <c>theme:CoverAccent.Color</c> is the cover's main colour (null for a
-/// cover with no colour, or none), and <c>theme:CoverAccent.Keys</c> names the
+/// <c>theme:CoverAccent.Color</c> is the cover's main colour (a grey for a black
+/// and white cover since 2026-11-12; null for no cover), and <c>theme:CoverAccent.Keys</c> names the
 /// theme keys that colour stands in for there, space-separated:
 /// <code>
 /// &lt;Button theme:CoverAccent.Color="{Binding NowPlayingCoverColor}"
@@ -28,7 +28,11 @@ namespace AudioFool.Theming;
 /// The colour is fitted to <c>theme:CoverAccent.FitTo</c>, <c>color.accent.playback</c>
 /// unless set: on Dark no darker than it and up to
 /// <c>playbackBar.coverAccent.lightnessRange</c> lighter, on Light the other way.
-/// The artist's name is text and is fitted to <c>color.accent.blue</c>.
+/// The bar's artist name is fitted to it too, so it is the seekbar's colour
+/// (2026-11-12, the user's call, as the phone), and so is the album header's artist
+/// name, from its own cover (the user's call the same day: the playing album's two
+/// names match). A black and white cover's grey is
+/// <c>playbackBar.coverAccent.greyOnDark</c> light on Dark, wherever it shows.
 /// </para>
 /// </summary>
 public static class CoverAccent
@@ -87,10 +91,13 @@ public static class CoverAccent
         var range = app.TryFindResource("playbackBar.coverAccent.lightnessRange") is double r
             ? r
             : throw new InvalidOperationException("playbackBar.coverAccent.lightnessRange is missing from the token set.");
+        var greyOnDark = app.TryFindResource("playbackBar.coverAccent.greyOnDark") is double g
+            ? g
+            : throw new InvalidOperationException("playbackBar.coverAccent.greyOnDark is missing from the token set.");
         var fitTo = app.TryFindResource(GetFitTo(element) + ".value") is Color anchor
             ? anchor
             : throw new InvalidOperationException($"\"{GetFitTo(element)}\" is not a colour token.");
-        var fitted = CoverColor.Accent(Argb(colour), Argb(fitTo), ThemeService.Current == AppTheme.Dark, range);
+        var fitted = CoverColor.Accent(Argb(colour), Argb(fitTo), ThemeService.Current == AppTheme.Dark, range, greyOnDark);
         var (red, green, blue) = ((byte)(fitted >> 16), (byte)(fitted >> 8), (byte)fitted);
 
         foreach (var key in keys)
@@ -124,7 +131,7 @@ public static class CoverAccent
     /// <summary>
     /// The cover's main colour (<see cref="CoverColor.Main"/>) from the square the
     /// bar, or the album header, shows, scaled to <see cref="CoverColor.SampleSide"/>
-    /// a side; null for no cover or one with no colour. Off the UI thread is fine:
+    /// a side; a grey for a black and white cover, null for no cover. Off the UI thread is fine:
     /// the art service's pictures are frozen.
     /// <para>
     /// The square is the cover's top-left one, not its middle (the phone's): the

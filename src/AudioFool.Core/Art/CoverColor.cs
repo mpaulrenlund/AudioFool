@@ -4,7 +4,9 @@ namespace AudioFool.Core.Art;
 /// The colour a cover is in, and that colour fitted to a theme, for the playback
 /// bar (session 77, the user's request: the phone's Now Playing does it). Ported
 /// from AudioFool-Android's <c>core/.../art/CoverColor.kt</c> with its numbers and
-/// tests, so the two apps give a cover the same colour.
+/// tests, so the two apps give a cover the same colour; brought level with the
+/// phone's 2026-11-11 changes on 2026-11-12 (black pixels left out, chroma squared,
+/// 0.5%, a grey for a black and white cover).
 /// <para>
 /// Worked out in OKLab (Björn Ottosson, 2020), where a colour is a lightness, a
 /// chroma (how far from grey) and a hue, and a hue keeps its name as it is made
@@ -27,18 +29,47 @@ public static class CoverColor
     public const double GreyBelowDark = 0.02;
     private const double GreyPerLightness = 0.1;
 
-    /// <summary>A cover with a smaller share of coloured pixels than this has no colour of its own.</summary>
-    public const double MinShare = 0.02;
+    /// <summary>
+    /// Below this lightness a pixel is black, whatever its tint: a JPEG's black is
+    /// rarely neutral, and a black cover's faint blue or green cast, made as light
+    /// as the playback colour, came out a strong blue or green (the phone's finding,
+    /// 2026-11-11: a black cover with a gold outline was blue). A dark brown is above it.
+    /// </summary>
+    public const double BlackBelow = 0.15;
+
+    /// <summary>
+    /// A cover with a smaller share of coloured pixels than this is black and white:
+    /// a few pixels, not a part of the picture. 2% until 2026-11-12 (the phone's
+    /// 2026-11-11 change, the user's call: "take any predominant color from the
+    /// album"). Of the user's 8,604 covers, 9% are under it; those looked at were all
+    /// black and white.
+    /// </summary>
+    public const double MinShare = 0.005;
+
+    /// <summary>
+    /// A <see cref="Main"/> with less chroma than this is the grey of a black and
+    /// white cover: a colour has at least <see cref="GreyBelowDark"/>.
+    /// </summary>
+    public const double NeutralBelow = 0.01;
 
     /// <summary>Hues are counted in slices of 10 degrees; the winner is the best three neighbours.</summary>
     private const int Slices = 36;
 
     /// <summary>
     /// The cover's main colour: the hue that most of its colour is in, counting each
-    /// pixel by how colourful it is, so a red logo on a black cover is red and a blue
-    /// sky with a small sun is blue. The colour given is the average of the pixels of
-    /// that hue. Null when the cover has no colour to speak of (black and white, or
-    /// under <see cref="MinShare"/> coloured); see-through pixels are not part of the picture.
+    /// pixel by its chroma squared, so a red logo on a black cover is red, a blue sky
+    /// with a small sun is blue, and a grey's faint cast doesn't outweigh the colour
+    /// beside it (by its chroma until 2026-11-12). Black pixels
+    /// (<see cref="BlackBelow"/>) don't count. The colour given is the average of the
+    /// pixels of that hue.
+    /// <para>
+    /// A cover with no colour to speak of (black and white, or under
+    /// <see cref="MinShare"/> coloured) is a grey, at its pixels' average lightness, so
+    /// <see cref="Accent"/> makes it a neutral that reads on the theme (2026-11-12, the
+    /// user's call, as the phone does: until then such a cover kept the theme's teal or
+    /// blue). Null only for a picture with nothing in it; see-through pixels are not
+    /// part of the picture.
+    /// </para>
     /// </summary>
     public static uint? Main(ReadOnlySpan<uint> pixels)
     {
@@ -49,21 +80,26 @@ public static class CoverColor
         weight.Clear(); l.Clear(); a.Clear(); b.Clear();
         var seen = 0;
         var coloured = 0;
+        var lightness = 0.0;
         foreach (var pixel in pixels)
         {
             if (pixel >> 24 < 128) continue;
             seen++;
             var lab = Lab.Of(pixel);
+            lightness += lab.L;
             var chroma = lab.Chroma;
+            if (lab.L < BlackBelow) continue;
             if (chroma < Math.Clamp(GreyPerLightness * lab.L, GreyBelowDark, GreyBelow)) continue;
             coloured++;
             var slice = Math.Clamp((int)(lab.HueDegrees / 360.0 * Slices), 0, Slices - 1);
-            weight[slice] += chroma;
-            l[slice] += chroma * lab.L;
-            a[slice] += chroma * lab.A;
-            b[slice] += chroma * lab.B;
+            var w = chroma * chroma;
+            weight[slice] += w;
+            l[slice] += w * lab.L;
+            a[slice] += w * lab.A;
+            b[slice] += w * lab.B;
         }
-        if (seen == 0 || coloured < seen * MinShare) return null;
+        if (seen == 0) return null;
+        if (coloured < seen * MinShare) return new Lab(lightness / seen, 0, 0).ToArgb();
 
         // A hue that straddles two slices isn't split: each slice is counted with its neighbours.
         static double Around(ReadOnlySpan<double> values, int i) =>
@@ -92,10 +128,17 @@ public static class CoverColor
     /// chroma, so a pastel stays a colour. Where the screen can't show that much
     /// chroma at that lightness, it gets as much as there is. Opaque.
     /// </para>
+    /// <para>
+    /// A grey (<see cref="Main"/> of a black and white cover) on Dark is
+    /// <paramref name="greyOnDark"/> light, when given, whatever the cover's lightness:
+    /// at the band's lightness it read quieter than any colour (the phone, 2026-11-11,
+    /// the user's call: "Brighter on Dark"). On Light it is fitted as any colour is.
+    /// </para>
     /// </summary>
-    public static uint Accent(uint main, uint standsInFor, bool dark, double range)
+    public static uint Accent(uint main, uint standsInFor, bool dark, double range, double? greyOnDark = null)
     {
         var from = Lab.Of(main);
+        if (dark && greyOnDark is { } grey && from.Chroma < NeutralBelow) return new Lab(grey, 0, 0).ToArgb();
         var anchor = Lab.Of(standsInFor).L;
         var lightness = dark ? Math.Clamp(from.L, anchor, anchor + range) : Math.Clamp(from.L, anchor - range, anchor);
         var chroma = lightness > from.L && from.L > 0 ? from.Chroma * lightness / from.L : from.Chroma;

@@ -128,7 +128,7 @@
     "tableCell": { "size": 13, "weight": 400, "color": "text.secondary" },
     "trackNumber": { "size": 12.5, "weight": 400, "color": "text.muted" },
     "nowPlayingTitle": { "size": 17, "weight": 600, "color": "text.primary" },
-    "nowPlayingArtist": { "size": 14, "weight": 600, "color": "accent.blue" },
+    "nowPlayingArtist": { "size": 14, "weight": 600, "color": "accent.playback" },
     "nowPlayingFormat": { "size": 13, "weight": 400, "color": "text.muted" },
     "timeLabel": { "size": 12, "weight": 400, "color": "text.muted" },
     "outputReadout": { "size": 11.5, "weight": 400, "color": "text.muted" },
@@ -273,7 +273,7 @@
     "pressedOffset": 1,
     "iconStrokeOn24Grid": 2.2,
     "volumeIconStrokeOn24Grid": 2,
-    "coverAccent": { "lightnessRange": 0.15 }
+    "coverAccent": { "lightnessRange": 0.15, "greyOnDark": 0.9 }
   },
   "statusBar": {
     "refreshButton": 26,

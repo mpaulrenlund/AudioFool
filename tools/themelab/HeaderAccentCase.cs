@@ -19,8 +19,11 @@ namespace ThemeLab;
 /// cover's. On the sample library's Second Sight, each made-up cover of
 /// <c>--window coveraccent</c> goes in as the header's art would (the picture and its
 /// colour together), and the name is read back against the fitted colour; the title,
-/// year, track count and duration stay the theme's, and so does the bar. The same
-/// cover in the header and the bar gives the same colour, two covers each their own.
+/// year, track count and duration stay the theme's, and so does the bar. Both names
+/// are fitted to the seekbar's accent.playback (since 2026-11-12; accent.blue until
+/// then), so the same cover in the header and the bar gives the same colour, a black
+/// and white one the same grey, no cover the theme's accent.playback on both; two
+/// covers each their own.
 /// A switch to the other theme and back fits again. Renders &lt;out&gt;-&lt;cover&gt;.png.
 /// <para>
 /// --realalbums N: then the real library (read only), N artists spread through it:
@@ -69,7 +72,8 @@ internal static partial class Program
             Save(main, $"{stem}-{name}.png", w, h, scale);
         }
 
-        // The same cover in the header and the bar: the same colour on both names.
+        // The same cover in the header and the bar: the same colour on both names
+        // (both fitted to the seekbar's accent.playback since 2026-11-12).
         var red = CoverAccent.MainColorOf(CoverDeepRed());
         var yellow = CoverAccent.MainColorOf(CoverYellow());
         vm.AlbumHeaderCoverColor = red;
@@ -77,12 +81,20 @@ internal static partial class Program
         Pump();
         Console.WriteLine("the same cover in the header and the bar:");
         allOk &= CheckHeader(main, red, red, Check);
-        var headerBrush = (SolidColorBrush)((TextBlock)main.FindName("HeaderArtist")).Foreground;
-        var barBrush = (SolidColorBrush)((TextBlock)main.FindName("NowPlayingArtist")).Foreground;
-        Check(headerBrush.Color == barBrush.Color, $"header {Hex(headerBrush.Color)}, bar {Hex(barBrush.Color)}: the same");
+        Check(SameColour(main), "the same colour on both names");
+
+        // The same black and white cover: the same grey on both.
+        var grey = CoverAccent.MainColorOf(CoverBlackAndWhite());
+        vm.AlbumHeaderCoverColor = grey;
+        vm.NowPlayingCoverColor = grey;
+        Pump();
+        Console.WriteLine("the same black and white cover in the header and the bar:");
+        allOk &= CheckHeader(main, grey, grey, Check);
+        Check(SameColour(main), "the same grey on both names");
 
         // Two covers: each name its own.
         vm.AlbumHeaderCoverColor = yellow;
+        vm.NowPlayingCoverColor = red;
         Pump();
         Console.WriteLine("yellow in the header, red in the bar:");
         allOk &= CheckHeader(main, yellow, red, Check);
@@ -105,6 +117,7 @@ internal static partial class Program
         Pump();
         Console.WriteLine("colours gone:");
         allOk &= CheckHeader(main, null, null, Check);
+        Check(SameColour(main), "no cover: the same colour on both names, the theme's accent.playback");
 
         if (Arg(Environment.GetCommandLineArgs(), "--realalbums") is { } realCount)
             allOk &= RealHeaders(main, vm, int.Parse(realCount, System.Globalization.CultureInfo.InvariantCulture), stem, w, h, scale, Check);
@@ -126,24 +139,27 @@ internal static partial class Program
         var app = Application.Current;
         var dark = ThemeService.Current == AppTheme.Dark;
         var range = (double)app.FindResource("playbackBar.coverAccent.lightnessRange");
-        var blue = (SolidColorBrush)app.FindResource("color.accent.blue");
+        var greyOnDark = (double)app.FindResource("playbackBar.coverAccent.greyOnDark");
 
-        void Name(string what, TextBlock text, Color? cover)
+        void Name(string what, TextBlock text, Color? cover, string key)
         {
+            var theme = (SolidColorBrush)app.FindResource(key);
             if (cover is not { } c)
             {
-                Check(ReferenceEquals(text.Foreground, blue), $"{what}: the theme's color.accent.blue");
+                Check(ReferenceEquals(text.Foreground, theme), $"{what}: the theme's {key}");
                 return;
             }
-            var expected = FromArgb(CoverColor.Accent(Argb(c), Argb((Color)app.FindResource("color.accent.blue.value")), dark, range));
-            expected.A = blue.Color.A;
+            var expected = FromArgb(CoverColor.Accent(Argb(c), Argb((Color)app.FindResource(key + ".value")), dark, range, greyOnDark));
+            expected.A = theme.Color.A;
             var got = (text.Foreground as SolidColorBrush)?.Color;
-            Check(got == expected, $"{what}: {Hex(got)}, fitted to color.accent.blue {Hex(expected)}");
+            Check(got == expected, $"{what}: {Hex(got)}, fitted to {key} {Hex(expected)}");
         }
 
+        // Both names are the seekbar's colour since 2026-11-12 (the user's calls: the
+        // bar's as the phone, then the header's to match the bar's).
         var artist = (TextBlock)main.FindName("HeaderArtist");
-        Name("header artist", artist, header);
-        Name("bar artist", (TextBlock)main.FindName("NowPlayingArtist"), bar);
+        Name("header artist", artist, header, "color.accent.playback");
+        Name("bar artist", (TextBlock)main.FindName("NowPlayingArtist"), bar, "color.accent.playback");
 
         // Untouched: the title, and the year, track count and duration under the name.
         var details = (Panel)artist.Parent;
@@ -156,6 +172,15 @@ internal static partial class Program
         if (header is not null)
             Console.WriteLine($"    contrast: header artist {Contrast(((SolidColorBrush)artist.Foreground).Color, (Color)app.FindResource("color.panel.bg.value")):0.0}:1 on panel.bg");
         return ok;
+    }
+
+    /// <summary>The header's and the bar's artist names drawn in the same colour.</summary>
+    private static bool SameColour(MainWindow main)
+    {
+        var header = ((TextBlock)main.FindName("HeaderArtist")).Foreground as SolidColorBrush;
+        var bar = ((TextBlock)main.FindName("NowPlayingArtist")).Foreground as SolidColorBrush;
+        Console.WriteLine($"    header {Hex(header?.Color)}, bar {Hex(bar?.Color)}");
+        return header is not null && bar is not null && header.Color == bar.Color;
     }
 
     /// <summary>
@@ -175,8 +200,9 @@ internal static partial class Program
         var app = Application.Current;
         var dark = ThemeService.Current == AppTheme.Dark;
         var range = (double)app.FindResource("playbackBar.coverAccent.lightnessRange");
-        var anchor = Argb((Color)app.FindResource("color.accent.blue.value"));
-        uint? Fit(Color? c) => c is { } v ? CoverColor.Accent(Argb(v), anchor, dark, range) : null;
+        var greyOnDark = (double)app.FindResource("playbackBar.coverAccent.greyOnDark");
+        var anchor = Argb((Color)app.FindResource("color.accent.playback.value"));
+        uint? Fit(Color? c) => c is { } v ? CoverColor.Accent(Argb(v), anchor, dark, range, greyOnDark) : null;
 
         T Wait<T>(Task<T> task)
         {
@@ -213,7 +239,7 @@ internal static partial class Program
             var (headerFit, barFit) = (Fit(vm.AlbumHeaderCoverColor), Fit(barColour));
 
             if (vm.SelectedAlbumArt is null) missing++;
-            else if (vm.AlbumHeaderCoverColor is null) grey++;
+            else if (vm.AlbumHeaderCoverColor is not { } found || CoverColor.Chroma(Argb(found)) < CoverColor.NeutralBelow) grey++;
             else coloured++;
 
             // The name on screen is the app's brush: it must be the header colour, fitted.
