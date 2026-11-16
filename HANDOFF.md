@@ -54,7 +54,7 @@ commit. More (vendored DLLs, `eol=lf`, ignores): `docs/build-and-release.md`.
 
 - **1,188 tests** pass. **Last release: v0.11.0** (2026-11-10, session 77, tag on
   `2c1fcdf`). **Unreleased:** session 78's cover colours (`b5238c3`) and session 79's
-  equalizer (`87f7574`), built, installed and committed, not pushed. A new feature, so
+  equalizer (`87f7574`), built, installed, committed and pushed. A new feature, so
   the next release is 0.12.0; version and notes confirmed with the user first.
 - **Flaky tests:** the "allocates nothing" tests (`VisualizerFeedTests.A_frame_allocates_nothing`,
   `SampleTapTests.Copying_a_block_allocates_nothing`, before them `LiveSpectrumTests`)
@@ -84,7 +84,7 @@ commit. More (vendored DLLs, `eol=lf`, ignores): `docs/build-and-release.md`.
 
 **Waiting on the user:** how the equalizer went (step 2); how the Genius window went
 (step 1); whether the close X has ignored a click since the safety net (step 3); whether
-to chase the flaky "allocates nothing" tests; pushing `b5238c3` and `87f7574`.
+to chase the flaky "allocates nothing" tests.
 
 **Known open bugs:** the close X that sometimes ignores clicks (step 3; a safety net
 covers it); the small items under step 5.
