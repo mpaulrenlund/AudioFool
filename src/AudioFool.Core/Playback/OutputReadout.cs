@@ -4,6 +4,7 @@ namespace AudioFool.Core.Playback;
 /// The output readout under the volume slider (spec 6.7):
 /// "Shared · 96 kHz / 32-bit (resampled)" or "Exclusive · 44.1 kHz". Exclusive
 /// mode is what the Bit-Perfect chip turns on, so the readout doesn't repeat it.
+/// "· EQ" at the end says the equalizer is changing the samples (session 79).
 /// </summary>
 public static class OutputReadout
 {
@@ -12,7 +13,9 @@ public static class OutputReadout
     /// <param name="deviceBitDepth">The bit depth WASAPI opened, or 0 when unknown.</param>
     /// <param name="sourceRate">The playing track's decoded rate, or 0 when unknown.</param>
     /// <param name="isDop">Whether the track is passed through as DSD over PCM.</param>
-    public static string Describe(OutputMode mode, int deviceRate, int deviceBitDepth, int sourceRate, bool isDop)
+    /// <param name="equalizer">Whether the equalizer runs on what's playing (never on DoP).</param>
+    public static string Describe(OutputMode mode, int deviceRate, int deviceBitDepth, int sourceRate, bool isDop,
+                                  bool equalizer = false)
     {
         var rate = Rate(deviceRate);
 
@@ -22,12 +25,12 @@ public static class OutputReadout
             // which it is rather than leaving it ambiguous.
             return isDop
                 ? $"Exclusive · {rate} · DSD over PCM"
-                : $"Exclusive · {rate}";
+                : $"Exclusive · {rate}{(equalizer ? " · EQ" : "")}";
         }
 
         var depth = deviceBitDepth > 0 ? $" / {deviceBitDepth}-bit" : "";
         var resampled = sourceRate > 0 && sourceRate != deviceRate ? " (resampled)" : "";
-        return $"Shared · {rate}{depth}{resampled}";
+        return $"Shared · {rate}{depth}{resampled}{(equalizer ? " · EQ" : "")}";
     }
 
     /// <summary>"44.1 kHz", "96 kHz".</summary>

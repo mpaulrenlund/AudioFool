@@ -70,6 +70,7 @@ public partial class MainWindow : FluentWindow
         PreviewMouseDown += SaveEditOnClickOutside;
         HookReorder();
         HookShortcuts();
+        HookEqualizerChip();
         HookSearchFocus();
         HookClickWithoutScroll();
         HookStatusLineHover();

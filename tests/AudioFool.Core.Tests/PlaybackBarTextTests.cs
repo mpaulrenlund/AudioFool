@@ -116,6 +116,17 @@ public class PlaybackBarTextTests
             OutputReadout.Describe(OutputMode.Exclusive, 176400, 24, 176400, true));
     }
 
+    [Fact]
+    public void The_equalizer_shows_at_the_end_of_the_readout()
+    {
+        Assert.Equal("Exclusive · 44.1 kHz · EQ",
+            OutputReadout.Describe(OutputMode.Exclusive, 44100, 24, 44100, false, equalizer: true));
+        Assert.Equal("Shared · 96 kHz / 32-bit (resampled) · EQ",
+            OutputReadout.Describe(OutputMode.Shared, 96000, 32, 44100, false, equalizer: true));
+        Assert.Equal("Exclusive · 176.4 kHz · DSD over PCM",
+            OutputReadout.Describe(OutputMode.Exclusive, 176400, 24, 176400, true, equalizer: true));
+    }
+
     // -------------------------------------------------------------------- mute
 
     [Fact]

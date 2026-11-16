@@ -1472,6 +1472,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <!-- Refresh, then the library dot and totals. -->
@@ -1632,9 +1633,43 @@
                 </Viewbox>
             </Button>
 
+            <!--
+                EQ (session 79, the user's design): Bit-Perfect's chip, the dot lit
+                while a preset is in use (no On/Off text; the accessible name says
+                which). A click opens the preset menu above it (OpenEqualizerMenu in
+                MainWindow.Equalizer.cs): Off, Peace's presets, AudioFool's own
+                folder's, a check on the one in use, and Open EQ Folder. No tooltip.
+            -->
+            <Button x:Name="EqualizerChip" Grid.Column="4"
+                    Style="{StaticResource theme.chip}"
+                    Margin="{theme:Thickness Left=statusBar.chipGap}"
+                    Click="OnEqualizerChipClick"
+                    AutomationProperties.Name="{Binding EqualizerAutomationName}">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse x:Name="EqualizerDot"
+                             Margin="{theme:Thickness Right=statusBar.chipDotGap}"
+                             Stroke="{DynamicResource color.status.dotRing}"
+                             StrokeThickness="{theme:Token layout.panelBorder}">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse" BasedOn="{StaticResource theme.statusDot}">
+                                <Setter Property="Fill" Value="{DynamicResource color.status.eqOff}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsEqualizerOn}" Value="True">
+                                        <Setter Property="Fill" Value="{DynamicResource color.status.eqOn}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Text="EQ"
+                               Style="{DynamicResource type.status}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+
             <!-- Bit-Perfect: the dot alone shows the state (no On/Off text);
                  as a toggle button, screen readers still announce it. -->
-            <ToggleButton x:Name="BitPerfectToggle" Grid.Column="4"
+            <ToggleButton x:Name="BitPerfectToggle" Grid.Column="5"
                           Style="{StaticResource theme.chip}"
                           Margin="{theme:Thickness Left=statusBar.chipGap}"
                           IsChecked="{Binding IsExclusiveOutput, Mode=TwoWay}"

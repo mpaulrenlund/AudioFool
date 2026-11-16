@@ -698,6 +698,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                          "some formats won't play. See Help for the list.";
         }
 
+        RestoreEqualizer();
+
         // The device is only interrogated inside Initialise, which runs after the
         // window has already bound. Without these the bit-perfect toggle stays
         // disabled for the whole session even on a device that supports it.

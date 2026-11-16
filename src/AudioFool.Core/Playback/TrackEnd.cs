@@ -38,15 +38,25 @@ public static class TrackEnd
     /// <param name="nextIsDop">The next track was opened as DSD over PCM, which only exclusive output keeps intact.</param>
     /// <param name="nextMidSave">The next track's file is being saved (its stream let go for it).</param>
     /// <param name="hasNext">The play order has a track after this one.</param>
+    /// <param name="currentIsDop">The playing track is DSD over PCM.</param>
+    /// <param name="equalizerOn">
+    /// The equalizer is running (session 79). It leaves DoP alone a whole block at a
+    /// time, so on an exclusive output DoP and PCM at the same rate don't join while
+    /// it's on: the block they'd share would leave the PCM unequalized, or run the
+    /// equalizer over the DoP.
+    /// </param>
     public static TrackEndAction Decide(bool repeatOne, bool hasOutput, bool nextOpened, bool sharedOutput,
-                                        bool nextAtOutputRate, bool nextIsDop, bool nextMidSave, bool hasNext)
+                                        bool nextAtOutputRate, bool nextIsDop, bool nextMidSave, bool hasNext,
+                                        bool currentIsDop = false, bool equalizerOn = false)
     {
         if (repeatOne && hasOutput)
             return TrackEndAction.RepeatOne;
 
         if (nextOpened)
         {
-            var joins = hasOutput && (sharedOutput ? !nextIsDop : nextAtOutputRate);
+            var joins = hasOutput && (sharedOutput
+                ? !nextIsDop
+                : nextAtOutputRate && !(equalizerOn && currentIsDop != nextIsDop));
             return joins ? TrackEndAction.Splice : TrackEndAction.Reopen;
         }
 

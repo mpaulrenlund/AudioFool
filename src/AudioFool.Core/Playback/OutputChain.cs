@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using AudioFool.Core.Equalizer;
 using ManagedBass;
 using ManagedBass.Mix;
 using ManagedBass.Wasapi;
@@ -63,6 +65,24 @@ internal sealed class OutputChain : IDisposable
     private float _appliedGain = float.NaN;
     private float[] _gainScratch = [];
 
+    // The equalizer (session 79). The engine hands over a design for MixerRate
+    // (null for none), and says whether the playing stream is DoP, which the EQ
+    // must never touch. Fill reads both once, before it pulls, so a block is
+    // either equalized or not as a whole. The rest is the device thread's own:
+    // the design last run, two processors (the one in use and one to crossfade
+    // into), and the chunk the samples are copied into to run them.
+    private const double EqFadeSeconds = 0.01;
+    private const int EqChunkFrames = 2048;
+    private EqDesign? _eqDesign;
+    private volatile bool _eqSuspended;
+    private volatile bool _eqResetNext;
+    private EqDesign? _eqApplied;
+    private EqProcessor _eqActive;
+    private EqProcessor _eqSpare;
+    private readonly int _eqFadeFrames;
+    private readonly float[] _eqOld;
+    private readonly float[] _eqNew;
+
     private int _mixer;
     private bool _disposed;
 
@@ -74,6 +94,12 @@ internal sealed class OutputChain : IDisposable
         MixerRate = sampleRate;
         _fadeFrames = Math.Max(1, (int)(sampleRate * SeekFadeSeconds));
         _fadeScratch = new float[_fadeFrames * channels];
+        _eqActive = new EqProcessor(channels);
+        _eqSpare = new EqProcessor(channels);
+        _eqFadeFrames = Math.Max(1, (int)(sampleRate * EqFadeSeconds));
+        var eqChunk = Math.Max(EqChunkFrames, _eqFadeFrames) * channels;
+        _eqOld = new float[eqChunk];
+        _eqNew = new float[eqChunk];
         SampleRate = sampleRate;
         Channels = channels;
         Mode = mode;
@@ -138,6 +164,12 @@ internal sealed class OutputChain : IDisposable
     private int Fill(IntPtr buffer, int length, IntPtr user)
     {
         BeforePull?.Invoke();
+
+        // Decided before the pull: the END sync may switch tracks inside it, and
+        // a block that began on DoP must stay untouched to its end.
+        var eqSuspended = _eqSuspended;
+        var eqTarget = eqSuspended ? null : Volatile.Read(ref _eqDesign);
+
         var timing = PlaybackDiagnostics.FillBegin();
         var got = Bass.ChannelGetData(_mixer, buffer, length);
         PlaybackDiagnostics.FillEnd(timing);
@@ -162,6 +194,7 @@ internal sealed class OutputChain : IDisposable
             _fadeInNext = seek.Fade;
         }
 
+        ApplyEqualizer(buffer, frames, eqTarget, eqSuspended);
         AfterPull?.Invoke(buffer, frames, seek is not null);
         ApplyGain(buffer, frames);
 
@@ -208,6 +241,128 @@ internal sealed class OutputChain : IDisposable
                 _gainScratch[f * _mixerChannels + c] *= gain;
         }
         Marshal.Copy(_gainScratch, 0, buffer, samples);
+    }
+
+    /// <summary>
+    /// Runs the equalizer over the block, in place. With none asked for and none
+    /// running, the samples are not touched at all (Bit-Perfect stays bit-perfect).
+    /// A change (on, off, another preset) crossfades from the old output to the
+    /// new over <see cref="EqFadeSeconds"/>, as the volume glides, so it doesn't
+    /// click; the new filters start from silence. A DoP block is never touched.
+    /// </summary>
+    private void ApplyEqualizer(IntPtr buffer, int frames, EqDesign? target, bool suspended)
+    {
+        if (_eqResetNext)
+        {
+            // The device was flushed: what comes next doesn't follow on from what
+            // the filters last heard.
+            _eqResetNext = false;
+            _eqActive.Reset();
+            _eqSpare.Reset();
+        }
+
+        if (suspended)
+        {
+            if (_eqApplied is not null)
+            {
+                _eqActive.Reset();
+                _eqApplied = null;
+            }
+            return;
+        }
+
+        if (target is null && _eqApplied is null)
+            return;
+
+        var started = Stopwatch.GetTimestamp();
+        int clipped;
+        if (ReferenceEquals(target, _eqApplied))
+        {
+            clipped = Run(_eqActive, target!, buffer, 0, frames);
+        }
+        else
+        {
+            clipped = Crossfade(buffer, frames, _eqApplied, target);
+            (_eqActive, _eqSpare) = (_eqSpare, _eqActive);
+            _eqApplied = target;
+        }
+
+        PlaybackDiagnostics.EqualizerBlock(clipped, Stopwatch.GetTimestamp() - started);
+    }
+
+    /// <summary>
+    /// The first <see cref="_eqFadeFrames"/> of the block from <paramref name="from"/>'s
+    /// output to <paramref name="to"/>'s (null being the samples as they are), then
+    /// the rest through <paramref name="to"/> alone, on the spare processor.
+    /// </summary>
+    private int Crossfade(IntPtr buffer, int frames, EqDesign? from, EqDesign? to)
+    {
+        var fade = Math.Min(_eqFadeFrames, frames);
+        var samples = fade * _mixerChannels;
+        Marshal.Copy(buffer, _eqOld, 0, samples);
+        Array.Copy(_eqOld, _eqNew, samples);
+
+        _eqSpare.Reset();
+        if (from is not null)
+            _eqActive.Process(from, _eqOld.AsSpan(0, samples));
+        var clipped = to is not null ? _eqSpare.Process(to, _eqNew.AsSpan(0, samples)) : 0;
+
+        for (var f = 0; f < fade; f++)
+        {
+            var t = (f + 1.0) / fade;
+            var g = 0.5 - 0.5 * Math.Cos(Math.PI * t);
+            for (var c = 0; c < _mixerChannels; c++)
+            {
+                var i = f * _mixerChannels + c;
+                _eqNew[i] = (float)(_eqOld[i] * (1 - g) + _eqNew[i] * g);
+            }
+        }
+        Marshal.Copy(_eqNew, 0, buffer, samples);
+
+        if (to is not null && frames > fade)
+            clipped += Run(_eqSpare, to, buffer, fade, frames - fade);
+        return clipped;
+    }
+
+    /// <summary>Runs <paramref name="design"/> over <paramref name="count"/> frames from <paramref name="firstFrame"/>, a chunk at a time.</summary>
+    private int Run(EqProcessor processor, EqDesign design, IntPtr buffer, int firstFrame, int count)
+    {
+        var clipped = 0;
+        var chunkFrames = _eqOld.Length / _mixerChannels;
+        for (var done = 0; done < count; done += chunkFrames)
+        {
+            var n = Math.Min(chunkFrames, count - done);
+            var at = buffer + (firstFrame + done) * _mixerChannels * sizeof(float);
+            var samples = n * _mixerChannels;
+            Marshal.Copy(at, _eqOld, 0, samples);
+            clipped += processor.Process(design, _eqOld.AsSpan(0, samples));
+            Marshal.Copy(_eqOld, 0, at, samples);
+        }
+        return clipped;
+    }
+
+    /// <summary>
+    /// The equalizer to run from the next block on, worked out for
+    /// <see cref="MixerRate"/>; null (or a design that changes nothing) for none.
+    /// </summary>
+    public void SetEqualizer(EqDesign? design)
+    {
+        if (design is not null && design.SampleRate != MixerRate)
+            throw new ArgumentException($"An equalizer for {design.SampleRate} Hz on a {MixerRate} Hz chain.", nameof(design));
+        Volatile.Write(ref _eqDesign, design is { IsIdentity: false } ? design : null);
+    }
+
+    /// <summary>The equalizer asked for, or null.</summary>
+    public EqDesign? Equalizer => Volatile.Read(ref _eqDesign);
+
+    /// <summary>
+    /// Set while the playing stream is DoP: the equalizer leaves the blocks that
+    /// start on it alone, whatever is asked for.
+    /// </summary>
+    public bool EqualizerSuspended
+    {
+        get => _eqSuspended;
+        set => _eqSuspended = value;
     }
 
     /// <summary>A raised-cosine gain over <paramref name="count"/> frames from <paramref name="firstFrame"/>.</summary>
@@ -338,7 +493,11 @@ internal sealed class OutputChain : IDisposable
     }
 
     /// <summary>Stops the device and discards what's buffered.</summary>
-    public void Stop() => BassWasapi.Stop(true);
+    public void Stop()
+    {
+        BassWasapi.Stop(true);
+        _eqResetNext = true;
+    }
 
     /// <summary>
     /// Applied by <see cref="Fill"/>. BASS's volume attribute is no use here: it

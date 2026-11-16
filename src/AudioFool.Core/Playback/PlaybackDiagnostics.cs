@@ -82,6 +82,22 @@ public static class PlaybackDiagnostics
         public double GcMs;
         public int SlowFills;
         public int LowBuffers;
+        public int EqBlocks;
+        public long EqClipped;
+        public double EqMaxMs;
+    }
+
+    /// <summary>
+    /// The equalizer ran over a block (device thread, from Fill): how many samples
+    /// it pushed past full scale, which the device's conversion clips, and how long
+    /// it took. Only counted here; the minute's line reports them.
+    /// </summary>
+    internal static void EqualizerBlock(int clipped, long elapsedTicks)
+    {
+        var stats = Volatile.Read(ref _stats);
+        stats.EqBlocks++;
+        stats.EqClipped += clipped;
+        stats.EqMaxMs = Math.Max(stats.EqMaxMs, Ms(elapsedTicks));
     }
 
     public readonly struct FillToken
@@ -295,7 +311,10 @@ public static class PlaybackDiagnostics
                     Write($"minute: {done.Fills} fills, gap avg {done.GapSum / done.Fills:0.0} / max {done.GapMax:0.0} ms, " +
                           $"fill max {done.FillMax:0.0} ms, queued min " +
                           $"{(done.BufferMin == double.MaxValue ? "?" : done.BufferMin.ToString("0"))} ms, " +
-                          $"GC paused {done.GcMs:0} ms, {done.SlowFills} slow, {done.LowBuffers} low");
+                          $"GC paused {done.GcMs:0} ms, {done.SlowFills} slow, {done.LowBuffers} low" +
+                          (done.EqBlocks > 0
+                              ? $", eq max {done.EqMaxMs:0.00} ms a block, {done.EqClipped} samples clipped"
+                              : ""));
                 }
             }
 

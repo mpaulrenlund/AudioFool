@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using ManagedBass;
 using ManagedBass.Dsd;
 using ManagedBass.Mix;
+using AudioFool.Core.Equalizer;
 using AudioFool.Core.Library;
 using AudioFool.Core.Models;
 
@@ -47,6 +48,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     private bool _shuffle;
     private RepeatMode _repeat = RepeatMode.Off;
     private OutputChain? _output;
+    private EqPreset? _eqPreset;
     private OutputMode _requestedMode = OutputMode.Shared;
     private int _currentStream;
     private int _prefetchedStream;
@@ -558,6 +560,49 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         }
     }
 
+    /// <summary>
+    /// The equalizer preset to play through, or null for none (session 79). Kept
+    /// across new device connections, rate changes and device switches: each
+    /// connection gets it worked out for its own rate. Applied from the next block,
+    /// crossfaded so it doesn't click. A preset that isn't
+    /// <see cref="EqPreset.IsSupported"/> is refused. DoP is never equalized.
+    /// </summary>
+    public EqPreset? Equalizer
+    {
+        get { lock (_gate) return _eqPreset; }
+        set
+        {
+            if (value is { IsSupported: false })
+                throw new ArgumentException($"Preset '{value.Name}' uses things AudioFool doesn't run.", nameof(value));
+
+            lock (_gate)
+            {
+                if (ReferenceEquals(_eqPreset, value))
+                    return;
+                _eqPreset = value;
+                if (value is null)
+                    PlaybackDiagnostics.Note("eq: off");
+                _output?.SetEqualizer(EqualizerFor(_output));
+            }
+        }
+    }
+
+    /// <summary>The preset worked out for <paramref name="chain"/>'s rate, logged; null for none. Caller holds <see cref="_gate"/>.</summary>
+    private EqDesign? EqualizerFor(OutputChain chain)
+    {
+        if (_eqPreset is null)
+            return null;
+
+        var design = EqDesign.For(_eqPreset, chain.MixerRate);
+        var skipped = design.SkippedBands > 0
+            ? $", {design.SkippedBands} left out at or above {OutputReadout.Rate(chain.MixerRate / 2)}"
+            : "";
+        PlaybackDiagnostics.Note(
+            $"eq: {_eqPreset.Name} at {OutputReadout.Rate(chain.MixerRate)}, {design.FilterCount} filters, " +
+            $"preamp {design.PreampDb:0.0} dB{skipped}{(design.IsIdentity ? " (changes nothing)" : "")}");
+        return design;
+    }
+
     /// <summary>What the output is actually doing right now, for the status bar.</summary>
     public string OutputDescription
     {
@@ -568,9 +613,10 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 if (_output is null)
                     return "not started";
 
+                var dop = _isDopHandle.ContainsKey(_currentStream);
                 return OutputReadout.Describe(
                     _output.Mode, _output.SampleRate, _output.DeviceBitDepth,
-                    RateOf(_currentStream), _isDopHandle.ContainsKey(_currentStream));
+                    RateOf(_currentStream), dop, equalizer: _output.Equalizer is not null && !dop);
             }
         }
     }
@@ -1096,7 +1142,9 @@ public sealed class AudioEngine : IFileHolder, IDisposable
                 nextAtOutputRate: _output is not null && RateOf(_prefetchedStream) == _output.MixerRate,
                 nextIsDop: _isDopHandle.ContainsKey(_prefetchedStream),
                 nextMidSave: _releasedNextIndex >= 0,
-                hasNext: nextIndex >= 0);
+                hasNext: nextIndex >= 0,
+                currentIsDop: _isDopHandle.ContainsKey(_currentStream),
+                equalizerOn: _output?.Equalizer is not null);
 
             if (action == TrackEndAction.RepeatOne)
             {
@@ -1476,6 +1524,7 @@ public sealed class AudioEngine : IFileHolder, IDisposable
         }
 
         _output.SetVolume(_volume);
+        _output.SetEqualizer(EqualizerFor(_output));
         _output.BeforePull = _notePullStart;
         _output.AfterPull = _notePullEnd;
 
@@ -1525,6 +1574,12 @@ public sealed class AudioEngine : IFileHolder, IDisposable
     private void SetCurrentStream(int stream)
     {
         _currentStream = stream;
+
+        // Before the stream reaches the mixer (every caller adds it after this),
+        // so no block of DoP is ever equalized.
+        if (_output is not null)
+            _output.EqualizerSuspended = stream != 0 && _isDopHandle.ContainsKey(stream);
+
         Volatile.Write(ref _playing, stream != 0 && _index >= 0 && _index < _queue.Count
             ? new PlayingStream(stream, _queue[_index])
             : null);

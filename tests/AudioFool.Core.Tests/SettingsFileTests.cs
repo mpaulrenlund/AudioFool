@@ -53,6 +53,21 @@ public sealed class SettingsFileTests : IDisposable
         Assert.Equal(0.25, AppSettings.Load(_path, Now).Volume);
     }
 
+    [Fact]
+    public void The_equalizer_choice_is_remembered()
+    {
+        var settings = AppSettings.Load(_path, Now);
+        Assert.Null(settings.EqualizerPreset);
+
+        settings.EqualizerPreset = "IER-M9 ChatGPT";
+        settings.EqualizerFolder = AppSettings.EqualizerInPeace;
+        settings.Save();
+
+        var loaded = AppSettings.Load(_path, Now);
+        Assert.Equal("IER-M9 ChatGPT", loaded.EqualizerPreset);
+        Assert.Equal(AppSettings.EqualizerInPeace, loaded.EqualizerFolder);
+    }
+
     [Theory]
     [InlineData("{ \"MusicFolders\": [\"D:\\\\Mu")]   // cut off mid-write
     [InlineData("")]

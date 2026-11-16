@@ -303,6 +303,9 @@ internal static partial class Program
         if (which == "statusclick")
             return RunStatusClick(main, vm, outPath, w, h, scale);
 
+        if (which == "equalizer")
+            return RunEqualizer(main, vm, outPath, w, h, scale, Arg(args, "--eqpreset") ?? "IER-M9 ChatGPT");
+
         if (which == "playfailure")
             return RunPlayFailure(vm, engine);
 

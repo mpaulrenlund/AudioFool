@@ -54,6 +54,24 @@ public sealed class AppSettings
     public bool Shuffle { get; set; }
 
     /// <summary>
+    /// The equalizer preset in use, by name (its file name without the extension);
+    /// null for off. Remembered across launches, unlike Bit-Perfect: an equalizer
+    /// doesn't silence other apps (session 79, the user's call). A preset whose
+    /// file has gone leaves the equalizer off.
+    /// </summary>
+    public string? EqualizerPreset { get; set; }
+
+    /// <summary>Where <see cref="EqualizerPreset"/> is: <see cref="EqualizerInPeace"/> or <see cref="EqualizerInOwnFolder"/>.</summary>
+    public string? EqualizerFolder { get; set; }
+
+    public const string EqualizerInPeace = "Peace";
+    public const string EqualizerInOwnFolder = "AudioFool";
+
+    /// <summary>AudioFool's own folder for presets dropped in by hand (Peace's and Equalizer APO / AutoEq text).</summary>
+    [JsonIgnore]
+    public static string EqualizerDirectory => Path.Combine(SettingsDirectory, "eq");
+
+    /// <summary>
     /// What happens at the end of the queue. Stored by name, like the other enums
     /// here, so the file stays readable.
     /// </summary>

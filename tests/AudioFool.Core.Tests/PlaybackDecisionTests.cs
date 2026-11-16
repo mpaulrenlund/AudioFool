@@ -45,6 +45,22 @@ public class PlaybackDecisionTests
     }
 
     [Fact]
+    public void With_the_equalizer_on_DoP_and_PCM_dont_join()
+    {
+        TrackEndAction EndEq(bool current, bool next, bool eq) =>
+            TrackEnd.Decide(repeatOne: false, hasOutput: true, nextOpened: true, sharedOutput: false,
+                nextAtOutputRate: true, nextIsDop: next, nextMidSave: false, hasNext: true,
+                currentIsDop: current, equalizerOn: eq);
+
+        Assert.Equal(TrackEndAction.Reopen, EndEq(current: false, next: true, eq: true));
+        Assert.Equal(TrackEndAction.Reopen, EndEq(current: true, next: false, eq: true));
+        Assert.Equal(TrackEndAction.Splice, EndEq(current: true, next: true, eq: true));
+        Assert.Equal(TrackEndAction.Splice, EndEq(current: false, next: false, eq: true));
+        Assert.Equal(TrackEndAction.Splice, EndEq(current: false, next: true, eq: false));
+        Assert.Equal(TrackEndAction.Splice, EndEq(current: true, next: false, eq: false));
+    }
+
+    [Fact]
     public void A_next_track_that_wasnt_opened_is_opened_now_not_the_end_of_the_queue()
     {
         Assert.Equal(TrackEndAction.OpenNext, End(nextOpened: false));

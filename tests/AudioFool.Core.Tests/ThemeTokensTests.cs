@@ -147,8 +147,9 @@ public class ThemeTokensTests
         // window.titleGlow and control.playRing (PS2 Dark's effects), plus
         // status.chipHover (session 61), plus the About intro's two backdrops and
         // two version-line colours (session 64; the same in both). The visualizer's
-        // three (session 58) went with it in session 65.
-        Assert.Equal(67, t.Colors.Count);
+        // three (session 58) went with it in session 65. The EQ chip's dot, off
+        // and on (session 79).
+        Assert.Equal(69, t.Colors.Count);
         // 19, plus statValue (dialogs, Statistics).
         Assert.Equal(20, t.TextStyles.Count);
         // 8, plus playGlow (PS2 Dark).

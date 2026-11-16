@@ -72,6 +72,8 @@
       "scanFill": "#8C93A0",
       "bitPerfectOff": "#FF5A5F",
       "bitPerfectOn": "#3DDC84",
+      "eqOff": "#FF5A5F",
+      "eqOn": "#3DDC84",
       "dotRing": "rgba(0,0,0,0.5)"
     },
     "art": {
