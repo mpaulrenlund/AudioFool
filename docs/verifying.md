@@ -170,6 +170,8 @@ ThemeLab.exe --window coveraccent --w 1720 --h 1080 [--theme dark]   # the playb
 ThemeLab.exe --window equalizer [--theme dark] [--eqpreset "IER-M9 ChatGPT"]   # the status bar's EQ chip against Bit-Perfect's (size, gaps, face, dot, label) off and on, its accessible name, the preset menu built by the window's own code (order, the tick, colours, corners, fit; its popup never opened), a live switch each way; reads Peace's presets, saves nothing; "ALL OK" (session 79)
 ThemeLab.exe --window headeraccent --w 1720 --h 1080 [--theme dark] [--realalbums 60] [--realalbum "Shirobon/PSY2K"]   # the album header's artist name in its own cover's colour: the same made-up covers on the sample header, the other lines and the bar untouched, same cover = same colour as the bar, a switch and back; --realalbums: real albums (read only) selected as a click would, header colour vs the bar's for the first song; --realalbum renders one, <out>-real.png; "ALL OK" (session 77)
 ThemeLab.exe --window eqpanel --w 1720 --h 1080 [--theme dark] [--dpi 1.25] [--switch dark --compareto <fresh>-full.png] [--eqfile <.peace>]   # the album header's EQ panel with the test fixture IER-M9 ChatGPT.peace put in use by reflection (nothing saved, Peace never started): hidden with the EQ off; full mode's width, 13 columns and dots, name, preamp, fit beside the title and inside the art; the scale labels on the graph's lines; the curve in accent.playback or the playing cover's colour as the seekbar's, a switch and back; the window widths where compact starts (hidden only with the header forced: the songs column's minimum keeps it out of reach); a playlist header; Peace's hand pointer; an edit saved to a scratch copy taken up, a flat one not; the accessible name; no clipping; magenta count with --bg; renders <out>-off/-full/-cover/-compact/-hidden/-playlist/-edited.png; "ALL OK" (session 80)
+ThemeLab.exe --window shuffle --w 1720 --h 1080 [--theme dark] [--dpi 1.25]   # the Artists and Albums headers' shuffle buttons: 24 px targets centred in the 28 px headers, 9 px in from the right (the 14 px padding less `panelShuffle.edgeOverhang`, 2026-11-17), Playlists `panelShuffle.gap` (0) left of Shuffle library, a `panelShuffle.iconSize` icon centred to half a pixel and drawn within 2 px (scaled) of the Playlists icon's ink; ink in text.muted, text.primary on a real hover (mouse device set by reflection, pointer never moved); names; playlist mode; then the view model on a made-up library whose files don't exist (every Play fails at File.Exists, nothing reaches the device): the start songs over many presses cover exactly the ticked songs / the selected artists' songs, Shuffle on, selection and scroll kept, nothing on an empty library or no artist; settings to a scratch file beside --out; renders <out>-rest/-hover-library/-hover-artist/-playlists.png; "ALL OK" (session 80)
+ThemeLab.exe --window update [--theme dark] [--dpi 1.25]   # the About row's Refresh (update check, 2026-11-20): renders the logo menu drop-down unopened (<out>-menu.png) and the two dialogs with the app's own words (<out>-available.png, <out>-none.png); checks the button is inside the About row at its right, popup.menuIconButtonGap after the text, centred on it, popup.menuIconButton square, glyph text.muted, bound and named, not focusable, About's command unchanged, the no-update dialog one button; one real GitHub request (prints the latest tag and whether it is newer); --after-update arguments taken out and the wait for the old copy; "ALL OK". Not covered: the hover colour, a real mouse click on the button, and a real download and swap (needs a newer release)
 ThemeLab.exe --window eqdouble --w 1720 --h 1080 [--theme dark] [--eqpreset "IER-M9 ChatGPT"]   # the EQ chip's double-click through the real window and view model: chip press then a press on the (never opened) menu over the chip, positions set on the mouse device by reflection: off and back on (menu closed, dot, header panel, settings), too late / off the chip / never used do nothing, a missing preset says so, Off from the menu keeps the last across a reload, a single click's menu as before, status bar pixels after a toggle = the state set directly; settings to a scratch file beside --out, Peace read only; can't show a real popup's mouse capture; "ALL OK" (session 80)
 ThemeLab.exe --window statusclick --w 1300 --h 700 [--theme dark]   # the status line and dot: a single click's gesture opens Statistics (not run: it is modal), hand pointer, underline on hover; renders <out>-plain/-hover.png; "ALL OK" (session 68)
 ThemeLab.exe --window dialogplacement   # a hidden main window on each monitor, maximised and normal, and a hidden dialog placed by DialogPlacement: centred on its monitor, kept on it; never shown (session 71)
@@ -182,7 +184,7 @@ ThemeLab.exe --window genius --w 760 [--theme dark] [--dpi 1.25]   # the Genius 
 ThemeLab.exe --window headerpress           # a press on a letter of each Songs header (a LetterSpacing Run), then the header's click: no exception, each sorts; "ALL OK" (session 68)
 ThemeLab.exe --window drives                # drives plugged in and pulled out while running, on subst letters (Q:-Y:): an unrelated drive, the music drive pulled, back under another letter (lists, queue, now playing, Next), back under the same letter, F5 alone; silent; "ALL OK" (session 68)
 ThemeLab.exe --window tokens --out tokens.png   # the central theme: lookups from MainWindow, XAML usage, fonts, specimen
-ThemeLab.exe --dpi 1.25 --w 1720 --h 1080   # laid out and drawn as on a 125% monitor (all monitors here are 100%); with --window, the dialog too (session 53)
+ThemeLab.exe --dpi 1.25 --w 1720 --h 1080   # laid out and drawn as on a 125% monitor; with --window, the dialog too (session 53). Without --dpi everything is laid out at 100% whatever the monitor (session 80; see below)
 ThemeLab.exe --focus ShuffleButton --focusvisual 1   # draw the keyboard focus outline, which focus alone doesn't
 ThemeLab.exe --peers 1                      # the automation tree: what a screen reader reads for each control
 ThemeLab.exe --tabwalk 18                   # 18 real Tab presses from the search box; prints where focus lands
@@ -307,7 +309,27 @@ Three things it took a while to get right, all worth keeping if it is rebuilt:
   `--window tokens`' specimen, which draws token values as data.
 
 It renders off-screen at `Left = -20000` with `ShowActivated = false`, so nothing
-appears and nothing takes focus. `Keyboard.Focus` still works on an unactivated
+appears and nothing takes focus.
+
+**The monitor doesn't change a render** (session 80). The docked monitors are 100%, but
+the laptop's own screen alone is 1920 × 1200 at 125%, and there two things went wrong
+unnoticed: Windows caps a window at the screen's size (WM_GETMINMAXINFO's largest size,
+the screen plus its frame), so `--w 1720 --h 1080` came out 1553.6 × 977.6; and layout
+followed the monitor's 125%, so positions fell on 0.8 px steps. ThemeLab now raises that
+limit for its window (`LiftSizeCap`, then a resize after Show so WPF takes it up) and is
+**DPI-unaware** (`[assembly: DisableDpiAwareness]` in Program.cs), so every window lays out
+at 100% from the start whatever the monitor; `--dpi` still gives another scale. Pinning the
+main window to 100% after it was built was tried first and doesn't work: what was drawn
+before kept 125% borders (0.8 px thick) until a theme switch, and what was built after
+(the EQ panel's graph) still came out at 125%. It prints `window W x H, dpi D` for every
+main-window run: read that line before trusting a measurement. Checked on the 125%
+screen: renders 0 pixels different from the docked ones of the same morning, and
+`--switch` against a fresh start 0 again.
+
+**Known gap, older than session 80:** `--dpi` sets the scale after the main window was
+first laid out at 100% and doesn't lay it out again, so with `--dpi 1.25` a `--switch`
+render differs from a fresh one (9,550 pixels, the same on HEAD) and `--window equalizer`'s
+exact-size and round-trip checks fail. Don't read `--dpi` together with `--switch`. `Keyboard.Focus` still works on an unactivated
 off-screen window, so focus rings can be reviewed.
 
 ---

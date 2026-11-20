@@ -197,6 +197,7 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
   - At rest: background `panel.bg`, subtle inset shadow (`inset 0 1px 2px rgba(0,0,0,0.15)`).
   - Focused: background `state.searchFocusBg` plus a 2 px `accent.playback` ring.
   - 16 px magnifying-glass icon in `text.muted`, 10 px gap before the text.
+  - **Clear ×** at the right end, the magnifier's size and stroke in `text.muted`, 10 px after the text: shown whenever the box holds text, focused or not, and hidden when it's empty (2026-11-17, the user's request: it used to show only while the box had focus, so after clicking an artist it was gone). A click clears the search without moving focus into the box. Accessible name "Clear search"; no tooltip.
 - **Window buttons:** Minimize, Maximize, Close at the far right. Each 46 px wide and full title-bar height. Icons 18 px, stroke ≈1.95 px (2.6 on a 24-unit grid), round line caps. Colors per §3. Hover: all three get `window.buttonHover` and keep their icon colors, so Close's X stays `window.close` (the user's call on 2026-10-02, replacing a red `window.closeHover` fill with a white icon).
 
 ### 6.2 Panels (shared)
@@ -214,6 +215,7 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 - Selected: `state.selectionBg`; subline switches to `text.secondary`.
 - Hover: `state.hoverOverlay`.
 - Sorting ignores a leading "The" (e.g., "The Mercury Tree" sorts under M) — keep the current app's behavior.
+- **Shuffle library** (2026-11-16, session 80, the user's request): at the right end of the ARTISTS header, right of the Playlists button, which moved left to make room; the two 24 px targets touch (`panelShuffle.gap` 0, 2026-11-17, the user's call: 4 px before, which with the empty space inside each target left 18 px between the two icons' ink, now 14). **Pulled `panelShuffle.edgeOverhang` (5 px) into the header's right padding, with the Playlists button** (2026-11-17, the user's request: "more neatly towards the right side"), so Shuffle library's ink ends 15 px from the panel's outer right edge, as the label's starts 15 px from the left; the 24 px target ends 10 px from it. The playback bar's Shuffle glyph, drawn as the Playlists button is, a 24 px target with no face, but in a 13 px icon box with a 2.5 stroke on the 24 grid (`panelShuffle`; 2026-11-16, the user's call: the same drawn size as the Playlists icon, about 11 × 11 px against its 12 × 11, at the same line weight; first built at 16 px, which drew the crossed arrows 13 × 14), `text.muted`, `text.primary` on hover. A click plays every song in the ticked folders from a random one and turns Shuffle on (§6.7), so Next keeps picking at random from the whole library; a search or a Statistics filter doesn't narrow it, and the lists stay where they are. Shown with Artists and with Playlists. Accessible name "Shuffle library"; no tooltip.
 - **The ARTISTS header is the sort toggle** (added 2026-10-12, the user's request). Each click moves on: ARTISTS (A–Z) → ARTISTS · RECENT (most recently added first) → ARTISTS · SIZE (most space first, ties A–Z) → ARTISTS. Each change starts at the top of the list; the app always opens on A–Z. Hover and keyboard focus underline it. No tooltip.
 
 ### 6.4 Albums panel
@@ -222,6 +224,7 @@ Use tabular (fixed-width) figures for track numbers, times, and numeric columns 
 - **Title wrapping:** wrap to a maximum of **two lines**, then end with "…". Every row stays the same height.
 - **Tooltip:** show the full title on hover **only when it's actually cut off**. Titles that fit get no tooltip. *This replaces the current app's single-line truncation with an always-on tooltip — remove that old tooltip.*
 - Album titles are regular weight (400), matching artist names.
+- **Shuffle artist** (2026-11-16, session 80, the user's request): at the right end of the ALBUMS header, the same button as Shuffle library (§6.3). Pulled into the padding the same way, its ink 15 px from the right edge (2026-11-17). A click plays every song of the selected artist (of every selected artist, when several are), album by album, from a random one, and turns Shuffle on. Hidden while the Artists panel shows playlists. Accessible name "Shuffle artist"; no tooltip.
 - Selected: `state.selectionBg`; meta switches to `text.secondary`; thumbnail border `art.thumbBorderSelected`.
 
 ### 6.5 Album header (top of Songs panel)
@@ -356,7 +359,7 @@ A single click on the dot or the text opens Statistics, whatever the line says a
 
 ### 6.9 Playlists (added 2026-10-07)
 
-- **The button:** a 16 px list-and-note icon in a 24 px target (`artists.playlistsToggle`) at the right end of the ARTISTS header, `text.muted`, `text.primary` on hover and while on. No face. No tooltip (the user's call). It turns the Artists panel into the Playlists panel and back.
+- **The button:** a 16 px list-and-note icon in a 24 px target (`artists.playlistsToggle`) at the right end of the ARTISTS header (just left of Shuffle library since 2026-11-16, §6.3), `text.muted`, `text.primary` on hover and while on. No face. No tooltip (the user's call). It turns the Artists panel into the Playlists panel and back.
 - **Playlists panel:** the header reads PLAYLISTS (the ARTISTS label stays in place, hidden, so the logo doesn't move). Clicking PLAYLISTS also goes back to Artists; it underlines on hover and keyboard focus, as ARTISTS does. Rows are artist rows: the name, then "N tracks". Liked first and Recently Added second, both pinned (2026-10-07), then the rest most recently modified first; the first time, Liked is selected.
 - **Albums panel:** blank (header only) while playlists show, except Recently Added, whose albums it lists in the album rows of 6.4.
 - **Header:** the album header's layout. The picture (one chosen, or the first song's cover), the name in the album-title style, then "Modified 2026-10-07", "N tracks" (plus " · N not found" when some aren't in the library), and the duration ("42:36"). No blue line.

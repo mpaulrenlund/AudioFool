@@ -207,7 +207,7 @@ removable storage.
 1. Copy your music to the drive. Use a method that **preserves timestamps** -
    `robocopy /MIR`, or Explorer drag-and-drop, both do. That lets the cached tags be
    reused after the move instead of every file being re-read.
-2. In AudioFool, **Add Folder** and point at the new location.
+2. In AudioFool, logo menu → Settings → Libraries → **Add Folder…**, and point at the new location.
 3. Confirm the track count matches, and play something.
 4. Only then remove the old copy.
 
@@ -396,6 +396,12 @@ which has three consequences worth knowing:
 Shuffle covers the whole queue exactly once before stopping — or before wrapping, if
 repeat is set to the whole queue. It will not play the same track twice in a pass.
 
+**Shuffling the library or an artist.** The shuffle icon at the right end of the
+ARTISTS header plays your whole library (every song in the ticked folders) from a random
+song; the one at the right end of the ALBUMS header does the same with the selected
+artist (or every selected artist). Both turn shuffle on, so Next keeps picking at random
+from that queue, and neither moves the lists (Ctrl+J goes to the song).
+
 ---
 
 ## Likes and playlists
@@ -459,7 +465,7 @@ status bar says which, for the session.
 
 ## Last.fm scrobbling
 
-Logo menu → **Last.fm…** connects AudioFool to your Last.fm profile.
+Logo menu → Settings → **Last.fm…** connects AudioFool to your Last.fm profile.
 
 1. Last.fm gives every application its own API account. Create one at
    [last.fm/api/account/create](https://www.last.fm/api/account/create). Any name and
@@ -502,7 +508,7 @@ does not reveal your password.
 
 ### Listening History
 
-Logo menu → **Listening History…** (or **Ctrl+Y**) shows what you've played, as Last.fm
+Logo menu → **Listening History** (or **Ctrl+Y**) shows what you've played, as Last.fm
 has it. It is laid out like Statistics:
 
 - **Tiles**: your total scrobbles, the month you started, and how many artists, albums
@@ -529,7 +535,7 @@ window; offline, it says Last.fm couldn't be reached.
 
 ## Find and Replace
 
-Logo menu → **Find and Replace…** (or **Ctrl+H**) changes text across the whole library
+Logo menu → Settings → **Find and Replace…** (or **Ctrl+H**) changes text across the whole library
 at once: deleting "(Remastered)" from every title and album, say.
 
 1. Type the text in the top box and press **Find** (or Enter). Every match in the
@@ -571,6 +577,7 @@ Logo menu → **About** plays the PlayStation's start-up over the main window: t
 screen, then the PlayStation screen as the chime starts, with the start-up sound
 (about 15 seconds), and AudioFool's version ("AudioFool v" and the version this copy
 is, read from the app itself) at the bottom of each. A click or any key ends it early.
+The About line in the menu shows the same version beside it, in grey ("About v0.11.0").
 
 - Music that is playing pauses for it and carries on from the same place afterwards.
 - In Bit-Perfect, AudioFool holds the DAC for itself, even paused, so no other sound
@@ -579,6 +586,27 @@ is, read from the app itself) at the bottom of each. A click or any key ends it 
   device.
 - The pictures and the sound are inside the exe; the sound is unpacked to the temp
   folder (`AudioFool-intro.mp3`) when played, because Windows' media player needs a file.
+
+### Checking for updates
+
+The **Refresh** icon at the right end of the About line checks GitHub for a newer
+release (the rest of the line still plays the intro). The status bar says "Checking
+for updates…" meanwhile.
+
+- **Nothing newer:** "No new version is available. You have the latest, v0.11.0."
+- **A newer release:** "AudioFool v0.12.0 is available… Download and install it?" with
+  **Install** and **Cancel**. Install downloads the release's
+  `AudioFool-<version>-win-x64.zip` (the status bar shows the percentage), unzips it to
+  the temp folder, swaps the files into the folder AudioFool runs from, and restarts
+  into the new version. Music that is playing stops.
+- **How the swap works:** Windows won't overwrite a running program's files but lets
+  them be renamed, so each file is renamed to `name.old` and the new one copied in. If
+  any file can't be swapped, every file is put back and the app is unchanged. The new
+  copy waits for the old one to close (settings and library saved as on any close),
+  then removes the `.old` files.
+- **Offline, or GitHub refuses** (it allows 60 checks an hour without signing in):
+  "Couldn't check for updates" and the reason. Nothing changes.
+- It relies on the release zip's name; see docs/build-and-release.md.
 
 ---
 
@@ -695,7 +723,7 @@ the analysis. Tracker modules have no source quality to check.
 
 ### Checking the whole library
 
-Logo menu → **Statistics…** has a **QUALITY CHECK** section with a row per problem:
+Logo menu → **Library Statistics** has a **QUALITY CHECK** section with a row per problem:
 likely and possibly transcoded lossless, upscaled and possibly upscaled MP3, fake and
 possibly fake hi-res, and fake 24-bit. Click a row to show those tracks in the library,
 as with the other rows.
@@ -1232,7 +1260,7 @@ it in `%APPDATA%\AudioFool\settings.json` as `"FanartTvApiKey": "..."` and resta
 Bandcamp is not searched: it has no public API, and it turns automated requests away
 with a bot check.
 
-**Library statistics.** Logo menu → **Statistics…** opens a summary of the library:
+**Library statistics.** Logo menu → **Library Statistics** opens a summary of the library:
 totals, the five artists with the most tracks, the split by file type and by audio
 quality (hi-res, CD-quality, DSD, and lossy above or below 256 kbps), which tags are
 most often missing, and tracks by decade. It counts the same tracks the status bar

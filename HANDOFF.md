@@ -69,8 +69,8 @@ commit. More (vendored DLLs, `eol=lf`, ignores): `docs/build-and-release.md`.
 
 **Built and installed, not yet seen by the user** (what to try: next step 2):
 
-- **Session 80** (committed): the header's EQ panel (spec §6.5) and the EQ chip's
-  double-click (§6.8); design/progress.md.
+- **Session 80**: EQ panel, chip double-click (`697f77d`); header shuffle buttons
+  (not committed). Spec §6.3–6.5, §6.8; design/progress.md.
 - **Session 79** (committed `87f7574`): the built-in equalizer, its EQ chip and menu.
   Design and measurements: `docs/equalizer-plan.md`; README *Equalizer*. Real DSD over
   PCM with the EQ on was never played (it needs exclusive mode).
@@ -125,9 +125,9 @@ steps 4 and 5 to take.
    on a song with many comments; the closest results offered for a soundtrack or
    instrumental. A design note from the user means the usual plan-then-approve loop.
 2. **Ask the user to try what was checked off-screen only:**
-   - **Session 80:** the EQ panel by an album and a playlist, the seekbar's
-     colour, compact below a ~1396 px window; a click opens Peace, an edit saved
-     there shows on switching back. Double-click the chip: off, and on again.
+   - **Session 80:** the EQ panel (album, playlist, seekbar's colour, compact
+     below ~1396 px, click opens Peace, edits show on switching back); the chip's
+     double-click; the headers' shuffle icons.
    - **Session 79, the equalizer:** a preset (dot lit, "· EQ"); switching mid-song
      without a click; Bit-Perfect with it on; a DSD album in Bit-Perfect with it on (no
      "· EQ"); still chosen after a restart; Open Peace… and an edit heard once the menu

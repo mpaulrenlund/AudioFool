@@ -89,7 +89,10 @@ it publishes a tag. Middle number for new features, last for fixes only.
    <temp>`, unzip, `Compare-Object` the names): **19 files** (the exe, 13 BASS DLLs,
    5 WPF native DLLs). A missing loose DLL breaks the app on another machine.
 5. `Compress-Archive publish\* $env:TEMP\AudioFool-<ver>-win-x64.zip` (never inside
-   the repo). About 60 MB.
+   the repo). About 60 MB. **Keep this name, the files at the zip's root, and the tag
+   `v<ver>`**: the About line's update check (`AudioFool.Core/Updates/UpdateCheck.cs`,
+   2026-11-20) finds the release by its tag and installs only an asset named exactly
+   this. A release that isn't marked latest, or is a draft, isn't offered.
 6. Notes in a file (dodges quoting): `gh release create v<ver> <zip> --target main
    --title "AudioFool <ver>" --notes-file <file>`, then `git fetch --tags`.
 7. Check the tag with `git rev-list -n 1 v<ver>`. **Not `git rev-parse v<ver>^{commit}`**:
