@@ -44,6 +44,10 @@ public partial class App : Application
 
     private void Launch(string[] args)
     {
+        // Started by an update: the copy that installed it closes first, so this
+        // one doesn't hand itself over to it. The old files are removed then.
+        args = MainViewModel.TakeAfterUpdateArgs(args);
+
         // One copy: a song opened from Explorer goes to the copy already running.
         _instance = SingleInstance.Start(args);
         if (_instance is null)

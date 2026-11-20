@@ -171,10 +171,11 @@
     "glow": { "radiusX": 900, "radiusY": 130, "centerY": -40 }
   },
   "artists": { "rowHeight": 42, "rowPaddingX": 10, "lineGap": 1, "playlistsToggle": { "size": 24, "iconSize": 16, "strokeOn24Grid": 2 } },
+  "panelShuffle": { "size": 24, "iconSize": 13, "strokeOn24Grid": 2.5, "gap": 0, "edgeOverhang": 5 },
   "albums": { "rowHeight": 64, "recentRowHeight": 82, "rowPaddingY": 4, "rowPaddingX": 8, "thumbSize": 56, "thumbGap": 12, "lineGap": 3, "rowGap": 0, "placeholderIconSize": 20 },
   "albumHeader": { "paddingY": 22, "paddingX": 24, "artSize": 144, "artGap": 24, "titleMinHeight": 39, "titleToDetailsGap": 8, "detailsLineGap": 3, "placeholderIconSize": 36 },
   "eqPanel": { "width": 440, "compactMinWidth": 240, "titleRoom": 220, "nameToPreampGap": 16, "axisWidth": 26, "axisGap": 4, "nameToGraphGap": 6, "graphHeight": 76, "compactGraphHeight": 98, "graphInsetY": 7, "graphToLabelsGap": 4, "minColumnWidth": 28, "curveThickness": 1.75, "dotRadius": 2.5, "gridDash": 2, "gridGap": 3, "compactFillOpacity": 0.16 },
-  "popup": { "toolTipPaddingX": 8, "toolTipPaddingY": 5, "toolTipMaxWidth": 260, "menuPaddingY": 3 },
+  "popup": { "toolTipPaddingX": 8, "toolTipPaddingY": 5, "toolTipMaxWidth": 260, "menuPaddingY": 3, "menuIconButton": 24, "menuIconButtonGlyph": 16, "menuIconButtonGap": 16 },
   "dialog": {
     "titleIconSize": 16, "titleIconGap": 8,
     "paddingX": 20, "paddingTop": 12, "paddingBottom": 16,

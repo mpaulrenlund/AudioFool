@@ -342,67 +342,99 @@
                             <MenuItem.Header>
                                 <Border x:Name="LogoMenuSpacer" Height="20" Background="Transparent" />
                             </MenuItem.Header>
-                            <!-- In alphabetical order (the user's call), About last below a line. -->
-                            <MenuItem Header="Find and Replace…"
-                                      Icon="{ui:SymbolIcon TextEditStyle24}"
-                                      Command="{Binding ShowFindReplaceCommand}" />
-
-                            <MenuItem Header="Last.fm…"
-                                      Icon="{ui:SymbolIcon Live24}"
-                                      Command="{Binding ShowLastFmCommand}" />
-
-                            <MenuItem Header="Libraries"
-                                      Icon="{ui:SymbolIcon Folder24}">
-                                <MenuItem.ItemContainerStyle>
-                                    <Style TargetType="MenuItem">
-                                        <Setter Property="Header" Value="{Binding FolderPath}" />
-                                        <Setter Property="IsCheckable" Value="True" />
-                                        <Setter Property="IsChecked" Value="{Binding IsEnabled, Mode=TwoWay}" />
-                                    </Style>
-                                </MenuItem.ItemContainerStyle>
-                                <MenuItem.ItemsSource>
-                                    <CompositeCollection>
-                                        <CollectionContainer Collection="{Binding Source={StaticResource FolderFiltersSource}}" />
-                                        <Separator />
-                                        <!--
-                                            These two set their own Style: an item that is its own
-                                            container is otherwise given the folder rows'
-                                            ItemContainerStyle above, which made Add Folder a
-                                            checkable item bound to nothing.
-                                        -->
-                                        <MenuItem Header="Add Folder…"
-                                                  Style="{DynamicResource {x:Type MenuItem}}"
-                                                  Icon="{ui:SymbolIcon FolderAdd24}"
-                                                  Command="{Binding Source={StaticResource Proxy}, Path=Data.AddFolderCommand}" />
-                                        <MenuItem Header="Remove Folder"
-                                                  Style="{DynamicResource {x:Type MenuItem}}"
-                                                  Icon="{ui:SymbolIcon FolderProhibited24}"
-                                                  ItemsSource="{Binding Source={StaticResource RemoveFoldersSource}}">
-                                            <MenuItem.ItemContainerStyle>
-                                                <Style TargetType="MenuItem">
-                                                    <Setter Property="Header" Value="{Binding FolderPath}" />
-                                                    <Setter Property="Command" Value="{Binding Source={StaticResource Proxy}, Path=Data.RemoveFolderCommand}" />
-                                                    <Setter Property="CommandParameter" Value="{Binding}" />
-                                                </Style>
-                                            </MenuItem.ItemContainerStyle>
-                                        </MenuItem>
-                                    </CompositeCollection>
-                                </MenuItem.ItemsSource>
-                            </MenuItem>
-
-                            <MenuItem Header="Listening History…"
-                                      Icon="{ui:SymbolIcon History24}"
-                                      Command="{Binding ShowListeningHistoryCommand}" />
-
-                            <MenuItem Header="Statistics…"
+                            <!-- In alphabetical order (the user's call), About last below a line.
+                                 Find and Replace, Last.fm and Libraries are under Settings
+                                 (2026-11-19, the user's request), in the same order. -->
+                            <MenuItem Header="Library Statistics"
                                       Icon="{ui:SymbolIcon DataBarVertical24}"
                                       Command="{Binding ShowStatisticsCommand}" />
 
+                            <MenuItem Header="Listening History"
+                                      Icon="{ui:SymbolIcon History24}"
+                                      Command="{Binding ShowListeningHistoryCommand}" />
+
+                            <MenuItem x:Name="SettingsMenuItem"
+                                      Header="Settings"
+                                      Icon="{ui:SymbolIcon Settings24}">
+                                <MenuItem Header="Find and Replace…"
+                                          Icon="{ui:SymbolIcon TextEditStyle24}"
+                                          Command="{Binding ShowFindReplaceCommand}" />
+
+                                <MenuItem Header="Last.fm…"
+                                          Icon="{ui:SymbolIcon Live24}"
+                                          Command="{Binding ShowLastFmCommand}" />
+
+                                <MenuItem Header="Libraries"
+                                          Icon="{ui:SymbolIcon Folder24}">
+                                    <MenuItem.ItemContainerStyle>
+                                        <Style TargetType="MenuItem">
+                                            <Setter Property="Header" Value="{Binding FolderPath}" />
+                                            <Setter Property="IsCheckable" Value="True" />
+                                            <Setter Property="IsChecked" Value="{Binding IsEnabled, Mode=TwoWay}" />
+                                        </Style>
+                                    </MenuItem.ItemContainerStyle>
+                                    <MenuItem.ItemsSource>
+                                        <CompositeCollection>
+                                            <CollectionContainer Collection="{Binding Source={StaticResource FolderFiltersSource}}" />
+                                            <Separator />
+                                            <!--
+                                                These two set their own Style: an item that is its own
+                                                container is otherwise given the folder rows'
+                                                ItemContainerStyle above, which made Add Folder a
+                                                checkable item bound to nothing.
+                                            -->
+                                            <MenuItem Header="Add Folder…"
+                                                      Style="{DynamicResource {x:Type MenuItem}}"
+                                                      Icon="{ui:SymbolIcon FolderAdd24}"
+                                                      Command="{Binding Source={StaticResource Proxy}, Path=Data.AddFolderCommand}" />
+                                            <MenuItem Header="Remove Folder"
+                                                      Style="{DynamicResource {x:Type MenuItem}}"
+                                                      Icon="{ui:SymbolIcon FolderProhibited24}"
+                                                      ItemsSource="{Binding Source={StaticResource RemoveFoldersSource}}">
+                                                <MenuItem.ItemContainerStyle>
+                                                    <Style TargetType="MenuItem">
+                                                        <Setter Property="Header" Value="{Binding FolderPath}" />
+                                                        <Setter Property="Command" Value="{Binding Source={StaticResource Proxy}, Path=Data.RemoveFolderCommand}" />
+                                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                                    </Style>
+                                                </MenuItem.ItemContainerStyle>
+                                            </MenuItem>
+                                        </CompositeCollection>
+                                    </MenuItem.ItemsSource>
+                                </MenuItem>
+                            </MenuItem>
+
                             <Separator />
 
-                            <MenuItem Header="About"
-                                      Icon="{ui:SymbolIcon Info24}"
-                                      Command="{Binding ShowAboutCommand}" />
+                            <!-- The version after it in text.muted (2026-11-19, the user's
+                                 request), read from the assembly as the intro's is. -->
+                            <MenuItem Icon="{ui:SymbolIcon Info24}"
+                                      Command="{Binding ShowAboutCommand}"
+                                      AutomationProperties.Name="{Binding Source={x:Static local:AppVersion.Text}, StringFormat='About {0}'}">
+                                <!-- Refresh at the far right checks for a new version
+                                     (2026-11-20, the user's request); the rest of the
+                                     row still opens About. -->
+                                <MenuItem.Header>
+                                    <DockPanel LastChildFill="True">
+                                        <Button x:Name="CheckUpdatesButton"
+                                                DockPanel.Dock="Right"
+                                                Style="{StaticResource theme.menuIconButton}"
+                                                Margin="{theme:Thickness Left=popup.menuIconButtonGap}"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding CheckForUpdatesCommand}"
+                                                Click="CheckUpdatesButton_Click"
+                                                AutomationProperties.Name="Check for updates">
+                                            <ui:SymbolIcon Symbol="ArrowClockwise24"
+                                                           FontSize="{theme:Token popup.menuIconButtonGlyph}" />
+                                        </Button>
+                                        <TextBlock VerticalAlignment="Center">
+                                            <Run Text="About" />
+                                            <Run Text="{x:Static local:AppVersion.Text}"
+                                                 Foreground="{DynamicResource color.text.muted}" />
+                                        </TextBlock>
+                                    </DockPanel>
+                                </MenuItem.Header>
+                            </MenuItem>
                         </MenuItem>
                     </Menu>
 
@@ -608,11 +640,23 @@
                         </Grid>
                     </Button>
 
-                    <ToggleButton x:Name="PlaylistsToggle"
-                                  Style="{DynamicResource theme.playlistsToggle}"
-                                  HorizontalAlignment="Right"
-                                  IsChecked="{Binding IsPlaylistMode, Mode=TwoWay}"
-                                  AutomationProperties.Name="Playlists" />
+                    <!-- Playlists, then Shuffle library at the far right (session 80, the
+                         user's request): every ticked song from a random one, Shuffle on.
+                         Pulled edgeOverhang into the header's padding so the last icon's
+                         ink ends as far from the right edge as the label starts from the
+                         left (2026-11-17, the user's request). -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                Margin="{theme:Thickness Right=-panelShuffle.edgeOverhang}">
+                        <ToggleButton x:Name="PlaylistsToggle"
+                                      Style="{DynamicResource theme.playlistsToggle}"
+                                      IsChecked="{Binding IsPlaylistMode, Mode=TwoWay}"
+                                      AutomationProperties.Name="Playlists" />
+                        <Button x:Name="ShuffleLibraryButton"
+                                Style="{DynamicResource theme.panelShuffle}"
+                                Margin="{theme:Thickness Left=panelShuffle.gap}"
+                                Command="{Binding ShuffleLibraryCommand}"
+                                AutomationProperties.Name="Shuffle library" />
+                    </StackPanel>
                   </Grid>
                 </HeaderedContentControl.Header>
                 <!-- 6.3: 42 px rows, name over album count. Scrollbars hidden;
@@ -700,7 +744,21 @@
             <!-- albums, oldest first -->
             <HeaderedContentControl x:Name="AlbumsPanel" Grid.Column="2" Style="{DynamicResource theme.panel}">
                 <HeaderedContentControl.Header>
-                    <TextBlock Text="ALBUMS" Style="{StaticResource PanelHeaderLabel}" />
+                    <Grid>
+                        <TextBlock Text="ALBUMS" Style="{StaticResource PanelHeaderLabel}"
+                                   HorizontalAlignment="Left" />
+                        <!-- Shuffle artist (session 80, the user's request): the selected
+                             artists' songs from a random one, Shuffle on. Hidden while
+                             playlists show, as the panel is then blank. In the
+                             header's padding by edgeOverhang, as Artists' icons. -->
+                        <Button x:Name="ShuffleArtistButton"
+                                Style="{DynamicResource theme.panelShuffle}"
+                                HorizontalAlignment="Right"
+                                Margin="{theme:Thickness Right=-panelShuffle.edgeOverhang}"
+                                Command="{Binding ShuffleArtistCommand}"
+                                Visibility="{Binding IsPlaylistMode, Converter={StaticResource BoolToVisibility}, ConverterParameter=Inverse}"
+                                AutomationProperties.Name="Shuffle artist" />
+                    </Grid>
                 </HeaderedContentControl.Header>
                 <!-- Blank while the Artists panel shows playlists (the user's call),
                      except for Recently Added, whose albums it lists. -->

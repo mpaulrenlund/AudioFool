@@ -63,6 +63,23 @@ public partial class PromptWindow : FluentWindow
         new PromptWindow(owner, title, message, okLabel, null, null).ShowDialog() == true;
 
     /// <summary>
+    /// A message with one OK button (the update check, 2026-11-20). Enter and Escape
+    /// both close it.
+    /// </summary>
+    public static void Inform(Window owner, string title, string message) =>
+        CreateInform(owner, title, message).ShowDialog();
+
+    // Apart from Inform so ThemeLab can render the very same window.
+    private static PromptWindow CreateInform(Window owner, string title, string message)
+    {
+        var window = new PromptWindow(owner, title, message, "OK", null, null);
+        window.CancelButton.Visibility = Visibility.Collapsed;
+        window.OkButton.IsCancel = true;
+        window.OkButton.Margin = new Thickness(0);
+        return window;
+    }
+
+    /// <summary>
     /// Save, Don't Save or Cancel, for changes about to be left behind. Save is
     /// the default button; Escape cancels.
     /// </summary>

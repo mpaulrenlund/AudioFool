@@ -419,8 +419,9 @@
         box-shadow ring does, so the box itself does not move.
 
         A template of its own on WPF-UI's TextBox, which keeps the placeholder
-        and clear-button logic: CurrentPlaceholderEnabled and ShowClearButton say
-        when each shows, and TemplateButtonCommand clears the text.
+        and clear-button logic: CurrentPlaceholderEnabled says when the
+        placeholder shows, and TemplateButtonCommand clears the text. The × goes
+        by the text alone, not WPF-UI's focus-only ShowClearButton.
     -->
     <Style x:Key="theme.searchBox" TargetType="ui:TextBox">
         <Setter Property="Height" Value="{theme:Token titleBar.search.height}" />
@@ -535,15 +536,15 @@
                         <Trigger Property="CurrentPlaceholderEnabled" Value="False">
                             <Setter TargetName="Placeholder" Property="Visibility" Value="Collapsed" />
                         </Trigger>
-                        <MultiTrigger>
-                            <MultiTrigger.Conditions>
-                                <Condition Property="ShowClearButton" Value="True" />
-                                <Condition Property="ClearButtonEnabled" Value="True" />
-                            </MultiTrigger.Conditions>
+                        <!-- The × shows whenever there is text, focused or not
+                             (2026-11-17, the user's request): WPF-UI's
+                             ShowClearButton is only true while the box has focus,
+                             so after clicking an artist the × had gone. -->
+                        <Trigger Property="ClearButtonEnabled" Value="True">
                             <Setter TargetName="ClearButton" Property="Visibility" Value="Visible" />
-                        </MultiTrigger>
-                        <!-- WPF-UI reveals the clear button on focus even with
-                             nothing to clear. -->
+                        </Trigger>
+                        <!-- Nothing to clear: no ×. After the trigger above, so
+                             it wins. -->
                         <Trigger Property="Text" Value="">
                             <Setter TargetName="ClearButton" Property="Visibility" Value="Collapsed" />
                         </Trigger>
@@ -1198,6 +1199,25 @@
     </Style>
 
     <!--
+        An icon button inside a menu row: the Refresh on About that checks for
+        updates (2026-11-20, the user's request). In text.muted like the version
+        beside it, text.primary on hover. Not focusable, so the menu's arrow keys
+        still move between rows; screen readers reach it by its name.
+    -->
+    <Style x:Key="theme.menuIconButton" TargetType="ButtonBase" BasedOn="{StaticResource theme.bareIconButton}">
+        <Setter Property="Width" Value="{theme:Token popup.menuIconButton}" />
+        <Setter Property="Height" Value="{theme:Token popup.menuIconButton}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.text.muted}" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!--
         The Like column's heart (the user's request, 2026-10-07): an outline in
         control.iconOff, the "off" grey of Shuffle and Repeat, darkening to
         text.muted on hover; filled in accent.like, the PlayStation Square pink
@@ -1275,6 +1295,43 @@
                             <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        The Artists and Albums headers' shuffle buttons (session 80, the user's
+        request; spec 6.3 and 6.4): the playback bar's Shuffle glyph, drawn as the
+        Playlists toggle is (no face, text.muted, text.primary on hover).
+    -->
+    <Style x:Key="theme.panelShuffle" TargetType="Button">
+        <Setter Property="Width" Value="{theme:Token panelShuffle.size}" />
+        <Setter Property="Height" Value="{theme:Token panelShuffle.size}" />
+        <Setter Property="Foreground" Value="{DynamicResource color.text.muted}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource theme.focusRing.chip}" />
+        <Setter Property="theme:ClickFocus.Skip" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid Background="Transparent">
+                        <Viewbox Width="{theme:Token panelShuffle.iconSize}"
+                                 Height="{theme:Token panelShuffle.iconSize}">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M 16,3 H 21 V 8 M 4,20 L 21,3 M 21,16 V 21 H 16 M 15,15 L 21,21 M 4,4 L 9,9"
+                                      Stroke="{TemplateBinding Foreground}"
+                                      StrokeThickness="{theme:Token panelShuffle.strokeOn24Grid}"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round" />
+                            </Canvas>
+                        </Viewbox>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
                             <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
                         </Trigger>
                     </ControlTemplate.Triggers>

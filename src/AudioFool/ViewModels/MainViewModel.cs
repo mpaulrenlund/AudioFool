@@ -1382,7 +1382,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // looking for a problem with their files rather than a tick in the menu.
         if (_folderFilteredLibrary.AllTracks.Count == 0 && _library.AllTracks.Count > 0)
             return $"All {_library.AllTracks.Count:N0} tracks are in unticked folders. " +
-                   "Tick a folder under Libraries in the logo menu to show it.";
+                   "Tick a folder under Settings › Libraries in the logo menu to show it.";
 
         if (_folderFilteredLibrary.AllTracks.Count == 0)
             return "No audio files found. Use Add Folder to point at your music.";
@@ -2453,6 +2453,40 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             SelectedAlbum = album;
 
         PlayTrack(Tracks.FirstOrDefault());
+    }
+
+    /// <summary>
+    /// The Artists header's shuffle button (session 80, the user's request): every
+    /// song in the ticked folders, from a random one, with Shuffle turned on. A
+    /// search or a Statistics filter doesn't narrow it; the lists stay where they are.
+    /// </summary>
+    [RelayCommand]
+    private void ShuffleLibrary() => PlayShuffled(_folderFilteredLibrary.AllTracks);
+
+    /// <summary>
+    /// The Albums header's shuffle button (session 80, the user's request): every
+    /// song of the selected artist, or of every selected artist, from a random one,
+    /// with Shuffle turned on.
+    /// </summary>
+    [RelayCommand]
+    private void ShuffleArtist()
+    {
+        IReadOnlyList<ArtistGroup> picked = SelectedArtists.Count > 0 ? SelectedArtists
+            : SelectedArtist is { } artist ? [artist]
+            : [];
+        PlayShuffled(ShufflePlay.ArtistsQueue(picked));
+    }
+
+    private void PlayShuffled(IReadOnlyList<Track> queue)
+    {
+        if (ShufflePlay.StartIndex(queue.Count, Random.Shared) is not { } index)
+            return;
+
+        // On before the queue is handed over, so its order is shuffled from the
+        // start with the random song pinned first.
+        IsShuffle = true;
+        if (!_engine.Play(queue, index))
+            StatusText = DescribePlayFailure(queue[index]);
     }
 
     [RelayCommand]

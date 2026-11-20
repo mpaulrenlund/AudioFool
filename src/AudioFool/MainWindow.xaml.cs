@@ -262,6 +262,14 @@ public partial class MainWindow : FluentWindow
 
     private bool _closingAfterWrites;
 
+    /// <summary>
+    /// The About row's Refresh closes the logo menu, as a menu item would, before
+    /// its command checks for updates. The button takes the click, so About
+    /// doesn't open as well.
+    /// </summary>
+    private void CheckUpdatesButton_Click(object sender, RoutedEventArgs e) =>
+        LogoMenuItem.IsSubmenuOpen = false;
+
     private void OnClosed(object? sender, EventArgs e)
     {
         Closed -= OnClosed;

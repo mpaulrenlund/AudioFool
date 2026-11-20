@@ -12,6 +12,13 @@ using AudioFool.Core.Settings;
 using AudioFool.Services;
 using AudioFool.ViewModels;
 
+// DPI-unaware (session 80): every window lays out at 100% whatever the monitor, from
+// the start, and anything built later inherits it. The laptop's own screen alone is
+// 125%; pinning the main window to 100% after it was built left a 125% leftover in
+// what was drawn before (borders 0.8 px thick) and in what was built after (the EQ
+// panel's graph). --dpi still lays out and draws at another scale (SetRootDpi).
+[assembly: System.Windows.Media.DisableDpiAwareness]
+
 namespace ThemeLab;
 
 /// <summary>
@@ -273,6 +280,7 @@ internal static partial class Program
         main.ShowActivated = false;
         main.ShowInTaskbar = false;
         main.Topmost = false;
+        main.SourceInitialized += (_, _) => LiftSizeCap(main);
         main.Show();
 
         Pump();
@@ -290,6 +298,19 @@ internal static partial class Program
             main.UpdateLayout();
             Console.WriteLine($"dpi {VisualTreeHelper.GetDpi(main).PixelsPerDip}");
         }
+
+        // The window was first sized before LiftSizeCap's hook was in: a resize
+        // now asks Windows again, and WPF takes up the larger limit.
+        if (main.ActualWidth < w - 0.5 || main.ActualHeight < h - 0.5)
+        {
+            main.Width = w + 1;
+            main.Height = h + 1;
+            Pump();
+            main.Width = w;
+            main.Height = h;
+            Pump();
+        }
+        Console.WriteLine($"window {main.ActualWidth:0.##} x {main.ActualHeight:0.##}, dpi {VisualTreeHelper.GetDpi(main).PixelsPerDip:0.##}");
 
         if (which == "openfiles")
         {
@@ -453,6 +474,12 @@ internal static partial class Program
 
         if (which == "queueend")
             return RunQueueEnd(main, vm, engine, runtime, outPath, w, h, scale);
+
+        if (which == "shuffle")
+            return RunShuffle(main, vm, engine, outPath, w, h, scale);
+
+        if (which == "update")
+            return RunUpdate(main, vm, outPath, scale);
 
         // --paused 1: the sample track loaded but not playing, so the transport
         // key shows Play rather than Pause.
@@ -1098,9 +1125,19 @@ internal static partial class Program
                 libDrop.UpdateLayout();
                 Settle(200);
 
-                var libraries = libLogo.Items.OfType<object>()
-                    .Select(item => libLogo.ItemContainerGenerator.ContainerFromItem(item))
-                    .OfType<System.Windows.Controls.MenuItem>()
+                // Libraries is under Settings since 2026-11-19: lay Settings' submenu
+                // out first, as the drop-down above, so Libraries has its template.
+                var settingsItem = (System.Windows.Controls.MenuItem)main.FindName("SettingsMenuItem");
+                settingsItem.ApplyTemplate();
+                if (FindFirst<System.Windows.Controls.Primitives.Popup>(settingsItem)?.Child is FrameworkElement settingsDrop)
+                {
+                    settingsDrop.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                    settingsDrop.Arrange(new Rect(settingsDrop.DesiredSize));
+                    settingsDrop.UpdateLayout();
+                    Settle(200);
+                }
+
+                var libraries = settingsItem.Items.OfType<System.Windows.Controls.MenuItem>()
                     .First(m => m.Header is string h && h.StartsWith("Libraries", StringComparison.Ordinal));
                 libraries.ApplyTemplate();
                 if (FindFirst<System.Windows.Controls.Primitives.Popup>(libraries)?.Child is FrameworkElement sub)
@@ -3332,6 +3369,37 @@ internal static partial class Program
         Application.Current.MainWindow?.UpdateLayout();
         Pump();
         Console.WriteLine($"switch: to {ThemeService.Current}, resources {swapped:0} ms, laid out and drawn {clock.Elapsed.TotalMilliseconds:0} ms");
+    }
+
+    /// <summary>
+    /// Windows won't let a window grow past the screen (WM_GETMINMAXINFO's largest
+    /// size: the screen plus its frame), so on the laptop's own 1920 × 1200 screen
+    /// at 125% a 1720 × 1080 render came out 1554 × 978 (session 80). The window
+    /// is never on a screen, so it may be as big as the case asks.
+    /// </summary>
+    private static void LiftSizeCap(Window window)
+    {
+        var handle = new System.Windows.Interop.WindowInteropHelper(window).Handle;
+        System.Windows.Interop.HwndSource.FromHwnd(handle)?.AddHook(RaiseMaxTrackSize);
+    }
+
+    private static IntPtr RaiseMaxTrackSize(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int WM_GETMINMAXINFO = 0x0024;
+        if (msg == WM_GETMINMAXINFO)
+        {
+            var info = System.Runtime.InteropServices.Marshal.PtrToStructure<MinMaxInfo>(lParam);
+            info.MaxTrackX = info.MaxTrackY = 32000;
+            System.Runtime.InteropServices.Marshal.StructureToPtr(info, lParam, false);
+        }
+        return IntPtr.Zero;
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct MinMaxInfo
+    {
+        public int ReservedX, ReservedY, MaxSizeX, MaxSizeY, MaxPositionX, MaxPositionY,
+            MinTrackX, MinTrackY, MaxTrackX, MaxTrackY;
     }
 
     private static void Save(Visual window, string path, double w, double h, double scale)
