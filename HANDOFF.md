@@ -52,10 +52,9 @@ commit. More (vendored DLLs, `eol=lf`, ignores): `docs/build-and-release.md`.
 
 ## State at handoff
 
-- **1,215 tests** pass. **Last release: v0.11.0** (2026-11-10, session 77, tag on
-  `2c1fcdf`). **Unreleased:** session 78's cover colours (`b5238c3`) and session 79's
-  equalizer (`87f7574`), committed and pushed; session 80's EQ panel, committed, not pushed.
-  Next release 0.12.0; version and notes confirmed with the user first.
+- **1,254 tests** pass. **Last release: v0.12.0** (2026-11-20, tag on `2fff6ad`):
+  everything through the update check. Its download, install and restart can first be
+  tried for real from the release after it.
 - **Flaky tests:** the "allocates nothing" tests (`VisualizerFeedTests.A_frame_allocates_nothing`,
   `SampleTapTests.Copying_a_block_allocates_nothing`, before them `LiveSpectrumTests`)
   fail now and then and pass on a rerun. Whether to chase it was asked in session 79,
@@ -70,7 +69,7 @@ commit. More (vendored DLLs, `eol=lf`, ignores): `docs/build-and-release.md`.
 **Built and installed, not yet seen by the user** (what to try: next step 2):
 
 - **Session 80**: EQ panel, chip double-click (`697f77d`); header shuffle buttons
-  (not committed). Spec §6.3–6.5, §6.8; design/progress.md.
+  (`3da522d`). Spec §6.3–6.5, §6.8; design/progress.md.
 - **Session 79** (committed `87f7574`): the built-in equalizer, its EQ chip and menu.
   Design and measurements: `docs/equalizer-plan.md`; README *Equalizer*. Real DSD over
   PCM with the EQ on was never played (it needs exclusive mode).

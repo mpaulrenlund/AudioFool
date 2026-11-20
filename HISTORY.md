@@ -5113,6 +5113,15 @@ measurements and what each piece verified. Committed `87f7574`.
 
 ---
 
+### 2026-11-20: v0.12.0 released
+
+- Code `3da522d` (shuffle buttons, Settings submenu, the logo menu renamed to Library
+  Statistics and Listening History, the About row's update check) and docs `5e9ecac`.
+  **Released v0.12.0** at the user's request (version and notes OK'd as drafted):
+  everything since v0.11.0. Version commit `2fff6ad` (the tag's), 60.8 MB zip, 19 files,
+  the same list as v0.11.0; GitHub's `releases/latest` answers v0.12.0 with the zip the
+  update check looks for. Sessions 80 and 81's own notes are still to be written here.
+
 ## Reference notes retired from the handoff
 
 
