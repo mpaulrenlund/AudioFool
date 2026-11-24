@@ -339,7 +339,7 @@ Background `window.bg`, 12 px horizontal padding, 12 px text in `text.status`.
 
 **Left, in order:**
 1. **Refresh button:** 26 × 26 px, 4 px radius, `status.chipBg`, 1 px `status.chipBorder`, 14 px circular-arrow icon, 6 px extra space after it. Rescans the library.
-2. Small 7 px `status.libraryDot` dot.
+2. Small 7 px `status.libraryDot` dot. **While the line is a warning or an error** (a song that won't open, a save that failed, the drive not available, a shortcut already taken: anything said through `MainViewModel.ReportProblem`, and the standing "⚠" lines), it takes the theme's "off" colour, `status.lastFmOff` (yellow in Light, red in Dark), with Bit-Perfect's faint `status.dotRing`, and goes back with the line (2026-11-22, the UI/UX review: a green light beside "Can't open …" read as all fine).
 3. "499 artists · 2,376 albums · 26,795 tracks · [size] GB" (all live values).
 
 A single click on the dot or the text opens Statistics, whatever the line says at the time (2026-10-22, the user's call; a double-click before that). Only the text itself is the target, not the empty space after it. Hovering either shows the hand pointer and underlines the text in its own colour; no tooltip.

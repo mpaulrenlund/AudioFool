@@ -35,7 +35,9 @@ with nothing else in the way.
     cover keeps the colours above.
   - **Shuffle and Repeat when on:** Shuffle turns blue and Repeat red.
   - **Status chips:** in Light a yellow dot means off and a teal one on; in Dark,
-    standby red and power-light green.
+    standby red and power-light green. The dot before the status line takes the "off"
+    colour while the line reports a problem (a song that won't open, a failed save,
+    the drive not connected).
 
   Selection is a row a shade off the panel with no outline, and lists scroll without
   visible scrollbars. The design is specified in `design/` (spec, tokens and mockup;
@@ -324,6 +326,7 @@ These only apply when AudioFool has focus:
 | **Enter** | Play the selected track |
 | **F2** | Edit the selected track's #, Song, Artist or Album in place (the cell you last clicked). A second single click on the selected row does the same. **Enter** saves, **Escape** cancels |
 | **Escape** | Close the album-art viewer (so does Ctrl+D) or a dialog; in a tag window it asks first if something was typed (Save, Don't Save, Cancel); in the search box, leave it and keep the search (the × clears it) |
+| **Enter**, **Ctrl+S** (in a tag window) | Save, as the Save button does (Enter in Comments starts a new line). In the main window Ctrl+S is still Shuffle |
 | **Space** | Play / pause |
 | **Ctrl+S** | Shuffle on / off |
 | **Ctrl+E** | Next repeat setting (off → whole queue → this track) |
@@ -471,7 +474,8 @@ Logo menu → Settings → **Last.fm…** connects AudioFool to your Last.fm pro
    [last.fm/api/account/create](https://www.last.fm/api/account/create). Any name and
    description will do, and the callback URL can stay empty.
 2. Paste its **API key** and **shared secret** into the Last.fm window and click
-   **Connect**.
+   **Connect** (or press Enter). The secret shows as dots, so a screenshot of the window
+   doesn't carry it.
 3. Last.fm opens in your browser. Approve AudioFool there, and the window notices by
    itself within a few seconds. Your password is only ever typed into last.fm.
 
@@ -648,8 +652,9 @@ them: "(Remastered)", "- 2011 Remaster", "(Live)", "(feat. …)", "(from …)", 
 brackets. A result counts only when both its artist and its title are your song's,
 compared loosely (case, accents, punctuation, "&"/"and" and a leading "The" don't
 matter; one artist of a joint credit is enough). With no such result the window says
-"Genius has no page that matches this song." and offers up to five of Genius's closest
-results; a click on one loads its page under your song's header. Game and film
+"Genius has no page that matches this song. Click one of the closest below if it's the
+right one." and offers up to five of Genius's closest results; a click on one loads its
+page under your song's header. Game and film
 soundtracks and many instrumental tracks have no page.
 
 **One window.** It stays open while you use the player. Opening it for another song

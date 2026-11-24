@@ -1,6 +1,6 @@
 # AudioFool — session handoff
 
-Updated 2026-11-16 (session 80, the album header's EQ panel). Read this alongside
+Updated 2026-11-24 (session 82, a UI/UX review and its fix round). Read this alongside
 `README.md`: the README covers *how the app works*, this covers *where things stand and
 what is open*. How-to and reference notes are in `docs/` (index at the end); read a file
 only when its line says so. What each past session changed, and why, is in
@@ -68,6 +68,12 @@ commit. More (vendored DLLs, `eol=lf`, ignores): `docs/build-and-release.md`.
 
 **Built and installed, not yet seen by the user** (what to try: next step 2):
 
+- **Session 82 (uncommitted at the time of writing)**: a UI/UX review of the whole app,
+  `design/ux-review.md` (its *Status* says what's done and what's open), and its fix round:
+  the library dot in the "off" colour beside a problem, the tag window saying when the drive
+  is away, first-run lines naming Settings › Libraries, plain network errors, Enter and
+  Ctrl+S saving, shortcut text in the menus, no Minimize on blocking windows, Last.fm's secret
+  as dots, and four smaller wording fixes. design/progress.md, *The UI/UX review's fix round*.
 - **Session 80**: EQ panel, chip double-click (`697f77d`); header shuffle buttons
   (`3da522d`). Spec §6.3–6.5, §6.8; design/progress.md.
 - **Session 79** (committed `87f7574`): the built-in equalizer, its EQ chip and menu.
@@ -83,7 +89,8 @@ commit. More (vendored DLLs, `eol=lf`, ignores): `docs/build-and-release.md`.
 - **Session 75**: the Genius window (committed `89926f0` + `dc0b6a2`).
 - Older items checked off-screen only, from sessions 71, 68, 67, 61, 60, 59 and 39.
 
-**Waiting on the user:** how the equalizer went (step 2); how the Genius window went
+**Waiting on the user:** which of the UI/UX review's open items to take next (its
+*Status*, `design/ux-review.md`); how the equalizer went (step 2); how the Genius window went
 (step 1); whether the close X has ignored a click since the safety net (step 3); whether
 to chase the flaky "allocates nothing" tests.
 
@@ -124,6 +131,10 @@ steps 4 and 5 to take.
    on a song with many comments; the closest results offered for a soundtrack or
    instrumental. A design note from the user means the usual plan-then-approve loop.
 2. **Ask the user to try what was checked off-screen only:**
+   - **Session 82:** with the SSD unplugged, open Edit Tags (greyed, the message at the
+     bottom) and double-click a song (the dot turns yellow/red beside "Can't open …"); Enter
+     and Ctrl+S in a tag window; the shortcut text in the logo menu and the song menu;
+     Statistics with no Minimize; Last.fm's secret as dots.
    - **Session 80:** the EQ panel (album, playlist, seekbar's colour, compact
      below ~1396 px, click opens Peace, edits show on switching back); the chip's
      double-click; the headers' shuffle icons.
