@@ -54,6 +54,9 @@ public partial class TagEditWindow : FluentWindow
         {
             field = value;
             CancelButton.Content = value ? "Close" : "Cancel";
+            // Only a window that follows the lists stands on its own; the others
+            // block the main window, which a Minimize would leave ignoring clicks.
+            Bar.ShowMinimize = value;
         }
     }
 
@@ -101,6 +104,15 @@ public partial class TagEditWindow : FluentWindow
     /// </summary>
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
+        // Ctrl+S saves, as in Mp3tag (UI/UX review, 2026-11-22). Only this window
+        // sees it: the main window's Ctrl+S (Shuffle) is its own window's key.
+        if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control && IsEnabled)
+        {
+            e.Handled = true;
+            Save_Click(this, e);
+            return;
+        }
+
         if (e.Key != Key.Escape || Keyboard.Modifiers != ModifierKeys.None || !IsEnabled)
             return;
 

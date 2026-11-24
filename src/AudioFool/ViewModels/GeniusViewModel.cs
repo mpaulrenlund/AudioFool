@@ -24,6 +24,12 @@ public sealed partial class GeniusViewModel : ObservableObject, IDisposable
 
     public const string LookingUp = "Looking up on Genius…";
     public const string NoMatch = "Genius has no page that matches this song.";
+
+    /// <summary>
+    /// <see cref="NoMatch"/> with the closest results listed under it: they're picks,
+    /// which plain rows don't show at rest (UI/UX review, 2026-11-22).
+    /// </summary>
+    public const string NoMatchPick = NoMatch + " Click one of the closest below if it's the right one.";
     public const string NoTitle = "This song has no title to look up on Genius.";
     public const string EmptyPage = "Genius's page for this song has nothing on it yet.";
 
@@ -171,8 +177,8 @@ public sealed partial class GeniusViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            Message = NoMatch;
             Suggestions = [.. find.Suggestions.Select(h => new GeniusChoice(h))];
+            Message = Suggestions.Count > 0 ? NoMatchPick : NoMatch;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

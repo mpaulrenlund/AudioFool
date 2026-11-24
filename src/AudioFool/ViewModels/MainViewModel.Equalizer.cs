@@ -172,7 +172,7 @@ public sealed partial class MainViewModel
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException)
         {
-            StatusText = $"Couldn't open Peace: {ex.Message}";
+            ReportProblem($"Couldn't open Peace: {ex.Message}");
         }
     }
 
@@ -224,7 +224,7 @@ public sealed partial class MainViewModel
         if (presets.FirstOrDefault(p => string.Equals(p.Name, last.Preset, StringComparison.OrdinalIgnoreCase)) is { } preset)
             ChooseEqualizer(preset, last.Folder);
         else
-            StatusText = $"Couldn't find the EQ preset {last.Preset}";
+            ReportProblem($"Couldn't find the EQ preset {last.Preset}");
     }
 
     /// <summary>
@@ -262,7 +262,7 @@ public sealed partial class MainViewModel
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
-            StatusText = $"Couldn't open {folder}: {ex.Message}";
+            ReportProblem($"Couldn't open {folder}: {ex.Message}");
         }
     }
 }

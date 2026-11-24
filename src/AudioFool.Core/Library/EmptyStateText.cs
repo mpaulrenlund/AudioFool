@@ -18,11 +18,11 @@ public static class EmptyStateText
         {
             return isScanning
                 ? ("Scanning the library", "Music appears here as it's found.")
-                : ("No music yet", "Add a folder from the logo menu, under Libraries.");
+                : ("No music yet", "Add a folder under Settings › Libraries in the logo menu.");
         }
 
         if (!hasTickedTracks)
-            return ("Every folder is unticked", "Tick one under Libraries in the logo menu.");
+            return ("Every folder is unticked", "Tick one under Settings › Libraries in the logo menu.");
 
         if (!hasArtists && isNarrowed)
             return ("No matches", "Nothing in the library matches.");

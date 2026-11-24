@@ -44,9 +44,12 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <!-- No Minimize: this window blocks the main one, which would be left
+             ignoring clicks (UI/UX review, 2026-11-22). -->
         <ui:TitleBar Grid.Row="0"
                      Style="{DynamicResource theme.dialogTitleBar}"
-                     Header="{DynamicResource theme.dialogTitle}" />
+                     Header="{DynamicResource theme.dialogTitle}"
+                     ShowMinimize="False" />
 
         <!-- Each box with its button, the two buttons one width; the options under
              them. Greyed while a replace or an undo is saving. -->
@@ -109,6 +112,7 @@
         <HeaderedContentControl Grid.Row="2"
                                 Style="{DynamicResource theme.panel.songs}"
                                 Margin="{theme:Thickness X=dialog.paddingX, Top=findReplace.gridGap}">
+          <Grid>
             <DataGrid x:Name="PreviewGrid"
                       Style="{DynamicResource theme.songTable}"
                       ItemsSource="{Binding Rows}"
@@ -184,6 +188,13 @@
                                         Binding="{Binding File, Mode=OneWay}" />
                 </DataGrid.Columns>
             </DataGrid>
+
+            <!-- Find found nothing: said here, where you're looking, as the main
+                 window's empty states are (UI/UX review, 2026-11-22). -->
+            <Control Template="{StaticResource theme.emptyState}"
+                     Focusable="False" IsTabStop="False" IsHitTestVisible="False"
+                     Visibility="{Binding ShowsNoMatches, Converter={StaticResource BoolToVisibility}}" />
+          </Grid>
         </HeaderedContentControl>
 
         <Grid Grid.Row="3" Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop, Bottom=dialog.paddingBottom}">

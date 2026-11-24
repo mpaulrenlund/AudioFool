@@ -525,6 +525,20 @@ internal static partial class Program
             vm.ScanFraction = double.Parse(fraction, CultureInfo.InvariantCulture);
         }
 
+        // --problem "Can't open …": a warning or error on the status line, through the
+        // view model's own ReportProblem (the library dot in the "off" colour;
+        // UI/UX review, 2026-11-22). Prints the dot's fill and StatusIsProblem.
+        if (Arg(args, "--problem") is { } problem)
+        {
+            typeof(MainViewModel).GetMethod("ReportProblem",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .Invoke(vm, [problem]);
+            Settle(100);
+            var dot = (System.Windows.Shapes.Ellipse)main.FindName("LibraryDot");
+            Console.WriteLine($"problem: StatusIsProblem={vm.StatusIsProblem}, dot fill {(dot.Fill as SolidColorBrush)?.Color}, " +
+                              $"stroke {(dot.Stroke as SolidColorBrush)?.Color} x{dot.StrokeThickness}, line '{vm.StatusText}'");
+        }
+
         Settle(300);
 
         // --window tokens: the central theme, checked from inside MainWindow, plus
@@ -6034,7 +6048,7 @@ internal static partial class Program
         Find("(remastered)");
         Check($"case ignored: {fr.Rows.Count} rows", fr.Rows.Count == 8);
         fr.MatchCase = true;
-        Check($"Match case finds again: '{fr.FooterText}'", fr.Rows.Count == 0 && fr.FooterText == "No matches.");
+        Check($"Match case finds again: '{fr.FooterText}'", fr.Rows.Count == 0 && fr.ShowsNoMatches && fr.FooterText == "");
         fr.MatchCase = false;
         Find("Remaster");
         Check($"inside a word: {fr.Rows.Count} rows", fr.Rows.Count == 8);
@@ -6165,7 +6179,7 @@ internal static partial class Program
                                     && Tags("03 YYZ") == "'YYZ' / Rush / Rush / 'Moving Pictures'");
         Check("02 and 04 not", Tags("02 Red Barchetta") == before["02 Red Barchetta"] && Tags("04 Duet") == before["04 Duet"]);
         Find("(Remastered)");
-        Check($"Find again reads the new copies: '{fr.FooterText}'", fr.Rows.Count == 0 && fr.FooterText == "No matches.");
+        Check($"Find again reads the new copies: '{fr.FooterText}'", fr.Rows.Count == 0 && fr.ShowsNoMatches && fr.FooterText == "");
         fr.UndoCommand.Execute(null);
         WaitWhileBusy();
         Check("Undo puts them back", Tags("01 Tom Sawyer") == before["01 Tom Sawyer"] && Tags("03 YYZ") == before["03 YYZ"]);
@@ -7633,7 +7647,7 @@ internal static partial class Program
         var clock = System.Diagnostics.Stopwatch.StartNew();
         while (!vm.DetailsRead.IsCompleted && clock.ElapsedMilliseconds < 60_000)
             Settle(25);
-        Console.WriteLine($"  details: greyed at open={greyed} save at open={savable}, read in {clock.ElapsedMilliseconds} ms, now greyed={vm.IsReadingDetails} save={vm.CanSave}");
+        Console.WriteLine($"  details: greyed at open={greyed} save at open={savable}, read in {clock.ElapsedMilliseconds} ms, now greyed={!vm.AreDetailsEditable} save={vm.CanSave} art picks={vm.CanPickArt} problem='{vm.ReadProblem}'");
     }
 
     /// <summary>A 16-bit stereo WAV of digital silence, for checks that must make no sound.</summary>

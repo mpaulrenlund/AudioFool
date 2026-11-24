@@ -82,7 +82,7 @@ public sealed partial class LastFmViewModel : ObservableObject, IDisposable
             };
 
             if (_scrobbler.LastError is { } error)
-                return $"{pending} Last send failed: {error} It will be retried.";
+                return $"{pending} Last send failed: {error.TrimEnd('.')}. AudioFool sends again by itself.";
 
             return _scrobbler.LastSentAt is { } sent
                 ? $"{pending} Last sent {sent.ToLocalTime():HH:mm}."

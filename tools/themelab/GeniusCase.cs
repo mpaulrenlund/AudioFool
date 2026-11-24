@@ -136,7 +136,7 @@ internal static partial class Program
         Wait(dialog.ShowSong(Song("Nowhere Tune", "Obscure Act", "", null)));
         root = Render("nomatch");
         Console.WriteLine($"  nomatch: message '{model.Message}', suggestions {string.Join(" | ", model.Suggestions.Select(s => $"{s.Label} · {s.Detail}"))}, sections '{ShownSections(root)}'");
-        Check(model.Message == GeniusViewModel.NoMatch && model.Suggestions.Count == 2 && !model.HasPage && ShownSections(root) == "",
+        Check(model.Message == GeniusViewModel.NoMatchPick && model.Suggestions.Count == 2 && !model.HasPage && ShownSections(root) == "",
             "no match: the line and two nearest results, translation page left out, no sections");
         Check(model.DetailLine is null && model.Art is null, "header without album, year or cover: placeholder note");
 
@@ -177,7 +177,7 @@ internal static partial class Program
         fake.Mode = FakeGenius.Offline;
         Wait(dialog.ShowSong(Song("Offline Song", "Someone", "", null)));
         root = Render("offline");
-        Check(model.Message == "Couldn't load the Genius page. Couldn't reach Genius: No such host is known.", $"offline: '{model.Message}'");
+        Check(model.Message == "Couldn't load the Genius page. Genius can't be reached. Check the internet connection.", $"offline: '{model.Message}'");
 
         fake.Mode = FakeGenius.Never;
         var never = dialog.ShowSong(Song("Waiting Song", "Someone", "", null));

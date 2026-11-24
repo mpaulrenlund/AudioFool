@@ -84,7 +84,7 @@ public sealed partial class MainViewModel
 
         if (tracks.Count == 0)
         {
-            StatusText = $"Couldn't open {Path.GetFileName(paths[0])}.";
+            ReportProblem($"Couldn't open {Path.GetFileName(paths[0])}.");
             return;
         }
 
@@ -95,7 +95,7 @@ public sealed partial class MainViewModel
         }
 
         if (!_engine.Play(tracks, 0))
-            StatusText = DescribePlayFailure(tracks[0]);
+            ReportProblem(DescribePlayFailure(tracks[0]));
     }
 
     private Track? InLibrary(string path) =>

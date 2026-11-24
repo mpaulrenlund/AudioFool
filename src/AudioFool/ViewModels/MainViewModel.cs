@@ -303,6 +303,37 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(CanDismissStatus))]
     private string _statusText = "Ready";
 
+    /// <summary>
+    /// The status line is a warning or an error, so the library dot takes the
+    /// theme's "off" colour while it shows (spec §6.8; the UI/UX review,
+    /// 2026-11-22: a green light beside "Can't open …" read as all fine). Set by
+    /// <see cref="ReportProblem"/>, true for the standing warnings (they start
+    /// with "⚠"), and cleared by any other line.
+    /// </summary>
+    public bool StatusIsProblem => _statusProblem || StatusText.StartsWith('⚠');
+
+    private bool _statusProblem;
+
+    partial void OnStatusTextChanged(string value)
+    {
+        _statusProblem = false;
+        OnPropertyChanged(nameof(StatusIsProblem));
+    }
+
+    /// <summary>Puts a warning or an error on the status line (see <see cref="StatusIsProblem"/>).</summary>
+    private void ReportProblem(string text)
+    {
+        StatusText = text;
+        MarkStatusAsProblem();
+    }
+
+    /// <summary>The line just written is a warning or an error, for lines built in steps.</summary>
+    private void MarkStatusAsProblem()
+    {
+        _statusProblem = true;
+        OnPropertyChanged(nameof(StatusIsProblem));
+    }
+
     [ObservableProperty]
     private double _durationSeconds = 1.0;
 
@@ -520,9 +551,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (unavailable.Count == 0)
             return;
 
-        StatusText = unavailable.Count == 1
+        ReportProblem(unavailable.Count == 1
             ? $"{unavailable[0]} is already in use by another app, so that shortcut won't work."
-            : $"{string.Join(", ", unavailable)} are already in use by other apps, so those shortcuts won't work.";
+            : $"{string.Join(", ", unavailable)} are already in use by other apps, so those shortcuts won't work.");
     }
 
     // ----------------------------------------------------------------- theme
@@ -610,9 +641,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(OutputDeviceName));
         RefreshOutputState();
 
-        StatusText = _settings.OutputMode == OutputMode.Exclusive && !_runtime.SupportsExclusive
-            ? $"Sound output moved to {_runtime.OutputDeviceName}. It can't do Bit-Perfect, so that is off until a device that can is the default."
-            : $"Sound output moved to {_runtime.OutputDeviceName}.";
+        if (_settings.OutputMode == OutputMode.Exclusive && !_runtime.SupportsExclusive)
+            ReportProblem($"Sound output moved to {_runtime.OutputDeviceName}. It can't do Bit-Perfect, so that is off until a device that can is the default.");
+        else
+            StatusText = $"Sound output moved to {_runtime.OutputDeviceName}.";
     }
 
     /// <summary>Greyed out when the device can't do exclusive mode at all.</summary>
@@ -657,7 +689,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(VolumeTooltip));
 
         if (_engine.OutputWarning is { } warning)
-            StatusText = warning;
+            ReportProblem(warning);
     }
 
     /// <summary>Header text over the track list.</summary>
@@ -690,7 +722,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         if (!_runtime.Initialise())
         {
-            StatusText = _runtime.InitError ?? "Audio engine unavailable.";
+            ReportProblem(_runtime.InitError ?? "Audio engine unavailable.");
         }
         else if (_runtime.MissingFormats.Count > 0)
         {
@@ -714,7 +746,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _settings.OutputMode = OutputMode.Shared;
             _engine.OutputMode = OutputMode.Shared;
             OnPropertyChanged(nameof(IsExclusiveOutput));
-            StatusText = $"{_runtime.OutputDeviceName} does not support exclusive mode; using shared output.";
+            ReportProblem($"{_runtime.OutputDeviceName} does not support exclusive mode; using shared output.");
         }
 
         // A song opened from Explorer at startup can play now, unless it waits for the library.
@@ -734,7 +766,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         if (MusicFolders.Count == 0)
         {
-            StatusText = "No music folders yet. Use \"Add Folder\" to point at your music.";
+            StatusText = "No music folders yet. Add one under Settings › Libraries in the logo menu.";
             return;
         }
 
@@ -1009,10 +1041,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             {
                 ScanFraction = p.Fraction;
                 StatusText = reread && refreshing
-                    ? $"Updating the library for this version... {p.FilesRead:N0} of {p.FilesFound:N0} files"
+                    ? $"Updating the library for this version… {p.FilesRead:N0} of {p.FilesFound:N0} files"
                     : refreshing
-                    ? $"Updating... {p.FilesRead:N0} of {p.FilesFound:N0} changed files"
-                    : $"Scanning... {p.FilesRead:N0} of {p.FilesFound:N0} files";
+                    ? $"Updating… {p.FilesRead:N0} of {p.FilesFound:N0} changed files"
+                    : $"Scanning… {p.FilesRead:N0} of {p.FilesFound:N0} files";
             });
 
             var result = await LibraryScanner.ScanAsync(
@@ -1059,7 +1091,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            StatusText = $"Scan failed: {ex.Message}";
+            ReportProblem($"Scan failed: {ex.Message}");
         }
         finally
         {
@@ -1200,7 +1232,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return false;
 
         if (!_engine.Play(current, index))
-            StatusText = DescribePlayFailure(shown);
+            ReportProblem(DescribePlayFailure(shown));
 
         return true;
     }
@@ -1385,7 +1417,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                    "Tick a folder under Settings › Libraries in the logo menu to show it.";
 
         if (_folderFilteredLibrary.AllTracks.Count == 0)
-            return "No audio files found. Use Add Folder to point at your music.";
+            return "No audio files found. Add another folder under Settings › Libraries in the logo menu.";
 
         // Spec 6.8: the size is of the same tracks the counts describe, so it is
         // rebuilt with them, after every scan included.
@@ -1604,7 +1636,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             NavigateTo(target, row.Kind);
     }
 
-    private void OnScrobblerAuthFailed(object? sender, string message) => StatusText = message;
+    private void OnScrobblerAuthFailed(object? sender, string message) => ReportProblem(message);
 
     /// <summary>The status-bar indicator's state.</summary>
     [ObservableProperty]
@@ -1735,7 +1767,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var progress = new Progress<QualityScanProgress>(p =>
         {
             QualityProgress = p;
-            StatusText = $"Checking audio quality... {p.Done:N0} of {p.Total:N0} tracks"
+            StatusText = $"Checking audio quality… {p.Done:N0} of {p.Total:N0} tracks"
                 + (p.Flagged > 0 ? $" · {p.Flagged:N0} found" : "");
         });
 
@@ -1754,7 +1786,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            StatusText = $"Quality check failed: {ex.Message}";
+            ReportProblem($"Quality check failed: {ex.Message}");
         }
         finally
         {
@@ -1891,7 +1923,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (ExplorerTarget.ArgumentsFor(track.FilePath) is not { } arguments)
         {
-            StatusText = $"Can't open {track.FilePath}: the drive isn't connected.";
+            ReportProblem($"Can't open {track.FilePath}: the drive isn't connected.");
             return;
         }
 
@@ -1901,7 +1933,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
-            StatusText = $"Couldn't open Windows Explorer: {ex.Message}";
+            ReportProblem($"Couldn't open Windows Explorer: {ex.Message}");
         }
     }
 
@@ -1950,7 +1982,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
-            StatusText = $"Couldn't save the tags for {album.Title}: {ex.Message}";
+            ReportProblem($"Couldn't save the tags for {album.Title}: {ex.Message}");
         }
     }
 
@@ -2061,7 +2093,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             }
             catch (Exception ex)
             {
-                StatusText = $"Couldn't save the tags for {tracks.Count} track(s): {ex.Message}";
+                ReportProblem($"Couldn't save the tags for {tracks.Count} track(s): {ex.Message}");
             }
         }
     }
@@ -2108,10 +2140,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             await PersistLibraryAsync();
         }
 
-        StatusText = failed.Count == 0
-            ? WithFilterProgress($"Saved tags for {updated.Count} track(s).")
-            : $"Saved tags for {updated.Count} of {tracks.Count} track(s) - " +
-              $"{failed.Count} failed ({string.Join(", ", failed.Select(f => f.FileName))}: {failed[0].Error}).";
+        if (failed.Count == 0)
+            StatusText = WithFilterProgress($"Saved tags for {updated.Count} track(s).");
+        else
+            ReportProblem($"Saved tags for {updated.Count} of {tracks.Count} track(s) - " +
+                          $"{failed.Count} failed ({string.Join(", ", failed.Select(f => f.FileName))}: {failed[0].Error}).");
     }
 
     /// <summary>
@@ -2156,7 +2189,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         if (!result.Success)
         {
-            StatusText = $"Couldn't save tags for {Path.GetFileName(track.FilePath)}: {result.ErrorMessage}";
+            ReportProblem($"Couldn't save tags for {Path.GetFileName(track.FilePath)}: {result.ErrorMessage}");
             return;
         }
 
@@ -2279,6 +2312,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (coverWarnings.Count > 0)
             StatusText += $"  {Songs(coverWarnings.Count)} kept an older cover copy, left as saved "
                 + $"({coverWarnings[0].FileName}: {coverWarnings[0].Warning}).";
+
+        // Built in steps, each of which clears the mark: set it once the line is whole.
+        if (failed.Count > 0 || folderArtFailed)
+            MarkStatusAsProblem();
     }
 
 
@@ -2325,7 +2362,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var (edit, error) = InlineTagEdit.Build(track, field, text);
         if (error is not null)
         {
-            StatusText = $"Not saved: {error}";
+            ReportProblem($"Not saved: {error}");
             return;
         }
 
@@ -2348,7 +2385,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
             if (!result.Success)
             {
-                StatusText = $"Couldn't save tags for {Path.GetFileName(track.FilePath)}: {result.ErrorMessage}";
+                ReportProblem($"Couldn't save tags for {Path.GetFileName(track.FilePath)}: {result.ErrorMessage}");
                 return;
             }
 
@@ -2437,7 +2474,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
 
         if (!_engine.Play(queue, index))
-            StatusText = DescribePlayFailure(track);
+            ReportProblem(DescribePlayFailure(track));
     }
 
     [RelayCommand]
@@ -2486,7 +2523,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // start with the random song pinned first.
         IsShuffle = true;
         if (!_engine.Play(queue, index))
-            StatusText = DescribePlayFailure(queue[index]);
+            ReportProblem(DescribePlayFailure(queue[index]));
     }
 
     [RelayCommand]
@@ -2754,9 +2791,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>Next, Previous or the queue moving on passed over songs that wouldn't open (session 67).</summary>
     private void OnEngineTracksSkipped(object? sender, IReadOnlyList<Track> skipped) =>
-        StatusText = skipped is [var one]
+        ReportProblem(skipped is [var one]
             ? $"Skipped {Path.GetFileName(one.FilePath)}: it couldn't be opened (moved, deleted or damaged)."
-            : $"Skipped {skipped.Count:N0} songs that couldn't be opened (moved, deleted or damaged), from {Path.GetFileName(skipped[0].FilePath)}.";
+            : $"Skipped {skipped.Count:N0} songs that couldn't be opened (moved, deleted or damaged), from {Path.GetFileName(skipped[0].FilePath)}.");
 
     private void OnPositionTick(object? sender, EventArgs e)
     {

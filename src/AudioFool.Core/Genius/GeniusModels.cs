@@ -1,7 +1,7 @@
 namespace AudioFool.Core.Genius;
 
 /// <summary>Genius couldn't be reached, or answered with something other than a page.</summary>
-public sealed class GeniusException(string message) : Exception(message);
+public sealed class GeniusException(string message, Exception? inner = null) : Exception(message, inner);
 
 /// <summary>One song as a search or a connection lists it: enough to show it and to load it.</summary>
 public sealed record GeniusHit(long Id, string Title, string Artist, string Url);

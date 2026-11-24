@@ -93,7 +93,7 @@ public sealed partial class MainViewModel
         }
         catch (Exception ex) when (ex is UpdateCheckException or IOException or UnauthorizedAccessException)
         {
-            StatusText = $"The update to {shown} didn't install.";
+            ReportProblem($"The update to {shown} didn't install.");
             PromptWindow.Inform(owner, UpdateTitle,
                 $"Couldn't install AudioFool {shown}. {ex.Message} Nothing was changed.");
             return;

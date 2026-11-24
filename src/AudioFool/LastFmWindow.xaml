@@ -76,11 +76,13 @@
                              IsEnabled="{Binding IsWaitingForApproval, Converter={StaticResource InverseBool}}" />
 
                     <TextBlock Grid.Row="1" Text="Shared secret" Style="{StaticResource Body}" VerticalAlignment="Center" />
-                    <TextBox x:Name="ApiSecretBox" Grid.Row="1" Grid.Column="1"
-                             Style="{StaticResource theme.dialogTextBox}"
-                             AutomationProperties.Name="Shared secret"
-                             Text="{Binding ApiSecret, UpdateSourceTrigger=PropertyChanged}"
-                             IsEnabled="{Binding IsWaitingForApproval, Converter={StaticResource InverseBool}}" />
+                    <!-- Masked, with no reveal button (UI/UX review, 2026-11-22): a
+                         screenshot of this window shouldn't carry the secret. -->
+                    <ui:PasswordBox x:Name="ApiSecretBox" Grid.Row="1" Grid.Column="1"
+                                    Style="{StaticResource theme.dialogPasswordBox}"
+                                    AutomationProperties.Name="Shared secret"
+                                    Password="{Binding ApiSecret, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    IsEnabled="{Binding IsWaitingForApproval, Converter={StaticResource InverseBool}}" />
                 </Grid>
 
                 <StackPanel Margin="{theme:Thickness Top=dialog.paddingTop}"

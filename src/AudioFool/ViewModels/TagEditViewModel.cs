@@ -193,6 +193,9 @@ public sealed partial class TagEditViewModel : ObservableObject
         if (details is { Date.Length: > 0 })
             Year = details.Date;
 
+        if (details is null)
+            ReadProblem = TagReadProblem.Describe([track.FilePath], Directory.Exists);
+
         RememberInitialDetails();
         // Not for Save, which writes every field: only so HasChanges can tell.
         _initial[nameof(Title)] = Title;
@@ -292,9 +295,32 @@ public sealed partial class TagEditViewModel : ObservableObject
     /// is saved over values that haven't been read yet.
     /// </summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AreDetailsEditable))]
     private bool _isReadingDetails;
 
     partial void OnIsReadingDetailsChanged(bool value) => Revalidate();
+
+    /// <summary>
+    /// Why nothing can be read or saved, when none of the songs could be opened
+    /// (the music drive unplugged, most often; <see cref="TagReadProblem"/>). Shown
+    /// on the message line, with the fields and Save greyed as during the read, so
+    /// blank boxes aren't taken for empty tags. Empty while any song was read.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FooterMessage))]
+    [NotifyPropertyChangedFor(nameof(AreDetailsEditable))]
+    [NotifyPropertyChangedFor(nameof(CanPickArt))]
+    [NotifyCanExecuteChangedFor(nameof(SaveEmbeddedArtCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RemoveLeadingZerosCommand))]
+    private string _readProblem = "";
+
+    partial void OnReadProblemChanged(string value) => Revalidate();
+
+    /// <summary>The fields take typing: not while the files are read, nor when none could be.</summary>
+    public bool AreDetailsEditable => !IsReadingDetails && ReadProblem.Length == 0;
+
+    /// <summary>Choose Image… and Search Internet…: off when none of the songs could be read, as a picked cover couldn't be saved.</summary>
+    public bool CanPickArt => ReadProblem.Length == 0;
 
     /// <summary>Finishes when the detail fields are filled in (ThemeLab waits on it).</summary>
     public Task DetailsRead { get; } = Task.CompletedTask;
@@ -312,6 +338,9 @@ public sealed partial class TagEditViewModel : ObservableObject
         IsReadingDetails = true;
         var paths = tracks.Select(t => t.FilePath).ToList();
         var read = await Task.Run(() => TagReader.ReadDetails(paths));
+
+        if (read.Count > 0 && read.All(d => d is null))
+            ReadProblem = TagReadProblem.Describe(paths, Directory.Exists);
 
         ShowNumbers(tracks, read);
         var details = read.OfType<TagDetails>().ToList();
@@ -352,8 +381,10 @@ public sealed partial class TagEditViewModel : ObservableObject
     {
         var numbers = tracks.Zip(read, (t, d) => d?.Numbers ?? CachedNumbers(t)).ToList();
         var padded = numbers.Count(n => n.HasLeadingZeros);
-        LeadingZerosText = padded == 0 ? "None found" : $"{padded} of {tracks.Count} tracks";
-        _hasLeadingZeros = padded > 0;
+        // Nothing read, nothing checked: say nothing rather than "None found".
+        var noneRead = read.Count > 0 && read.All(d => d is null);
+        LeadingZerosText = noneRead ? "" : padded == 0 ? "None found" : $"{padded} of {tracks.Count} tracks";
+        _hasLeadingZeros = !noneRead && padded > 0;
 
         TrackCount = Shared(numbers.Select(n => n.TrackCount), "Varies", out var trackCountHint);
         DiscNumber = Shared(numbers.Select(n => n.DiscNumber), "Varies", out var discNumberHint);
@@ -550,7 +581,10 @@ public sealed partial class TagEditViewModel : ObservableObject
     private string _artMessage = "";
 
     /// <summary>The dialog's message line: a validation problem first, else the last art result.</summary>
-    public string FooterMessage => ValidationError.Length > 0 ? ValidationError : ArtMessage;
+    public string FooterMessage =>
+        ReadProblem.Length > 0 ? ReadProblem
+        : ValidationError.Length > 0 ? ValidationError
+        : ArtMessage;
 
     partial void OnValidationErrorChanged(string value) => OnPropertyChanged(nameof(FooterMessage));
 
@@ -593,7 +627,7 @@ public sealed partial class TagEditViewModel : ObservableObject
         }
     }
 
-    private bool CanSaveEmbeddedArt() => ShowsArt && !IsExtractingArt;
+    private bool CanSaveEmbeddedArt() => ShowsArt && !IsExtractingArt && ReadProblem.Length == 0;
 
     [RelayCommand]
     private void ChooseImage()
@@ -683,7 +717,7 @@ public sealed partial class TagEditViewModel : ObservableObject
         }
 
         ValidationError = "";
-        CanSave = !IsReadingDetails;
+        CanSave = !IsReadingDetails && ReadProblem.Length == 0;
     }
 
     private static int? ParseOrNull(string value) =>

@@ -152,9 +152,12 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <!-- No Minimize: this window blocks the main one, which would be left
+             ignoring clicks (UI/UX review, 2026-11-22). -->
         <ui:TitleBar Grid.Row="0"
                      Style="{DynamicResource theme.dialogTitleBar}"
-                     Header="{DynamicResource theme.dialogTitle}" />
+                     Header="{DynamicResource theme.dialogTitle}"
+                     ShowMinimize="False" />
 
         <!-- No visible scrollbar (the theme's rule); the wheel and keys still scroll. -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Hidden"

@@ -105,7 +105,7 @@ public sealed partial class MainViewModel
                 results.AddRange(done);
                 pending.AddRange(done.Where(r => r.Outcome == CoverCleanOutcome.Cleaned).Select(r => r.Path));
                 PngProgress = (results.Count, tracks.Count);
-                StatusText = $"Converting PNG covers... {results.Count:N0} of {tracks.Count:N0} songs · saved {Display.Size(Saved(results))}";
+                StatusText = $"Converting PNG covers… {results.Count:N0} of {tracks.Count:N0} songs · saved {Display.Size(Saved(results))}";
 
                 if (DateTime.UtcNow - lastCommit >= KeepCommitEvery)
                 {
@@ -121,7 +121,7 @@ public sealed partial class MainViewModel
         catch (Exception ex)
         {
             await CommitKeptCoversAsync(pending, cache);
-            StatusText = $"Converting PNG covers stopped: {ex.Message}";
+            ReportProblem($"Converting PNG covers stopped: {ex.Message}");
         }
         finally
         {
@@ -164,7 +164,7 @@ public sealed partial class MainViewModel
                     folders?.Remove(group.Key);
 
                 PngProgress = (foldersDone, groups.Count);
-                StatusText = $"Converting PNG files... {foldersDone:N0} of {groups.Count:N0} folders · saved {Display.Size(results.Sum(r => r.Saved))}";
+                StatusText = $"Converting PNG files… {foldersDone:N0} of {groups.Count:N0} folders · saved {Display.Size(results.Sum(r => r.Saved))}";
 
                 if (DateTime.UtcNow - lastCommit >= KeepCommitEvery)
                 {
@@ -180,7 +180,7 @@ public sealed partial class MainViewModel
         catch (Exception ex)
         {
             await CommitKeptCoversAsync(pending, cache);
-            StatusText = $"Converting PNG files stopped: {ex.Message}";
+            ReportProblem($"Converting PNG files stopped: {ex.Message}");
         }
         finally
         {

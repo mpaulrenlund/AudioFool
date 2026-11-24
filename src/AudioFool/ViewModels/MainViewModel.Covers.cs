@@ -83,7 +83,7 @@ public sealed partial class MainViewModel
         var progress = new Progress<CoverScanProgress>(p =>
         {
             CoverProgress = p;
-            StatusText = $"Checking covers... {p.Done:N0} of {p.Total:N0} tracks"
+            StatusText = $"Checking covers… {p.Done:N0} of {p.Total:N0} tracks"
                 + (p.Found > 0 ? $" · {p.Found:N0} with extra covers" : "");
         });
 
@@ -103,7 +103,7 @@ public sealed partial class MainViewModel
         }
         catch (Exception ex)
         {
-            StatusText = $"Cover check failed: {ex.Message}";
+            ReportProblem($"Cover check failed: {ex.Message}");
         }
         finally
         {
@@ -248,7 +248,7 @@ public sealed partial class MainViewModel
                 pending.AddRange(cleaned.Select(r => r.Path));
                 freed += cleaned.Sum(r => r.BytesFreed);
                 KeepProgress = (results.Count, tracks.Count);
-                StatusText = $"Keeping the best cover... {results.Count:N0} of {tracks.Count:N0} songs · freed {Display.Size(freed)}";
+                StatusText = $"Keeping the best cover… {results.Count:N0} of {tracks.Count:N0} songs · freed {Display.Size(freed)}";
 
                 if (DateTime.UtcNow - lastCommit >= KeepCommitEvery)
                 {
@@ -264,7 +264,7 @@ public sealed partial class MainViewModel
         catch (Exception ex)
         {
             await CommitKeptCoversAsync(pending, cache);
-            StatusText = $"Keep Best Cover stopped: {ex.Message}";
+            ReportProblem($"Keep Best Cover stopped: {ex.Message}");
         }
         finally
         {

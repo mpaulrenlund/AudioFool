@@ -136,6 +136,8 @@ public sealed partial class MainViewModel
         StatusText = failed.Count == 0 && leftAlone.Count == 0
             ? WithFilterProgress($"Find and Replace: {said}")
             : $"Find and Replace: {said}";
+        if (failed.Count > 0)
+            MarkStatusAsProblem();
         return run;
     }
 }

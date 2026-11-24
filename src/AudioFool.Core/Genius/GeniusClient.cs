@@ -92,7 +92,8 @@ public sealed class GeniusClient
         }
         catch (HttpRequestException ex)
         {
-            throw new GeniusException($"Couldn't reach Genius: {ex.Message}");
+            // Windows' own words stay in the inner exception (UI/UX review, 2026-11-22).
+            throw new GeniusException("Genius can't be reached. Check the internet connection.", ex);
         }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested)
         {

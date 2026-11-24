@@ -20,10 +20,11 @@ public partial class ArtWindow : FluentWindow
         // The title bar shows the window's Title (theme.dialogTitle).
         Title = caption;
         // The file's own size and format when known: the bitmap is capped at
-        // 2,000 px, so its size alone would under-report a larger cover.
+        // 2,000 px, so its size alone would under-report a larger cover. Not the
+        // caption again: the title bar says it (UI/UX review, 2026-11-22).
         Caption.Text = Services.AlbumArtService.InfoFor(art) is { } info
-            ? $"{caption} · {info.SizeText} · {info.FormatText}"
-            : $"{caption} · {art.PixelWidth} × {art.PixelHeight}";
+            ? $"{info.SizeText} · {info.FormatText}"
+            : $"{art.PixelWidth} × {art.PixelHeight}";
         ArtImage.Source = art;
 
         SizeToArt(art, owner);

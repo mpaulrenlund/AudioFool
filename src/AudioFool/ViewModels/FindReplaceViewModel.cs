@@ -134,6 +134,9 @@ public sealed partial class FindReplaceViewModel : ObservableObject
     {
         _songs = songs;
         WindowTitle = picked is { } count ? $"Find and Replace · {count:N0} tracks" : "Find and Replace";
+        EmptyStateDetail = picked is null
+            ? "No tag in the library holds this text."
+            : "No tag in the selected tracks holds this text.";
         _musicFolders = musicFolders;
         _replace = replace;
         _undo = undo;
@@ -170,6 +173,20 @@ public sealed partial class FindReplaceViewModel : ObservableObject
     /// <summary>Under the grid: what Replace would change, then its progress, then what it did.</summary>
     [ObservableProperty]
     private string _footerText = "";
+
+    /// <summary>
+    /// Find found nothing: said in the empty table, where you're looking, as the
+    /// main window's empty states are (theme.emptyState), not on the footer
+    /// (UI/UX review, 2026-11-22).
+    /// </summary>
+    [ObservableProperty]
+    private bool _showsNoMatches;
+
+    /// <summary>theme.emptyState's two lines.</summary>
+    public string EmptyStateTitle => "No matches";
+
+    /// <inheritdoc cref="EmptyStateTitle"/>
+    public string EmptyStateDetail { get; }
 
     /// <summary>The footer names a failure: semibold, as the other dialogs' error lines are.</summary>
     [ObservableProperty]
@@ -380,8 +397,8 @@ public sealed partial class FindReplaceViewModel : ObservableObject
 
         Counts = (songs.Count, tags);
         AllTicked = tags > 0 && unticked == 0;
-        FooterText = _found is null ? ""
-            : Rows.Count == 0 ? "No matches."
+        ShowsNoMatches = _found is not null && Rows.Count == 0;
+        FooterText = _found is null || Rows.Count == 0 ? ""
             : $"{ReplaceRun.Songs(songs.Count)} · {Tags(tags)}";
     }
 
@@ -391,6 +408,7 @@ public sealed partial class FindReplaceViewModel : ObservableObject
         Rows = new List<ReplaceRow>();
         Counts = (0, 0);
         AllTicked = false;
+        ShowsNoMatches = false;
         FooterText = "";
         FooterIsError = false;
     }

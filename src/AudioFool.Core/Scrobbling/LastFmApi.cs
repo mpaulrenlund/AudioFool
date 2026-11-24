@@ -12,7 +12,7 @@ public sealed record LastFmSession(string UserName, string Key);
 /// A Last.fm API error. <see cref="Code"/> is Last.fm's own error number, or 0
 /// for a network fault or an answer that was not Last.fm's JSON.
 /// </summary>
-public sealed class LastFmException(int code, string message) : Exception(message)
+public sealed class LastFmException(int code, string message, Exception? inner = null) : Exception(message, inner)
 {
     public int Code { get; } = code;
 
@@ -304,7 +304,9 @@ public sealed class LastFmApi
         }
         catch (HttpRequestException ex)
         {
-            throw new LastFmException(0, $"Couldn't reach Last.fm: {ex.Message}");
+            // Windows' own words ("No such host is known") stay in the inner
+            // exception; the windows show a plain sentence (UI/UX review, 2026-11-22).
+            throw new LastFmException(0, "Last.fm can't be reached. Check the internet connection.", ex);
         }
         catch (TaskCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -332,7 +334,11 @@ public sealed class LastFmApi
                 var message = doc.RootElement.TryGetProperty("message", out var m) ? m.GetString() : null;
                 var code = error.GetInt32();
                 doc.Dispose();
-                throw new LastFmException(code, message ?? $"Last.fm error {code}.");
+                // 11 (offline) and 16 (temporarily unavailable) come with "please try
+                // again", which the scrobbler does by itself: say only what happened.
+                throw new LastFmException(code, code is 11 or 16
+                    ? "Last.fm is unavailable for the moment."
+                    : message ?? $"Last.fm error {code}.");
             }
 
             if (!response.IsSuccessStatusCode)

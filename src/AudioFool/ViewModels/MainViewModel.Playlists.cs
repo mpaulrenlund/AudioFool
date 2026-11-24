@@ -589,7 +589,7 @@ public sealed partial class MainViewModel
         // than leaving the header blank.
         if (LoadPicture(dialog.FileName, 16) is null)
         {
-            StatusText = $"Couldn't read {Path.GetFileName(dialog.FileName)} as a picture.";
+            ReportProblem($"Couldn't read {Path.GetFileName(dialog.FileName)} as a picture.");
             return;
         }
 
@@ -599,7 +599,7 @@ public sealed partial class MainViewModel
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            StatusText = $"Couldn't copy the picture: {ex.Message}";
+            ReportProblem($"Couldn't copy the picture: {ex.Message}");
             return;
         }
 

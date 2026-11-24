@@ -51,9 +51,12 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <!-- No Minimize unless it follows the lists (FollowsSelection): the
+             others block the main window (UI/UX review, 2026-11-22). -->
         <ui:TitleBar x:Name="Bar" Grid.Row="0"
                      Style="{DynamicResource theme.dialogTitleBar}"
-                     Header="{DynamicResource theme.dialogTitle}" />
+                     Header="{DynamicResource theme.dialogTitle}"
+                     ShowMinimize="False" />
 
         <StackPanel Grid.Row="1">
             <!-- Cover art - the album dialog only, not a track or a selection. Replacing -->
@@ -94,7 +97,7 @@
                     <!-- the art with its two lines of text. -->
                     <Grid VerticalAlignment="Top" Margin="{theme:Thickness Left=tagEdit.artGap}">
                         <StackPanel VerticalAlignment="Top">
-                            <StackPanel Orientation="Horizontal">
+                            <StackPanel Orientation="Horizontal" IsEnabled="{Binding CanPickArt}">
                                 <Button Content="Choose Image…" Style="{StaticResource theme.dialogButton}"
                                         Command="{Binding ChooseImageCommand}" />
                                 <Button x:Name="SearchInternetButton" Content="Search Internet…"
@@ -118,9 +121,10 @@
 
             <!-- Greyed while an album or a selection reads its files (session 47):
                  the window opens at once, and nothing is typed over values that
-                 haven't arrived yet. -->
+                 haven't arrived yet. Greyed for good when none of the files could be
+                 read (the drive unplugged), with the reason on the message line. -->
             <Grid Margin="{theme:Thickness X=dialog.paddingX, Top=tagEdit.fieldsGapTop}"
-                  IsEnabled="{Binding IsReadingDetails, Converter={StaticResource InverseBool}}">
+                  IsEnabled="{Binding AreDetailsEditable}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="{theme:Token tagEdit.labelWidth}" />
                     <ColumnDefinition Width="*" />
@@ -298,7 +302,9 @@
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <!-- The main button first, as Windows and the prompts have it (session 67). -->
+                <!-- Enter saves (IsDefault; the Comments box keeps Enter for new lines). -->
                 <Button x:Name="SaveButton" Content="Save" IsEnabled="{Binding CanSave}" Click="Save_Click"
+                        IsDefault="True"
                         Style="{StaticResource theme.dialogButton.primary}"
                         Margin="{theme:Thickness Right=dialog.buttonGap}" />
                 <Button x:Name="CancelButton" Content="Cancel" Click="Cancel_Click"

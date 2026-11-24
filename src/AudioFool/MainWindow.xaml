@@ -345,11 +345,15 @@
                             <!-- In alphabetical order (the user's call), About last below a line.
                                  Find and Replace, Last.fm and Libraries are under Settings
                                  (2026-11-19, the user's request), in the same order. -->
+                            <!-- Shortcut text on the items that have one (UI/UX review,
+                                 2026-11-22): menu text, not a tooltip. -->
                             <MenuItem Header="Library Statistics"
+                                      InputGestureText="Ctrl+W"
                                       Icon="{ui:SymbolIcon DataBarVertical24}"
                                       Command="{Binding ShowStatisticsCommand}" />
 
                             <MenuItem Header="Listening History"
+                                      InputGestureText="Ctrl+Y"
                                       Icon="{ui:SymbolIcon History24}"
                                       Command="{Binding ShowListeningHistoryCommand}" />
 
@@ -357,6 +361,7 @@
                                       Header="Settings"
                                       Icon="{ui:SymbolIcon Settings24}">
                                 <MenuItem Header="Find and Replace…"
+                                          InputGestureText="Ctrl+H"
                                           Icon="{ui:SymbolIcon TextEditStyle24}"
                                           Command="{Binding ShowFindReplaceCommand}" />
 
@@ -1172,10 +1177,12 @@
                                                       CommandParameter="{Binding}" />
                                             <!-- The row right-clicked, even when several are selected. -->
                                             <MenuItem Header="Analyze…"
+                                                      InputGestureText="Ctrl+Q"
                                                       Command="{Binding Source={StaticResource Proxy}, Path=Data.AnalyzeTrackCommand}"
                                                       CommandParameter="{Binding}" />
                                             <!-- The row right-clicked, as for Analyze. -->
                                             <MenuItem Header="Genius…"
+                                                      InputGestureText="Ctrl+G"
                                                       Command="{Binding Source={StaticResource Proxy}, Path=Data.ShowGeniusCommand}"
                                                       CommandParameter="{Binding}" />
                                             <!-- While a Quality Check row's filter is on: the
@@ -1685,11 +1692,24 @@
                     </Viewbox>
                 </Button>
 
+                <!-- The theme's "off" colour while the line is a warning or an error
+                     (StatusIsProblem; spec §6.8), with Bit-Perfect's ring so yellow
+                     shows on the window grey. -->
                 <Ellipse x:Name="LibraryDot" Grid.Column="1"
-                         Style="{StaticResource theme.statusDot}"
-                         Fill="{DynamicResource color.status.libraryDot}"
                          Margin="{theme:Thickness Left=statusBar.dotTextGap}"
                          Cursor="Hand">
+                    <Ellipse.Style>
+                        <Style TargetType="Ellipse" BasedOn="{StaticResource theme.statusDot}">
+                            <Setter Property="Fill" Value="{DynamicResource color.status.libraryDot}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding StatusIsProblem}" Value="True">
+                                    <Setter Property="Fill" Value="{DynamicResource color.status.lastFmOff}" />
+                                    <Setter Property="Stroke" Value="{DynamicResource color.status.dotRing}" />
+                                    <Setter Property="StrokeThickness" Value="{theme:Token layout.panelBorder}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Ellipse.Style>
                     <Ellipse.InputBindings>
                         <MouseBinding MouseAction="LeftClick" Command="{Binding ShowStatisticsCommand}" />
                     </Ellipse.InputBindings>

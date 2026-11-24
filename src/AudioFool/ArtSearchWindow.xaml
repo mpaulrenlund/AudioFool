@@ -21,9 +21,12 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <!-- No Minimize: this window blocks the main one, which would be left
+             ignoring clicks (UI/UX review, 2026-11-22). -->
         <ui:TitleBar Grid.Row="0"
                      Style="{DynamicResource theme.dialogTitleBar}"
-                     Header="{DynamicResource theme.dialogTitle}" />
+                     Header="{DynamicResource theme.dialogTitle}"
+                     ShowMinimize="False" />
 
         <!-- What to search for, pre-filled from the album and editable. -->
         <Grid Grid.Row="1" Margin="{theme:Thickness X=dialog.paddingX, Top=dialog.paddingTop}">

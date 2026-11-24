@@ -330,7 +330,7 @@ public class GeniusTests
         var client = new GeniusClient(new HttpClient(new FakeGenius(_ => (0, ""))));
 
         var ex = await Assert.ThrowsAsync<GeniusException>(() => client.SearchAsync("x", 5, CancellationToken.None));
-        Assert.StartsWith("Couldn't reach Genius", ex.Message);
+        Assert.Equal("Genius can't be reached. Check the internet connection.", ex.Message);
     }
 
     [Fact]

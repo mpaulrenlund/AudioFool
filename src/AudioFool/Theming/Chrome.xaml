@@ -867,6 +867,17 @@
     </Style>
 
     <!--
+        A masked dialog field (Last.fm's shared secret; UI/UX review, 2026-11-22).
+        WPF-UI's PasswordBox is a TextBox that keeps the real text in Password and
+        puts its mask in Text, so the field's own template draws the dots; it has
+        no reveal button.
+    -->
+    <Style x:Key="theme.dialogPasswordBox" TargetType="ui:PasswordBox" BasedOn="{StaticResource theme.dialogTextBox}">
+        <!-- Dots, as Windows' own password boxes; WPF-UI's default is "*". -->
+        <Setter Property="PasswordChar" Value="●" />
+    </Style>
+
+    <!--
         A multi-line dialog field (the tag editor's Comments): the same box,
         growing with its text between the MinHeight and MaxHeight the window
         sets, then scrolling with no visible bar. Text and placeholder start at
@@ -1693,6 +1704,10 @@
             <SolidColorBrush x:Key="MenuBarItemBackgroundPressed" Color="{theme:LiveColor color.state.selectionBg}" />
             <SolidColorBrush x:Key="MenuBarItemTextForegroundPressed" Color="{theme:LiveColor color.text.primary}" />
             <SolidColorBrush x:Key="MenuBarItemBorderBrush" Color="{theme:LiveColor color.panel.divider}" />
+            <!-- The shortcut text ("Ctrl+W"; UI/UX review, 2026-11-22): WPF-UI draws
+                 it in this brush, which nothing else in its item template reads
+                 (a disabled item fades to the TextFillColorDisabled colour). -->
+            <SolidColorBrush x:Key="TextFillColorDisabledBrush" Color="{theme:LiveColor color.text.muted}" />
         </Style.Resources>
         <Setter Property="Foreground" Value="{DynamicResource color.text.primary}" />
     </Style>

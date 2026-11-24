@@ -73,7 +73,7 @@ internal static partial class Program
             var expect = state switch
             {
                 "loading" => history.Message == "Loading from Last.fm…" && !history.IsLoaded,
-                "offline" => history.Message?.StartsWith("Couldn't load your listening history. Couldn't reach Last.fm") == true && !history.IsLoaded,
+                "offline" => history.Message == "Couldn't load your listening history. Last.fm can't be reached. Check the internet connection." && !history.IsLoaded,
                 _ => history.IsNotConnected && history.Message is null && !history.IsLoaded && fake.Calls.Count == 0,
             };
             Check(expect, $"{state}: message '{history.Message}', loaded {history.IsLoaded}, calls {fake.Calls.Count}");
